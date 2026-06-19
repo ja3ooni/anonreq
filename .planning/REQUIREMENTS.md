@@ -201,14 +201,14 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PIPE-01 | Phase 1 | Pending |
-| PIPE-02 | Phase 1 | Pending |
-| PIPE-03 | Phase 1 | Pending |
-| PIPE-04 | Phase 1 | Pending |
-| PIPE-05 | Phase 1 | Pending |
-| PIPE-06 | Phase 1 | Pending |
-| FAIL-01 | Phase 1 | Pending |
-| FAIL-02 | Phase 1 | Pending |
+| PIPE-01 | Phase 2 | Pending |
+| PIPE-02 | Phase 2 | Pending |
+| PIPE-03 | Phase 2 | Pending |
+| PIPE-04 | Phase 2 | Pending |
+| PIPE-05 | Phase 2 | Pending |
+| PIPE-06 | Phase 2 | Pending |
+| FAIL-01 | Phase 2 | Pending |
+| FAIL-02 | Phase 2 | Pending |
 | FAIL-03 | Phase 1 | Pending |
 | FAIL-04 | Phase 1 | Pending |
 | DET-01 | Phase 2 | Pending |
@@ -238,34 +238,34 @@ Deferred to future release. Tracked but not in current roadmap.
 | SSE-06 | Phase 3 | Pending |
 | SSE-07 | Phase 3 | Pending |
 | SSE-08 | Phase 3 | Pending |
-| PROV-01 | Phase 3 | Pending |
-| PROV-02 | Phase 4 | Pending |
-| PROV-03 | Phase 4 | Pending |
-| PROV-04 | Phase 4 | Pending |
-| PROV-05 | Phase 4 | Pending |
-| PROV-06 | Phase 4 | Pending |
-| PROV-07 | Phase 4 | Pending |
-| PROV-08 | Phase 4 | Pending |
-| LOCL-01 | Phase 5 | Pending |
-| LOCL-02 | Phase 5 | Pending |
-| LOCL-03 | Phase 5 | Pending |
-| LOCL-04 | Phase 5 | Pending |
-| LOCL-05 | Phase 5 | Pending |
-| LOCL-06 | Phase 5 | Pending |
-| LOCL-07 | Phase 5 | Pending |
-| COMP-01 | Phase 5 | Pending |
-| COMP-02 | Phase 5 | Pending |
-| COMP-03 | Phase 5 | Pending |
-| COMP-04 | Phase 5 | Pending |
-| COMP-05 | Phase 5 | Pending |
+| PROV-01 | Phase 2 | Pending |
+| PROV-02 | Phase 3 | Pending |
+| PROV-03 | Phase 3 | Pending |
+| PROV-04 | Phase 3 | Pending |
+| PROV-05 | Phase 3 | Pending |
+| PROV-06 | Phase 3 | Pending |
+| PROV-07 | Phase 3 | Pending |
+| PROV-08 | Phase 3 | Pending |
+| LOCL-01 | Phase 4 | Pending |
+| LOCL-02 | Phase 4 | Pending |
+| LOCL-03 | Phase 4 | Pending |
+| LOCL-04 | Phase 4 | Pending |
+| LOCL-05 | Phase 4 | Pending |
+| LOCL-06 | Phase 4 | Pending |
+| LOCL-07 | Phase 4 | Pending |
+| COMP-01 | Phase 4 | Pending |
+| COMP-02 | Phase 4 | Pending |
+| COMP-03 | Phase 4 | Pending |
+| COMP-04 | Phase 4 | Pending |
+| COMP-05 | Phase 4 | Pending |
 | AUDT-01 | Phase 1 | Pending |
 | AUDT-02 | Phase 1 | Pending |
 | AUDT-03 | Phase 1 | Pending |
-| AUDT-04 | Phase 1 | Pending |
-| AUDT-05 | Phase 1 | Pending |
-| METR-01 | Phase 6 | Pending |
-| METR-02 | Phase 6 | Pending |
-| METR-03 | Phase 6 | Pending |
+| AUDT-04 | Phase 2 | Pending |
+| AUDT-05 | Phase 2 | Pending |
+| METR-01 | Phase 5 | Pending |
+| METR-02 | Phase 5 | Pending |
+| METR-03 | Phase 5 | Pending |
 | DOCK-01 | Phase 1 | Pending |
 | DOCK-02 | Phase 1 | Pending |
 | DOCK-03 | Phase 1 | Pending |
@@ -288,10 +288,10 @@ Deferred to future release. Tracked but not in current roadmap.
 | DOCS-05 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 82 total
-- Mapped to phases: 82
+- v1 requirements: 85 total (across 14 categories)
+- Mapped to phases: 85
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-19*
-*Last updated: 2026-06-19 after initial definition*
+*Last updated: 2026-06-19 after roadmap creation*
