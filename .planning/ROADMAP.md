@@ -226,7 +226,7 @@ post-restoration token verification, and custom detection rules API.
 6. Docker deployment verified end-to-end with real provider credentials.
 
 **Plans**:
-- [ ] 06.5-01: Production Readiness Review document set
+- [ ] 06.5-01: Production Readiness Review document set — **Planned**
 
 ---
 
@@ -270,7 +270,7 @@ post-restoration token verification, and custom detection rules API.
 | 4. Multi-Locale + Compliance Presets | 0/3 | Not started | — |
 | 5. Configuration & Observability | 0/2 | Not started | — |
 | 6. Advanced Property-Based Tests | 0/3 | Not started | — |
-| 6.5. Production Readiness Review | 0/1 | Not started | — |
+| 6.5. Production Readiness Review | 0/1 | Planned | — |
 | 7. Developer Experience & Docs | 3/3 | Planned | — |
 | **Stage 1 Total** | **9/25** | | |
 
