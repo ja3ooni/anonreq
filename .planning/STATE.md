@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 3
+current_phase: 4
 status: discussion_complete
-stopped_at: Phase 3 discuss complete — 53 decisions, 12 guardrails, 5 architecture docs
-last_updated: "2026-06-20T09:00:00.000Z"
+stopped_at: Phase 4 discuss complete — 28 decisions, 2 guardrails, 4 architecture docs
+last_updated: "2026-06-20T10:00:00.000Z"
 last_activity: 2026-06-20
-last_activity_desc: Phase 3 discuss complete — CONTEXT.md + ARCHITECTURE.md + DOMAIN-MODEL.md + IMPLEMENTATION-PLAN.md + TEST-STRATEGY.md + TASK-BREAKDOWN.md committed
+last_activity_desc: Phase 4 discuss complete — CONTEXT.md + ARCHITECTURE.md + TASK-BREAKDOWN.md + TEST-PLAN.md + DISCUSSION-LOG.md committed
 progress:
   total_phases: 21
   completed_phases: 0
@@ -24,15 +24,15 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 See: .planning/ROADMAP.md (v2 — 3 stages, 21 phases)
 
 **Core value:** Raw PII never crosses the network boundary.
-**Current focus:** Stage 1, Phase 3: SSE Streaming + Multi-Provider
+**Current focus:** Stage 1, Phase 4: Multi-Locale Detection + Compliance Presets
 
 ## Current Position
 
 Stage: 1 of 3 (Prove the Problem)
-Phase: 3 of 7 within Stage 1
-Plan: 0 of 4 in Phase 3
+Phase: 4 of 7 within Stage 1
+Plan: 0 of 3 in Phase 4
 Status: Discussion complete — ready to plan
-Last activity: 2026-06-20 — Phase 3 discuss complete (CONTEXT.md + 5 architecture docs)
+Last activity: 2026-06-20 — Phase 4 discuss complete (CONTEXT.md + ARCHITECTURE.md + TASK-BREAKDOWN.md + TEST-PLAN.md)
 
 Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
 
@@ -53,7 +53,7 @@ Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
 | 1. Foundation, Fail-Secure & Auth | 0/5 | - | Not started |
 | 2. Core Pipeline & Classification | 0/5 | - | Not started |
 | 3. SSE Streaming + Multi-Provider | 0/4 | - | Context gathered — ready to plan |
-| 4. Multi-Locale + Compliance Presets | 0/3 | - | Not started |
+| 4. Multi-Locale + Compliance Presets | 0/3 | - | Context gathered — ready to plan |
 | 5. Configuration & Observability | 0/2 | - | Not started |
 | 6. Advanced Property-Based Tests | 0/3 | - | Not started |
 | 7. Developer Experience & Docs | 0/3 | - | Not started |
@@ -92,13 +92,13 @@ Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Phase 3 scope**: SSE streaming, TailBuffer FSM, ProviderAdapter interface (Anthropic/Gemini/Ollama), model alias routing, session cleanup, client disconnect handling, 9 streaming/disconnect property tests
-- **Pipeline complexity**: Streaming path has 2 more stages than non-streaming (TailBuffer, SSEEmitter); RestorationStage handles both paths but uses HGETALL pre-fetch for streaming
-- **TailBuffer FSM**: COLLECTING → MATCHING → FLUSHING; partial matches never emitted; tail window = 128 chars; flush on safe prefix, size (2048), age (1000ms), or finish — never on chunk count
-- **ProviderAdapters are pure**: No policy, detection, tokenization, restoration, cache, or routing logic
-- **Model alias = control plane**: Classification rules target aliases, not providers. Startup-cached CapabilityResolver.
-- **cleanup_session() idempotent**: `_cleaned` flag, called from `finally:` on all 6 terminal states. TTL is safety net.
-- **Phase 3 execution order**: 03-02 (adapters) → 03-01 (streaming) → 03-03 (alias) → 03-04 (tests)
+- **Phase 4 scope**: 8 locale-specific YAML bundles, LocaleNegotiator (recognizer union before detection), checksum validators (Steuer-ID, BSN, NIR, CPF/CNPJ, Codice Fiscale), 6 compliance presets as overlays, hard-fail startup validation
+- **Pipeline change**: LocaleNegotiation stage inserted before Detection; DetectionProvider receives merged RecognizerSet instead of hardcoded set
+- **Locale bundle structure**: One YAML per locale in `config/locales/`, no hard cap at 8, LocaleRegistry auto-discovers at startup
+- **Locale negotiation**: Header-driven, recognizer union before detection (not result union), unknown → HTTP 400, missing → en fallback + log
+- **Checksum validation**: Generic ChecksumValidator framework, failed checksum = drop detection entirely (not downgrade)
+- **Compliance presets**: Overlays (not full config snapshots). Merge order: Base Config → Preset → Customer Overrides. Union entity types, highest threshold, never weaken (AG-14). Hard fail at startup.
+- **Phase 4 execution order**: 04-01 (locale bundles + checksums) → 04-02 (locale negotiation) → 04-03 (compliance presets)
 
 ### Pending Todos
 
@@ -110,6 +110,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-20T09:00:00.000Z
-Stopped at: Phase 3 discuss complete — ready to plan
-Resume file: .planning/phases/03-sse-streaming-multi-provider/03-CONTEXT.md
+Last session: 2026-06-20T10:00:00.000Z
+Stopped at: Phase 4 discuss complete — ready to plan
+Resume file: .planning/phases/04-multi-locale-detection-compliance-presets/04-CONTEXT.md
