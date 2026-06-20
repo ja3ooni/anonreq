@@ -213,6 +213,27 @@ post-restoration token verification, and custom detection rules API.
 
 ---
 
+### Phase 6.5: Production Readiness Review
+
+**Goal**: Validate operational readiness before opening the gateway to external developers. This phase produces no code — it produces confidence.
+
+**Mode**: mvp
+**Depends on**: Phase 6 (all security gates must pass)
+**Requirements**: None (operational — documents Phase 5 load test, Phase 6 security gate, Docker/container patterns)
+
+**Success Criteria**:
+1. PRR.md documents deployment architecture, dependencies, resource requirements, and scaling limits.
+2. THREAT_MODEL.md documents trust boundaries, attack surface, data flow risks, and mitigations.
+3. DEPLOYMENT_GUIDE.md documents Docker Compose and Kubernetes deployment with all env vars.
+4. RUNBOOK.md documents startup/shutdown, health checks, log interpretation, restart procedures.
+5. SRE_PLAYBOOK.md documents incident classification, response procedures, escalation paths.
+6. Docker deployment verified end-to-end with real provider credentials.
+
+**Plans**:
+- [ ] 06.5-01: Production Readiness Review document set
+
+---
+
 ### Phase 7: Developer Experience & Documentation
 
 **Goal**: Open-source ready repository with quickstarts, SDK examples, and legal files.
@@ -239,7 +260,7 @@ post-restoration token verification, and custom detection rules API.
 
 ### Stage 1 Progress
 
-**Execution order**: 1 → 2 → 3 → 4 → 5 → 6 → 7
+**Execution order**: 1 → 2 → 3 → 4 → 5 → 6 → 6.5 → 7
 **Within Phase 3**: plans execute in order 03-02 → 03-01 → 03-03 → 03-04
 
 | Phase | Plans | Status | Completed |
@@ -250,8 +271,9 @@ post-restoration token verification, and custom detection rules API.
 | 4. Multi-Locale + Compliance Presets | 0/3 | Not started | — |
 | 5. Configuration & Observability | 0/2 | Not started | — |
 | 6. Advanced Property-Based Tests | 0/3 | Not started | — |
+| 6.5. Production Readiness Review | 0/1 | Not started | — |
 | 7. Developer Experience & Docs | 0/3 | Not started | — |
-| **Stage 1 Total** | **0/25** | | |
+| **Stage 1 Total** | **0/26** | | |
 
 ---
 

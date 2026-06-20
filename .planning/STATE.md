@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 5
+current_phase: 6
 status: discussion_complete
-stopped_at: Phase 5 discuss complete — 24 decisions, 4 guardrails, 4 architecture docs
-last_updated: "2026-06-20T11:00:00.000Z"
+stopped_at: Phase 6 discuss complete — 28 decisions (D-162–D-189), 2 guardrails (AG-19–AG-20), Phase 6.5 inserted
+last_updated: "2026-06-20T12:00:00.000Z"
 last_activity: 2026-06-20
-last_activity_desc: Phase 5 discuss complete — CONTEXT.md + ARCHITECTURE.md + TASK-BREAKDOWN.md + TEST-PLAN.md + DISCUSSION-LOG.md committed
+last_activity_desc: Phase 6 discuss complete — CONTEXT.md + ARCHITECTURE.md + TASK-BREAKDOWN.md + TEST-PLAN.md + DISCUSSION-LOG.md + SECURITY-ACCEPTANCE.md committed
 progress:
-  total_phases: 21
+  total_phases: 22
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,18 +21,18 @@ progress:
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-06-19)
-See: .planning/ROADMAP.md (v2 — 3 stages, 21 phases)
+See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 
 **Core value:** Raw PII never crosses the network boundary.
-**Current focus:** Stage 1, Phase 5: Configuration & Observability
+**Current focus:** Stage 1, Phase 6: Advanced Property-Based Tests
 
 ## Current Position
 
 Stage: 1 of 3 (Prove the Problem)
-Phase: 5 of 7 within Stage 1
-Plan: 0 of 2 in Phase 5
+Phase: 6 of 8 within Stage 1 (Phases 1–6, 6.5 checkpoint, 7)
+Plan: 0 of 3 in Phase 6
 Status: Discussion complete — ready to plan
-Last activity: 2026-06-20 — Phase 5 discuss complete (CONTEXT.md + ARCHITECTURE.md + TASK-BREAKDOWN.md + TEST-PLAN.md)
+Last activity: 2026-06-20 — Phase 6 discuss complete (CONTEXT.md + ARCHITECTURE.md + TASK-BREAKDOWN.md + TEST-PLAN.md + DISCUSSION-LOG.md + SECURITY-ACCEPTANCE.md)
 
 Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
 
@@ -50,14 +50,15 @@ Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 1. Foundation, Fail-Secure & Auth | 0/5 | - | Not started |
-| 2. Core Pipeline & Classification | 0/5 | - | Not started |
+| 1. Foundation, Fail-Secure & Auth | 0/5 | - | Context gathered — ready to plan |
+| 2. Core Pipeline & Classification | 0/5 | - | Context gathered — ready to plan |
 | 3. SSE Streaming + Multi-Provider | 0/4 | - | Context gathered — ready to plan |
 | 4. Multi-Locale + Compliance Presets | 0/3 | - | Context gathered — ready to plan |
 | 5. Configuration & Observability | 0/2 | - | Context gathered — ready to plan |
-| 6. Advanced Property-Based Tests | 0/3 | - | Not started |
+| 6. Advanced Property-Based Tests | 0/3 | - | Context gathered — ready to plan |
+| 6.5. Production Readiness Review | 0/1 | - | Not started |
 | 7. Developer Experience & Docs | 0/3 | - | Not started |
-| **Stage 1 Total** | **0/25** | | |
+| **Stage 1 Total** | **0/26** | | |
 
 ### Stage 2: Build the Enterprise Platform
 
@@ -92,14 +93,17 @@ Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- **Phase 5 scope**: Prometheus metrics (8 low-cardinality metrics), post-restoration token verification (warn-only), custom rules hot-reload via Admin API, k6 load test (non-streaming only)
-- **Metrics**: Low-cardinality only (no tenant_id/request_id labels). 8 metrics: requests_total, detection_latency_ms, entities_detected_total, unrestored_tokens_total, fail_secure_events_total, audit_failures_total, processing_overhead_ms, active_config_version
-- **Post-restoration verification**: Warn-only (AG-17). Scans for residual `[TYPE_N]` patterns. Never blocks. Streaming scans on full assembled text after FINISH.
-- **Custom rules hot-reload**: Admin API endpoint. Validate → atomic pointer swap. Invalid config never replaces active (AG-16). Separate `ANONREQ_ADMIN_API_KEY`.
-- **Hot-reload scope**: Custom recognizer patterns, thresholds, exclusion lists only. Presets, locale bundles, aliases, provider configs require restart.
-- **Load testing**: k6. Measure gateway overhead (not provider latency). Target: P95 ≤ 100ms at 50 concurrent, 1000-word prompts. Non-streaming only in MVP.
-- **Phase 5 execution order**: 05-01 (metrics + load test) → 05-02 (verification + admin API)
-- **4 new guardrails (AG-15 to AG-18)**: Metrics PII-Free, Last Known Good Config, Verification Is Observability, Observability Survives Fail-Secure
+- **Phase 6 scope**: 4 property-based test suites (fail-secure, no-PII-in-logs, cross-request randomization, locale checksum) under Hypothesis. Disconnect tests (TEST-07E–07H). Security Acceptance Gate (9 gates).
+- **TEST-04 (fail-secure)**: Inject all 5 failure modes × both paths (streaming + non-streaming). Verify forwarded=0, cleanup=True, metric incremented, audit written.
+- **TEST-06 (no-PII-in-logs)**: All log pathways — application, structured JSON, audit, exception/traceback, metrics labels. Synthetic PII never appears in output.
+- **TEST-08 (cross-request randomization)**: 1000+ sessions with same value → zero token collisions. P(duplicate) ≤ 2⁻³².
+- **Locale checksum tests (TEST-07E–07H)**: Steuer-ID, BSN, NIR, CPF, CNPJ, Codice Fiscale. Invalid checksum → not flagged as valid.
+- **Security Acceptance Gate**: 9 gates signed before Phase 6 closes (AG-19, AG-20).
+- **AG-19**: Security invariants proven under fault injection by Hypothesis. 5 failure modes × 2 paths = 10 distinct test scenarios, each run 1000+ iterations.
+- **AG-20**: Metrics are part of the contract. Failures always increment counters. Anonymization + restoration count must match.
+- **Phase 6 execution order**: 06-01 (fail-secure + no-PII) → 06-02 (randomization) → 06-03 (locale checksum).
+- **Phase 6.5 inserted**: Production Readiness Review checkpoint after Phase 6. Produces PRR.md, THREAT_MODEL.md, DEPLOYMENT_GUIDE.md, RUNBOOK.md, SRE_PLAYBOOK.md.
+- **189 total decisions** (D-01 through D-189), **20 total guardrails** (AG-01 through AG-20) across all 6 phases.
 
 ### Pending Todos
 
@@ -111,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-20T11:00:00.000Z
-Stopped at: Phase 5 discuss complete — ready to plan
-Resume file: .planning/phases/05-configuration-observability/05-CONTEXT.md
+Last session: 2026-06-20T12:00:00.000Z
+Stopped at: Phase 6 discuss complete — 28 decisions (D-162–D-189), 2 guardrails (AG-19–AG-20), Security Acceptance Gate (07-SECURITY-ACCEPTANCE.md)
+Resume file: .planning/phases/06-advanced-property-based-tests/06-CONTEXT.md
