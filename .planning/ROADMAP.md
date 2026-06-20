@@ -264,15 +264,15 @@ post-restoration token verification, and custom detection rules API.
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 1. Foundation, Fail-Secure & Auth | 0/4 | Planned | — |
-| 2. Core Pipeline & Classification | 0/5 | Not started | — |
+| 1. Foundation, Fail-Secure & Auth | 4/4 | Planned | — |
+| 2. Core Pipeline & Classification | 5/5 | Planned | — |
 | 3. SSE Streaming + Multi-Provider | 0/4 | Not started | — |
 | 4. Multi-Locale + Compliance Presets | 0/3 | Not started | — |
 | 5. Configuration & Observability | 0/2 | Not started | — |
 | 6. Advanced Property-Based Tests | 0/3 | Not started | — |
 | 6.5. Production Readiness Review | 0/1 | Not started | — |
 | 7. Developer Experience & Docs | 3/3 | Planned | — |
-| **Stage 1 Total** | **0/25** | | |
+| **Stage 1 Total** | **9/25** | | |
 
 ---
 
@@ -664,7 +664,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Stage | Phases | Plans | Status |
 |-------|--------|-------|--------|
-| 1. Prove the Problem | 7 (1–7) | 24 | Planned |
+| 1. Prove the Problem | 7 (1–7) | 24 | 9/24 Planned |
 | 2. Build the Enterprise Platform | 9 (8–16) | TBD | Not started |
 | 3. Build the Moat | 5 (17–21) | TBD | Not started |
 | **Total** | **21** | **25+TBD** | |
