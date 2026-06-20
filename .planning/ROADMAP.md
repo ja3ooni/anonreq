@@ -38,10 +38,7 @@ data. Each phase delivers a working, independently verifiable vertical slice.
 
 ### Phase 1: Foundation, Fail-Secure & Auth
 
-**Goal**: Establish a leak-free, authenticated scaffold — global exception handler, no-PII
-logging, static bearer token middleware, Docker Compose deployment, health endpoint, and
-pre-flight startup checks. Nothing that touches request data ships until these guarantees are
-in place.
+**Goal**: As an operator, I want to deploy a leak-free, authenticated gateway scaffold, so that I can securely route LLM requests with confidence that errors never leak data, dependencies are healthy, and access is controlled.
 
 **Mode**: mvp
 **Depends on**: Nothing (first phase)
@@ -53,18 +50,17 @@ in place.
 2. Structured JSON logger writes to stdout using a strict field allowlist. Non-allowlisted
    fields are stripped, not redacted.
 3. Operator can deploy all 3 containers (`anonreq`, `presidio-analyzer`, `valkey`) with
-   `docker-compose up`. All services healthy within 60 seconds.
+   `docker compose up`. All services healthy within 60 seconds.
 4. Pre-flight checks prevent gateway startup when Valkey or Presidio is unreachable. Clear
    error message identifies the unhealthy component.
 5. All routes return HTTP 401 when `Authorization: Bearer <token>` is absent or does not match
    `ANONREQ_API_KEY`. Startup fails if `ANONREQ_API_KEY` is unset or < 32 characters.
 
-**Plans**:
-- [ ] 01-01: Project scaffolding, configuration management, dependency setup
-- [ ] 01-02: Global exception handler and structured audit logging infrastructure
-- [ ] 01-03: Docker Compose deployment (multi-stage Dockerfile, valkey config, presidio sidecar)
-- [ ] 01-04: Health endpoint (`GET /health`) and pre-flight startup checks
-- [ ] 01-05: Static bearer token middleware
+**Plans**: 4 plans
+- [ ] 01-01: Project scaffold + configuration management (Pydantic Settings, env validation)
+- [ ] 01-02: Docker Compose deployment (multi-stage Dockerfile, valkey + presidio sidecars)
+- [ ] 01-03: Fail-secure exception handler + audit logging + health/pre-flight checks
+- [ ] 01-04: Static bearer token auth + RequestContext
 
 ---
 
@@ -268,7 +264,7 @@ post-restoration token verification, and custom detection rules API.
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 1. Foundation, Fail-Secure & Auth | 0/5 | Not started | — |
+| 1. Foundation, Fail-Secure & Auth | 0/4 | Planned | — |
 | 2. Core Pipeline & Classification | 0/5 | Not started | — |
 | 3. SSE Streaming + Multi-Provider | 0/4 | Not started | — |
 | 4. Multi-Locale + Compliance Presets | 0/3 | Not started | — |
@@ -276,7 +272,7 @@ post-restoration token verification, and custom detection rules API.
 | 6. Advanced Property-Based Tests | 0/3 | Not started | — |
 | 6.5. Production Readiness Review | 0/1 | Not started | — |
 | 7. Developer Experience & Docs | 3/3 | Planned | — |
-| **Stage 1 Total** | **0/26** | | |
+| **Stage 1 Total** | **0/25** | | |
 
 ---
 
@@ -668,7 +664,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Stage | Phases | Plans | Status |
 |-------|--------|-------|--------|
-| 1. Prove the Problem | 7 (1–7) | 25 | Not started |
+| 1. Prove the Problem | 7 (1–7) | 24 | Planned |
 | 2. Build the Enterprise Platform | 9 (8–16) | TBD | Not started |
 | 3. Build the Moat | 5 (17–21) | TBD | Not started |
 | **Total** | **21** | **25+TBD** | |
