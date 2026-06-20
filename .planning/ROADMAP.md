@@ -243,18 +243,21 @@ post-restoration token verification, and custom detection rules API.
 **Requirements**: DOCS-01 to DOCS-05
 
 **Success Criteria**:
-1. Developer can follow quickstart — `docker-compose up`, set API key, run `curl` — and see
+1. Developer can run executable quickstart scripts from `examples/quickstart/` and see
    working anonymization in under 5 minutes.
-2. Python, Node.js, and curl SDK examples are copy-paste runnable, demonstrating non-streaming
-   and streaming round-trips.
+2. SDK examples for curl, Python, TypeScript, and Go are standalone runnable projects,
+   demonstrating basic anonymization, streaming, GDPR preset, and locale detection.
 3. Repository includes Apache 2.0 LICENSE, NOTICE file (third-party attributions), SECURITY.md,
-   and README covering "Why AnonReq" and "License and Commercial Use".
+   and 13-section README covering "Why AnonReq" and "License and Commercial Use".
 4. CHANGELOG.md follows Keep a Changelog format with entries for all 7 phases.
+5. Documentation CI validates markdown, links, Mermaid diagrams, OpenAPI sync, CHANGELOG format,
+   and quickstart execution on every PR.
+6. Documentation available in English (source) and German (generated).
 
 **Plans**:
-- [ ] 07-01: Integration quickstarts (EN, DE, FR, ES, PT-BR)
-- [ ] 07-02: SDK examples (Python, Node.js, curl) and README
-- [ ] 07-03: CHANGELOG, Apache 2.0 LICENSE, NOTICE file, SECURITY.md
+- [x] 07-01: Integration quickstarts (EN) + doc structure (docs/en/, architecture diagram, OpenAPI export)
+- [x] 07-02: SDK examples (curl, Python, TypeScript, Go) and README (13 sections)
+- [x] 07-03: CHANGELOG, Apache 2.0 LICENSE, NOTICE file, SECURITY.md, CI workflows, DE translations
 
 ---
 
@@ -272,7 +275,7 @@ post-restoration token verification, and custom detection rules API.
 | 5. Configuration & Observability | 0/2 | Not started | — |
 | 6. Advanced Property-Based Tests | 0/3 | Not started | — |
 | 6.5. Production Readiness Review | 0/1 | Not started | — |
-| 7. Developer Experience & Docs | 0/3 | Not started | — |
+| 7. Developer Experience & Docs | 3/3 | Planned | — |
 | **Stage 1 Total** | **0/26** | | |
 
 ---
