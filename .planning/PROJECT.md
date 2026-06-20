@@ -37,18 +37,18 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 
 ### Out of Scope
 
-- Enterprise Authentication & Auth (Req 17) — OAuth/JWT/mTLS, RBAC, OIDC/SAML — deferred to v2
-- Secrets Management & Network Security (Req 18) — HashiCorp Vault, AWS/Azure/GCP secret stores, mTLS between internal components — deferred to v2
-- Multi-Tenant Isolation (Req 19) — tenant namespacing, per-tenant config, tenant provisioning API — deferred to v2
-- High Availability / Scalability / DR (Req 20) — Valkey Sentinel/Cluster, Kubernetes Helm chart, HA deployment — deferred to v2
-- Data Sovereignty & Compliance Assurance (Req 21) — geographic routing, detection quality benchmarks, SLO dashboards — deferred to v2
-- Enterprise Appliance Tier (Req 22–56) — rate limiting, multimodal anonymization, SLO tracking, AI governance (ISO 42001), prompt security, financial services compliance, MNPI protection, Appliance universal proxy — deferred to v2+
+- Enterprise Authentication & Auth (Req 17) — OAuth/JWT/mTLS, RBAC, OIDC/SAML — deferred post-Stage 3
+- Secrets Management & Network Security (Req 18) — HashiCorp Vault, AWS/Azure/GCP secret stores, mTLS between internal components — deferred post-Stage 3
+- Multi-Tenant Isolation (Req 19) — tenant namespacing, per-tenant config, tenant provisioning API — deferred post-Stage 3
+- High Availability / Scalability / DR (Req 20) — Valkey Sentinel/Cluster, Kubernetes Helm chart, HA deployment — deferred post-Stage 3
+- Data Sovereignty & Compliance Assurance (Req 21) — geographic routing, detection quality benchmarks, SLO dashboards — deferred post-Stage 3
 
 ## Context
 
 - **Greenfield**: No code exists yet. All source code, Docker setup, CI/CD, and tests are yet to be built.
 - **Requirements defined**: 21 core requirements (Req 1–16 = v1, Req 17–21 = enterprise v2), plus 35 enterprise/appliance requirements (Req 22–56).
-- **Current state**: Requirements are documented in `req/requirements.md` (core) and `req/requirements_v2.md` (enterprise). A `.docx` version exists as the authoritative source.
+- **Current state**: Requirements are documented in `req/requirements.md` (core), `req/requirements_v2.md` (enterprise), and `.planning/REQUIREMENTS.md` (consolidated traceability). A `.docx` version exists as the authoritative source.
+- **Roadmap**: Consolidated into 3 stages, 21 phases — see `.planning/ROADMAP.md`.
 - **Deployment target**: Docker Compose with `anonreq` + `presidio-analyzer` + `valkey` services on an internal Docker network.
 
 ## Constraints
@@ -91,4 +91,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-19 after initialization*
+*Last updated: 2026-06-19 — consolidated roadmaps into 3 stages, 21 phases*
