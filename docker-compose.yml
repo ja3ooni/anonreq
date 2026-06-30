@@ -1,0 +1,99 @@
+# =============================================================================
+# AnonReq — Docker Compose orchestration
+# =============================================================================
+# Three services on an isolated internal bridge network:
+#   1. valkey          — ephemeral cache (persistence disabled)
+#   2. presidio-analyzer — PII detection engine
+#   3. anonreq         — anonymization gateway (build from Dockerfile)
+#
+# The gateway only starts after valkey and presidio-analyzer pass their
+# respective healthchecks (depends_on with condition: service_healthy).
+# =============================================================================
+
+services:
+
+  # -------------------------------------------------------------------------
+  # Valkey — ephemeral key-value store (Redis-compatible)
+  # -------------------------------------------------------------------------
+  # Per DOCK-03 / T-01-02-02: no ports exposed, internal network only.
+  # Persistence disabled (save "", appendonly no) per DOCK-03.
+  # Image: valkey/valkey:8 (official, verified in RESEARCH.md)
+  # -------------------------------------------------------------------------
+  valkey:
+    image: valkey/valkey:8
+    container_name: anonreq-valkey
+    command:
+      - valkey-server
+      - --save ""
+      - --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - anonreq-net
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Presidio Analyzer — PII / PHI detection
+  # -------------------------------------------------------------------------
+  # Per DOCK-03 / T-01-02-02: no ports exposed, internal network only.
+  # Image: mcr.microsoft.com/presidio-analyzer:latest (Microsoft official)
+  # -------------------------------------------------------------------------
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    container_name: anonreq-presidio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - anonreq-net
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # AnonReq Gateway — anonymization proxy
+  # -------------------------------------------------------------------------
+  # Builds from the local Dockerfile. Exposes port 8080 to the host.
+  # Depends on valkey and presidio being healthy before starting.
+  # ANONREQ_API_KEY is required at startup (:?err syntax per DOCK-07).
+  # -------------------------------------------------------------------------
+  anonreq:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anonreq-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      # Required — Docker Compose refuses to start if unset (:?err per DOCK-07 / T-01-02-01)
+      ANONREQ_API_KEY: ${ANONREQ_API_KEY:?err}
+      # Internal service URLs
+      ANONREQ_VALKEY_URL: redis://valkey:6379/0
+      ANONREQ_PRESIDIO_URL: http://presidio-analyzer:5001
+      # Optional with defaults
+      ANONREQ_LOG_LEVEL: ${ANONREQ_LOG_LEVEL:-INFO}
+      ANONREQ_HOST: 0.0.0.0
+      ANONREQ_PORT: "8080"
+    depends_on:
+      valkey:
+        condition: service_healthy
+      presidio-analyzer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - anonreq-net
+    restart: unless-stopped
+
+networks:
+  anonreq-net:
+    driver: bridge
