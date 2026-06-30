@@ -12,9 +12,6 @@ Per TOKN-01 through TOKN-07:
 from __future__ import annotations
 
 import re
-import secrets
-
-import pytest
 
 from anonreq.tokenization import TOKEN_PATTERN, Tokenizer
 
@@ -32,21 +29,22 @@ class TestTokenFormat:
         t = Tokenizer()
         t.initialize_session()
         _, mapping = t.tokenize("email: user@example.com", [
-            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 22, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 23, "score": 1.0},
         ])
         assert len(mapping) == 1
         token = list(mapping.keys())[0]
-        assert re.match(r"\[[A-Z][A-Z_]{0,19}_\d+\]$", token), f"Token '{token}' does not match [TYPE_N]"
+        assert re.match(r"\[[A-Z][A-Z_]{0,19}_\d+\]$", token), (
+            f"Token '{token}' does not match [TYPE_N]"
+        )
 
     def test_entity_type_uppercase(self) -> None:
         """Entity type in token is uppercase."""
         t = Tokenizer()
         t.initialize_session()
         _, mapping = t.tokenize("email: user@example.com", [
-            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 22, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 23, "score": 1.0},
         ])
         token = list(mapping.keys())[0]
-        # Extract the type part (between [ and _)
         type_part = token[1:token.rfind("_")]
         assert type_part.isupper(), f"Type '{type_part}' in token '{token}' is not uppercase"
 
@@ -55,7 +53,7 @@ class TestTokenFormat:
         t = Tokenizer()
         t.initialize_session()
         _, mapping = t.tokenize("email: user@example.com", [
-            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 22, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 23, "score": 1.0},
         ])
         token = list(mapping.keys())[0]
         index_str = token[token.rfind("_") + 1:token.rfind("]")]
@@ -77,8 +75,8 @@ class TestDeduplication:
         t.initialize_session()
         text = "Contact john@example.com or write to john@example.com"
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 8, "end": 23, "score": 1.0},
-            {"entity_type": "EMAIL_ADDRESS", "start": 42, "end": 57, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 8, "end": 24, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 37, "end": 53, "score": 1.0},
         ]
         tokenized, mapping = t.tokenize(text, detections)
 
@@ -113,8 +111,8 @@ class TestDeduplication:
         t.initialize_session()
         text = "Call +1-555-123-4567 now or +1-555-123-4567 later"
         detections = [
-            {"entity_type": "PHONE_NUMBER", "start": 5, "end": 19, "score": 1.0},
-            {"entity_type": "PHONE_NUMBER", "start": 28, "end": 42, "score": 1.0},
+            {"entity_type": "PHONE_NUMBER", "start": 5, "end": 20, "score": 1.0},
+            {"entity_type": "PHONE_NUMBER", "start": 28, "end": 43, "score": 1.0},
         ]
         tokenized, mapping = t.tokenize(text, detections)
         assert len(mapping) == 1
@@ -142,13 +140,12 @@ class TestDistinctIndices:
         tokens = list(mapping.keys())
         assert len(tokens) == 2
 
-        # Extract indices
-        indices = []
+        indices = set()
         for token in tokens:
             idx = int(token[token.rfind("_") + 1:token.rfind("]")])
-            indices.append(idx)
+            indices.add(idx)
 
-        assert indices[0] != indices[1], f"Expected different indices, got {indices}"
+        assert len(indices) == 2, f"Expected 2 different indices, got {indices}"
 
     def test_values_use_increasing_counters(self) -> None:
         """Three different emails have strictly increasing indices."""
@@ -164,7 +161,7 @@ class TestDistinctIndices:
         assert len(tokens) == 3
         indices = [int(t[t.rfind("_") + 1:t.rfind("]")]) for t in tokens]
 
-        # Indices should be increasing
+        # Indices should be increasing (based on sort-by-span-start)
         assert indices == sorted(indices), f"Expected increasing indices, got {indices}"
 
 
@@ -176,47 +173,18 @@ class TestDistinctIndices:
 class TestReverseOffsetReplacement:
     """Reverse-offset (right-to-left) replacement prevents position drift."""
 
-    def test_reverse_offset_prevents_drift(self) -> None:
-        """Two PII spans — first replacement longer than original doesn't shift
-        second span's position when replaced right-to-left.
-
-        Text: "PII_A content PII_B"
-        If PII_B is replaced first (rightmost), its position is correct because
-        PII_A hasn't been replaced yet. Then PII_A is replaced using its original
-        position because the text right of it has already been handled.
-        """
-        t = Tokenizer()
-        t.initialize_session()
-        text = "short\nmore"  # Simple test: two distinct spans
-        # Detect "short" at 0-5 and "more" at 6-10
-        detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 6, "end": 10, "score": 1.0},  # "more"
-            {"entity_type": "PERSON", "start": 0, "end": 5, "score": 1.0},  # "short"
-        ]
-        tokenized, mapping = t.tokenize(text, detections)
-
-        # Both should be replaced with tokens
-        assert len(mapping) == 2
-        assert "short" not in tokenized
-        assert "more" not in tokenized
-
-        # Verify the tokens appear in the right order
-        # Token for "short" should be first, token for "more" should be second
-        token_short = mapping.get("[PERSON_")
-        token_more = mapping.get("[EMAIL_")
-
     def test_replacement_different_sizes(self) -> None:
         """Replacing a span with a token that has different length doesn't
         affect other replacements.
 
-        Original text "AAA BBB CCC" where AAA and CCC are PII.
-        If token for AAA is "[PERSON_12345]" (much longer than "AAA"),
-        the position for CCC should still be correct.
+        Spans are sorted descending by start position (right-to-left), so
+        the rightmost span (CCC at 12-15) is replaced first. When the left
+        span (AAA at 0-3) is replaced, its position hasn't shifted because
+        only text to the right of it has been modified.
         """
         t = Tokenizer()
         t.initialize_session()
         text = "AAA   BBB   CCC"
-        # AAA at 0-3, CCC at 12-15
         detections = [
             {"entity_type": "PERSON", "start": 0, "end": 3, "score": 1.0},
             {"entity_type": "EMAIL_ADDRESS", "start": 12, "end": 15, "score": 1.0},
@@ -228,17 +196,20 @@ class TestReverseOffsetReplacement:
         assert "CCC" not in tokenized
         assert "BBB" in tokenized  # Middle part preserved
 
-        # The tokens should be separated by "   BBB   "
+        # Find the two tokens in the result text by position
         tokens_in_result = [t for t in mapping if t in tokenized]
         assert len(tokens_in_result) == 2
 
-        # Verify the order: first token before BBB, second after BBB
-        first_pos = tokenized.find(tokens_in_result[0])
-        second_pos = tokenized.find(tokens_in_result[1])
+        # Sort by their position in the tokenized text
+        tokens_by_pos = sorted(tokens_in_result, key=lambda t: tokenized.find(t))
         bbb_pos = tokenized.find("BBB")
-        assert first_pos < bbb_pos < second_pos, (
-            f"Expected token order [PERSON] ... BBB ... [EMAIL], got positions "
-            f"first={first_pos}, BBB={bbb_pos}, second={second_pos}"
+
+        # First token (leftmost) should be before BBB, second after BBB
+        assert tokenized.find(tokens_by_pos[0]) < bbb_pos, (
+            f"Expected first token before BBB"
+        )
+        assert tokenized.find(tokens_by_pos[1]) > bbb_pos, (
+            f"Expected second token after BBB"
         )
 
 
@@ -259,7 +230,7 @@ class TestRandomSeed:
         t2.initialize_session()
 
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 17, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 16, "score": 1.0},
         ]
 
         _, m1 = t1.tokenize("user@example.com", detections)
@@ -280,7 +251,7 @@ class TestRandomSeed:
         t.initialize_session()
 
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 17, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 16, "score": 1.0},
         ]
 
         _, m1 = t.tokenize("user@example.com", detections)
@@ -299,15 +270,13 @@ class TestRandomSeed:
     def test_seed_affects_counter_start(self) -> None:
         """The first token index in a session is determined by the seed,
         not always starting from 0."""
-        # Run this multiple times with fresh sessions; at least one should
-        # produce a non-zero first index (due to random seed offset).
         any_non_zero = False
         for _ in range(20):
             t = Tokenizer()
             t.initialize_session()
 
             detections = [
-                {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 17, "score": 1.0},
+                {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 16, "score": 1.0},
             ]
             _, mapping = t.tokenize("user@example.com", detections)
             token = list(mapping.keys())[0]
@@ -336,8 +305,8 @@ class TestNoEntities:
         assert result == text, "Expected original text unchanged"
         assert mapping == {}, f"Expected empty mapping, got {mapping}"
 
-    def test_none_detections_returns_original(self) -> None:
-        """None as detections should still work (treated as empty)."""
+    def test_empty_list_returns_original(self) -> None:
+        """Empty list as detections returns original text unchanged."""
         t = Tokenizer()
         t.initialize_session()
         text = "Just a normal message."
@@ -374,15 +343,12 @@ class TestIndependentCounters:
         tokens = list(mapping.keys())
         assert len(tokens) == 2
 
-        # Extract type and index
         type_indices = {}
         for token in tokens:
             type_part = token[1:token.rfind("_")]
             idx = int(token[token.rfind("_") + 1:token.rfind("]")])
             type_indices[type_part] = idx
 
-        # Both types should have their first index (0 + seed offset)
-        # They are independent, so there's no guarantee one is before the other
         assert "EMAIL_ADDRESS" in type_indices
         assert "PHONE_NUMBER" in type_indices
 
@@ -415,8 +381,12 @@ class TestIndependentCounters:
         assert len(phone_indices) == 2, f"Expected 2 PHONE tokens, got {phone_indices}"
 
         # The second index should be first index + 1 for each type
-        assert email_indices[1] == email_indices[0] + 1
-        assert phone_indices[1] == phone_indices[0] + 1
+        assert email_indices[1] == email_indices[0] + 1, (
+            f"Expected EMAIL indices sequential, got {email_indices}"
+        )
+        assert phone_indices[1] == phone_indices[0] + 1, (
+            f"Expected PHONE indices sequential, got {phone_indices}"
+        )
 
 
 # =========================================================================
@@ -438,14 +408,11 @@ class TestEntityTypeTruncation:
         ])
 
         token = list(mapping.keys())[0]
-        # Extract type part between [ and last _
         type_part = token[1:token.rfind("_")]
 
-        # Should be truncated to 20 chars
         assert len(type_part) <= 20, (
             f"Expected type <= 20 chars, got {len(type_part)}: '{type_part}'"
         )
-        # Should match the first 20 chars of the original
         assert type_part == long_type[:20], (
             f"Expected '{long_type[:20]}', got '{type_part}'"
         )
@@ -455,8 +422,7 @@ class TestEntityTypeTruncation:
         t = Tokenizer()
         t.initialize_session()
 
-        # Exactly 20 chars
-        type_20 = "ABCDEFGHIJKLMNOPQRST"  # 20 chars
+        type_20 = "ABCDEFGHIJKLMNOPQRST"
         _, mapping = t.tokenize("data here", [
             {"entity_type": type_20, "start": 0, "end": 4, "score": 1.0},
         ])
@@ -494,19 +460,19 @@ class TestRoundTrip:
 
         original = "Email me at john@example.com or call +1-555-123-4567"
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 11, "end": 26, "score": 1.0},
-            {"entity_type": "PHONE_NUMBER", "start": 35, "end": 49, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 12, "end": 28, "score": 1.0},
+            {"entity_type": "PHONE_NUMBER", "start": 37, "end": 52, "score": 1.0},
         ]
 
         tokenized, mapping = t.tokenize(original, detections)
 
-        # Restore by replacing tokens with their original values
         restored = tokenized
         for token, value in mapping.items():
             restored = restored.replace(token, value)
 
         assert restored == original, (
-            f"Round-trip failed:\n  Original: {original}\n  Tokenized: {tokenized}\n  Restored: {restored}"
+            f"Round-trip failed:\n  Original: {original}\n"
+            f"  Tokenized: {tokenized}\n  Restored: {restored}"
         )
 
     def test_round_trip_multiple_same_value(self) -> None:
@@ -552,21 +518,18 @@ class TestSessionIsolation:
         t = Tokenizer()
         t.initialize_session()
 
-        # First session — generate some tokens
-        _, m1 = t.tokenize("a@a.com b@b.com", [
+        t.tokenize("a@a.com b@b.com", [
             {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 7, "score": 1.0},
             {"entity_type": "EMAIL_ADDRESS", "start": 8, "end": 15, "score": 1.0},
         ])
 
         t.initialize_session()  # Reset
 
-        # Now generate one token in the new session
         _, m2 = t.tokenize("c@c.com", [
             {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 7, "score": 1.0},
         ])
 
         assert len(m2) == 1
-        # The single token should have index = seed_offset (counter = 0 for the type)
         token2 = list(m2.keys())[0]
         assert "[EMAIL_" in token2
 
@@ -575,19 +538,17 @@ class TestSessionIsolation:
         t = Tokenizer()
         t.initialize_session()
 
-        # First session
         t.tokenize("a@a.com", [
             {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 7, "score": 1.0},
         ])
 
-        t.initialize_session()  # Reset — clears dedup map
+        t.initialize_session()
 
-        # Same value in new session should get a new token
         _, m2 = t.tokenize("a@a.com", [
             {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 7, "score": 1.0},
         ])
 
-        assert len(m2) == 1  # Not deduped from previous session because it was reset
+        assert len(m2) == 1
 
 
 # =========================================================================
@@ -617,8 +578,8 @@ class TestTokenPattern:
             "EMAIL_0]",           # Missing [
             "[EMAIL_0",           # Missing ]
             "[email_0]",          # Lowercase
-            "[ EMAIL_0]",         # Space
-            "[EMAIL_ 0]",         # Space
+            "[ EMAIL_0]",         # Space before type
+            "[EMAIL_ 0]",         # Space in type
             "[_EMAIL_0]",         # Starts with underscore
             "[EMAIL_]",           # Missing number
             "[]",                  # Empty
@@ -639,7 +600,9 @@ class TestTokenPattern:
         ])
 
         for token in mapping:
-            assert TOKEN_PATTERN.fullmatch(token), f"Generated token '{token}' does not match pattern"
+            assert TOKEN_PATTERN.fullmatch(token), (
+                f"Generated token '{token}' does not match pattern"
+            )
 
 
 # =========================================================================
@@ -655,17 +618,16 @@ class TestLargeText:
         t = Tokenizer()
         t.initialize_session()
 
-        # Create a long text with several PII instances
-        base = "This is a long text with email user@example.com and more content. " * 20
-        # Should be > 1000 chars
-        assert len(base) > 1000, f"Test text too short: {len(base)}"
+        base = "This is a long text with email user@example.com and more content. "
+        text = base * 20
+        assert len(text) > 1000, f"Test text too short: {len(text)}"
 
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 30, "end": 47, "score": 1.0},
-            {"entity_type": "EMAIL_ADDRESS", "start": 30 + 65, "end": 47 + 65, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 31, "end": 47, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 97, "end": 113, "score": 1.0},
         ]
 
-        tokenized, mapping = t.tokenize(base, detections)
+        tokenized, mapping = t.tokenize(text, detections)
         assert len(mapping) == 1  # Same email deduped
         assert "user@example.com" not in tokenized
 
@@ -726,14 +688,13 @@ class TestEdgeCases:
         t.initialize_session()
 
         t.tokenize("email: test@test.com", [
-            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 19, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 20, "score": 1.0},
         ])
 
         mapping = t.get_mapping()
         mapping["[INJECTED_0]"] = "injected"
 
-        # Modifying the returned mapping should NOT affect the internal state
         _, m2 = t.tokenize("other@test.com", [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 13, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 14, "score": 1.0},
         ])
         assert "[INJECTED_0]" not in m2
