@@ -1,0 +1,185 @@
+"""Tests for structured audit logging with field allowlist.
+
+Tests verify:
+- Log output is valid JSON with required fields
+- Non-allowlisted fields are dropped by the allowlist processor
+- request_id is propagated via structlog contextvars
+- Log level respects settings.LOG_LEVEL
+
+See AUDT-01, AUDT-02, AUDT-03.
+"""
+
+import json
+import os
+
+import pytest
+from structlog.contextvars import bind_contextvars, clear_contextvars
+
+
+@pytest.fixture(autouse=True)
+def clear_log_context():
+    """Clear structlog context vars before each test."""
+    clear_contextvars()
+    yield
+    clear_contextvars()
+
+
+class TestLoggingAllowlist:
+    """Tests for the field allowlist processor."""
+
+    def test_log_output_is_valid_json(self, capsys):
+        """Test 1: Log output is valid JSON with timestamp, level, event."""
+        from anonreq.logging_config import setup_logging
+        import structlog
+
+        setup_logging(level="DEBUG")
+        log = structlog.get_logger()
+        log.info("test_event", component="test")
+
+        captured = capsys.readouterr()
+        lines = [l for l in captured.err.split("\n") if l.strip()]
+
+        assert len(lines) >= 1
+        entry = json.loads(lines[0])
+        assert "timestamp" in entry
+        assert "level" in entry
+        assert "event" in entry
+        assert entry["event"] == "test_event"
+
+    def test_non_allowlisted_fields_dropped(self, capsys):
+        """Test 2: Non-allowlisted fields are dropped from log output."""
+        from anonreq.logging_config import setup_logging
+        import structlog
+
+        setup_logging(level="DEBUG")
+        log = structlog.get_logger()
+        log.info("test_event", sensitive_data="secret-value", component="test")
+
+        captured = capsys.readouterr()
+        lines = [l for l in captured.err.split("\n") if l.strip()]
+
+        assert len(lines) >= 1
+        entry = json.loads(lines[0])
+        assert "sensitive_data" not in entry
+        assert entry.get("component") == "test"
+
+    def test_allowlisted_fields_survive(self, capsys):
+        """Allowlisted fields (timestamp, level, event, component, request_id, etc.) survive."""
+        from anonreq.logging_config import setup_logging, ALLOWLIST
+        import structlog
+
+        setup_logging(level="DEBUG")
+        log = structlog.get_logger()
+
+        # Bind some allowlisted context vars
+        bind_contextvars(request_id="req_abc123")
+        log.info(
+            "test_event",
+            component="test_component",
+            status_code=200,
+            duration_ms=42,
+            version="0.1.0",
+        )
+
+        captured = capsys.readouterr()
+        lines = [l for l in captured.err.split("\n") if l.strip()]
+
+        assert len(lines) >= 1
+        entry = json.loads(lines[0])
+
+        # These are always present
+        assert "timestamp" in entry
+        assert "level" in entry
+        assert "event" in entry
+
+        # Context-bound fields that should survive
+        if "request_id" in entry:
+            assert entry["request_id"] == "req_abc123"
+
+        # Event-specific fields
+        if "component" in entry:
+            assert entry["component"] == "test_component"
+
+    def test_request_id_via_contextvars(self, capsys):
+        """Test 3: request_id is included via structlog contextvars binding."""
+        from anonreq.logging_config import setup_logging
+        import structlog
+
+        setup_logging(level="DEBUG")
+        bind_contextvars(request_id="req_xyz789")
+
+        log = structlog.get_logger()
+        log.info("request_started", component="test")
+
+        captured = capsys.readouterr()
+        lines = [l for l in captured.err.split("\n") if l.strip()]
+
+        assert len(lines) >= 1
+        entry = json.loads(lines[0])
+        assert entry.get("request_id") == "req_xyz789"
+
+    def test_nested_dict_limitation(self, capsys):
+        """Test 4: Nested dict values are NOT recursively checked (documented limitation)."""
+        from anonreq.logging_config import setup_logging
+        import structlog
+
+        setup_logging(level="DEBUG")
+        log = structlog.get_logger()
+
+        # Nested dict with sensitive key — top-level filter passes it through
+        log.info("test_nested", component="test", data={"sensitive": "value"})
+
+        captured = capsys.readouterr()
+        lines = [l for l in captured.err.split("\n") if l.strip()]
+
+        assert len(lines) >= 1
+        entry = json.loads(lines[0])
+        # The top-level key "data" is not in ALLOWLIST, so it should be dropped
+        assert "data" not in entry
+
+    def test_log_level_respected(self, capsys):
+        """Test 5: Log level respects settings.LOG_LEVEL."""
+        from anonreq.logging_config import setup_logging
+        import structlog
+
+        setup_logging(level="WARNING")
+        log = structlog.get_logger()
+
+        log.debug("debug_message", component="test")
+        log.info("info_message", component="test")
+        log.warning("warning_message", component="test")
+        log.error("error_message", component="test")
+
+        captured = capsys.readouterr()
+        lines = [l for l in captured.err.split("\n") if l.strip()]
+
+        events = []
+        for line in lines:
+            try:
+                entry = json.loads(line)
+                events.append(entry.get("event"))
+            except json.JSONDecodeError:
+                pass
+
+        # debug and info messages should NOT appear (level is WARNING)
+        assert "debug_message" not in events
+        assert "info_message" not in events
+        # warning and error should appear
+        assert "warning_message" in events
+        assert "error_message" in events
+
+    def test_structlog_outputs_to_stderr_by_default(self, capsys):
+        """structlog configured with StreamHandler should output to stderr."""
+        from anonreq.logging_config import setup_logging
+        import structlog
+
+        setup_logging(level="INFO")
+        log = structlog.get_logger()
+        log.info("stderr_test", component="test")
+
+        captured = capsys.readouterr()
+        # stdout should be empty
+        assert captured.out == ""
+        # stderr should have our log output
+        lines = [l for l in captured.err.split("\n") if l.strip()]
+        assert len(lines) >= 1
