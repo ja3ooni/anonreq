@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 6.5
-current_phase_name: Phases 1–6, 6.5 checkpoint, 7
-status: planning_complete
-stopped_at: Phase 6.5 planned
-last_updated: "2026-06-20T12:50:00.000Z"
-last_activity: 2026-06-20
-last_activity_desc: Phase 6.5 production readiness review planned (06.5-01-PLAN.md)
+current_phase: 02
+current_phase_name: Core Pipeline & Classification
+status: executing
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-06-30T22:39:05.499Z"
+last_activity: 2026-06-30
+last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 22
-  completed_phases: 0
-  total_plans: 25
-  completed_plans: 0
-  percent: 0
+  completed_phases: 1
+  total_plans: 101
+  completed_plans: 8
+  percent: 5
 ---
 
 # Project State
@@ -25,17 +25,17 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 
 **Core value:** Raw PII never crosses the network boundary.
-**Current focus:** Stage 1, Phase 6: Advanced Property-Based Tests
+**Current focus:** Phase 02 — Core Pipeline & Classification
 
 ## Current Position
 
 Stage: 1 of 3 (Prove the Problem)
-Phase: 6 of 8 within Stage 1 (Phases 1–6, 6.5 checkpoint, 7)
-Plan: 0 of 3 in Phase 6
-Status: Discussion complete — ready to plan
-Last activity: 2026-06-20 — Phase 6 discuss complete (CONTEXT.md + ARCHITECTURE.md + TASK-BREAKDOWN.md + TEST-PLAN.md + DISCUSSION-LOG.md + SECURITY-ACCEPTANCE.md)
+Phase: 02 (Core Pipeline & Classification) — EXECUTING
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-06-30 — Phase 02 execution started
 
-Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
+Progress: [██░░░░░░░░] 10% (all 22 phases documented, 0 executed)
 
 ## Performance Metrics
 
@@ -60,30 +60,31 @@ Progress: [░░░░░░░░░░] 0% (but substantial context gathered)
 | 6.5. Production Readiness Review | 0/1 | 1 | Planned |
 | 7. Developer Experience & Docs | 0/3 | - | Not started |
 | **Stage 1 Total** | **0/25** | | |
+| Phase 02 P02-04 | 3600 | - tasks | - files |
 
 ### Stage 2: Build the Enterprise Platform
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 8. Rate Limiting & Spend Controls | 0/TBD | - | Not started |
-| 9. Multimodal Document Anonymization | 0/TBD | - | Not started |
+| 8. Enterprise Policy Engine | 0/TBD | - | Wrong upload (skip) |
+| 9. Multimodal Document Anonymization | 0/TBD | - | Context gathered — ready to plan |
 | 10. AI Security Firewall | 0/5 | - | Planned |
-| 11. Operational Observability & Compliance | 0/TBD | - | Not started |
-| 12. Data Classification & Handling | 0/TBD | - | Not started |
-| 13. AI Firewall & Data Loss Prevention | 0/TBD | - | Not started |
-| 14. AI Governance & Oversight | 0/TBD | - | Not started |
-| 15. Financial Services Compliance | 0/TBD | - | Not started |
-| 16. Compliance, Audit & Fairness | 0/TBD | - | Not started |
+| 11. Operational Observability & Compliance | 0/TBD | - | Context gathered — ready to plan |
+| 12. Data Classification & Handling | 0/TBD | - | Discussed — ready to plan |
+| 13. AI Firewall & Data Loss Prevention | 0/TBD | - | Context gathered — ready to plan |
+| 14. AI Governance & Oversight | 0/TBD | - | Context gathered — ready to plan |
+| 15. Financial Services Compliance | 0/TBD | - | Context gathered — ready to plan |
+| 16. Compliance, Audit & Fairness | 0/TBD | - | Context gathered — ready to plan |
 
 ### Stage 3: Build the Moat
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 17. Universal AI Traffic Gateway | 0/TBD | - | Not started |
-| 18. Agent & Tool Call Governance | 0/TBD | - | Not started |
-| 19. Network Discovery, CASB & Secure RAG | 0/TBD | - | Not started |
-| 20. AI SOC/SIEM Integration | 0/TBD | - | Not started |
-| 21. Endpoint Visibility & Sovereign Control | 0/TBD | - | Not started |
+| 17. Universal AI Traffic Gateway | 0/TBD | - | Context gathered — ready to plan |
+| 18. Agent & Tool Call Governance | 0/TBD | - | Discussed and updated — ready to plan |
+| 19. Network Discovery, CASB & Secure RAG | 0/TBD | - | Generated — ready to plan |
+| 20. AI SOC/SIEM Integration | 0/TBD | - | Generated — ready to plan |
+| 21. Endpoint Visibility & Sovereign Control | 0/TBD | - | Generated — ready to plan |
 
 *Updated after each plan completion*
 
@@ -105,11 +106,19 @@ Recent decisions affecting current work:
 - **Phase 6 execution order**: 06-01 (fail-secure + no-PII) → 06-02 (randomization) → 06-03 (locale checksum).
 - **Phase 6.5 inserted**: Production Readiness Review checkpoint after Phase 6. Produces PRR.md, THREAT_MODEL.md, DEPLOYMENT_GUIDE.md, RUNBOOK.md, SRE_PLAYBOOK.md.
 - **189 total decisions** (D-01 through D-189), **20 total guardrails** (AG-01 through AG-20) across all 6 phases.
+- [Phase ?]: Detection processed per-node
+- [Phase ?]: CleanupStage does NOT abort pipeline on DEL failure - TTL fallback handles expiry
+- [Phase ?]: Restorer iterates tokens sorted by length descending to prevent partial matches
 
 ### Pending Todos
 
 - [ ] Execute Phase 6.5 plan (create 5 PRR documents, review + sign off)
 - [ ] After Phase 6.5 sign-off → proceed to Phase 7 (Developer Experience & Documentation)
+- [ ] Plan Phase 12 (Data Classification & Handling)
+- [ ] Plan Phase 18 (Agent & Tool Call Governance)
+- [ ] Plan Phase 19 (Network Discovery, CASB & Secure RAG)
+- [ ] Plan Phase 20 (AI SOC/SIEM Integration)
+- [ ] Plan Phase 21 (Endpoint Visibility & Sovereign Control)
 
 ### Blockers/Concerns
 
@@ -117,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-06-20T09:50:07.407Z
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-developer-experience-documentation/07-CONTEXT.md
+Last session: 2026-06-30T22:39:05.495Z
+Stopped at: Completed 02-04-PLAN.md
+Resume file: None

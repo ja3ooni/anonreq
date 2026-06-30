@@ -29,8 +29,10 @@ data. Each phase delivers a working, independently verifiable vertical slice.
 1. **Fail-secure error boundaries and auth are Phase 1, Plans 01-02 and 01-05** — the global
    exception handler, structured logging (no-PII enforcement), and static bearer token middleware
    are built before any pipeline code.
+
 2. **Classification runs before anonymization (Phase 2, Plan 02-02)** — payloads are classified
    into BLOCK / ROUTE_LOCAL / ANONYMIZE / PASS before they reach Presidio.
+
 3. **Property-based tests are written alongside the phases they prove** — round-trip correctness
    and token uniqueness tests land in Phase 2; streaming split-token tests land in Phase 3.
 
@@ -45,18 +47,24 @@ data. Each phase delivers a working, independently verifiable vertical slice.
 **Requirements**: DOCK-01 to DOCK-07, FAIL-01 to FAIL-04, AUDT-01 to AUDT-03, AUTH-MINIMAL-01
 
 **Success Criteria**:
+
 1. Global exception handler intercepts all errors and returns static HTTP 500. No request body,
    stack trace, token value, or PII substring appears in response or logs.
+
 2. Structured JSON logger writes to stdout using a strict field allowlist. Non-allowlisted
    fields are stripped, not redacted.
+
 3. Operator can deploy all 3 containers (`anonreq`, `presidio-analyzer`, `valkey`) with
    `docker compose up`. All services healthy within 60 seconds.
+
 4. Pre-flight checks prevent gateway startup when Valkey or Presidio is unreachable. Clear
    error message identifies the unhealthy component.
+
 5. All routes return HTTP 401 when `Authorization: Bearer <token>` is absent or does not match
    `ANONREQ_API_KEY`. Startup fails if `ANONREQ_API_KEY` is unset or < 32 characters.
 
 **Plans**: 4 plans
+
 - [ ] 01-01: Project scaffold + configuration management (Pydantic Settings, env validation)
 - [ ] 01-02: Docker Compose deployment (multi-stage Dockerfile, valkey + presidio sidecars)
 - [ ] 01-03: Fail-secure exception handler + audit logging + health/pre-flight checks
@@ -77,25 +85,39 @@ Correctness proven by Hypothesis tests before Phase 3 begins.
 CACH-01 to CACH-06, PROV-01, AUDT-04 to AUDT-05, CLASS-AC-01 to 05, TEST-01 to TEST-03
 
 **Success Criteria**:
+
 1. Classification runs before Presidio is called. Payloads matching BLOCK rules return HTTP 403
    with audit entry; ROUTE_LOCAL forwards to configured on-prem endpoint. Four tiers:
    PASS / ANONYMIZE / ROUTE_LOCAL / BLOCK, YAML-configurable at startup.
+
 2. PII detected by regex tier (email, phone, credit card, IBAN, IP, URL, DOB, national IDs,
    SWIFT, crypto) and NER tier (names, orgs, addresses, job titles). Regex wins on overlap.
+
 3. Same entity value repeated → same token (deduplication). Different values of same type →
    distinct tokens with different indices.
+
 4. When detection engine or cache is unhealthy, all requests return HTTP 503, zero data
    forwarded upstream.
+
 5. Hypothesis tests pass: round-trip correctness (byte-for-byte match) and token uniqueness
    (N distinct values → N distinct tokens; same value K times → 1 token).
 
 **Plans**:
-- [ ] 02-01: Valkey cache manager (connection pool, persistence-disabled, TTL, async DEL,
+
+- [x] 02-01-PLAN.md
+- [x] 02-02-PLAN.md
+- [x] 02-03-PLAN.md
+- [x] 02-04-PLAN.md
+- [ ] 02-05-PLAN.md
+
+4/5 plans executed
       health check, monitoring lockdown)
-- [ ] 02-02: Classification engine (4-tier YAML rules) + Detection engine (regex + NER via
+
+- [x] 02-02: Classification engine (4-tier YAML rules) + Detection engine (regex + NER via
       Presidio, confidence thresholds, exclusion lists, custom YAML)
-- [ ] 02-03: Tokenization engine (`[TYPE_N]`, deduplication, reverse-offset, random seed)
-- [ ] 02-04: Pipeline orchestration (POST /v1/chat/completions, step sequence, fail-secure)
+
+- [x] 02-03: Tokenization engine (`[TYPE_N]`, deduplication, reverse-offset, random seed)
+- [x] 02-04: Pipeline orchestration (POST /v1/chat/completions, step sequence, fail-secure)
 - [ ] 02-05: Property tests (round-trip, token uniqueness, deduplication, BLOCK invariant)
 
 ---
@@ -114,20 +136,27 @@ layer. Client disconnect handling. Streaming correctness proven by Hypothesis.
 understood before Tail_Buffer FSM is built).
 
 **Success Criteria**:
+
 1. `stream: true` requests return `text/event-stream` without full-response buffering. Tokens
    restored in real-time. Anti-buffering headers present.
+
 2. Tokens split across SSE chunk boundaries correctly restored via Tail_Buffer (512-char max).
    Every split position produces byte-for-byte match with non-streamed response.
+
 3. Prompts route to Anthropic Claude, Google Gemini, and Ollama via model alias.
    `GET /v1/models` returns all configured aliases.
+
 4. On client disconnect: upstream HTTPX stream cancelled, Valkey mapping deleted, disconnect
    event logged. No orphaned connections after 100 concurrent disconnects.
+
 5. Hypothesis streaming tests pass: all split-token positions produce byte-for-byte match.
 
 **Plans**:
+
 - [ ] 03-02: Provider adapters — Anthropic, Gemini, Ollama (execute first)
 - [ ] 03-01: SSE streaming route with Tail_Buffer FSM, HGETALL pre-fetch, case-insensitive +
       bracket-optional matching, flush heuristics, client disconnect handling
+
 - [ ] 03-03: Model alias routing and `GET /v1/models` endpoint
 - [ ] 03-04: Streaming property tests (Hypothesis) + disconnect load test
 
@@ -144,16 +173,20 @@ presets enforce mandated entity detection at startup.
 **Requirements**: LOCL-01 to LOCL-07, COMP-01 to COMP-05
 
 **Success Criteria**:
+
 1. `X-AnonReq-Locale: de-DE` activates German detection (Steuer-ID with modulo-11 checksum).
    `fr-FR` detects NIR. `pt-BR` detects CPF/CNPJ. All 8 locales active.
+
 2. Multiple locales (`de-DE, fr-FR`) produce merged detection (union, highest confidence).
 3. Unsupported/malformed locale → HTTP 400. Missing locale → universal recognizers only + log.
 4. Compliance preset (`gdpr`) enforces mandated entity types at startup. Startup rejects config
    that disables preset-mandated types.
+
 5. Audit log includes `compliance_preset` field. Merged presets: union of types, highest
    confidence threshold.
 
 **Plans**:
+
 - [ ] 04-01: Locale recognizer bundles (8 YAML configs with checksum validation)
 - [ ] 04-02: Locale negotiation (header parsing, multi-locale merging, fallback, checksums)
 - [ ] 04-03: Compliance preset engine (6 presets, startup validation, merge, audit field,
@@ -171,15 +204,20 @@ post-restoration token verification, and custom detection rules API.
 **Requirements**: METR-01 to METR-03, PIPE-06, DET-06
 
 **Success Criteria**:
+
 1. `GET /metrics` returns Prometheus counters: requests, detection latency (ms histogram),
    entities by type, unrestored tokens, fail-secure events, audit failures.
+
 2. Non-streaming responses scanned for `\[[A-Z]+_\d+\]` post-restoration. Streaming scanned
    on assembled text. Residual tokens increment counter and log warning.
+
 3. P95 processing overhead ≤ 100ms at 50 concurrent users, 1,000-word prompts, 60s sustained.
    Default Presidio model: `en_core_web_sm`. Load test result logged as build artifact.
+
 4. `GET /v1/config/rules` returns active custom recognizers and exclusion list count.
 
 **Plans**:
+
 - [ ] 05-01: Prometheus metrics endpoint + k6/locust load test
 - [ ] 05-02: Post-restoration token verification scan (non-streaming + post-stream)
 
@@ -194,15 +232,19 @@ post-restoration token verification, and custom detection rules API.
 **Requirements**: TEST-04 to TEST-06, TEST-08
 
 **Success Criteria**:
+
 1. Hypothesis confirms fail-secure: detection/cache/timeout failure → HTTP 500, 0 forwarded.
 2. Hypothesis confirms no-PII-in-logs: synthetic PII across all pipeline paths produces zero
    PII substrings in log output.
+
 3. Hypothesis confirms cross-request randomization: 1,000+ session pairs, same PII value,
    different tokens across sessions, P(duplicate) ≥ 1 − 2⁻³².
+
 4. Locale checksum tests: invalid checksum IDs (Steuer-ID, BSN, NIR, CPF, CNPJ, Codice Fiscale)
    are not flagged as valid detections.
 
 **Plans**:
+
 - [ ] 06-01: Fail-secure and no-PII-in-logs property tests
 - [ ] 06-02: Cross-request randomization probability test
 - [ ] 06-03: Locale checksum invalidation tests
@@ -218,6 +260,7 @@ post-restoration token verification, and custom detection rules API.
 **Requirements**: None (operational — documents Phase 5 load test, Phase 6 security gate, Docker/container patterns)
 
 **Success Criteria**:
+
 1. PRR.md documents deployment architecture, dependencies, resource requirements, and scaling limits.
 2. THREAT_MODEL.md documents trust boundaries, attack surface, data flow risks, and mitigations.
 3. DEPLOYMENT_GUIDE.md documents Docker Compose and Kubernetes deployment with all env vars.
@@ -226,6 +269,7 @@ post-restoration token verification, and custom detection rules API.
 6. Docker deployment verified end-to-end with real provider credentials.
 
 **Plans**:
+
 - [ ] 06.5-01: Production Readiness Review document set — **Planned**
 
 ---
@@ -239,18 +283,24 @@ post-restoration token verification, and custom detection rules API.
 **Requirements**: DOCS-01 to DOCS-05
 
 **Success Criteria**:
+
 1. Developer can run executable quickstart scripts from `examples/quickstart/` and see
    working anonymization in under 5 minutes.
+
 2. SDK examples for curl, Python, TypeScript, and Go are standalone runnable projects,
    demonstrating basic anonymization, streaming, GDPR preset, and locale detection.
+
 3. Repository includes Apache 2.0 LICENSE, NOTICE file (third-party attributions), SECURITY.md,
    and 13-section README covering "Why AnonReq" and "License and Commercial Use".
+
 4. CHANGELOG.md follows Keep a Changelog format with entries for all 7 phases.
 5. Documentation CI validates markdown, links, Mermaid diagrams, OpenAPI sync, CHANGELOG format,
    and quickstart execution on every PR.
+
 6. Documentation available in English (source) and German (generated).
 
 **Plans**:
+
 - [x] 07-01: Integration quickstarts (EN) + doc structure (docs/en/, architecture diagram, OpenAPI export)
 - [x] 07-02: SDK examples (curl, Python, TypeScript, Go) and README (13 sections)
 - [x] 07-03: CHANGELOG, Apache 2.0 LICENSE, NOTICE file, SECURITY.md, CI workflows, DE translations
@@ -265,7 +315,7 @@ post-restoration token verification, and custom detection rules API.
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
 | 1. Foundation, Fail-Secure & Auth | 4/4 | Planned | — |
-| 2. Core Pipeline & Classification | 5/5 | Planned | — |
+| 2. Core Pipeline & Classification | 4/5 | In Progress|  |
 | 3. SSE Streaming + Multi-Provider | 0/4 | Not started | — |
 | 4. Multi-Locale + Compliance Presets | 0/3 | Not started | — |
 | 5. Configuration & Observability | 0/2 | Not started | — |
@@ -292,6 +342,7 @@ governance, and financial-services compliance.
 **Requirements**: Req 22
 
 **Success Criteria**:
+
 1. Operator configures RPM/TPM/concurrent rate limits per tenant → HTTP 429 with `Retry-After`.
 2. Operator sets daily/monthly spend budgets per tenant → HTTP 402 with structured error body.
 3. Operator queries current usage via `GET /v1/admin/tenants/{tenant_id}/usage`.
@@ -311,9 +362,11 @@ governance, and financial-services compliance.
 **Requirements**: Req 23
 
 **Success Criteria**:
+
 1. Tool call arguments (`tool_calls` JSON) and tool results (`tool` role content) anonymized.
 2. JSON documents recursively scanned at string-valued leaf nodes; JSON structural validity
    preserved after anonymization.
+
 3. Multimodal metadata (file names, `image_url` descriptions) anonymized.
 4. Unsupported content types → HTTP 415 with descriptive error.
 5. Property-based test: anonymize→restore produces byte-for-byte identical document.
@@ -332,8 +385,10 @@ LLM outputs at the infrastructure layer.
 **Requirements**: Req 36
 
 **Success Criteria**:
+
 1. Inbound prompts inspected for direct injection, indirect injection, and role-confusion
    attacks at configurable threshold (default 0.85) → HTTP 400 with `prompt_injection_detected`.
+
 2. Jailbreak attempts detected via YAML rule set with `block` / `flag_and_forward` / `monitor`.
 3. Outbound LLM responses inspected for policy-violating content → HTTP 451 on violation.
 4. Hot-reload rule set within 60 seconds without restart (same mechanism as Req 11).
@@ -353,10 +408,13 @@ LLM outputs at the infrastructure layer.
 **Requirements**: Req 24, 25, 26
 
 **Success Criteria**:
+
 1. SRE views SLO compliance at `GET /v1/governance/status`. SLOs: success ≥ 99.9%, P95 ≤ 100ms,
    fail-secure ≤ 0.1%, audit write ≥ 99.99%. Breach alerting via webhook.
+
 2. Security officer queries immutable config change audit trail with pagination, filters,
    JSON Lines export. 7-year retention.
+
 3. CycloneDX SBOM per release build. Container image SBOM via Syft. OCI attestation via cosign.
    Dependabot weekly scans.
 
@@ -373,14 +431,19 @@ LLM outputs at the infrastructure layer.
 **Requirements**: Req 41
 
 **Success Criteria**:
+
 1. Five classification levels: `Public`, `Internal`, `Confidential`, `Restricted`,
    `Highly Restricted`.
+
 2. Auto-classification based on highest-sensitivity detected entity type. Undetected defaults
    to `Internal`. Configurable entity-type-to-classification mapping.
+
 3. Client-asserted `X-AnonReq-Classification` header supported. Higher of client vs detected
    classification wins. Overrides logged.
+
 4. Per-level handling policies: `allow_and_anonymize` (≤ Confidential), `anonymize_and_flag`
    (Restricted), `block` (Highly Restricted). Block returns HTTP 451.
+
 5. Classification_Level in every audit log entry.
 
 **Plans**: TBD
@@ -397,14 +460,19 @@ all AI traffic types.
 **Requirements**: APPL-05 (AI Firewall), APPL-02 (AI DLP)
 
 **Success Criteria**:
+
 1. Inbound AI firewall: injection, jailbreak, data exfiltration, model manipulation, agent
    abuse — with MITRE ATT&CK mapping.
+
 2. Outbound AI firewall: PII reconstruction, harmful content, data exfiltration encoding
    (Base64, hex, stego) → HTTP 451 suppression.
+
 3. DLP policies classify traffic into 8 categories: PII, PHI, PCI, MNPI, Trade Secrets,
    Source Code, Financial Records, Customer Data.
+
 4. Per-category actions: allow / anonymize / redact / quarantine / block. Contextual rules
    combine category + business unit + Classification_Level.
+
 5. All events logged with Prometheus counters and structured audit entries.
 
 **Plans**: TBD
@@ -421,17 +489,23 @@ with risk management, human oversight, transparency, and lifecycle management.
 **Requirements**: Req 27, 28, 29, 30, 31, 35
 
 **Success Criteria**:
+
 1. Governance records per tenant with named owners (governance/risk/compliance/security).
    Governance review cycle (default 90 days). Overdue reviews surfaced in status.
+
 2. Risk assessment records per tenant across 6 dimensions with severity/likelihood and
    treatment plans. Config changes affecting entity types trigger reassessment flag.
+
 3. Human oversight: approval queue for high-risk requests (HTTP 202 pending), approve/reject
    endpoints, kill-switch (`POST /v1/oversight/kill-switch`), session summary endpoint
    (metadata only, no raw content).
+
 4. Transparency: `X-AnonReq-Processed` and `X-AnonReq-Entity-Count` response headers.
    Transparency records per session. Periodic transparency reports.
+
 5. Lifecycle management: provider/preset lifecycle stages (design → retired) with approval
    gates. Production activation requires completed testing + risk assessment.
+
 6. Conformity assessment package: `GET /v1/admin/compliance/conformity-package` returns ZIP
    with SBOM, governance export, risk assessments, config audit history, bias report, manifest.
 
@@ -449,16 +523,22 @@ third-party provider oversight, financial crime controls, and DORA resilience.
 **Requirements**: Req 37, 38, 39, 40, 42, 43
 
 **Success Criteria**:
+
 1. Compliance mapping document covering DORA, NIS2, GDPR, ISO 27001/42001, EBA, FCA, SEC,
    FINRA. Regulator-ready reports via `GET /v1/admin/compliance/report?framework={id}`.
+
 2. MNPI recognizer bundle (ticker symbols, deal codenames, restricted names list). 4 policies:
    anonymize_and_forward / flag_and_forward / block / quarantine. SEC 17a-4 retention.
+
 3. Model Risk Management: model inventory (risk classification, approval status, review cycles).
    Approval gating blocks unapproved models. SR 11-7 alignment documentation.
+
 4. Third-party provider inventory with DORA ICT concentration risk flagging. Provider
    suspension endpoint. Annual concentration risk justification for critical providers.
+
 5. Financial crime controls: context-word boosting (0.15 confidence increase within 50 chars).
    AML webhook integration. Structured audit events for AML platform consumption.
+
 6. DORA operational resilience: critical service classification auto-escalates incidents.
    Resilience testing procedures. ICT third-party register export.
 
@@ -476,19 +556,26 @@ data subject rights, and breach notification.
 **Requirements**: Req 32, 33, 34, 44, 45, 46, 47
 
 **Success Criteria**:
+
 1. Fairness testing datasets per locale (200+ examples per demographic group). CI/CD bias
    assessment on every release: recall disparity across groups ≤ 0.05. Build fails if exceeded.
+
 2. Third-party AI supplier governance: provider inventory with contract/risk/review status.
    Provider review cycle (default 365 days). Overdue reviews surfaced in governance status.
+
 3. Post-deployment monitoring: detection quality drift, fail-secure frequency, SLO compliance.
    Incident classification (S1 data exposure / S2 degradation / S3 anomaly). Incident
    management endpoints and export.
+
 4. Immutable lineage records per session with full provenance (session_id, timestamps,
    provider, model, entities, policies). No API to modify or delete lineage records.
+
 5. Record retention schedules with Legal Hold support. Hold suspension blocks deletion.
    Export for eDiscovery.
+
 6. Data subject rights: DSAR intake, erasure, rectification, portability, and restriction
    workflows. Status tracking and audit trail for each request.
+
 7. Breach notification automation: configurable templates, regulator notification queue,
    affected-tenant notification workflow.
 
@@ -534,12 +621,16 @@ transparent proxy, and appliance deployment topologies.
 **Requirements**: APPL-01 (Req 48)
 
 **Success Criteria**:
+
 1. All AI interaction types routed through single gateway: chat, voice bots, agent frameworks,
    RAG, MCP, email/CRM AI integrations.
+
 2. Deployment topologies: reverse proxy, transparent proxy (TLS interception with
    tenant-managed CA cert + re-origination), virtual appliance, physical appliance.
+
 3. Block all non-intercepted AI API traffic via configurable `block-all-unintercepted-AI`
    policy.
+
 4. P95 overhead ≤ 5ms for proxy-only mode (no anonymization — policy evaluation only).
 5. Inline inspection of MCP protocol traffic, tool call/result payloads, and structured content.
 
@@ -557,12 +648,15 @@ Support MCP protocol and OpenAI/Anthropic tool call/result payloads.
 **Requirements**: APPL-04 (Req 51)
 
 **Success Criteria**:
+
 1. MCP protocol traffic and OpenAI/Anthropic tool call/result payloads inspected.
 2. Per-tool permission policies: `allow`, `allow_with_audit`, `require_human_approval`, `block`.
 3. Tool call parameters anonymized for external API targets; tool results inspected for
    sensitive data.
+
 4. Agent execution suspended for tools requiring human approval; routed through oversight
    queue (Phase 14).
+
 5. Audit entries: `tool_allowed`, `tool_blocked`, `tool_approval_required` with structured
    details.
 
@@ -579,14 +673,19 @@ Support MCP protocol and OpenAI/Anthropic tool call/result payloads.
 **Requirements**: APPL-06, APPL-07, APPL-08
 
 **Success Criteria**:
+
 1. AI API traffic identified by hostname/IP across 8+ providers (OpenAI, Anthropic, Gemini,
    AWS Bedrock, Azure OpenAI, Mistral, Cohere, local LLMs).
+
 2. Shadow AI traffic detected via network flow/DNS analysis. `shadow_ai_detected` event
    emitted. AI asset inventory exportable as JSON/CSV.
+
 3. AI SaaS usage monitored via corporate proxy/CASB telemetry. Applications classified as
    sanctioned / tolerated / unsanctioned with per-app policies.
+
 4. RAG pipeline documents inspected at retrieval injection point. Full detection pipeline
    applied to retrieved content before LLM exposure.
+
 5. Tokens restored in RAG-anonymized content within LLM response. `rag_content_anonymized`
    audit entry.
 
@@ -604,12 +703,16 @@ major platforms.
 **Requirements**: APPL-09 (Req 56)
 
 **Success Criteria**:
+
 1. Structured events generated for: firewall violations, DLP actions, shadow AI detection,
    prompt security events, agent governance actions.
+
 2. SIEM sinks: Splunk (HEC), IBM QRadar (syslog CEF), Microsoft Sentinel (Data Collection
    Rules API), Elastic (Bulk API), Datadog (Logs API).
+
 3. Events include `mitre_technique_id`, `severity`, `event_type`, `tenant_id`, `session_id`,
    `timestamp`, `gateway_version`. No raw prompt content.
+
 4. Sink health status available at `GET /v1/admin/soc/integration/status`.
 5. Local event buffer (max 10k events) with exponential backoff retry. `soc_buffer_overflow`
    when full (discard oldest, never block processing).
@@ -628,15 +731,20 @@ AI deployment with local model routing and GPU inference integration.
 **Requirements**: roadmap4 Phases 8–10
 
 **Success Criteria**:
+
 1. Desktop agents for Windows and macOS. Local traffic inspection and AI application discovery
    (Cursor, Claude Desktop, ChatGPT Desktop, VS Code extensions, Copilot).
+
 2. Local model routing: route prompts to on-prem LLMs via vLLM, Ollama, or GPU inference
    endpoints based on classification level.
+
 3. Sovereign deployment policies: enforce data residency by jurisdiction. Route by
    classification: Public → OpenAI, Internal → Claude EU, Confidential → Local Llama,
    Restricted → Block.
+
 4. Hybrid AI architecture: gateway chooses provider per request based on policy + data
    sensitivity + jurisdiction.
+
 5. Air-gapped deployment mode: all provider traffic routed to local models, no external
    network required.
 
