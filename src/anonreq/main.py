@@ -29,6 +29,7 @@ from anonreq.cache.manager import CacheManager
 from anonreq.cache.health import check_cache_health
 from anonreq.config import settings
 from anonreq.dependencies import auth_context
+from anonreq.detection.presidio_client import PresidioClient
 from anonreq.exceptions import (
     DependencyUnavailableError,
     global_exception_handler,
@@ -37,6 +38,7 @@ from anonreq.exceptions import (
 from anonreq.health import router as health_router
 from anonreq.logging_config import setup_logging
 from anonreq.models.request_context import RequestContext
+from anonreq.routing.chat import build_pipeline, router as chat_router
 from anonreq.startup_checks import run_startup_checks
 
 log = get_logger()
@@ -96,11 +98,27 @@ def create_app() -> FastAPI:
         # Store cache_manager on app state for route handlers
         app.state.cache_manager = cache_manager
 
+        # Create Presidio client for the application lifetime
+        presidio_client = PresidioClient(
+            base_url=settings.PRESIDIO_URL,
+            timeout=settings.REQUEST_TIMEOUT_SECONDS,
+            max_concurrency=10,
+        )
+        app.state.presidio_client = presidio_client
+
+        # Build and store the pipeline manager
+        pipeline = build_pipeline(
+            cache_manager=cache_manager,
+            presidio_client=presidio_client,
+        )
+        app.state.pipeline = pipeline
+
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
         # Clean shutdown
         log.info("Shutting down", component="lifespan")
+        await presidio_client.close()
         await cache_manager.close()
 
     app = FastAPI(
@@ -129,6 +147,9 @@ def create_app() -> FastAPI:
 
     # Include health routes with auth protection
     app.include_router(health_router, dependencies=[Depends(auth_context)])
+
+    # Include chat route with auth protection
+    app.include_router(chat_router, dependencies=[Depends(auth_context)])
 
     @app.get("/")
     async def root(ctx=Depends(auth_context)):

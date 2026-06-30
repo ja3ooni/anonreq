@@ -6,11 +6,15 @@ Per TOKN-01 through TOKN-07 the tokenizer:
 - Uses reverse-offset replacement to prevent position drift
 - Derives token indices from a cryptographically random seed per session
 - Returns original text unchanged when no entities are detected
+
+Also exports ``Restorer`` for token-to-value replacement in responses.
 """
 
+from anonreq.tokenization.restorer import Restorer
 from anonreq.tokenization.tokenizer import TOKEN_PATTERN, Tokenizer
 
 __all__ = [
     "TOKEN_PATTERN",
     "Tokenizer",
+    "Restorer",
 ]

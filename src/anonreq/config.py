@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     REQUEST_TIMEOUT_SECONDS: int = 30
     CACHE_TTL_SECONDS: int = 300
+    PROVIDER_BASE_URL: str = "https://api.openai.com"
+    PROVIDER_API_KEY: str | None = None
 
     @field_validator("API_KEY", mode="before")
     @classmethod

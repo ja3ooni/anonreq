@@ -122,6 +122,28 @@ class DependencyUnavailableError(AnonReqError):
         )
 
 
+class PipelineAbortError(AnonReqError):
+    """Raised by pipeline stages to abort execution with a specific HTTP status.
+
+    Carries a ``status_code`` for the HTTP response and a generic safe message
+    that does not leak implementation details per D-02.
+    """
+
+    def __init__(
+        self,
+        status_code: int = 500,
+        message: str = "Pipeline aborted",
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_type="pipeline_abort",
+            status_code=status_code,
+            code="pipeline_abort",
+            request_id=request_id,
+        )
+
+
 class AuthenticationError(AnonReqError):
     """Raised when API key validation fails.
 
