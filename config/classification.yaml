@@ -16,8 +16,8 @@
 #   metadata: Key-value map for owner, category, severity, etc.
 #   conditions:
 #     roles:    List of message roles to match (empty = all roles)
-#     regex:    List of regex patterns (ANDed)
-#     keywords: List of case-insensitive keywords (ANDed)
+#     regex:    List of regex patterns (ANDed within a rule)
+#     keywords: List of case-insensitive keywords (OR'd with regex)
 #
 # default_action: PASS — unmatched requests pass through unmodified.
 
@@ -36,20 +36,45 @@ rules:
     conditions:
       roles: [user]
       regex:
-        - "(?i)(password|secret|api.?key)\\s*[:=]\\s*\\S+"
+        - "(?i)(?:password|secret|api.?key|token)\\s*[:=]\\s*\\S+"
       keywords: []
 
   - id: CLS-002
     enabled: true
     version: 1
-    name: block_pii_requests
+    name: block_ssn_pattern
     action: BLOCK
     metadata:
       owner: security-team
-      category: pii_leak
-      severity: high
+      category: pii_high
+      severity: critical
+    conditions:
+      roles: []
+      regex:
+        - "\\b(?!000|666|9\\d{2})\\d{3}-(?!00)\\d{2}-(?!0000)\\d{4}\\b"
+      keywords: []
+
+  - id: CLS-003
+    enabled: false
+    version: 1
+    name: route_internal_knowledge_base
+    action: ROUTE_LOCAL
+    metadata:
+      owner: engineering
     conditions:
       roles: [user]
-      regex:
-        - "(?i)(social.security|credit.card|passport|national.id)"
-      keywords: []
+      regex: []
+      keywords: ["internal knowledge", "company policy", "hr handbook"]
+
+  - id: CLS-004
+    enabled: true
+    version: 1
+    name: anonymize_pii_requests
+    action: ANONYMIZE
+    metadata:
+      owner: security-team
+      category: pii
+    conditions:
+      roles: [user, assistant, tool]
+      regex: []
+      keywords: ["email", "phone", "address", "ssn", "credit card", "my name is"]
