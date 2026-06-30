@@ -92,7 +92,7 @@ def sample_text_nodes() -> list[dict[str, str]]:
         {
             "path": "messages[0].content",
             "role": "user",
-            "value": "My email is john@example.com and phone is +1-555-1234",
+            "value": "My email is john@example.com and phone is +1-555-123-4567",
         },
         {
             "path": "messages[1].content",

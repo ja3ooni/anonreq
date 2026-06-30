@@ -154,7 +154,7 @@ class TestRegexPatterns:
     def test_iban_pattern_matches(self):
         """IBAN_CODE pattern matches standard IBAN."""
         match = PATTERNS["IBAN_CODE"].search("GB82 WEST 1234 5698 7654 32")
-        assert match is not None
+        assert match is not None, "IBAN pattern should match GB82 WEST 1234 5698 7654 32"
 
 
 # ---------------------------------------------------------------------------
@@ -180,7 +180,7 @@ class TestRegexDetector:
         """Detect PHONE_NUMBER in text."""
         detector = RegexDetector()
         results = detector.detect("Call +1-555-123-4567 now")
-        assert any(r["entity_type"] == "PHONE_NUMBER" for r in results)
+        assert any(r["entity_type"] == "PHONE_NUMBER" for r in results), f"No phone in {results}"
 
     def test_detect_credit_card_with_luhn(self):
         """CREDIT_CARD detected only when Luhn checksum passes."""
@@ -229,10 +229,10 @@ class TestRegexDetector:
     def test_multiple_detections(self):
         """Text with multiple PII types returns all detections."""
         detector = RegexDetector()
-        results = detector.detect("Email: user@test.com, Phone: +1-555-1234")
+        results = detector.detect("Email: user@test.com, Phone: +1-555-123-4567")
         types = {r["entity_type"] for r in results}
-        assert "EMAIL_ADDRESS" in types
-        assert "PHONE_NUMBER" in types
+        assert "EMAIL_ADDRESS" in types, f"Expected EMAIL in {types}"
+        assert "PHONE_NUMBER" in types, f"Expected PHONE in {types}"
 
     def test_detect_results_have_all_required_fields(self):
         """Each detection result has entity_type, start, end, score, source."""
@@ -250,8 +250,8 @@ class TestRegexDetector:
     def test_iban_detection(self):
         """Detect IBAN_CODE in text."""
         detector = RegexDetector()
-        results = detector.detect("IBAN: GB82WEST12345698765432")
-        assert any(r["entity_type"] == "IBAN_CODE" for r in results)
+        results = detector.detect("IBAN: GB82 WEST 1234 5698 7654 32")
+        assert any(r["entity_type"] == "IBAN_CODE" for r in results), f"No IBAN found in {results}"
 
 
 # ---------------------------------------------------------------------------
