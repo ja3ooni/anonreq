@@ -4,6 +4,10 @@ Provides:
 - Module-level env vars set for Settings singleton import
 - settings_override fixture for per-test env customization
 - app and test_client fixtures for future integration tests
+- cache_manager fixture backed by fakeredis for Phase 2 cache tests
+- sample_text_nodes fixture for detection/pipeline tests
+- sample_chat_request fixture for route/pipeline tests
+- processing_context fixture for pipeline stage tests
 """
 
 import os
@@ -47,3 +51,78 @@ async def test_client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 Shared Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+async def cache_manager():
+    """Create a CacheManager backed by fakeredis for testing.
+
+    Uses ``fakeredis.aioredis.FakeRedis`` to simulate Valkey without
+    requiring a running Valkey container.  The fixture yields a
+    ``CacheManager`` instance and cleans up the fake redis connection
+    on teardown.
+
+    Imports are lazy to avoid slow redis-py startup on test collection.
+    """
+    import fakeredis.aioredis
+    from anonreq.cache.manager import CacheManager
+
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    manager = CacheManager.__new__(CacheManager)
+    manager._redis = fake_redis
+    manager._ttl = 300
+    yield manager
+    await fake_redis.aclose()
+
+
+@pytest.fixture
+def sample_text_nodes() -> list[dict[str, str]]:
+    """Return a list of TextNode dicts for test reuse across Phase 2.
+
+    Provides two text nodes — one user message with detectable PII and
+    one assistant response without PII — suitable for detection,
+    classification, and pipeline tests.
+    """
+    return [
+        {
+            "path": "messages[0].content",
+            "role": "user",
+            "value": "My email is john@example.com and phone is +1-555-1234",
+        },
+        {
+            "path": "messages[1].content",
+            "role": "assistant",
+            "value": "I'll contact you at that number.",
+        },
+    ]
+
+
+@pytest.fixture
+def sample_chat_request() -> dict[str, Any]:
+    """Return a valid ChatRequest dict for pipeline and route tests.
+
+    Mimics a minimal OpenAI-compatible non-streaming chat completion
+    request with one user message containing PII.
+    """
+    return {
+        "model": "gpt-4",
+        "messages": [{"role": "user", "content": "My email is john@example.com"}],
+        "stream": False,
+    }
+
+
+@pytest.fixture
+def processing_context():
+    """Return a ProcessingContext with defaults for pipeline stage tests.
+
+    Provides a minimal context with ``request_id`` and ``tenant_id``
+    set.  Individual tests can assign additional fields as needed.
+    """
+    from anonreq.models.processing_context import ProcessingContext
+
+    return ProcessingContext(request_id="test_req_001", tenant_id="default")

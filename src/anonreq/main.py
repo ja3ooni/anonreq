@@ -25,6 +25,8 @@ from fastapi.responses import Response
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
+from anonreq.cache.manager import CacheManager
+from anonreq.cache.health import check_cache_health
 from anonreq.config import settings
 from anonreq.dependencies import auth_context
 from anonreq.exceptions import (
@@ -45,10 +47,13 @@ def create_app() -> FastAPI:
 
     Configures:
     - Structured logging with field allowlist via ``setup_logging()``.
-    - Lifespan context manager that runs pre-flight dependency checks.
+    - Lifespan context manager that creates ``CacheManager``, runs
+      cache health checks, and pre-flight dependency checks.
     - Exception handlers for ``Exception`` and ``HTTPException`` (fail-secure).
     - Health routes (``GET /health``, ``GET /health/ready``).
     - Root ``GET /`` returning service metadata.
+    - ``CacheManager`` stored at ``app.state.cache_manager`` for route
+      handler access, with clean shutdown on app teardown.
 
     Returns:
         A configured FastAPI application instance.
@@ -60,14 +65,43 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         log.info("Starting pre-flight checks", component="lifespan")
+
+        # Create cache manager for the application lifetime
+        cache_manager = CacheManager(
+            settings.VALKEY_URL,
+            ttl=settings.CACHE_TTL_SECONDS,
+        )
+
+        # Run pre-flight health checks on cache during startup
+        try:
+            cache_health = await check_cache_health(cache_manager)
+            if not cache_health.get("healthy", False):
+                log.error(
+                    "Cache health check failed",
+                    component="lifespan",
+                    cache_health=cache_health,
+                )
+                raise DependencyUnavailableError(dependency="cache")
+        except Exception:
+            await cache_manager.close()
+            raise
+
         try:
             await run_startup_checks(settings)
         except DependencyUnavailableError:
+            await cache_manager.close()
             log.error("Pre-flight check failed", component="lifespan")
             raise
+
+        # Store cache_manager on app state for route handlers
+        app.state.cache_manager = cache_manager
+
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
+
+        # Clean shutdown
         log.info("Shutting down", component="lifespan")
+        await cache_manager.close()
 
     app = FastAPI(
         title="AnonReq",

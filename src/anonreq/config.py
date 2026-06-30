@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     PORT: int = 8080
     LOG_LEVEL: str = "INFO"
     REQUEST_TIMEOUT_SECONDS: int = 30
+    CACHE_TTL_SECONDS: int = 300
 
     @field_validator("API_KEY", mode="before")
     @classmethod
