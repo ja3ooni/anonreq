@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=78.0"]
+build-backend = "setuptools.backends._legacy._Backend"
+
+[project]
+name = "anonreq"
+version = "0.1.0"
+description = "Self-hosted anonymization gateway for external LLM APIs"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+authors = [
+    { name = "AnonReq Contributors" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+
+dependencies = [
+    "fastapi>=0.138.0",
+    "uvicorn[standard]>=0.49.0",
+    "pydantic-settings>=2.14.2",
+    "structlog>=26.1.0",
+    "python-json-logger>=4.1.0",
+    "redis>=8.0.0",
+    "pyyaml>=6.0.3",
+    "httpx>=0.28.1",
+    "prometheus-client>=0.25.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.4.0",
+    "hypothesis>=6.155.0",
+    "respx>=0.21.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["anonreq*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["anonreq"]

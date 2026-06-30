@@ -1,0 +1,3 @@
+# Provider capability registry — loaded at startup
+# Populated in Phase 3 with provider definitions
+providers: {}
