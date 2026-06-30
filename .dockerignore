@@ -1,0 +1,74 @@
+# =============================================================================
+# AnonReq — Docker build-context ignore rules
+# =============================================================================
+# Excludes development-only files, version-control metadata, and local
+# environment artifacts from the Docker build context to keep the image
+# small and avoid cache invalidation.
+# =============================================================================
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Virtual environments (local)
+.venv/
+venv/
+env/
+ENV/
+
+# Python runtime artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.python-version
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets/
+
+# Development dependencies and test code
+requirements-dev.txt
+tests/
+load-tests/
+
+# Packaging build outputs
+*.egg-info/
+build/
+dist/
+.eggs/
+
+# Documentation and project-planning files
+*.md
+.planning/
+phases/
+
+# Local override files
+docker-compose.override.yml
+compose.override.yml
+*.local.yml
+
+# IDE and editor artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Node tooling (future admin portal)
+node_modules/
