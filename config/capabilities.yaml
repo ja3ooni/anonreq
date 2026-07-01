@@ -1,0 +1,28 @@
+# Per-provider capability flags — loaded at startup by CapabilityResolver
+# These define the authoritative capability set for each provider (D-74)
+capabilities:
+  openai:
+    streaming: true
+    tool_calling: true
+    vision: true
+    json_mode: true
+    max_context_window: 128000
+    max_output_tokens: 16384
+  anthropic:
+    streaming: true
+    tool_calling: true
+    reasoning: true
+    vision: true
+    max_context_window: 200000
+    max_output_tokens: 8192
+  gemini:
+    streaming: true
+    tool_calling: true
+    vision: true
+    max_context_window: 1048576
+    max_output_tokens: 8192
+  ollama:
+    streaming: true
+    tool_calling: true
+    max_context_window: 8192
+    max_output_tokens: 4096

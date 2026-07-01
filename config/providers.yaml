@@ -1,3 +1,11 @@
-# Provider capability registry — loaded at startup
-# Populated in Phase 3 with provider definitions
-providers: {}
+# Provider adapter mapping — loaded at startup by ProviderRegistry
+# Maps provider_name -> fully qualified adapter class path
+providers:
+  openai:
+    adapter: anonreq.providers.openai.OpenAIAdapter
+  anthropic:
+    adapter: anonreq.providers.anthropic.AnthropicAdapter
+  gemini:
+    adapter: anonreq.providers.gemini.GeminiAdapter
+  ollama:
+    adapter: anonreq.providers.ollama.OllamaAdapter
