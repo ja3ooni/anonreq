@@ -61,7 +61,7 @@ class TestCollectingState:
         tb = TailBuffer()
         results = await collect(tb.ingest(make_delta("Hello ")))
         assert "Hello " in tb.active_buffer
-        assert tb.state == BufferState.MATCHING  # transitions to MATCHING after ingest
+        assert tb.state == BufferState.COLLECTING
 
     async def test_multiple_chunks_accumulate(self) -> None:
         """Multiple TEXT_DELTA events append sequentially."""
@@ -84,7 +84,7 @@ class TestMatchingFullToken:
         tb = TailBuffer()
         # Build up buffer with some text then a token
         await collect(tb.ingest(make_delta("Hello ")))
-        assert tb.state == BufferState.MATCHING
+        assert tb.state == BufferState.COLLECTING
 
     async def test_safe_prefix_emitted_before_tail(self) -> None:
         """Safe prefix (content before tail window) is emitted on flush."""
