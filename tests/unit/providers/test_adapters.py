@@ -749,10 +749,19 @@ class TestOllamaTranslateRequest:
 
     def test_no_api_key_by_default(self, processing_context):
         """No API key header is set unless env var is present."""
+        import os
+        from unittest.mock import patch
+
         from anonreq.providers.ollama import OllamaAdapter
 
-        adapter = OllamaAdapter()
-        request = adapter.translate_request(processing_context)
+        # Eliminate Ollama API key to test no-auth default
+        with patch.dict(
+            os.environ,
+            {"ANONREQ_OLLAMA_API_KEY": "", "OLLAMA_API_KEY": ""},
+            clear=False,
+        ):
+            adapter = OllamaAdapter()
+            request = adapter.translate_request(processing_context)
 
         # Ollama is local by default, no auth header expected
         assert "authorization" not in {
