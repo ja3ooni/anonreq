@@ -75,3 +75,5 @@ class StreamEvent(BaseModel):
     reasoning: str | None = None
     finish_reason: FinishReason | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    model_config = {"extra": "ignore"}
