@@ -52,7 +52,11 @@ class Restorer:
             original = mapping[token]
             # Case-insensitive match per SSE-04
             pattern = re.compile(re.escape(token), re.IGNORECASE)
-            result = pattern.sub(original, result)
+            # Use lambda to prevent re.sub from interpreting backreference
+            # escapes (\1, \A, \000, etc.) in the replacement value.
+            # Without this, an original value like "\1" would be interpreted
+            # as a group reference, causing re.error or incorrect output.
+            result = pattern.sub(lambda m: original, result)
 
         return result
 

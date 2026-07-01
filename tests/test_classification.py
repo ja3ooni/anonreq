@@ -18,6 +18,210 @@ import yaml
 from anonreq.classification.engine import ClassificationRule, ClassificationEngine
 from anonreq.classification.loader import ClassificationRuleLoader
 
+# ---------------------------------------------------------------------------
+# Hypothesis property-based tests for BLOCK invariant
+# ---------------------------------------------------------------------------
+
+try:
+    from hypothesis import given, settings, strategies as st
+
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+
+    def given(*args, **kwargs):
+        return lambda fn: fn
+
+    def settings(**kwargs):
+        return lambda fn: fn
+
+
+if HAS_HYPOTHESIS:
+
+    @given(st.text(min_size=1, max_size=200))
+    @settings(max_examples=500, deadline=None)
+    def test_block_invariant_random_text(text: str) -> None:
+        """Prove BLOCK invariant across random inputs.
+
+        For any random text containing classification-triggering keywords,
+        the engine returns BLOCK with matched_rule_ids populated. For text
+        without triggering keywords, the default action is returned.
+        """
+        block_rule = ClassificationRule(
+            id="CLS-PROP-01",
+            enabled=True,
+            version=1,
+            name="prop_block_secret",
+            action="BLOCK",
+            metadata={},
+            roles=[],
+            regex_patterns=[],
+            keywords=["secret", "password", "block"],
+        )
+        engine = ClassificationEngine([block_rule], default_action="PASS")
+
+        text_nodes = [
+            {
+                "path": "messages[0].content",
+                "role": "user",
+                "value": text,
+            }
+        ]
+        result = engine.classify(text_nodes)
+
+        text_lower = text.lower()
+        has_keyword = any(kw in text_lower for kw in ["secret", "password", "block"])
+
+        if has_keyword:
+            assert result["action"] == "BLOCK", (
+                f"Expected BLOCK for text containing trigger keyword, "
+                f"got {result['action']}. Text: {text!r}"
+            )
+            assert len(result["matched_rule_ids"]) > 0, (
+                f"Expected matched_rule_ids for BLOCK action"
+            )
+            assert "CLS-PROP-01" in result["matched_rule_ids"], (
+                f"Expected CLS-PROP-01 in matched_rule_ids"
+            )
+        else:
+            assert result["action"] == "PASS", (
+                f"Expected PASS when no keyword matches, "
+                f"got {result['action']}. Text: {text!r}"
+            )
+            assert result["matched_rule_ids"] == [], (
+                f"Expected empty matched_rule_ids for PASS"
+            )
+            assert result["matched_rule_versions"] == [], (
+                f"Expected empty matched_rule_versions for PASS"
+            )
+
+    @given(
+        st.text(min_size=1, max_size=100),
+        st.lists(
+            st.text(
+                min_size=2,
+                max_size=15,
+                alphabet=st.characters(
+                    whitelist_categories=("L", "N"),
+                    whitelist_characters="-_",
+                ),
+            ),
+            min_size=1,
+            max_size=5,
+            unique=True,
+        ),
+    )
+    @settings(max_examples=500, deadline=None)
+    def test_block_precedence_over_anonymize(
+        text: str, keywords: list[str]
+    ) -> None:
+        """Prove BLOCK action takes precedence over ANONYMIZE.
+
+        When both BLOCK and ANONYMIZE rules could match the same text,
+        the engine must always return BLOCK (highest precedence per D-24).
+        """
+        block_rule = ClassificationRule(
+            id="CLS-PROP-BLOCK",
+            enabled=True,
+            version=1,
+            name="prop_block_any",
+            action="BLOCK",
+            metadata={},
+            roles=[],
+            regex_patterns=[],
+            keywords=keywords,
+        )
+        anonymize_rule = ClassificationRule(
+            id="CLS-PROP-ANZ",
+            enabled=True,
+            version=1,
+            name="prop_anonymize_keywords",
+            action="ANONYMIZE",
+            metadata={},
+            roles=[],
+            regex_patterns=[],
+            keywords=keywords,
+        )
+        engine = ClassificationEngine(
+            [anonymize_rule, block_rule], default_action="PASS"
+        )
+
+        text_nodes = [
+            {
+                "path": "messages[0].content",
+                "role": "user",
+                "value": text,
+            }
+        ]
+        result = engine.classify(text_nodes)
+
+        text_lower = text.lower()
+        has_block_keyword = any(kw.lower() in text_lower for kw in keywords)
+
+        if has_block_keyword:
+            # BLOCK must win over ANONYMIZE due to action precedence
+            assert result["action"] == "BLOCK", (
+                f"Expected BLOCK precedence over ANONYMIZE, "
+                f"got {result['action']}. Text: {text!r}, keywords: {keywords}"
+            )
+        else:
+            assert result["action"] == "PASS", (
+                f"Expected PASS when no keywords match, "
+                f"got {result['action']}"
+            )
+
+    @given(
+        st.text(min_size=1, max_size=100),
+        st.sampled_from(
+            [
+                "password",
+                "PASSWORD",
+                "Password",
+                "SECRET",
+                "Secret",
+                "secret",
+            ]
+        ),
+    )
+    @settings(max_examples=500, deadline=None)
+    def test_block_case_insensitive_keyword(text: str, keyword_form: str) -> None:
+        """BLOCK rule with keyword matches case-insensitively.
+
+        Keywords in rules are lowercased at construction time, so any
+        casing variant in the input must still trigger the match.
+        """
+        block_rule = ClassificationRule(
+            id="CLS-PROP-CI",
+            enabled=True,
+            version=1,
+            name="prop_block_case_insensitive",
+            action="BLOCK",
+            metadata={},
+            roles=[],
+            regex_patterns=[],
+            keywords=[keyword_form.upper()],
+        )
+        engine = ClassificationEngine([block_rule], default_action="PASS")
+
+        # Embed the keyword (in its original casing) into the random text
+        # at a random position
+        insert_pos = max(0, len(text) // 2)
+        modified_text = text[:insert_pos] + keyword_form + text[insert_pos:]
+        text_nodes = [
+            {
+                "path": "messages[0].content",
+                "role": "user",
+                "value": modified_text,
+            }
+        ]
+        result = engine.classify(text_nodes)
+
+        # The keyword (in any casing) is always present
+        assert result["action"] == "BLOCK", (
+            f"Expected BLOCK when keyword '{keyword_form}' is present, "
+            f"got {result['action']}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # ClassificationRule tests

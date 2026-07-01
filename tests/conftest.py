@@ -15,8 +15,6 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
-from httpx import ASGITransport, AsyncClient
 
 # Set default required env vars BEFORE any test module imports Settings.
 # The module-level `settings = Settings()` singleton in config.py is
@@ -40,14 +38,26 @@ def settings_override(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
-def app() -> FastAPI:
-    """Return a minimal FastAPI application instance for testing."""
+def app():
+    """Return a minimal FastAPI application instance for testing.
+
+    FastAPI is imported lazily to avoid ~180s import overhead on
+    test collection for tests that don't need the app fixture.
+    """
+    from fastapi import FastAPI
+
     return FastAPI()
 
 
 @pytest.fixture
-async def test_client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
-    """Yield an async HTTP client bound to the test app."""
+async def test_client(app):
+    """Yield an async HTTP client bound to the test app.
+
+    httpx is imported lazily to avoid import overhead on test
+    collection for tests that don't need this fixture.
+    """
+    from httpx import ASGITransport, AsyncClient
+
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
