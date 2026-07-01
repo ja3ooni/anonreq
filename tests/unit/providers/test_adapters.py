@@ -389,3 +389,300 @@ class TestAnthropicErrorNormalization:
                 self.assert_no_sensitive_data(
                     error_msg, context="anthropic rate limit error"
                 )
+
+
+# =========================================================================
+# GeminiAdapter tests
+# =========================================================================
+
+
+class TestGeminiTranslateRequest:
+    """Tests for GeminiAdapter.translate_request()."""
+
+    def test_translate_basic_messages(self, processing_context):
+        """Basic OpenAI messages are converted to Gemini format."""
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+        request = adapter.translate_request(processing_context)
+
+        assert isinstance(request, ProviderRequest)
+        assert "generativelanguage.googleapis.com" in request.url
+        assert "x-goog-api-key" in request.headers
+        assert request.method == "POST"
+        assert request.timeout == 30.0
+
+        body = request.body
+        assert "model" in body
+        assert "contents" in body
+
+        # Messages should include all roles
+        messages = body["contents"]
+        assert len(messages) == 3  # system, user, assistant
+        # Gemini uses "model" role, not "assistant"
+        assert messages[0]["role"] == "user"
+        assert messages[-1]["role"] == "model"
+
+    def test_system_message_to_system_instruction(self, processing_context):
+        """System message should become top-level ``system_instruction``."""
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+        request = adapter.translate_request(processing_context)
+
+        assert "system_instruction" in request.body
+        parts = request.body["system_instruction"]["parts"]
+        assert any(
+            "You are a helpful assistant." in p.get("text", "") for p in parts
+        )
+
+    def test_tool_choice_and_tools(self, ctx_with_tools):
+        """Tools are converted to Gemini ``function_declarations``."""
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+        request = adapter.translate_request(ctx_with_tools)
+
+        body = request.body
+        assert "tools" in body
+        assert "function_declarations" in body["tools"][0]
+
+        declarations = body["tools"][0]["function_declarations"]
+        assert len(declarations) == 1
+        decl = declarations[0]
+        assert decl["name"] == "get_weather"
+        assert "description" in decl
+        assert "parameters" in decl
+
+    def test_api_key_resolution(self, processing_context):
+        """API key is resolved via env var."""
+        import os
+        from unittest.mock import patch
+
+        from anonreq.providers.gemini import GeminiAdapter
+
+        with patch.dict(os.environ, {"ANONREQ_GEMINI_API_KEY": "test-gemini-key-123"}):
+            adapter = GeminiAdapter()
+            request = adapter.translate_request(processing_context)
+            assert request.headers["x-goog-api-key"] == "test-gemini-key-123"
+
+
+class TestGeminiTranslateResponse:
+    """Tests for GeminiAdapter.translate_response()."""
+
+    def test_translate_response_basic(self, processing_context):
+        """Gemini response is normalized to canonical format."""
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+        gemini_response = ProviderResponse(
+            status_code=200,
+            body={
+                "candidates": [
+                    {
+                        "content": {
+                            "role": "model",
+                            "parts": [{"text": "Hello! I'm doing well."}],
+                        },
+                        "finishReason": "STOP",
+                    }
+                ],
+                "usageMetadata": {
+                    "promptTokenCount": 10,
+                    "candidatesTokenCount": 5,
+                },
+            },
+        )
+
+        result = adapter.translate_response(processing_context, gemini_response)
+
+        assert isinstance(result, RestoredResponse)
+        body = result.body
+        assert "choices" in body
+        assert len(body["choices"]) == 1
+        assert body["choices"][0]["message"]["content"] == "Hello! I'm doing well."
+        assert body["choices"][0]["finish_reason"] == "stop"
+
+
+class TestGeminiStreamEvents:
+    """Tests for GeminiAdapter.stream_events()."""
+
+    @pytest.mark.asyncio
+    async def test_stream_events_text_delta(self):
+        """Gemini SSE text chunks -> TEXT_DELTA event."""
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+
+        # Gemini SSE uses "data: {...}" (no "event:" prefix)
+        sse_data = (
+            b'data: {"candidates":[{"index":0,"content":{"role":"model",'
+            b'"parts":[{"text":"Hello"}]}}]}\n\n'
+            b'data: {"candidates":[{"index":0,"content":{"role":"model",'
+            b'"parts":[{"text":" world"}]}}]}\n\n'
+        )
+
+        with respx.mock:
+            route = respx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                "gemini-pro:streamGenerateContent"
+            )
+            route.mock(
+                return_value=Response(
+                    200,
+                    content=sse_data,
+                    headers={"Content-Type": "text/event-stream"},
+                )
+            )
+
+            request = ProviderRequest(
+                url=(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    "gemini-pro:streamGenerateContent"
+                ),
+                headers={
+                    "x-goog-api-key": "test-key",
+                    "Content-Type": "application/json",
+                },
+                body={"model": "gemini-pro", "contents": [], "stream": True},
+            )
+
+            events = []
+            async for event in adapter.stream_events(request):
+                events.append(event)
+
+            assert len(events) >= 2
+            text_events = [e for e in events if e.event_type == EventType.TEXT_DELTA]
+            assert len(text_events) >= 2
+
+    @pytest.mark.asyncio
+    async def test_stream_events_finish_stop(self):
+        """Gemini finishReason -> FINISH with STOP reason."""
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+
+        sse_data = (
+            b'data: {"candidates":[{"index":0,"content":{"role":"model",'
+            b'"parts":[{"text":"Hello"}]}}]}\n\n'
+            b'data: {"candidates":[{"index":0,"content":{"role":"model",'
+            b'"parts":[{"text":" world"}]},"finishReason":"STOP"}]}\n\n'
+        )
+
+        with respx.mock:
+            route = respx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                "gemini-pro:streamGenerateContent"
+            )
+            route.mock(
+                return_value=Response(
+                    200,
+                    content=sse_data,
+                    headers={"Content-Type": "text/event-stream"},
+                )
+            )
+
+            request = ProviderRequest(
+                url=(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    "gemini-pro:streamGenerateContent"
+                ),
+                headers={
+                    "x-goog-api-key": "test-key",
+                    "Content-Type": "application/json",
+                },
+                body={"model": "gemini-pro", "contents": [], "stream": True},
+            )
+
+            events = []
+            async for event in adapter.stream_events(request):
+                events.append(event)
+
+            finish_events = [e for e in events if e.event_type == EventType.FINISH]
+            assert len(finish_events) >= 1
+            assert finish_events[0].finish_reason == FinishReason.STOP
+
+
+class TestGeminiErrorNormalization:
+    """Tests for Gemini error normalization per PROV-08."""
+
+    SENSITIVE_PATTERNS = TestAnthropicErrorNormalization.SENSITIVE_PATTERNS
+    assert_no_sensitive_data = TestAnthropicErrorNormalization.assert_no_sensitive_data
+
+    @pytest.mark.asyncio
+    async def test_auth_error_normalized(self, processing_context):
+        """Auth errors should be normalized with no keys."""
+        import os
+        from unittest.mock import patch
+
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+
+        with patch.dict(os.environ, {"ANONREQ_GEMINI_API_KEY": "test-invalid-key"}):
+            request = adapter.translate_request(processing_context)
+
+            with respx.mock:
+                route = respx.post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    "gemini-pro:generateContent"
+                )
+                route.mock(
+                    return_value=Response(
+                        401,
+                        json={
+                            "error": {
+                                "code": 401,
+                                "message": "API_KEY_INVALID: Invalid API key",
+                                "status": "UNAUTHENTICATED",
+                            }
+                        },
+                    )
+                )
+
+                with pytest.raises(Exception) as exc_info:
+                    await adapter.execute(request)
+
+                error_msg = str(exc_info.value)
+                self.assert_no_sensitive_data(
+                    error_msg, context="gemini auth error"
+                )
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_error_normalized(self, processing_context):
+        """Rate limit errors should be normalized."""
+        import os
+        from unittest.mock import patch
+
+        from anonreq.providers.gemini import GeminiAdapter
+
+        adapter = GeminiAdapter()
+
+        with patch.dict(os.environ, {"ANONREQ_GEMINI_API_KEY": "test-key"}):
+            request = adapter.translate_request(processing_context)
+
+            with respx.mock:
+                route = respx.post(
+                    "https://generativelanguage.googleapis.com/v1beta/models/"
+                    "gemini-pro:generateContent"
+                )
+                route.mock(
+                    return_value=Response(
+                        429,
+                        json={
+                            "error": {
+                                "code": 429,
+                                "message": "Rate limit exceeded for project_12345",
+                                "status": "RESOURCE_EXHAUSTED",
+                            }
+                        },
+                    )
+                )
+
+                with pytest.raises(Exception) as exc_info:
+                    await adapter.execute(request)
+
+                error_msg = str(exc_info.value)
+                self.assert_no_sensitive_data(
+                    error_msg, context="gemini rate limit error"
+                )
