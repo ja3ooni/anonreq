@@ -9,6 +9,14 @@ from anonreq.models.chat import ChatMessage, ChatRequest, ChatCompletionChoice, 
 from anonreq.models.classification import ClassificationAction, ClassificationRule, ClassResult
 from anonreq.models.detection import TextNode, DetectionResult
 from anonreq.models.tokenization import TokenMapping, TokenizationResult, TOKEN_PATTERN
+from anonreq.providers.adapter import (
+    ProviderAdapter,
+    ProviderCapabilities,
+    ProviderRequest,
+    ProviderResponse,
+    ProviderResult,
+    RestoredResponse,
+)
 
 __all__ = [
     "ProcessingContext",
@@ -24,4 +32,10 @@ __all__ = [
     "TokenMapping",
     "TokenizationResult",
     "TOKEN_PATTERN",
+    "ProviderAdapter",
+    "ProviderCapabilities",
+    "ProviderRequest",
+    "ProviderResponse",
+    "ProviderResult",
+    "RestoredResponse",
 ]
