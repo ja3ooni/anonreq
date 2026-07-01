@@ -232,6 +232,8 @@ class TestAnthropicStreamEvents:
             route.mock(
                 return_value=Response(
                     200,
+                    content=sse_data,
+                    headers={"Content-Type": "text/event-stream"},
                 )
             )
 
@@ -245,10 +247,10 @@ class TestAnthropicStreamEvents:
             async for event in adapter.stream_events(request):
                 events.append(event)
 
-            assert len(events) >= 3
-            # Check first TEXT_DELTA
+            assert len(events) >= 2
+            # Check TEXT_DELTA events
             text_events = [e for e in events if e.event_type == EventType.TEXT_DELTA]
-            assert len(text_events) >= 1
+            assert len(text_events) >= 2
 
     @pytest.mark.asyncio
     async def test_stream_events_finish_stop(self):
@@ -274,6 +276,8 @@ class TestAnthropicStreamEvents:
             route.mock(
                 return_value=Response(
                     200,
+                    content=sse_data,
+                    headers={"Content-Type": "text/event-stream"},
                 )
             )
 
