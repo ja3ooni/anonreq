@@ -693,3 +693,240 @@ class TestGeminiErrorNormalization:
                 self.assert_no_sensitive_data(
                     error_msg, context="gemini rate limit error"
                 )
+
+
+# =========================================================================
+# OllamaAdapter tests
+# =========================================================================
+
+
+class TestOllamaTranslateRequest:
+    """Tests for OllamaAdapter.translate_request()."""
+
+    def test_translate_basic_messages(self, processing_context):
+        """OpenAI messages are passed through to Ollama format."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+        request = adapter.translate_request(processing_context)
+
+        assert isinstance(request, ProviderRequest)
+        assert "localhost:11434/api/chat" in request.url
+        assert request.method == "POST"
+        assert request.timeout == 30.0
+
+        body = request.body
+        assert "model" in body
+        assert "messages" in body
+
+        # Ollama passes messages through (including system)
+        messages = body["messages"]
+        assert len(messages) == 3  # system, user, assistant
+        assert messages[0]["role"] == "system"
+        assert messages[1]["role"] == "user"
+        assert messages[2]["role"] == "assistant"
+
+    def test_system_in_message_list(self, processing_context):
+        """System message stays in messages (not extracted)."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+        request = adapter.translate_request(processing_context)
+
+        messages = request.body["messages"]
+        system_msgs = [m for m in messages if m["role"] == "system"]
+        assert len(system_msgs) == 1
+        assert system_msgs[0]["content"] == "You are a helpful assistant."
+
+    def test_streaming_flag(self, processing_context):
+        """Stream flag should be forwarded in body."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+        request = adapter.translate_request(processing_context)
+
+        assert request.body.get("stream") is False
+
+    def test_no_api_key_by_default(self, processing_context):
+        """No API key header is set unless env var is present."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+        request = adapter.translate_request(processing_context)
+
+        # Ollama is local by default, no auth header expected
+        assert "authorization" not in {
+            k.lower() for k in request.headers
+        }
+
+
+class TestOllamaTranslateResponse:
+    """Tests for OllamaAdapter.translate_response()."""
+
+    def test_translate_response_basic(self, processing_context):
+        """Ollama response is normalized to canonical format."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+        ollama_response = ProviderResponse(
+            status_code=200,
+            body={
+                "model": "llama3",
+                "created_at": "2024-01-01T00:00:00Z",
+                "message": {
+                    "role": "assistant",
+                    "content": "Hello! I'm doing well.",
+                },
+                "done": True,
+                "done_reason": "stop",
+            },
+        )
+
+        result = adapter.translate_response(processing_context, ollama_response)
+
+        assert isinstance(result, RestoredResponse)
+        body = result.body
+        assert "choices" in body
+        assert len(body["choices"]) == 1
+        assert body["choices"][0]["message"]["content"] == "Hello! I'm doing well."
+        assert body["choices"][0]["finish_reason"] == "stop"
+
+
+class TestOllamaStreamEvents:
+    """Tests for OllamaAdapter.stream_events()."""
+
+    @pytest.mark.asyncio
+    async def test_stream_events_text_delta(self):
+        """Ollama NDJSON chunks -> TEXT_DELTA event."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+
+        # Ollama uses newline-delimited JSON (not SSE)
+        ndjson_data = (
+            b'{"model":"llama3","created_at":"2024-01-01T00:00:00Z",'
+            b'"message":{"role":"assistant","content":"Hello"}}\n'
+            b'{"model":"llama3","created_at":"2024-01-01T00:00:01Z",'
+            b'"message":{"role":"assistant","content":" world"}}\n'
+        )
+
+        with respx.mock:
+            route = respx.post("http://localhost:11434/api/chat")
+            route.mock(
+                return_value=Response(
+                    200,
+                    content=ndjson_data,
+                    headers={"Content-Type": "application/x-ndjson"},
+                )
+            )
+
+            request = ProviderRequest(
+                url="http://localhost:11434/api/chat",
+                headers={"Content-Type": "application/json"},
+                body={"model": "llama3", "messages": [], "stream": True},
+            )
+
+            events = []
+            async for event in adapter.stream_events(request):
+                events.append(event)
+
+            assert len(events) >= 2
+            text_events = [e for e in events if e.event_type == EventType.TEXT_DELTA]
+            assert len(text_events) >= 2
+            assert text_events[0].delta_text == "Hello"
+            assert text_events[1].delta_text == " world"
+
+    @pytest.mark.asyncio
+    async def test_stream_events_finish(self):
+        """Done flag -> FINISH event."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+
+        ndjson_data = (
+            b'{"model":"llama3","message":{"role":"assistant",'
+            b'"content":"Hello"},"done":false}\n'
+            b'{"model":"llama3","message":{"role":"assistant",'
+            b'"content":" world"},"done":true,"done_reason":"stop"}\n'
+        )
+
+        with respx.mock:
+            route = respx.post("http://localhost:11434/api/chat")
+            route.mock(
+                return_value=Response(
+                    200,
+                    content=ndjson_data,
+                    headers={"Content-Type": "application/x-ndjson"},
+                )
+            )
+
+            request = ProviderRequest(
+                url="http://localhost:11434/api/chat",
+                headers={"Content-Type": "application/json"},
+                body={"model": "llama3", "messages": [], "stream": True},
+            )
+
+            events = []
+            async for event in adapter.stream_events(request):
+                events.append(event)
+
+            finish_events = [e for e in events if e.event_type == EventType.FINISH]
+            assert len(finish_events) >= 1
+            assert finish_events[0].finish_reason == FinishReason.STOP
+
+
+class TestOllamaErrorNormalization:
+    """Tests for Ollama error normalization per PROV-08."""
+
+    SENSITIVE_PATTERNS = TestAnthropicErrorNormalization.SENSITIVE_PATTERNS
+    assert_no_sensitive_data = TestAnthropicErrorNormalization.assert_no_sensitive_data
+
+    @pytest.mark.asyncio
+    async def test_error_normalized(self, processing_context):
+        """Ollama HTTP errors should be normalized with no sensitive data."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+        request = adapter.translate_request(processing_context)
+
+        with respx.mock:
+            route = respx.post("http://localhost:11434/api/chat")
+            route.mock(
+                return_value=Response(
+                    400,
+                    json={"error": "model 'llama3' not found, try pulling it first"},
+                )
+            )
+
+            with pytest.raises(Exception) as exc_info:
+                await adapter.execute(request)
+
+            error_msg = str(exc_info.value)
+            self.assert_no_sensitive_data(error_msg, context="ollama error")
+
+    @pytest.mark.asyncio
+    async def test_stream_error_normalized(self, processing_context):
+        """Ollama streaming HTTP errors should be normalized."""
+        from anonreq.providers.ollama import OllamaAdapter
+
+        adapter = OllamaAdapter()
+        request = adapter.translate_request(processing_context)
+
+        # Force streaming URL by setting stream flag
+        request.body["stream"] = True
+
+        with respx.mock:
+            route = respx.post("http://localhost:11434/api/chat")
+            route.mock(
+                return_value=Response(
+                    503,
+                    json={"error": "server is overloaded"},
+                )
+            )
+
+            with pytest.raises(Exception) as exc_info:
+                async for _ in adapter.stream_events(request):
+                    pass
+
+            error_msg = str(exc_info.value)
+            self.assert_no_sensitive_data(error_msg, context="ollama stream error")
