@@ -416,12 +416,15 @@ class TestGeminiTranslateRequest:
         assert "model" in body
         assert "contents" in body
 
-        # Messages should include all roles
+        # Messages should exclude system (it's in system_instruction)
         messages = body["contents"]
-        assert len(messages) == 3  # system, user, assistant
+        assert len(messages) == 2  # user + assistant
         # Gemini uses "model" role, not "assistant"
         assert messages[0]["role"] == "user"
         assert messages[-1]["role"] == "model"
+        # Each content should have parts array with text
+        assert "parts" in messages[0]
+        assert "text" in messages[0]["parts"][0]
 
     def test_system_message_to_system_instruction(self, processing_context):
         """System message should become top-level ``system_instruction``."""
@@ -522,11 +525,13 @@ class TestGeminiStreamEvents:
             b'"parts":[{"text":" world"}]}}]}\n\n'
         )
 
+        stream_url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            "gemini-pro:streamGenerateContent?alt=sse"
+        )
+
         with respx.mock:
-            route = respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                "gemini-pro:streamGenerateContent"
-            )
+            route = respx.post(stream_url)
             route.mock(
                 return_value=Response(
                     200,
@@ -536,10 +541,7 @@ class TestGeminiStreamEvents:
             )
 
             request = ProviderRequest(
-                url=(
-                    "https://generativelanguage.googleapis.com/v1beta/models/"
-                    "gemini-pro:streamGenerateContent"
-                ),
+                url=stream_url,
                 headers={
                     "x-goog-api-key": "test-key",
                     "Content-Type": "application/json",
@@ -569,11 +571,13 @@ class TestGeminiStreamEvents:
             b'"parts":[{"text":" world"}]},"finishReason":"STOP"}]}\n\n'
         )
 
+        stream_url = (
+            "https://generativelanguage.googleapis.com/v1beta/models/"
+            "gemini-pro:streamGenerateContent?alt=sse"
+        )
+
         with respx.mock:
-            route = respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                "gemini-pro:streamGenerateContent"
-            )
+            route = respx.post(stream_url)
             route.mock(
                 return_value=Response(
                     200,
@@ -583,10 +587,7 @@ class TestGeminiStreamEvents:
             )
 
             request = ProviderRequest(
-                url=(
-                    "https://generativelanguage.googleapis.com/v1beta/models/"
-                    "gemini-pro:streamGenerateContent"
-                ),
+                url=stream_url,
                 headers={
                     "x-goog-api-key": "test-key",
                     "Content-Type": "application/json",
@@ -622,11 +623,14 @@ class TestGeminiErrorNormalization:
         with patch.dict(os.environ, {"ANONREQ_GEMINI_API_KEY": "test-invalid-key"}):
             request = adapter.translate_request(processing_context)
 
+            # Non-streaming URL
+            execute_url = (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                "gemini-pro:generateContent"
+            )
+
             with respx.mock:
-                route = respx.post(
-                    "https://generativelanguage.googleapis.com/v1beta/models/"
-                    "gemini-pro:generateContent"
-                )
+                route = respx.post(execute_url)
                 route.mock(
                     return_value=Response(
                         401,
@@ -661,11 +665,14 @@ class TestGeminiErrorNormalization:
         with patch.dict(os.environ, {"ANONREQ_GEMINI_API_KEY": "test-key"}):
             request = adapter.translate_request(processing_context)
 
+            # Non-streaming URL
+            execute_url = (
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                "gemini-pro:generateContent"
+            )
+
             with respx.mock:
-                route = respx.post(
-                    "https://generativelanguage.googleapis.com/v1beta/models/"
-                    "gemini-pro:generateContent"
-                )
+                route = respx.post(execute_url)
                 route.mock(
                     return_value=Response(
                         429,
