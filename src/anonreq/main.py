@@ -31,7 +31,13 @@ from anonreq.cache.manager import CacheManager
 from anonreq.cache.health import check_cache_health
 from anonreq.config import settings
 from anonreq.compliance.engine import PresetEngine
+from anonreq.services.audit_chain import AuditChainService, AuditConfig
+from anonreq.services.chain_anchor import ChainAnchorService, AnchorConfig
+from sqlalchemy.ext.asyncio import create_async_engine
 from anonreq.admin.routes import admin_router
+from anonreq.proxy.ca_manager import CAManager
+from anonreq.proxy.mitm_handler import MITMHandler, mitm_middleware
+from anonreq.proxy.tls import TLSInterceptor, ConfigurationError
 from anonreq.dependencies import auth_context
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.exceptions import (
@@ -45,11 +51,16 @@ from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.registry import LocaleRegistry
 from anonreq.logging_config import setup_logging
+from anonreq.middleware.classification import ClassificationMiddleware
+from anonreq.middleware.policy import PolicyMiddleware
 from anonreq.monitoring.middleware import MetricsMiddleware
 from anonreq.models.request_context import RequestContext
 from anonreq.providers.registry import ProviderRegistry
 from anonreq.routing.chat import build_pipeline, router as chat_router
 from anonreq.routes.compliance import router as compliance_router
+from anonreq.governance.router import governance_router as governance_record_router
+from anonreq.routes.governance import router as governance_router
+from anonreq.routes.oversight import router as oversight_router
 from anonreq.routes.models import router as models_router
 from anonreq.routing.alias_registry import AliasRegistry
 from anonreq.startup_checks import run_startup_checks
@@ -164,11 +175,117 @@ def create_app() -> FastAPI:
         )
         app.state.pipeline = pipeline
 
+        # Phase 8: Enterprise Policy Engine
+        try:
+            from anonreq.policy.config import load_policy_config
+            from anonreq.policy.models import RateLimitConfig
+            from anonreq.policy.store import PolicyStore
+            from anonreq.policy.usage_limiter import UsageLimiter
+            from anonreq.policy.spend_controller import SpendController
+            from anonreq.policy.residency_router import ResidencyRouter
+            from anonreq.policy.pdp import PolicyDecisionPoint
+            from anonreq.policy.pep import PolicyEnforcementPoint
+            from anonreq.policy.forwarding_guard import ForwardingGuard
+
+            policy_config = load_policy_config("config/policy.yaml")
+            policy_store = PolicyStore(cache_manager, policy_config)
+            rate_limits = policy_config.rate_limits or RateLimitConfig()
+            usage_limiter = UsageLimiter(cache_manager, rate_limits)
+            spend_controller = SpendController(cache_manager, policy_config.spend_budgets)
+            residency_router = ResidencyRouter(policy_config.residency_rules)
+            pdp = PolicyDecisionPoint(
+                policy_store=policy_store,
+                usage_limiter=usage_limiter,
+                spend_controller=spend_controller,
+                residency_router=residency_router,
+            )
+            pep = PolicyEnforcementPoint()
+            forwarding_guard = ForwardingGuard()
+
+            app.state.pdp = pdp
+            app.state.pep = pep
+            app.state.forwarding_guard = forwarding_guard
+            app.state.policy_store = policy_store
+            log.info("Policy engine initialised", component="lifespan")
+        except Exception as exc:
+            log.error("Failed to initialise policy engine", component="lifespan", error=str(exc))
+            await cache_manager.close()
+            raise
+
+        # Phase 17: MITM proxy setup
+        ca_manager = CAManager(ca_dir=settings.CA_DIR)
+        app.state.ca_manager = ca_manager
+
+        ca_info = await ca_manager.get_ca_info()
+        if ca_info is None and settings.PROXY_MODE == "transparent":
+            log.warning(
+                "No CA certificate loaded in transparent proxy mode",
+                component="lifespan",
+                ca_dir=settings.CA_DIR,
+            )
+
+        tls_interceptor: TLSInterceptor | None = None
+        if ca_info is not None:
+            try:
+                serial = ca_info["serial"]
+                cert_path = f"{settings.CA_DIR}/{serial}.pem"
+                key_path = f"{settings.CA_DIR}/{serial}.key"
+                tls_interceptor = TLSInterceptor(
+                    ca_cert_path=cert_path,
+                    ca_key_path=key_path,
+                )
+            except ConfigurationError as exc:
+                log.error("Failed to create TLS interceptor", component="lifespan", error=str(exc))
+
+        if tls_interceptor is not None:
+            mitm_handler = MITMHandler(
+                tls_interceptor=tls_interceptor,
+                ca_manager=ca_manager,
+            )
+            app.state.mitm_handler = mitm_handler
+
+            @app.middleware("http")
+            async def proxy_middleware(request: Request, call_next):
+                return await mitm_middleware(request, call_next)
+
+            log.info("MITM proxy middleware registered", component="lifespan")
+
+        # Phase 11: Initialize audit database and services
+        audit_engine = create_async_engine(settings.DATABASE_URL)
+        app.state.audit_engine = audit_engine
+        audit_config = AuditConfig(retention_days=2557)
+        audit_chain = AuditChainService(audit_engine, audit_config)
+        app.state.audit_chain = audit_chain
+
+        anchor_config = AnchorConfig(
+            signing_key=settings.ANCHOR_SIGNING_KEY,
+        )
+        chain_anchor = ChainAnchorService(audit_chain, audit_engine, anchor_config)
+        app.state.chain_anchor = chain_anchor
+
+        # Phase 14: AI Governance & Oversight services
+        from anonreq.services.oversight import OversightService
+        from anonreq.services.lifecycle import LifecycleService
+        from anonreq.services.transparency import TransparencyService
+        from anonreq.services.notifications import NotificationService
+
+        app.state.oversight_service = OversightService(cache_manager)
+        app.state.lifecycle_service = LifecycleService(cache_manager)
+        app.state.transparency_service = TransparencyService(cache_manager)
+        app.state.notification_service = NotificationService(cache_manager)
+
+        log.info("Phase 14 governance services initialized", component="lifespan")
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
         # Clean shutdown
         log.info("Shutting down", component="lifespan")
+        if hasattr(app.state, "audit_engine"):
+            await app.state.audit_engine.dispose()
+        if hasattr(app.state, "mitm_handler"):
+            await app.state.mitm_handler.close()
+        if hasattr(app.state, "ca_manager"):
+            await app.state.ca_manager.close()
         await presidio_client.close()
         await cache_manager.close()
 
@@ -189,6 +306,17 @@ def create_app() -> FastAPI:
     # to run on request, last on response), capturing request_receipt_time
     # before any other middleware processing.
     app.add_middleware(MetricsMiddleware)
+
+    # ClassificationMiddleware — parses X-AnonReq-Classification header,
+    # blocks HIGHLY_RESTRICTED requests with HTTP 451, stores client
+    # classification on request state for pipeline use.
+    # Runs after MetricsMiddleware but before PolicyMiddleware (PDP #2)
+    # per Plan 12-02: after Content-Type dispatch, before PDP #2.
+    app.add_middleware(ClassificationMiddleware)
+
+    # PolicyMiddleware — evaluates PDP/PEP on chat-completion routes.
+    # Runs after request-context middleware so request_id is available.
+    app.add_middleware(PolicyMiddleware)
 
     # Add /metrics endpoint for Prometheus scraping (no auth — scrapers
     # connect on internal networks; secured at network level)
@@ -218,6 +346,9 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, dependencies=[Depends(auth_context)])
     app.include_router(models_router, dependencies=[Depends(auth_context)])
     app.include_router(compliance_router, dependencies=[Depends(auth_context)])
+    app.include_router(governance_router, dependencies=[Depends(auth_context)])
+    app.include_router(governance_record_router, dependencies=[Depends(auth_context)])
+    app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
 
     @app.get("/")
