@@ -184,9 +184,11 @@ class TestVersioning:
 
     async def test_change_entry_default_timestamp(self):
         from anonreq.models.governance import ChangeEntry
+        from datetime import datetime, timezone
 
         entry = ChangeEntry(
             version=1,
+            changed_at=datetime.now(timezone.utc),
             changed_by="test",
             description="test",
         )

@@ -160,7 +160,7 @@ class TransparencyService:
             sessions = await self.list_sessions(tenant_id)
             zf.writestr(
                 "transparency_records.json",
-                json.dumps([s.model_dump() for s in sessions], indent=2),
+                json.dumps([s.model_dump(mode="json") for s in sessions], indent=2),
             )
 
         return buf.getvalue()
