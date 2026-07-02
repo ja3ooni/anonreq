@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from hypothesis import assume, given, settings, strategies as st
+from hypothesis import HealthCheck, assume, given, settings, strategies as st
 
 from anonreq.models.governance import (
     ChangeEntry,
@@ -32,7 +32,7 @@ from anonreq.services.transparency import TransparencyService
 # ── Strategies ──────────────────────────────────────────────────────────
 
 tenant_strategy = st.text(min_size=1, max_size=32, alphabet=st.characters(
-    whitelist_categories=("L", "N", "Punctuation"),
+    whitelist_categories=("L", "N", "P"),
     whitelist_characters="-_.",
 ))
 operator_strategy = st.emails()
@@ -221,7 +221,7 @@ async def test_change_entry_with_changes(version, changes):
 @given(
     n=st.integers(min_value=0, max_value=5),
 )
-@settings(max_examples=50, deadline=None)
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_oversight_service_create_batch(cache_manager, n):
     """Invariant: batch creating approvals preserves count."""
     svc = OversightService(cache_manager)
@@ -244,7 +244,7 @@ async def test_oversight_service_create_batch(cache_manager, n):
     score1=risk_score_strategy,
     score2=risk_score_strategy,
 )
-@settings(max_examples=100, deadline=None)
+@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
 async def test_kill_switch_blocks_after_activate(cache_manager, tenant, score1, score2):
     """Invariant: after kill-switch activation, is_kill_switch_active returns True."""
     assume(score1 != score2)
