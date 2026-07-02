@@ -187,9 +187,9 @@ presets enforce mandated entity detection at startup.
 
 **Plans**:
 
-- [ ] 04-01: Locale recognizer bundles (8 YAML configs with checksum validation)
-- [ ] 04-02: Locale negotiation (header parsing, multi-locale merging, fallback, checksums)
-- [ ] 04-03: Compliance preset engine (6 presets, startup validation, merge, audit field,
+- [x] 04-01: Locale recognizer bundles (8 YAML configs with checksum validation)
+- [x] 04-02: Locale negotiation (header parsing, multi-locale merging, fallback, checksums)
+- [x] 04-03: Compliance preset engine (6 presets, startup validation, merge, audit field,
       `GET /v1/compliance/presets`)
 
 ---
@@ -220,11 +220,12 @@ post-restoration token verification, and custom detection rules API.
 
 - [x] 05-01-PLAN.md
 - [x] 05-02-PLAN.md
-- [ ] 05-TEST-PLAN.md
+- [x] 05-TEST-PLAN.md
 
-2/3 plans executed
+3/3 plans executed
 
-- [x] 05-02: Post-restoration token verification scan (non-streaming + post-stream)
+- [x] 05-01: Prometheus metrics endpoint + k6 load test
+- [x] 05-02: Post-restoration token verification scan (non-streaming + post-stream) + Admin API hot-reload
 
 ---
 
@@ -250,8 +251,8 @@ post-restoration token verification, and custom detection rules API.
 
 **Plans**:
 
-- [ ] 06-01: Fail-secure and no-PII-in-logs property tests
-- [ ] 06-02: Cross-request randomization probability test
+- [x] 06-01: Fail-secure and no-PII-in-logs property tests
+- [x] 06-02: Cross-request randomization probability test
 - [ ] 06-03: Locale checksum invalidation tests
 
 ---
@@ -321,13 +322,13 @@ post-restoration token verification, and custom detection rules API.
 |-------|-------|--------|-----------|
 | 1. Foundation, Fail-Secure & Auth | 4/4 | Planned | — |
 | 2. Core Pipeline & Classification | 4/5 | In Progress|  |
-| 3. SSE Streaming + Multi-Provider | 0/4 | Not started | — |
-| 4. Multi-Locale + Compliance Presets | 0/3 | Not started | — |
-| 5. Configuration & Observability | 2/3 | In Progress|  |
+| 3. SSE Streaming + Multi-Provider | 3/4 | In Progress | — |
+| 4. Multi-Locale + Compliance Presets | 4/4 | Complete | 2026-07-02 |
+| 5. Configuration & Observability | 3/3 | Complete | 2026-07-02 |
 | 6. Advanced Property-Based Tests | 0/3 | Not started | — |
 | 6.5. Production Readiness Review | 0/1 | Planned | — |
 | 7. Developer Experience & Docs | 3/3 | Planned | — |
-| **Stage 1 Total** | **9/25** | | |
+| **Stage 1 Total** | **19/25** | | |
 
 ---
 
@@ -777,7 +778,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Stage | Phases | Plans | Status |
 |-------|--------|-------|--------|
-| 1. Prove the Problem | 7 (1–7) | 24 | 9/24 Planned |
+| 1. Prove the Problem | 7 (1–7) | 25 | 19/25 Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | TBD | Not started |
 | 3. Build the Moat | 5 (17–21) | TBD | Not started |
 | **Total** | **21** | **25+TBD** | |

@@ -122,7 +122,7 @@
 - [ ] **TEST-05**: Locale checksum — invalid checksums not flagged
 - [ ] **TEST-06**: No-PII-in-logs — synthetic PII absent from log output
 - [ ] **TEST-07**: Streaming round-trip — all split indices produce byte-for-byte match
-- [ ] **TEST-08**: Cross-request randomization — 1000+ session pairs, ≥ 1 − 2⁻³² probability
+- [x] **TEST-08**: Cross-request randomization — 1000+ session pairs, ≥ 1 − 2⁻³² probability
 
 ### Developer Experience & Documentation
 
@@ -630,7 +630,7 @@
 | TEST-05 | Phase 6 | Pending |
 | TEST-06 | Phase 6 | Pending |
 | TEST-07 | Phase 6 | Pending |
-| TEST-08 | Phase 6 | Pending |
+| TEST-08 | Phase 6 | Complete |
 | DOCS-01 | Phase 7 | Pending |
 | DOCS-02 | Phase 7 | Pending |
 | DOCS-03 | Phase 7 | Pending |
