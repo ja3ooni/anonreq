@@ -7,6 +7,13 @@ Per D-38 through D-41 and D-50:
 - Applies ExclusionList to suppress false positives
 - On any error: ctx.fail_secure() per D-50
 
+Hot-reload integration (D-152, D-154):
+- DetectionStage accepts an optional AtomicConfigRegistry reference
+- During each execute(), custom recognizer patterns from the registry
+  are merged with locale-based patterns for detection
+- Custom patterns are checked on every detection call (no notification
+  channel needed for MVP)
+
 Instrumentation (D-160, D-161):
 - Records ``detection_latency_ms`` histogram after detection completes
 - Increments ``entities_detected`` counter per entity type and locale
@@ -17,7 +24,7 @@ from __future__ import annotations
 
 import inspect
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 from structlog import get_logger
@@ -29,6 +36,9 @@ from anonreq.models.processing_context import ProcessingContext
 from anonreq.monitoring.metrics import detection_latency, entities_detected, fail_secure_events
 from anonreq.pipeline.base import PipelineStage
 from anonreq.pipeline.extraction import TextExtractor
+
+if TYPE_CHECKING:
+    from anonreq.admin.config import AtomicConfigRegistry
 
 logger = get_logger("anonreq.pipeline.detection")
 
@@ -51,6 +61,7 @@ class DetectionStage(PipelineStage):
         span_arbiter: Any,
         exclusion_list: Any,
         checksum_registry: ChecksumValidatorRegistry | None = None,
+        config_registry: AtomicConfigRegistry | None = None,
     ) -> None:
         """Initialise with detection dependencies.
 
@@ -59,6 +70,9 @@ class DetectionStage(PipelineStage):
             presidio_client: ``PresidioClient`` for NER analysis.
             span_arbiter: ``SpanArbiter`` for merge/overlap resolution.
             exclusion_list: ``ExclusionList`` for false-positive suppression.
+            checksum_registry: Optional registry for checksum validation.
+            config_registry: Optional ``AtomicConfigRegistry`` for hot-reloaded
+                custom recognizer patterns (D-152, D-154).
         """
         super().__init__("DetectionStage")
         self._regex_detector = regex_detector
@@ -66,6 +80,7 @@ class DetectionStage(PipelineStage):
         self._span_arbiter = span_arbiter
         self._exclusion_list = exclusion_list
         self._checksum_registry = checksum_registry or ChecksumValidatorRegistry()
+        self._config_registry = config_registry
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Detect PII in request text nodes.
@@ -98,6 +113,18 @@ class DetectionStage(PipelineStage):
                 else []
             )
             regex_patterns = self._regex_detector.patterns_from_entity_configs(entity_configs)
+
+            # Hot-reload integration: merge custom recognizer patterns from
+            # AtomicConfigRegistry (D-152). These are checked on every detection
+            # call — no notification channel needed for MVP.
+            if self._config_registry is not None:
+                from anonreq.detection.provider import get_custom_recognizer_patterns as get_custom
+
+                custom = get_custom(self._config_registry)
+                if custom:
+                    regex_patterns = dict(regex_patterns or {})
+                    regex_patterns.update(custom)
+
             ner_entities = sorted({
                 entity
                 for config in entity_configs

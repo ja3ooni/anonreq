@@ -31,6 +31,7 @@ from anonreq.cache.manager import CacheManager
 from anonreq.cache.health import check_cache_health
 from anonreq.config import settings
 from anonreq.compliance.engine import PresetEngine
+from anonreq.admin.routes import admin_router
 from anonreq.dependencies import auth_context
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.exceptions import (
@@ -217,6 +218,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, dependencies=[Depends(auth_context)])
     app.include_router(models_router, dependencies=[Depends(auth_context)])
     app.include_router(compliance_router, dependencies=[Depends(auth_context)])
+    app.include_router(admin_router, dependencies=[Depends(auth_context)])
 
     @app.get("/")
     async def root(ctx=Depends(auth_context)):
