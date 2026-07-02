@@ -68,6 +68,7 @@ class ProcessingContext:
     detections: list[dict] | None = None
     token_mappings: dict[str, str] | None = None
     transformed_request: dict | None = None
+    assembled_response: str | None = None
     provider_response: dict | None = None
     restored_response: dict | None = None
     provider: str | None = None
