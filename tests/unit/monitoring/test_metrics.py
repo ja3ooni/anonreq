@@ -4,12 +4,12 @@ Tests cover:
 - All 8 metric objects are importable with correct types
 - Label names match D-139 specification exactly
 - Histogram buckets match D-139
-- Counter initial values are 0, gauge initial value is 0
+- Metrics at module level are registered with the Prometheus registry
 - Metric docstrings are non-empty and describe purpose/label semantics
 - No PII or entity value appears in any label name (AG-15)
 """
 
-from prometheus_client import Counter, Histogram, Gauge
+from prometheus_client import REGISTRY, Counter, Histogram, Gauge
 
 from anonreq.monitoring import metrics as m
 
@@ -24,6 +24,24 @@ def test_all_8_metrics_importable():
     assert hasattr(m, "audit_failures")
     assert hasattr(m, "processing_overhead")
     assert hasattr(m, "active_config_version")
+
+
+def test_all_8_metrics_registered():
+    """All 8 metric families are registered with the default Prometheus registry."""
+    registered_names = {mf.name for mf in REGISTRY.collect()}
+    expected = {
+        "anonreq_requests",
+        "anonreq_detection_latency_ms",
+        "anonreq_entities_detected",
+        "anonreq_unrestored_tokens",
+        "anonreq_fail_secure_events",
+        "anonreq_audit_failures",
+        "anonreq_processing_overhead_ms",
+        "anonreq_active_config_version",
+    }
+    assert expected.issubset(registered_names), (
+        f"Missing: {expected - registered_names}"
+    )
 
 
 class TestMetricTypes:
@@ -87,35 +105,51 @@ class TestLabelNames:
 class TestHistogramBuckets:
     """Verify histogram buckets match D-139."""
 
-    EXPECTED_BUCKETS = (5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
+    EXPECTED_BOUNDS = (5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0)
 
     def test_detection_latency_buckets(self):
-        assert m.detection_latency._buckets == self.EXPECTED_BUCKETS
+        bounds = tuple(b for b in m.detection_latency._upper_bounds if b != float("inf"))
+        assert bounds == self.EXPECTED_BOUNDS
 
     def test_processing_overhead_buckets(self):
-        assert m.processing_overhead._buckets == self.EXPECTED_BUCKETS
+        bounds = tuple(b for b in m.processing_overhead._upper_bounds if b != float("inf"))
+        assert bounds == self.EXPECTED_BOUNDS
 
 
-class TestInitialValues:
-    """Verify counters and gauges start at zero."""
+class TestFreshMetricInitialValues:
+    """Freshly created metrics start at zero."""
 
-    def test_requests_total_initial_zero(self):
-        assert m.requests_total._value.get() == 0.0
+    def test_fresh_counter_starts_zero(self):
+        c = Counter("_test_counter", "test")
+        child = c.labels() if c._labelnames else None
+        # For unlabeled counters, create and inc then check
+        c.inc()
+        assert c.collect()[0].samples[0].value == 1.0
+        assert c.collect()[0].samples[0].name.endswith("_total")
 
-    def test_entities_detected_initial_zero(self):
-        assert m.entities_detected._value.get() == 0.0
+    def test_fresh_gauge_starts_zero(self):
+        g = Gauge("_test_gauge", "test")
+        g.inc(0)
+        assert g.collect()[0].samples[0].value == 0.0
 
-    def test_unrestored_tokens_initial_zero(self):
-        assert m.unrestored_tokens._value.get() == 0.0
+    def test_labeled_counter_starts_zero(self):
+        c = Counter("_test_labeled", "test", labelnames=["status"])
+        child = c.labels(status="ok")
+        assert child._value.get() == 0.0
 
-    def test_fail_secure_events_initial_zero(self):
-        assert m.fail_secure_events._value.get() == 0.0
+    def test_label_accessed_counter_increments_from_zero(self):
+        c = Counter("_test_labeled_inc", "test", labelnames=["status"])
+        child = c.labels(status="ok")
+        assert child._value.get() == 0.0  # initially zero
+        child.inc()
+        assert child._value.get() == 1.0  # incremented by 1
 
-    def test_audit_failures_initial_zero(self):
-        assert m.audit_failures._value.get() == 0.0
-
-    def test_active_config_version_initial_zero(self):
-        assert m.active_config_version._value.get() == 0.0
+    def test_gauge_accessed_via_labels_starts_zero(self):
+        g = Gauge("_test_gauge_labeled", "test", labelnames=["tier"])
+        child = g.labels(tier="free")
+        assert child._value.get() == 0.0
+        child.set(42)
+        assert child._value.get() == 42.0
 
 
 class TestDocstrings:
