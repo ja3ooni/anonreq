@@ -4,7 +4,7 @@ Provides all 8 metrics required by D-139:
 - ``requests_total`` — Counter partitioned by endpoint, status_code, provider, classification
 - ``detection_latency`` — Histogram of detection engine latency in milliseconds
 - ``entities_detected`` — Counter partitioned by entity_type and locale
-- ``unrestored_tokens`` — Counter partitioned by endpoint
+- ``unrestored_tokens`` — Counter partitioned by entity_type
 - ``fail_secure_events`` — Counter partitioned by failure_type
 - ``audit_failures`` — Counter (unlabeled)
 - ``processing_overhead`` — Histogram of gateway processing overhead in milliseconds
@@ -37,8 +37,8 @@ entities_detected = Counter(
 
 unrestored_tokens = Counter(
     "anonreq_unrestored_tokens_total",
-    "Residual unrestored tokens found post-restoration, partitioned by endpoint",
-    labelnames=["endpoint"],
+    "Residual unrestored tokens found post-restoration, partitioned by entity type",
+    labelnames=["entity_type"],
 )
 
 fail_secure_events = Counter(

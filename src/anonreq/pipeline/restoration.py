@@ -6,11 +6,17 @@ Per PIPE-04:
   with their original values
 - Performs post-restoration verification: scans for residual tokens
 - On missing provider response: 500 error
+
+Instrumentation (D-141, D-161):
+- Calculates ``processing_overhead_ms`` and records in histogram
+- Increments ``unrestored_tokens`` if residual tokens found
+- Increments ``fail_secure_events_total`` on fail-secure path
 """
 
 from __future__ import annotations
 
 import re
+import time
 from typing import Any
 
 import structlog
@@ -19,6 +25,7 @@ from structlog import get_logger
 from anonreq.exceptions import PipelineAbortError
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.models.tokenization import TOKEN_PATTERN
+from anonreq.monitoring.metrics import fail_secure_events, processing_overhead, unrestored_tokens
 from anonreq.pipeline.base import PipelineStage
 from anonreq.tokenization.restorer import Restorer
 
@@ -96,6 +103,16 @@ class RestorationStage(PipelineStage):
                     request_id=ctx.request_id,
                     residual_counts=residual_counts,
                 )
+                # Increment unrestored_tokens counter per entity type (D-161)
+                for etype, count in residual_counts.items():
+                    unrestored_tokens.labels(entity_type=etype).inc(count)
+
+            # Record processing overhead (D-141)
+            if ctx.request_receipt_time is not None:
+                now = time.monotonic()
+                overhead_ms = (now - ctx.request_receipt_time) * 1000.0
+                ctx.processing_overhead_ms = overhead_ms
+                processing_overhead.observe(overhead_ms)
 
             logger.info(
                 "restoration.complete",
@@ -105,8 +122,10 @@ class RestorationStage(PipelineStage):
             )
 
         except PipelineAbortError:
+            fail_secure_events.labels(failure_type="restoration_error").inc()
             raise
         except Exception as exc:
+            fail_secure_events.labels(failure_type="restoration_error").inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,

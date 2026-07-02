@@ -7,10 +7,15 @@ Per D-03 (FAIL-05) and D-48:
 - PASS classification → no prerequisite checks needed (forward unchanged)
 - ANONYMIZE classification → verifies detections and token_mappings exist
 - Any check fails → 503 fail-secure: request is never forwarded
+
+Instrumentation (D-140, D-161):
+- Sets ``ctx.provider_dispatch_time`` on successful verification
+- Increments ``fail_secure_events_total`` on fail-secure path
 """
 
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import structlog
@@ -18,6 +23,7 @@ from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError
 from anonreq.models.processing_context import ProcessingContext
+from anonreq.monitoring.metrics import fail_secure_events
 from anonreq.pipeline.base import PipelineStage
 
 logger = get_logger("anonreq.pipeline.guard")
@@ -44,6 +50,7 @@ class ForwardingGuard(PipelineStage):
         """
         # Must have classification result
         if ctx.classification_result is None:
+            fail_secure_events.labels(failure_type="forwarding_denied").inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=503,
@@ -54,6 +61,11 @@ class ForwardingGuard(PipelineStage):
             return ctx
 
         action = ctx.classification_result.get("action", "PASS")
+
+        # Record provider dispatch time for overhead calculation (D-140).
+        # Set early (before PASS/ANONYMIZE branches) because both paths
+        # that allow forwarding need the timestamp.
+        ctx.provider_dispatch_time = time.monotonic()
 
         if action == "PASS":
             # PASS requests need no detection or tokenisation
@@ -69,6 +81,7 @@ class ForwardingGuard(PipelineStage):
         if action == "ANONYMIZE":
             # Verify detection ran
             if ctx.detections is None:
+                fail_secure_events.labels(failure_type="forwarding_denied").inc()
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=503,
@@ -83,6 +96,7 @@ class ForwardingGuard(PipelineStage):
 
             # Verify tokenisation ran (or no mapping needed per TOKN-06/07)
             if ctx.token_mappings is None:
+                fail_secure_events.labels(failure_type="forwarding_denied").inc()
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=503,
@@ -97,6 +111,7 @@ class ForwardingGuard(PipelineStage):
 
             # Verify transformed_request exists (but not for empty detections)
             if ctx.detections and ctx.transformed_request is None:
+                fail_secure_events.labels(failure_type="forwarding_denied").inc()
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=503,

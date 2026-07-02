@@ -87,7 +87,7 @@ class TestLabelNames:
         assert m.entities_detected._labelnames == ("entity_type", "locale")
 
     def test_unrestored_tokens_labels(self):
-        assert m.unrestored_tokens._labelnames == ("endpoint",)
+        assert m.unrestored_tokens._labelnames == ("entity_type",)
 
     def test_fail_secure_events_labels(self):
         assert m.fail_secure_events._labelnames == ("failure_type",)

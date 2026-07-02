@@ -13,8 +13,6 @@ Tests cover:
 - Labels never contain raw entity values or request content (AG-15)
 """
 
-from __future__ import annotations
-
 from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
@@ -29,13 +27,13 @@ class TestMetricsMiddleware:
     @pytest.mark.asyncio
     async def test_records_request_receipt_time(self):
         """Middleware stores request_receipt_time on request.state."""
-        from fastapi import FastAPI
+        from fastapi import FastAPI, Request
         from httpx import ASGITransport, AsyncClient
 
         app = FastAPI()
 
         @app.get("/test")
-        async def test_endpoint(request):
+        async def test_endpoint(request: Request):
             # Check request_receipt_time was set
             assert hasattr(request.state, "request_receipt_time")
             assert request.state.request_receipt_time is not None
@@ -51,14 +49,14 @@ class TestMetricsMiddleware:
     @pytest.mark.asyncio
     async def test_increments_requests_total(self):
         """requests_total incremented with correct labels after response."""
-        from fastapi import FastAPI
+        from fastapi import FastAPI, Request
         from httpx import ASGITransport, AsyncClient
 
         # Create fresh app with middleware
         app = FastAPI()
 
         @app.get("/v1/chat/completions")
-        async def chat_endpoint(request):
+        async def chat_endpoint(request: Request):
             request.state.provider = "openai"
             request.state.classification = "anonymize"
             return {"ok": True}
@@ -402,7 +400,8 @@ class TestNoPIIInInstrumentationLabels:
         from anonreq.monitoring.metrics import fail_secure_events
         valid_types = {
             "detection_error", "cache_error", "forwarding_denied",
-            "provider_timeout", "circuit_breaker_open", "auth_error", "internal_error",
+            "provider_timeout", "circuit_breaker_open", "auth_error",
+            "internal_error", "restoration_error",
         }
         # Verify that failure_type is a label name
         assert "failure_type" in fail_secure_events._labelnames

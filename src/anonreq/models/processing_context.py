@@ -9,6 +9,10 @@ Per D-49: any stage failure aborts the pipeline immediately by appending
 to ``errors``. ``has_errors()`` checks before each stage executes.
 ``fail_secure()`` is the canonical way to record an error and trigger
 pipeline abort.
+
+Timing fields (request_receipt_time, provider_dispatch_time,
+processing_overhead_ms) are populated by MetricsMiddleware and pipeline
+stages for Prometheus observability per D-140, D-141, D-160, D-161.
 """
 
 from __future__ import annotations
@@ -44,6 +48,12 @@ class ProcessingContext:
         restored_response: Response dict with all tokens restored to
             original values.
         audit_metadata: Arbitrary metadata dict for audit log enrichment.
+        request_receipt_time: ``time.monotonic()`` stamp set by
+            ``MetricsMiddleware`` at request start.
+        provider_dispatch_time: ``time.monotonic()`` stamp set by
+            ``ForwardingGuard`` before the upstream LLM call.
+        processing_overhead_ms: Calculated elapsed milliseconds between
+            request receipt and response dispatch, set by restoration.
         errors: List of exceptions recorded during pipeline execution.
             Any non-empty list prevents downstream stage execution and
             ensures a fail-secure HTTP 5xx response.
@@ -60,6 +70,20 @@ class ProcessingContext:
     transformed_request: dict | None = None
     provider_response: dict | None = None
     restored_response: dict | None = None
+    provider: str | None = None
+    model: str | None = None
+    locale_header: str | None = None
+    locale_bundles: Any | None = None
+    merged_recognizers: Any | None = None
+    stream_events: Any | None = None
+    stream_finished: bool = False
+    terminal_state: str | None = None
+
+    # Timing fields for Prometheus observability (D-140, D-141, D-160, D-161)
+    request_receipt_time: float | None = None
+    provider_dispatch_time: float | None = None
+    processing_overhead_ms: float | None = None
+
     audit_metadata: dict[str, Any] = field(default_factory=dict)
     errors: list[Exception] = field(default_factory=list)
 

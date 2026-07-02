@@ -6,17 +6,27 @@ Per D-38 through D-41 and D-50:
 - Merges both result sets via SpanArbiter (regex wins on exact overlap)
 - Applies ExclusionList to suppress false positives
 - On any error: ctx.fail_secure() per D-50
+
+Instrumentation (D-160, D-161):
+- Records ``detection_latency_ms`` histogram after detection completes
+- Increments ``entities_detected`` counter per entity type and locale
+- Increments ``fail_secure_events_total`` on fail-secure path
 """
 
 from __future__ import annotations
 
+import inspect
+import time
 from typing import Any
 
 import structlog
 from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError
+from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
+from anonreq.locale.bundle import RecognizerTier
 from anonreq.models.processing_context import ProcessingContext
+from anonreq.monitoring.metrics import detection_latency, entities_detected, fail_secure_events
 from anonreq.pipeline.base import PipelineStage
 from anonreq.pipeline.extraction import TextExtractor
 
@@ -40,6 +50,7 @@ class DetectionStage(PipelineStage):
         presidio_client: Any,
         span_arbiter: Any,
         exclusion_list: Any,
+        checksum_registry: ChecksumValidatorRegistry | None = None,
     ) -> None:
         """Initialise with detection dependencies.
 
@@ -54,6 +65,7 @@ class DetectionStage(PipelineStage):
         self._presidio_client = presidio_client
         self._span_arbiter = span_arbiter
         self._exclusion_list = exclusion_list
+        self._checksum_registry = checksum_registry or ChecksumValidatorRegistry()
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Detect PII in request text nodes.
@@ -79,10 +91,31 @@ class DetectionStage(PipelineStage):
             return ctx
 
         try:
-            # Run Presidio NER across all nodes concurrently
-            ner_results_list = await self._presidio_client.analyze_text_nodes(
-                ctx.text_nodes,
+            merged_recognizers = getattr(ctx, "merged_recognizers", None)
+            entity_configs = (
+                list(merged_recognizers.entity_configs.values())
+                if merged_recognizers is not None
+                else []
             )
+            regex_patterns = self._regex_detector.patterns_from_entity_configs(entity_configs)
+            ner_entities = sorted({
+                entity
+                for config in entity_configs
+                if config.tier in (RecognizerTier.NER, RecognizerTier.BOTH)
+                for entity in config.presidio_entities
+            }) or None
+            score_threshold = min(
+                [config.confidence_threshold for config in entity_configs],
+                default=0.7,
+            )
+
+            # Run Presidio NER across all nodes concurrently
+            ner_call = self._presidio_client.analyze_text_nodes(
+                ctx.text_nodes,
+                entities=ner_entities,
+                score_threshold=score_threshold,
+            )
+            ner_results_list = await ner_call if inspect.isawaitable(ner_call) else ner_call
 
             all_detections: list[dict[str, Any]] = []
 
@@ -90,7 +123,10 @@ class DetectionStage(PipelineStage):
                 node_value = node.get("value", "")
 
                 # Run regex detection on this node
-                regex_results = self._regex_detector.detect(node_value)
+                regex_results = self._regex_detector.detect(
+                    node_value,
+                    extra_patterns=regex_patterns,
+                )
 
                 # Get NER results for this node
                 ner_results = ner_results_list[i] if i < len(ner_results_list) else []
@@ -100,6 +136,15 @@ class DetectionStage(PipelineStage):
 
                 # Apply exclusion list
                 final = self._exclusion_list.filter_detections(merged, node_value)
+                final = [
+                    validated
+                    for detection in final
+                    if (validated := validate_detection(
+                        detection,
+                        self._checksum_registry,
+                        node_value,
+                    )) is not None
+                ]
 
                 # Tag each detection with its node index for tokenization
                 for d in final:
@@ -123,9 +168,26 @@ class DetectionStage(PipelineStage):
                 entity_counts=entity_counts,
             )
 
+            # Record detection latency (D-160)
+            if ctx.request_receipt_time is not None:
+                elapsed_ms = (time.monotonic() - ctx.request_receipt_time) * 1000.0
+                detection_latency.observe(elapsed_ms)
+
+            # Increment entities_detected per entity type and locale (D-161)
+            for d in all_detections:
+                entity_type = d.get("entity_type", "UNKNOWN")
+                locale = d.get("locale", "unknown")
+                entities_detected.labels(
+                    entity_type=entity_type,
+                    locale=locale,
+                ).inc()
+
         except PipelineAbortError:
+            # Count fail-secure events from detection errors (D-161)
+            fail_secure_events.labels(failure_type="detection_error").inc()
             raise
         except Exception as exc:
+            fail_secure_events.labels(failure_type="detection_error").inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
