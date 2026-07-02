@@ -218,8 +218,13 @@ post-restoration token verification, and custom detection rules API.
 
 **Plans**:
 
-- [ ] 05-01: Prometheus metrics endpoint + k6/locust load test
-- [ ] 05-02: Post-restoration token verification scan (non-streaming + post-stream)
+- [x] 05-01-PLAN.md
+- [x] 05-02-PLAN.md
+- [ ] 05-TEST-PLAN.md
+
+2/3 plans executed
+
+- [x] 05-02: Post-restoration token verification scan (non-streaming + post-stream)
 
 ---
 
@@ -318,7 +323,7 @@ post-restoration token verification, and custom detection rules API.
 | 2. Core Pipeline & Classification | 4/5 | In Progress|  |
 | 3. SSE Streaming + Multi-Provider | 0/4 | Not started | — |
 | 4. Multi-Locale + Compliance Presets | 0/3 | Not started | — |
-| 5. Configuration & Observability | 0/2 | Not started | — |
+| 5. Configuration & Observability | 2/3 | In Progress|  |
 | 6. Advanced Property-Based Tests | 0/3 | Not started | — |
 | 6.5. Production Readiness Review | 0/1 | Planned | — |
 | 7. Developer Experience & Docs | 3/3 | Planned | — |

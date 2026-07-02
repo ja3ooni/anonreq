@@ -28,7 +28,7 @@
 - [ ] **DET-03**: Regex-NER overlap resolution (regex wins)
 - [ ] **DET-04**: Configurable Confidence_Threshold (0.0–1.0, default 0.7) per entity type
 - [ ] **DET-05**: Exclusion_List support with exact match and wildcard matching
-- [ ] **DET-06**: Custom recognizer patterns loaded from YAML at startup
+- [x] **DET-06**: Custom recognizer patterns loaded from YAML at startup
 
 ### Tokenization
 
@@ -99,8 +99,8 @@
 
 ### Token Verification & Metrics
 
-- [ ] **METR-01**: Post-restoration `\[[A-Z]+_\d+\]` scan on non-streaming responses
-- [ ] **METR-02**: Post-stream verification scan on full assembled text
+- [x] **METR-01**: Post-restoration `\[[A-Z]+_\d+\]` scan on non-streaming responses
+- [x] **METR-02**: Post-stream verification scan on full assembled text
 - [ ] **METR-03**: Prometheus `/metrics` with counters for requests, detection latency, entities, unrestored tokens, fail-secure events, audit failures
 
 ### Docker Compose Deployment
@@ -161,12 +161,14 @@
 - [ ] **OBS-03**: SLO breach log entry `event_type: slo_breach_detected`
 - [ ] **OBS-04**: Metrics: `anonreq_rate_limit_hits_total`, `anonreq_spend_limit_hits_total`,
       `anonreq_tenant_active_sessions`, `anonreq_config_reload_total`
+
 - [ ] **OBS-05**: `docs/operations/slo-runbook.md`
 
 ### Configuration Change Audit Trail (Req 25)
 
 - [ ] **AUDT-CFG-01**: Audit entry for every config change (presets, recognizers, exclusion list,
       providers, rate limits, budgets, tenants)
+
 - [ ] **AUDT-CFG-02**: Entry fields: timestamp, operator_id, tenant_id, change_type, prev_value_hash, new_value_hash
 - [ ] **AUDT-CFG-03**: Append-only trail — no modify or delete API (except Legal Hold)
 - [ ] **AUDT-CFG-04**: `GET /v1/admin/audit/config-history` paginated + filterable
@@ -195,10 +197,13 @@
 
 - [ ] **RISK-01**: Versioned risk assessment per tenant (privacy, security, bias, explainability,
       misuse, regulatory dimensions)
+
 - [ ] **RISK-02**: Config change affecting entity types → `risk_reassessment_required` event +
       pending indicator in governance status
+
 - [ ] **RISK-03**: Approved risk assessment required before activating new preset/provider;
       unapproved → HTTP 409
+
 - [ ] **RISK-04**: Treatment plans for risk_level ≥ Medium (owner, due_date, status)
 - [ ] **RISK-05**: Risk assessment export `GET /v1/admin/risk-assessments/export`
 
@@ -207,9 +212,11 @@
 - [ ] **HUM-01**: Configurable human-approval gate for high-risk request categories
 - [ ] **HUM-02**: `GET /v1/oversight/pending`, `POST /v1/oversight/{id}/approve`,
       `POST /v1/oversight/{id}/reject`
+
 - [ ] **HUM-03**: Approved → normal processing. Rejected → HTTP 403 + `human_rejection` audit entry
 - [ ] **HUM-04**: Kill-switch `POST /v1/oversight/kill-switch` (admin role); halts all outbound;
       `DELETE /v1/oversight/kill-switch` to release
+
 - [ ] **HUM-05**: All oversight actions logged with actor_id, tenant_id, timestamp
 - [ ] **HUM-06**: `GET /v1/oversight/sessions/{session_id}/summary` (entity counts, no raw content)
 
@@ -225,9 +232,11 @@
 
 - [ ] **LIF-01**: Lifecycle record per provider integration and compliance preset
       (design→development→testing→staging→production→retired)
+
 - [ ] **LIF-02**: Production activation requires lifecycle transition record with approver
 - [ ] **LIF-03**: `retired` → immediately cease routing, disable in all tenant configs,
       `lifecycle_retired` audit entry
+
 - [ ] **LIF-04**: `GET /v1/admin/lifecycle` listing all integrations with stage, transition date, approver
 
 ### Bias, Fairness & Non-Discrimination (Req 32)
@@ -242,6 +251,7 @@
 
 - [ ] **SUPP-01**: Provider inventory (name, legal entity, jurisdiction, data residency,
       risk classification, contract status, last review date)
+
 - [ ] **SUPP-02**: Critical provider activation requires explicit administrator approval
 - [ ] **SUPP-03**: Expired/suspended contract → immediately cease routing, `provider_suspended` audit entry
 - [ ] **SUPP-04**: Configurable provider review cycle (default 365 days); overdue surfaced in status
@@ -259,8 +269,10 @@
 
 - [ ] **DOC-TECH-01**: Versioned docs in `docs/`: architecture, controls, risk methodology,
       governance, security, deployment
+
 - [ ] **DOC-TECH-02**: `GET /v1/admin/compliance/conformity-package` returns ZIP with SBOM,
       governance export, risk assessments, config audit history, fairness report, manifest
+
 - [ ] **DOC-TECH-03**: Requirements traceability matrix linking reqs → code modules → tests → regulations
 - [ ] **DOC-TECH-04**: All technical docs in English with changelog per version
 
@@ -279,6 +291,7 @@
 
 - [ ] **FIN-01**: Compliance mapping document `docs/compliance/financial-services-mapping.md`
       (DORA, NIS2, GDPR, ISO 27001/42001, EBA, FCA, SEC, FINRA)
+
 - [ ] **FIN-02**: Evidence records linking controls to regulatory mappings
 - [ ] **FIN-03**: `GET /v1/admin/compliance/report?framework={id}` — structured compliance report
 - [ ] **FIN-04**: Compliance evidence package with financial-services cover sheet
@@ -290,6 +303,7 @@
 - [ ] **MNPI-02**: Tenant-configurable restricted-names list, hot-reloadable
 - [ ] **MNPI-03**: MNPI detected → `[TYPE_N]` tokenized, `Classification_Level: Restricted`,
       `mnpi_detected` audit entry (no raw values)
+
 - [ ] **MNPI-04**: 4 handling policies: anonymize_and_forward, flag_and_forward, block, quarantine
 - [ ] **MNPI-05**: 7-year retention per SEC 17a-4 / FINRA 4511
 - [ ] **MNPI-06**: `GET /v1/admin/mnpi/events` paginated (no raw entity values)
@@ -298,11 +312,13 @@
 
 - [ ] **MRM-01**: Model inventory (model_id, provider, name, business_purpose, risk_classification,
       approval_status, approval_date, approver, next_review_date, model_owner)
+
 - [ ] **MRM-02**: Model approval gating — unapproved models → HTTP 403
 - [ ] **MRM-03**: `GET /v1/admin/models` — full inventory with approval status
 - [ ] **MRM-04**: Model review cycle (default 365 days); overdue surfaced + logged
 - [ ] **MRM-05**: Model validation workflow: `POST /v1/admin/models/{id}/validations`,
       `GET /v1/admin/models/{id}/validations`
+
 - [ ] **MRM-06**: 7-year retention for all inventory + validation records
 - [ ] **MRM-07**: `docs/compliance/sr-11-7-alignment.md`
 
@@ -310,8 +326,10 @@
 
 - [ ] **PROV-RISK-01**: Provider records include DPA reference, sub-processor list, jurisdiction,
       ICT concentration risk flag
+
 - [ ] **PROV-RISK-02**: Concentration risk surfaced in governance status; annual justification
       record required
+
 - [ ] **PROV-RISK-03**: Provider suspension `POST /v1/admin/providers/{id}/suspend`
 - [ ] **PROV-RISK-04**: Provider approval gating — expired/suspended → HTTP 503
 - [ ] **PROV-RISK-05**: Provider inventory export for DORA ICT third-party register
@@ -323,6 +341,7 @@
 - [ ] **CLASS-03**: Client-asserted `X-AnonReq-Classification` header; higher wins, overrides logged
 - [ ] **CLASS-04**: Per-level handling: allow_and_anonymize (≤ Confidential), anonymize_and_flag
       (Restricted), block (Highly Restricted) → HTTP 451
+
 - [ ] **CLASS-05**: Classification_Level in every audit log entry
 
 ### Financial Crime Controls (Req 42)
@@ -338,6 +357,7 @@
 - [ ] **DORA-01**: Critical service flag `dora.critical_service: true` → S1 auto-escalation
 - [ ] **DORA-02**: Resilience testing procedure in `docs/operations/resilience-testing.md`
       (cache failover, detection unavailable, network partition)
+
 - [ ] **DORA-03**: `GET /v1/admin/resilience/test-records` with test_date, scenario, outcome
 - [ ] **DORA-04**: ICT third-party register export `GET /v1/admin/providers/ict-register`
 - [ ] **DORA-05**: Single-command DORA audit evidence generation
@@ -346,6 +366,7 @@
 
 - [ ] **LINE-01**: Immutable Lineage_Record per request (lineage_id, session_id, tenant_id,
       timestamps, source_app, provider, model, entities, compliance_preset, classification, policies)
+
 - [ ] **LINE-02**: No API to modify or delete lineage records
 - [ ] **LINE-03**: `GET /v1/admin/lineage/{session_id}` — lineage record retrieval
 - [ ] **LINE-04**: `GET /v1/admin/lineage` — paginated, filterable by tenant_id, time range
@@ -356,6 +377,7 @@
 - [ ] **RET-01**: Configurable retention schedules by record type (audit, governance, lineage, incidents)
 - [ ] **RET-02**: Legal Hold support: `POST /v1/admin/legal-hold` suspends deletion for specified
       records/tenants
+
 - [ ] **RET-03**: `GET /v1/admin/legal-hold` — list active holds
 - [ ] **RET-04**: Records under Legal Hold excluded from purge operations
 - [ ] **RET-05**: Legal Hold release requires audit trail entry with authorizing user
@@ -382,6 +404,7 @@
 
 - [ ] **APPL-01**: All AI interaction types routed through single gateway (chat, voice bots,
       agents, RAG, MCP, email/CRM AI integrations)
+
 - [ ] **APPL-02**: Reverse proxy topology
 - [ ] **APPL-03**: Transparent proxy with TLS interception (tenant-managed CA cert, re-origination)
 - [ ] **APPL-04**: Virtual appliance deployment
@@ -393,6 +416,7 @@
 
 - [ ] **APPL-DLP-01**: 8 data categories: PII, PHI, PCI, MNPI, Trade Secrets, Source Code,
       Financial Records, Customer Data
+
 - [ ] **APPL-DLP-02**: Per-category actions: allow / anonymize / redact / quarantine / block
 - [ ] **APPL-DLP-03**: Contextual rules combining category + business_unit + Classification_Level
 - [ ] **APPL-DLP-04**: Data exfiltration encoding detection (Base64, hex, steganography)
@@ -403,6 +427,7 @@
 - [ ] **APPL-PS-01**: Inbound AI firewall with MITRE ATT&CK mapping (T1574.002, T1190, etc.)
 - [ ] **APPL-PS-02**: Outbound AI firewall: PII reconstruction detection, harmful content,
       data exfiltration attempts
+
 - [ ] **APPL-PS-03**: Dynamic policy adaptation based on user role, data classification, and
       provider risk score
 
@@ -411,6 +436,7 @@
 - [ ] **APPL-AGENT-01**: MCP protocol traffic inspection
 - [ ] **APPL-AGENT-02**: Per-tool permission policies: allow, allow_with_audit,
       require_human_approval, block
+
 - [ ] **APPL-AGENT-03**: Tool call parameters anonymized for external API targets
 - [ ] **APPL-AGENT-04**: Tool results inspected for sensitive data
 - [ ] **APPL-AGENT-05**: Agent execution suspended for tools requiring human approval
@@ -441,6 +467,7 @@
 - [ ] **APPL-CDP-01**: Content disarm and reconstruction for AI inputs/outputs
 - [ ] **APPL-CDP-02**: Behavioral analytics: user baseline profiling and anomaly detection on
       AI usage patterns
+
 - [ ] **APPL-CDP-03**: Network tap integration for passive traffic monitoring
 - [ ] **APPL-CDP-04**: WAF integration for coordinated AI + web attack detection
 
@@ -448,6 +475,7 @@
 
 - [ ] **APPL-SOC-01**: Structured events for: firewall violations, DLP actions, shadow AI,
       prompt security, agent governance
+
 - [ ] **APPL-SOC-02**: Splunk HEC sink
 - [ ] **APPL-SOC-03**: IBM QRadar syslog CEF sink
 - [ ] **APPL-SOC-04**: Microsoft Sentinel DCR API sink
@@ -455,9 +483,11 @@
 - [ ] **APPL-SOC-06**: Datadog Logs API sink
 - [ ] **APPL-SOC-07**: Events include mitre_technique_id, severity, event_type, tenant_id,
       session_id, timestamp (no raw prompt content)
+
 - [ ] **APPL-SOC-08**: Sink health status `GET /v1/admin/soc/integration/status`
 - [ ] **APPL-SOC-09**: Local event buffer (max 10k) with exponential backoff retry;
       `soc_buffer_overflow` when full (discard oldest, never block processing)
+
 - [ ] **APPL-SOC-10**: Compliance attestation event generation for regulatory audit
 
 ## Deferred / Future
@@ -528,7 +558,7 @@
 | DET-03 | Phase 2 | Pending |
 | DET-04 | Phase 2 | Pending |
 | DET-05 | Phase 2 | Pending |
-| DET-06 | Phase 5 | Pending |
+| DET-06 | Phase 5 | Complete |
 | TOKN-01 | Phase 2 | Pending |
 | TOKN-02 | Phase 2 | Pending |
 | TOKN-03 | Phase 2 | Pending |
@@ -583,8 +613,8 @@
 | AUDT-03 | Phase 1 | Pending |
 | AUDT-04 | Phase 2 | Pending |
 | AUDT-05 | Phase 2 | Pending |
-| METR-01 | Phase 5 | Pending |
-| METR-02 | Phase 5 | Pending |
+| METR-01 | Phase 5 | Complete |
+| METR-02 | Phase 5 | Complete |
 | METR-03 | Phase 5 | Pending |
 | DOCK-01 | Phase 1 | Pending |
 | DOCK-02 | Phase 1 | Pending |
@@ -652,6 +682,7 @@
 | Endpoint/Sovereign features | Phase 21 | Pending |
 
 **Coverage:**
+
 - Stage 1 (MVP) requirements: 90 (across 14 categories + review findings)
 - Stage 2 (Enterprise) requirements: 80+ (across 16 requirement groups)
 - Stage 3 (Appliance) requirements: 35+ (across 8 requirement groups)
