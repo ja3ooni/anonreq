@@ -1,0 +1,434 @@
+openapi: "3.1.0"
+info:
+  title: AnonReq Multimodal Document Anonymization API
+  description: |
+    Self-hosted anonymization gateway for LLM API calls.
+
+    AnonReq intercepts outbound requests, detects and replaces PII with
+    placeholder tokens, forwards sanitized payloads to supported LLM
+    providers, and restores tokens in responses.
+
+    ## Content-Type Support
+
+    | Content-Type | Analyzer | Status |
+    |--------------|----------|--------|
+    | `text/plain` | Text Analyser | Supported |
+    | `application/json` | JSON Analyzer | Supported |
+    | `multipart/form-data` | Multipart Analyzer | Supported |
+    | `application/xml` | — | Rejected (415) |
+    | `application/octet-stream` | — | Rejected (415) |
+    | `image/*`, `audio/*`, `video/*` | — | Rejected (415) |
+
+    All synthetic example data — no real PII in documentation.
+  version: "1.0.0"
+  contact:
+    name: AnonReq Support
+    url: https://github.com/anonreq/anonreq
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+paths:
+  /v1/chat/completions:
+    post:
+      summary: Send a chat completion request with automatic PII anonymization
+      description: |
+        Accepts OpenAI-compatible chat completion requests.  PII is detected,
+        tokenized, and replaced inline before forwarding to the configured LLM
+        provider.  Responses are restored (tokens → original values) before
+        returning to the caller.
+
+        **Supported content types:**
+        - `application/json` — standard JSON request body
+        - `multipart/form-data` — multipart requests for file uploads
+        - `text/plain` — raw text for text-only pipelines
+
+        **Unsupported content types** receive an HTTP 415 response.
+      operationId: createChatCompletion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatCompletionRequest"
+            examples:
+              json_request:
+                summary: JSON chat completion with PII
+                value:
+                  model: gpt-4
+                  messages:
+                    - role: user
+                      content: My email is john.doe@example.com and my SSN is 123-45-6789
+                  stream: false
+              tool_call_openai:
+                summary: OpenAI tool call with PII
+                value:
+                  model: gpt-4
+                  messages:
+                    - role: user
+                      content: Look up the user
+                    - role: assistant
+                      content: null
+                      tool_calls:
+                        - id: call_abc123
+                          type: function
+                          function:
+                            name: lookup_user
+                            arguments: >
+                              {"email":"alice@example.com","name":"Alice Smith"}
+              tool_call_anthropic:
+                summary: Anthropic tool use format
+                value:
+                  model: claude-3-opus
+                  messages:
+                    - role: user
+                      content: Find user details
+                    - role: assistant
+                      content:
+                        - type: text
+                          text: I'll look that up
+                        - type: tool_use
+                          id: tu_001
+                          name: find_user
+                          input:
+                            email: bob@example.com
+                            user_id: 42
+              tool_call_mcp:
+                summary: MCP tool call format
+                value:
+                  jsonrpc: "2.0"
+                  id: 1
+                  method: tools/call
+                  params:
+                    name: lookup_user
+                    arguments:
+                      email: carol@example.com
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/MultipartRequest"
+            examples:
+              multipart_with_pii:
+                summary: Multipart form with PII in parts
+                value:
+                  - name: user
+                    content_type: text/plain
+                    data: "John Doe, john@example.com"
+                  - name: metadata
+                    content_type: application/json
+                    data: '{"email":"jane@example.com","role":"admin"}'
+          text/plain:
+            schema:
+              type: string
+              example: "My phone number is +1-555-123-4567 and email is user@example.com"
+      responses:
+        "200":
+          description: Successful response with restored values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatCompletionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    ChatCompletionRequest:
+      type: object
+      required:
+        - model
+        - messages
+      properties:
+        model:
+          type: string
+          description: Model identifier (e.g., gpt-4, claude-3-opus)
+          example: gpt-4
+        messages:
+          type: array
+          description: Array of message objects in OpenAI-compatible format
+          items:
+            $ref: "#/components/schemas/Message"
+        stream:
+          type: boolean
+          description: Enable SSE streaming response
+          default: false
+          example: false
+        temperature:
+          type: number
+          format: float
+          description: Sampling temperature
+          default: 1.0
+          example: 0.7
+        max_tokens:
+          type: integer
+          description: Maximum tokens in response
+          example: 1024
+    Message:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum: [system, user, assistant, tool]
+          description: Message role
+          example: user
+        content:
+          oneOf:
+            - type: string
+              description: Text content
+              example: My email is user@example.com
+            - type: array
+              description: Content array (Anthropic format)
+              items:
+                $ref: "#/components/schemas/ContentBlock"
+          nullable: true
+        tool_calls:
+          type: array
+          description: OpenAI tool calls array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+        tool_call_id:
+          type: string
+          description: Tool call identifier (for tool role)
+    ContentBlock:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [text, tool_use, tool_result, image]
+          description: Content block type
+        text:
+          type: string
+          description: Text content for text-type blocks
+        id:
+          type: string
+          description: Tool use identifier (for tool_use blocks)
+        name:
+          type: string
+          description: Tool name (for tool_use blocks)
+        input:
+          type: object
+          description: Tool input arguments (for tool_use blocks)
+    ToolCall:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Tool call identifier
+          example: call_abc123
+        type:
+          type: string
+          enum: [function]
+          description: Tool call type
+        function:
+          type: object
+          properties:
+            name:
+              type: string
+              description: Function name
+              example: send_email
+            arguments:
+              type: string
+              description: JSON-encoded function arguments
+              example: '{"recipient":"alice@example.com","subject":"Hello"}'
+    MultipartPart:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Form field name
+          example: document
+        content_type:
+          type: string
+          description: Part content type
+          example: text/plain
+        data:
+          type: string
+          description: Part body content
+          example: John Doe, john@example.com
+        filename:
+          type: string
+          description: Original filename (for file uploads)
+          example: report.pdf
+    MultipartRequest:
+      type: array
+      description: Array of multipart parts
+      items:
+        $ref: "#/components/schemas/MultipartPart"
+    ChatCompletionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: chatcmpl-abc123
+        object:
+          type: string
+          example: chat.completion
+        created:
+          type: integer
+          example: 1700000000
+        model:
+          type: string
+          example: gpt-4
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Choice"
+        usage:
+          $ref: "#/components/schemas/Usage"
+    Choice:
+      type: object
+      properties:
+        index:
+          type: integer
+        message:
+          $ref: "#/components/schemas/Message"
+        finish_reason:
+          type: string
+          enum: [stop, length, tool_calls, content_filter]
+    Usage:
+      type: object
+      properties:
+        prompt_tokens:
+          type: integer
+        completion_tokens:
+          type: integer
+        total_tokens:
+          type: integer
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Human-readable error message
+            type:
+              type: string
+              description: Error type identifier
+            code:
+              type: string
+              description: Machine-readable error code
+      required:
+        - error
+    UnsupportedMediaTypeError:
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+        - type: object
+          properties:
+            error:
+              properties:
+                message:
+                  example: "Unsupported Content-Type: application/xml"
+                type:
+                  example: unsupported_media_type
+                code:
+                  example: unsupported_media_type
+    UnifiedDetectionResult:
+      type: object
+      description: Result of PII detection analysis
+      properties:
+        content_type:
+          $ref: "#/components/schemas/ContentTypeEnum"
+        entities:
+          type: array
+          description: Detected PII entities (metadata only, no raw values)
+          items:
+            $ref: "#/components/schemas/DetectedEntity"
+        risk_score:
+          type: number
+          format: float
+          description: Aggregate risk score (0.0–1.0)
+        classification:
+          type: string
+          enum: [Internal, Sensitive, Confidential, Highly Restricted]
+        analyzer_metadata:
+          type: object
+          description: Analyzer-specific metadata (entity counts, timings)
+    DetectedEntity:
+      type: object
+      description: A detected PII entity (metadata — no raw value in audit logs)
+      properties:
+        entity_type:
+          type: string
+          description: PII entity type (EMAIL_ADDRESS, US_SSN, PHONE_NUMBER, etc.)
+        start:
+          type: integer
+          description: Start offset in source text
+        end:
+          type: integer
+          description: End offset in source text
+        score:
+          type: number
+          format: float
+          description: Detection confidence (0.0–1.0)
+        json_path:
+          type: string
+          description: JSON path to the entity in the original payload
+        sensitive_key_boosted:
+          type: boolean
+          description: Whether score was boosted by sensitive key detection
+    ContentTypeEnum:
+      type: string
+      enum:
+        - text/plain
+        - application/json
+        - multipart/form-data
+        - unknown
+      description: Supported content types for the multimodal pipeline
+  responses:
+    BadRequest:
+      description: Bad request — invalid payload format
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UnsupportedMediaType:
+      description: Unsupported Content-Type header
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UnsupportedMediaTypeError"
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    ServiceUnavailable:
+      description: Service unavailable (payload limit exceeded, upstream down)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
