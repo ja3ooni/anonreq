@@ -9,7 +9,7 @@ same entity value through each session, and verifies all resulting tokens
 are unique — zero collisions across all sessions.
 
 Properties tested:
-- Properties 1-3: Same email/phone/credit_card across 1000+ sessions → zero collisions
+- Properties 1-3: Same email/phone/credit_card/person/iban across 1000+ sessions → zero collisions
 - Property 4: Token format is [TYPE_N] where N varies per session for same value
 - Property 5: Different entity values across sessions produce different tokens
 - Property 6: With 1000 sessions, observed collision count = 0
@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import math
 import re
+import string
 from typing import Any
 
 import pytest
@@ -82,6 +83,8 @@ def _make_detection(
     pytest.param("EMAIL", "EMAIL_ADDRESS", id="email"),
     pytest.param("PHONE", "PHONE_NUMBER", id="phone"),
     pytest.param("CREDIT_CARD", "CREDIT_CARD", id="credit_card"),
+    pytest.param("PERSON", "PERSON", id="person"),
+    pytest.param("IBAN", "IBAN_CODE", id="iban"),
 ])
 @settings(
     max_examples=_COLLISION_EXAMPLES,
@@ -106,6 +109,14 @@ def test_same_value_unique_across_sessions(
         "EMAIL": st.emails(),
         "PHONE": st.from_regex(r"\+?1?\d{7,15}", fullmatch=True),
         "CREDIT_CARD": st.from_regex(r"\d{4}-\d{4}-\d{4}-\d{4}", fullmatch=True),
+        "PERSON": st.text(
+            min_size=3, max_size=30,
+            alphabet=string.ascii_letters + " .-'",
+        ).filter(lambda s: s.strip() and len(s.strip()) >= 3),
+        "IBAN": st.from_regex(
+            r"[A-Z]{2}\d{2}[A-Z]{4}\d{14,18}",
+            fullmatch=True,
+        ),
     }
 
     entity_value = data.draw(entity_strategies[entity_label])
