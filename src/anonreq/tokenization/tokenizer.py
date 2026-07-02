@@ -124,7 +124,10 @@ class Tokenizer:
                 counter = self._per_type_counters.get(entity_type_short, 0)
 
                 # TOKN-05: Token index = seed offset + counter
-                token_index = (self._seed & 0x3FFFFFFF) + counter
+                # Use all 32 bits of the seed (0xFFFFFFFF) for maximum
+                # collision resistance. Per-pair collision probability
+                # is 1/2³² ≈ 2.3·10⁻¹⁰, satisfying P ≤ 2⁻³² bound.
+                token_index = (self._seed & 0xFFFFFFFF) + counter
                 token = f"[{entity_type_short}_{token_index}]"
 
                 self._value_to_token[original_value] = token
