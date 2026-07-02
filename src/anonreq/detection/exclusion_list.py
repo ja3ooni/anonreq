@@ -112,6 +112,9 @@ class ExclusionList:
         """
         filtered: list[dict[str, Any]] = []
         for det in detections:
+            if "start" not in det or "end" not in det:
+                filtered.append(det)
+                continue
             value = original_text[det["start"] : det["end"]]
             if not self.is_excluded(value):
                 filtered.append(det)

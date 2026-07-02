@@ -1,0 +1,39 @@
+code: en
+metadata:
+  name: English (Universal)
+  version: 1
+  maintainer: "AnonReq Core"
+entity_types:
+  - name: EMAIL_ADDRESS
+    tier: REGEX
+    confidence_threshold: 0.9
+    patterns:
+      - '\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'
+  - name: PHONE_NUMBER
+    tier: REGEX
+    confidence_threshold: 0.8
+    patterns:
+      - '\b\+?\d{1,4}[-.\s]?\(?\d{1,3}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b'
+      - '\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b'
+  - name: CREDIT_CARD
+    tier: REGEX
+    confidence_threshold: 0.85
+    patterns:
+      - '\b(?:\d{4}[-\s]?){3}\d{4}\b'
+  - name: IP_ADDRESS
+    tier: REGEX
+    confidence_threshold: 0.9
+    patterns:
+      - '\b(?:\d{1,3}\.){3}\d{1,3}\b'
+  - name: PERSON
+    tier: NER
+    confidence_threshold: 0.7
+    presidio_entities: ["PERSON"]
+  - name: LOCATION
+    tier: NER
+    confidence_threshold: 0.7
+    presidio_entities: ["LOCATION", "GPE"]
+  - name: ORGANIZATION
+    tier: NER
+    confidence_threshold: 0.7
+    presidio_entities: ["ORGANIZATION"]

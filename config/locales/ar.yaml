@@ -1,0 +1,10 @@
+code: ar
+metadata:
+  name: Arabic
+  version: 1
+  maintainer: "AnonReq Core"
+entity_types:
+  - name: PERSON
+    tier: NER
+    confidence_threshold: 0.7
+    presidio_entities: ["PERSON"]

@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     CACHE_TTL_SECONDS: int = 300
     PROVIDER_BASE_URL: str = "https://api.openai.com"
     PROVIDER_API_KEY: str | None = None
+    ACTIVE_PRESETS: str = ""
+    ADMIN_API_KEY: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_ADMIN_API_KEY",
+        description="Separate API key for admin endpoints. If unset, admin endpoints return 401.",
+    )
 
     @field_validator("API_KEY", mode="before")
     @classmethod

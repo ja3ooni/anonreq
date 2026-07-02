@@ -1,0 +1,11 @@
+id: pipeda
+name: PIPEDA
+description: "Canada Personal Information Protection and Electronic Documents Act"
+jurisdictions: ["CA"]
+mandatory_entity_types:
+  - PERSON
+  - EMAIL_ADDRESS
+metadata:
+  version: 1
+  authority: "OPC"
+  effective_date: "2001-01-01"

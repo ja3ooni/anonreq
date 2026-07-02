@@ -11,6 +11,7 @@ Per TOKN-01 through TOKN-07:
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 import structlog
@@ -133,11 +134,13 @@ class TokenizationStage(PipelineStage):
 
             # Store mapping in Valkey if non-empty
             if all_mappings:
-                await self._cache_manager.store_mapping(
+                store_result = self._cache_manager.store_mapping(
                     ctx.tenant_id,
                     ctx.context_id,
                     all_mappings,
                 )
+                if inspect.isawaitable(store_result):
+                    await store_result
 
             ctx.token_mappings = all_mappings
 

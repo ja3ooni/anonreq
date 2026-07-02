@@ -325,10 +325,10 @@ post-restoration token verification, and custom detection rules API.
 | 3. SSE Streaming + Multi-Provider | 3/4 | In Progress | — |
 | 4. Multi-Locale + Compliance Presets | 4/4 | Complete | 2026-07-02 |
 | 5. Configuration & Observability | 3/3 | Complete | 2026-07-02 |
-| 6. Advanced Property-Based Tests | 0/3 | Not started | — |
+| 6. Advanced Property-Based Tests | 4/4 | Complete | 2026-07-02 |
 | 6.5. Production Readiness Review | 0/1 | Planned | — |
 | 7. Developer Experience & Docs | 3/3 | Planned | — |
-| **Stage 1 Total** | **19/25** | | |
+| **Stage 1 Total** | **23/25** | | |
 
 ---
 
@@ -778,7 +778,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Stage | Phases | Plans | Status |
 |-------|--------|-------|--------|
-| 1. Prove the Problem | 7 (1–7) | 25 | 19/25 Complete |
+| 1. Prove the Problem | 7 (1–7) | 25 | 23/25 Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | TBD | Not started |
 | 3. Build the Moat | 5 (17–21) | TBD | Not started |
 | **Total** | **21** | **25+TBD** | |

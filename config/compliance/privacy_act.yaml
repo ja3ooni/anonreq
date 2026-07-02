@@ -1,0 +1,14 @@
+id: privacy_act
+name: Privacy Act (AU)
+description: "Australian Privacy Act 1988"
+jurisdictions: ["AU"]
+mandatory_entity_types:
+  - PERSON
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER
+thresholds:
+  PERSON: 0.8
+metadata:
+  version: 1
+  authority: "OAIC"
+  effective_date: "1988-12-01"

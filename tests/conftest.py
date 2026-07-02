@@ -15,6 +15,7 @@ from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
+from hypothesis import strategies as st
 
 # Set default required env vars BEFORE any test module imports Settings.
 # The module-level `settings = Settings()` singleton in config.py is
@@ -136,3 +137,61 @@ def processing_context():
     from anonreq.models.processing_context import ProcessingContext
 
     return ProcessingContext(request_id="test_req_001", tenant_id="default")
+
+
+@st.composite
+def token_mapping_strategy(draw):
+    """Generate realistic token mappings for streaming property tests."""
+    entities = ["EMAIL", "PHONE", "SSN", "IP", "URL", "PERSON", "ORG"]
+    selected = draw(st.lists(st.sampled_from(entities), min_size=1, max_size=5, unique=True))
+    mapping: dict[str, str] = {}
+    alphabet = st.characters(
+        whitelist_categories=("L", "N"),
+        whitelist_characters="@._-+#",
+    )
+    for index, entity in enumerate(selected):
+        mapping[f"[{entity}_{index}]"] = draw(st.text(min_size=3, max_size=20, alphabet=alphabet))
+    return mapping
+
+
+@st.composite
+def chunked_stream_strategy(draw):
+    """Generate token-bearing text plus arbitrary chunk boundaries."""
+    mapping = draw(token_mapping_strategy())
+    parts: list[str] = []
+    text_alphabet = st.characters(whitelist_categories=("L",), whitelist_characters=" ")
+    for token in mapping:
+        parts.append(draw(st.text(min_size=0, max_size=10, alphabet=text_alphabet)))
+        parts.append(token)
+        parts.append(draw(st.text(min_size=0, max_size=10, alphabet=text_alphabet)))
+    full_text = "".join(parts)
+    if len(full_text) < 2:
+        return full_text, [full_text], mapping
+    split_positions = sorted(
+        draw(
+            st.lists(
+                st.integers(min_value=1, max_value=len(full_text) - 1),
+                min_size=0,
+                max_size=min(20, len(full_text) - 1),
+                unique=True,
+            )
+        )
+    )
+    chunks: list[str] = []
+    last = 0
+    for position in split_positions:
+        chunks.append(full_text[last:position])
+        last = position
+    chunks.append(full_text[last:])
+    return full_text, [chunk for chunk in chunks if chunk], mapping
+
+
+@st.composite
+def reasoning_stream_strategy(draw):
+    """Generate text/reasoning payloads for reasoning leak checks."""
+    text = draw(st.text(min_size=5, max_size=50))
+    reasoning = draw(st.text(min_size=5, max_size=50))
+    positions = draw(
+        st.lists(st.integers(min_value=0, max_value=max(len(text) - 1, 0)), min_size=1, max_size=5)
+    )
+    return text, reasoning, positions

@@ -1,0 +1,14 @@
+id: pdpa
+name: PDPA
+description: "Thailand Personal Data Protection Act"
+jurisdictions: ["TH"]
+mandatory_entity_types:
+  - PERSON
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER
+thresholds:
+  PERSON: 0.75
+metadata:
+  version: 1
+  authority: "PDPC"
+  effective_date: "2022-06-01"

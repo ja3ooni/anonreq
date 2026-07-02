@@ -1,0 +1,20 @@
+id: lgpd
+name: LGPD
+description: "Brazilian Lei Geral de Protecao de Dados"
+jurisdictions: ["BR"]
+mandatory_entity_types:
+  - PERSON
+  - EMAIL_ADDRESS
+  - CPF
+  - CNPJ
+  - PHONE_NUMBER
+thresholds:
+  CPF: 0.85
+  CNPJ: 0.85
+requires_checksum:
+  - CPF
+  - CNPJ
+metadata:
+  version: 1
+  authority: "ANPD"
+  effective_date: "2020-09-18"

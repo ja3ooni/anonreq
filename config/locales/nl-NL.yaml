@@ -1,0 +1,14 @@
+code: nl-NL
+metadata:
+  name: Dutch
+  version: 1
+  maintainer: "AnonReq Core"
+entity_types:
+  - name: BSN
+    tier: REGEX
+    confidence_threshold: 0.85
+    patterns:
+      - '\b\d{9}\b'
+checksum:
+  algorithm: luhn
+  validator_id: BSN

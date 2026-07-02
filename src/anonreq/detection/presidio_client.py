@@ -17,6 +17,14 @@ from typing import Any
 
 import httpx
 
+if not hasattr(httpx.Request, "json"):
+    def _request_json(self: httpx.Request) -> Any:
+        import json
+
+        return json.loads(self.content.decode())
+
+    httpx.Request.json = _request_json  # type: ignore[attr-defined]
+
 
 class PresidioTimeoutError(Exception):
     """Raised when Presidio Analyzer request times out per D-50."""
@@ -127,6 +135,7 @@ class PresidioClient:
         self,
         text_nodes: list[dict[str, str]],
         language: str = "en",
+        entities: list[str] | None = None,
         score_threshold: float = 0.7,
     ) -> list[list[dict[str, Any]]]:
         """Analyze multiple text nodes concurrently.
@@ -154,6 +163,7 @@ class PresidioClient:
             return await self.analyze(
                 text=value,
                 language=language,
+                entities=entities,
                 score_threshold=score_threshold,
             )
 

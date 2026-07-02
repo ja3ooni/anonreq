@@ -1,0 +1,19 @@
+code: pt-BR
+metadata:
+  name: Brazilian Portuguese
+  version: 1
+  maintainer: "AnonReq Core"
+entity_types:
+  - name: CPF
+    tier: REGEX
+    confidence_threshold: 0.85
+    patterns:
+      - '\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b'
+  - name: CNPJ
+    tier: REGEX
+    confidence_threshold: 0.85
+    patterns:
+      - '\b\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}\b'
+checksum:
+  algorithm: custom
+  validator_id: CPF

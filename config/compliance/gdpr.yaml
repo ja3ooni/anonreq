@@ -1,0 +1,19 @@
+id: gdpr
+name: GDPR
+description: "EU GDPR -- mandates PII detection for all natural person data"
+jurisdictions: ["EU", "EEA"]
+mandatory_entity_types:
+  - PERSON
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER
+  - LOCATION
+  - CREDIT_CARD
+thresholds:
+  PERSON: 0.75
+  EMAIL_ADDRESS: 0.85
+minimum_tiers:
+  PERSON: ["REGEX", "NER"]
+metadata:
+  version: 1
+  authority: "European Commission"
+  effective_date: "2018-05-25"

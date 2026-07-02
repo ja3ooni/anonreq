@@ -1,0 +1,13 @@
+id: popia
+name: POPIA
+description: "South Africa Protection of Personal Information Act"
+jurisdictions: ["ZA"]
+mandatory_entity_types:
+  - PERSON
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER
+  - LOCATION
+metadata:
+  version: 1
+  authority: "InfoReg"
+  effective_date: "2021-07-01"

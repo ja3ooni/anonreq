@@ -1,0 +1,15 @@
+code: es
+metadata:
+  name: Spanish
+  version: 1
+  maintainer: "AnonReq Core"
+entity_types:
+  - name: DNI
+    tier: REGEX
+    confidence_threshold: 0.8
+    patterns:
+      - '\b\d{8}[A-Z]\b'
+  - name: PERSON
+    tier: NER
+    confidence_threshold: 0.7
+    presidio_entities: ["PERSON"]

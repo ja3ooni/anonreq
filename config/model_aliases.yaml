@@ -1,0 +1,25 @@
+model_aliases:
+  fast:
+    provider: openai
+    model: gpt-4o-mini
+    metadata:
+      description: Fast, cost-effective for simple tasks
+      tier: standard
+  smart:
+    provider: anthropic
+    model: claude-sonnet-4
+    metadata:
+      description: Best for complex reasoning and analysis
+      tier: premium
+  local:
+    provider: ollama
+    model: llama3.3:70b
+    metadata:
+      description: Local model for sensitive data triage
+      tier: local
+  gemini-pro:
+    provider: gemini
+    model: gemini-2.0-pro
+    metadata:
+      description: Google Gemini for multimodal tasks
+      tier: standard

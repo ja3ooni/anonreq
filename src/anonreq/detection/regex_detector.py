@@ -8,9 +8,11 @@ Per D-38:
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from anonreq.detection.regex_patterns import PATTERNS, luhn_checksum
+from anonreq.locale.bundle import EntityTypeConfig, RecognizerTier
 
 # Entity types that require Luhn checksum validation
 _LUHN_VALIDATED = {"CREDIT_CARD"}
@@ -38,7 +40,25 @@ class RegexDetector:
         """
         self._patterns = patterns if patterns is not None else PATTERNS
 
-    def detect(self, text: str) -> list[dict[str, Any]]:
+    @staticmethod
+    def patterns_from_entity_configs(
+        entity_configs: list[EntityTypeConfig],
+    ) -> dict[str, "re.Pattern"]:
+        """Compile regex patterns declared by locale bundle entity configs."""
+        compiled: dict[str, re.Pattern] = {}
+        for config in entity_configs:
+            if config.tier not in (RecognizerTier.REGEX, RecognizerTier.BOTH):
+                continue
+            if not config.patterns:
+                continue
+            compiled[config.name] = re.compile("|".join(f"(?:{p})" for p in config.patterns))
+        return compiled
+
+    def detect(
+        self,
+        text: str,
+        extra_patterns: dict[str, "re.Pattern"] | None = None,
+    ) -> list[dict[str, Any]]:
         """Run all patterns on the given text and return detections.
 
         Args:
@@ -58,7 +78,11 @@ class RegexDetector:
         results: list[dict[str, Any]] = []
         seen_spans: set[tuple[str, int, int]] = set()
 
-        for entity_type, pattern in self._patterns.items():
+        patterns = dict(self._patterns)
+        if extra_patterns:
+            patterns.update(extra_patterns)
+
+        for entity_type, pattern in patterns.items():
             for match in pattern.finditer(text):
                 start, end = match.start(), match.end()
 

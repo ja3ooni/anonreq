@@ -1,0 +1,18 @@
+code: de-DE
+metadata:
+  name: German
+  version: 1
+  maintainer: "AnonReq Core"
+entity_types:
+  - name: TAX_ID_DE
+    tier: REGEX
+    confidence_threshold: 0.8
+    patterns:
+      - '\b\d{2}\s?\d{3}\s?\d{3}\s?\d{2}\b'
+  - name: PERSON
+    tier: NER
+    confidence_threshold: 0.7
+    presidio_entities: ["PERSON"]
+checksum:
+  algorithm: iso7064_mod11_2
+  validator_id: TAX_ID_DE

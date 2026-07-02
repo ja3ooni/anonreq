@@ -49,6 +49,9 @@ include = ["anonreq*"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "load: load and concurrency tests",
+]
 
 [tool.coverage.run]
 source = ["anonreq"]

@@ -164,6 +164,58 @@ class TestAnthropicTranslateRequest:
             assert request.headers["x-api-key"] == "sk-ant-test123"
 
 
+class TestOpenAIAdapter:
+    """Tests for the OpenAI adapter used by the ``fast`` alias."""
+
+    def test_translate_request_passes_openai_schema_through(self, processing_context):
+        from anonreq.providers.openai import OpenAIAdapter
+
+        with patch.dict(os.environ, {"ANONREQ_OPENAI_API_KEY": "sk-test123"}):
+            adapter = OpenAIAdapter()
+            request = adapter.translate_request(processing_context)
+
+        assert request.url == "https://api.openai.com/v1/chat/completions"
+        assert request.headers["Authorization"] == "Bearer sk-test123"
+        assert request.body["model"] == "gpt-4"
+        assert request.body["messages"] == processing_context.original_request["messages"]
+
+    @pytest.mark.asyncio
+    async def test_stream_events_text_and_finish(self):
+        from anonreq.providers.openai import OpenAIAdapter
+
+        adapter = OpenAIAdapter()
+        sse_data = (
+            b'data: {"choices":[{"delta":{"role":"assistant"},"finish_reason":null}]}\n\n'
+            b'data: {"choices":[{"delta":{"content":"Hello"},"finish_reason":null}]}\n\n'
+            b'data: {"choices":[{"delta":{"content":" world"},"finish_reason":null}]}\n\n'
+            b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n'
+            b"data: [DONE]\n\n"
+        )
+
+        with respx.mock:
+            route = respx.post("https://api.openai.com/v1/chat/completions")
+            route.mock(
+                return_value=Response(
+                    200,
+                    content=sse_data,
+                    headers={"Content-Type": "text/event-stream"},
+                )
+            )
+
+            request = ProviderRequest(
+                url="https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": "Bearer sk-test123"},
+                body={"model": "gpt-4o-mini", "messages": [], "stream": True},
+            )
+
+            events = [event async for event in adapter.stream_events(request)]
+
+        text = [event.delta_text for event in events if event.event_type == EventType.TEXT_DELTA]
+        finish = [event for event in events if event.event_type == EventType.FINISH]
+        assert text == ["Hello", " world"]
+        assert finish[0].finish_reason == FinishReason.STOP
+
+
 # =========================================================================
 # ADAPT-02: Provider response -> canonical response translation
 # =========================================================================

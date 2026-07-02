@@ -1,0 +1,18 @@
+code: fr-FR
+metadata:
+  name: French
+  version: 1
+  maintainer: "AnonReq Core"
+entity_types:
+  - name: NIR
+    tier: REGEX
+    confidence_threshold: 0.85
+    patterns:
+      - '\b[12]\s?\d{2}\s?(?:0[1-9]|1[0-2])\s?\d{2}\s?\d{3}\s?\d{3}\s?\d{2}\b'
+  - name: PERSON
+    tier: NER
+    confidence_threshold: 0.7
+    presidio_entities: ["PERSON"]
+checksum:
+  algorithm: custom
+  validator_id: NIR
