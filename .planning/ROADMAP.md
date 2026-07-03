@@ -377,7 +377,12 @@ governance, and financial-services compliance.
 4. Unsupported content types → HTTP 415 with descriptive error.
 5. Property-based test: anonymize→restore produces byte-for-byte identical document.
 
-**Plans**: TBD
+**Plans**:
+
+- [x] 09-01: Content-Type Dispatcher + JSON/Multipart Analyzers
+- [ ] 09-02: Tool Call Argument Extraction
+- [ ] 09-03: Local Content Routing + Dispatcher Integration
+- [ ] 09-04: Hypothesis Property Tests + Security Tests
 
 ---
 
@@ -607,7 +612,7 @@ Phase 4 + Phase 12. Phase 16 is independent.
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
 | 8. Rate Limiting & Spend Controls | 0/TBD | Not started | — |
-| 9. Multimodal Document Anonymization | 0/TBD | Not started | — |
+| 9. Multimodal Document Anonymization | 1/4 | In Progress | 2026-07-03 |
 | 10. AI Security Firewall | 0/5 | Planned | — |
 | 11. Operational Observability & Compliance | 0/TBD | Not started | — |
 | 12. Data Classification & Handling | 0/TBD | Not started | — |
