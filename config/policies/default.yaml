@@ -1,0 +1,31 @@
+# Default tenant policy (Phase 8)
+tenant: default
+version: 1
+
+# Rate limit and spend configuration
+rate_limits:
+  rpm: 1000
+  tpm: 100000
+  concurrent: 50
+
+spend:
+  monthly_budget_usd: 10000.0
+  alert_threshold_usd: 8000.0
+
+# Classification overrides (Phase 12)
+# Entity mapping overrides — increase-only (can only raise sensitivity, never lower)
+classification:
+  entity_mapping:
+    # Local jurisdiction: treat SSN as HIGHLY_RESTRICTED
+    SSN: HIGHLY_RESTRICTED
+
+  # Per-level handling policy overrides
+  handling:
+    CONFIDENTIAL:
+      action: ANONYMIZE
+    RESTRICTED:
+      action: ANONYMIZE
+      audit_flag: true
+    HIGHLY_RESTRICTED:
+      action: BLOCK
+      http_status: 451

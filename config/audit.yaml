@@ -1,0 +1,4 @@
+audit:
+  retention_days: 2557  # 7 years default
+  chain_anchor_enabled: true
+  chain_anchor_time: "23:59:59 UTC"

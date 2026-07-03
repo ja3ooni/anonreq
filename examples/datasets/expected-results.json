@@ -1,0 +1,13 @@
+{
+  "email": {"tokenized": "[EMAIL_1]", "entity_type": "email"},
+  "phone": {"tokenized": "[PHONE_1]", "entity_type": "phone"},
+  "credit_card": {"tokenized": "[CREDIT_CARD_1]", "entity_type": "credit_card"},
+  "iban": {"tokenized": "[IBAN_1]", "entity_type": "iban"},
+  "ip_address": {"tokenized": "[IP_1]", "entity_type": "ip"},
+  "url": {"tokenized": "[URL_1]", "entity_type": "url"},
+  "date_of_birth": {"tokenized": "[DATE_TIME_1]", "entity_type": "date_time"},
+  "person_name": {"tokenized": "[PERSON_1]", "entity_type": "person"},
+  "organization": {"tokenized": "[ORGANIZATION_1]", "entity_type": "organization"},
+  "address": {"tokenized": "[LOCATION_1]", "entity_type": "location"},
+  "steuer_id": {"tokenized": "[TAX_ID_1]", "entity_type": "tax_id"}
+}

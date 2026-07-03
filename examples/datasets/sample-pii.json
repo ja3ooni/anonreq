@@ -1,0 +1,13 @@
+[
+  {"field": "email", "value": "john.doe@example.com", "type": "email", "locale": "en-US"},
+  {"field": "phone", "value": "+1-555-123-4567", "type": "phone", "locale": "en-US"},
+  {"field": "credit_card", "value": "4111-1111-1111-1111", "type": "credit_card", "locale": "en-US"},
+  {"field": "iban", "value": "DE89370400440532013000", "type": "iban", "locale": "de-DE"},
+  {"field": "ip_address", "value": "192.168.1.100", "type": "ip", "locale": "en-US"},
+  {"field": "url", "value": "https://example.com/profile", "type": "url", "locale": "en-US"},
+  {"field": "date_of_birth", "value": "1990-04-15", "type": "date_time", "locale": "en-US"},
+  {"field": "person_name", "value": "Jane Smith", "type": "person", "locale": "en-US"},
+  {"field": "organization", "value": "Acme Corp", "type": "organization", "locale": "en-US"},
+  {"field": "address", "value": "123 Main Street, Springfield, IL 62701", "type": "location", "locale": "en-US"},
+  {"field": "steuer_id", "value": "12345678901", "type": "tax_id", "locale": "de-DE"}
+]

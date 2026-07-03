@@ -1,0 +1,35 @@
+name: Docs Nightly
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  translation-drift:
+    name: Translation Drift Detection
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install pyyaml
+      - name: Check translation drift
+        run: python scripts/check-translation-drift.py --docs-dir docs --locales de
+      - name: Report drift
+        if: failure()
+        run: |
+          echo "::warning::Translation drift detected for German docs"
+          echo "Run scripts/translate-docs.py to sync"
+
+  stale-docs:
+    name: Stale Documentation Check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check doc file ages
+        run: |
+          echo "Files modified >90 days ago:"
+          find docs/ -name "*.md" -mtime +90 -exec echo "  {}" \;

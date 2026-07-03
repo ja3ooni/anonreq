@@ -1,0 +1,86 @@
+name: Docs CI
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "examples/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "SECURITY.md"
+      - "CONTRIBUTING.md"
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "examples/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "SECURITY.md"
+      - "CONTRIBUTING.md"
+
+jobs:
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install markdownlint
+        run: pip install markdownlint-cli2
+      - name: Lint markdown files
+        run: markdownlint-cli2 "docs/**/*.md" "*.md"
+
+  link-check:
+    name: Link Check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install lychee
+        run: |
+          curl -sLO https://github.com/lycheeverse/lychee/releases/download/v0.18.0/lychee-v0.18.0-linux-x86_64.tar.gz
+          tar -xzf lychee-v0.18.0-linux-x86_64.tar.gz
+          sudo mv lychee /usr/local/bin/
+      - name: Check links in docs
+        run: lychee --exclude "localhost" --exclude "127.0.0.1" --exclude "github.com/anonreq" -- docs/ README.md
+
+  mermaid-validate:
+    name: Mermaid Validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install mermaid-cli
+        run: npm install -g @mermaid-js/mermaid-cli
+      - name: Render Mermaid diagrams
+        run: |
+          for f in docs/*.mmd; do
+            mmdc -i "$f" -o /dev/null
+          done
+
+  openapi-sync-check:
+    name: OpenAPI Sync Check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify OpenAPI spec
+        run: |
+          python -c "
+import json, sys
+with open('docs/openapi.json') as f:
+    spec = json.load(f)
+assert 'openapi' in spec, 'Missing OpenAPI version'
+assert 'info' in spec, 'Missing info'
+assert 'paths' in spec, 'Missing paths'
+print('OpenAPI spec is valid')
+"

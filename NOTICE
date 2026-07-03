@@ -1,0 +1,15 @@
+AnonReq
+
+Copyright 2026 AnonReq Contributors
+
+This product includes software from the following third-party sources:
+
+  This product includes FastAPI (MIT), Copyright 2018 Sebastián Ramírez.
+  This product includes Presidio Analyzer (MIT), Copyright Microsoft Corporation.
+  This product includes Valkey/Redis (BSD-3-Clause), Copyright 2006-2024 Salvatore Sanfilippo and contributors.
+  This product includes Prometheus Python Client (Apache 2.0), Copyright 2018 The Prometheus Authors.
+  This product includes HTTPX (BSD-3-Clause), Copyright 2019 Encode OÜ.
+  This product includes Pydantic (MIT), Copyright 2017 Samuel Colvin.
+  This product includes Hypothesis (MPL-2.0), Copyright 2013 David R. MacIver.
+  This product includes Docker (Apache 2.0), Copyright Docker Inc.
+  This product includes Docker Compose (Apache 2.0), Copyright Docker Inc.

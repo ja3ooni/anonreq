@@ -1,0 +1,35 @@
+graph TB
+    subgraph "Your Application"
+        APP[App Code]
+    end
+
+    subgraph "AnonReq Gateway"
+        PROXY[FastAPI Proxy]
+        DET[Detection Engine<br/>regex + NER]
+        TOK[Tokenization Engine]
+        REST[Restoration Engine]
+        CACHE[Cache Manager<br/>Valkey]
+        ADAPT[Provider Adapter]
+        CLS[Classification Engine<br/>Block/Route/Anonymize/Pass]
+    end
+
+    subgraph "External"
+        LLM[LLM Providers<br/>OpenAI / Anthropic / Gemini / Ollama]
+    end
+
+    APP -->|Outbound Request| PROXY
+    PROXY --> CLS
+    CLS -->|Anonymize| DET
+    DET -->|Entities Found| TOK
+    TOK -->|Store Mapping| CACHE
+    TOK -->|Sanitized| ADAPT
+    ADAPT -->|API Call| LLM
+    LLM -->|Response| ADAPT
+    ADAPT -->|Tokenized| REST
+    REST -->|Fetch Mapping| CACHE
+    REST -->|Restored| PROXY
+    PROXY -->|Response| APP
+    DET -->|No Entities| ADAPT
+
+    style APP fill:#e1f5fe,stroke:#01579b
+    style LLM fill:#fff3e0,stroke:#e65100
