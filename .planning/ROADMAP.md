@@ -457,7 +457,9 @@ LLM outputs at the infrastructure layer.
 
 5. Classification_Level in every audit log entry.
 
-**Plans**: TBD
+**Plans**: 0/1 plans executed
+
+- [ ] 12-TEST-PLAN.md
 
 ---
 
@@ -615,7 +617,7 @@ Phase 4 + Phase 12. Phase 16 is independent.
 | 9. Multimodal Document Anonymization | 1/4 | In Progress | 2026-07-03 |
 | 10. AI Security Firewall | 0/5 | Planned | — |
 | 11. Operational Observability & Compliance | 0/TBD | Not started | — |
-| 12. Data Classification & Handling | 0/TBD | Not started | — |
+| 12. Data Classification & Handling | 0/1 | Planned    |  |
 | 13. AI Firewall & Data Loss Prevention | 0/TBD | Not started | — |
 | 14. AI Governance & Oversight | 0/1 | Planned    |  |
 | 15. Financial Services Compliance | 0/TBD | Not started | — |

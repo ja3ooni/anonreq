@@ -336,8 +336,8 @@
 
 ### Data Classification & Handling (Req 41)
 
-- [ ] **CLASS-01**: 5 classification levels (Public → Highly Restricted)
-- [ ] **CLASS-02**: Auto-classification by highest-sensitivity entity type; defaults to Internal
+- [x] **CLASS-01**: 5 classification levels (Public → Highly Restricted)
+- [x] **CLASS-02**: Auto-classification by highest-sensitivity entity type; defaults to Internal
 - [ ] **CLASS-03**: Client-asserted `X-AnonReq-Classification` header; higher wins, overrides logged
 - [ ] **CLASS-04**: Per-level handling: allow_and_anonymize (≤ Confidential), anonymize_and_flag
       (Restricted), block (Highly Restricted) → HTTP 451
