@@ -32,7 +32,8 @@ async def require_auth(
     This dependency:
     1. Verifies the Bearer token against ANONREQ_ADMIN_API_KEY
     2. Populates ``request.state.role_principal`` with the configured
-       admin role for downstream RBAC checks
+       admin role, unless a principal has already been set (e.g., by
+       test middleware or an upstream auth layer)
 
     Args:
         request: The incoming FastAPI request.
@@ -42,12 +43,15 @@ async def require_auth(
     Raises:
         HTTPException: If the admin API key is invalid.
     """
-    role = settings.ADMIN_ROLE
-    request.state.role_principal = {
-        "principal_id": "admin",
-        "role": role,
-        "tenant_id": "*",
-    }
+    # Only set principal if not already present (allows test injection
+    # or upstream auth to provide the role)
+    if getattr(request.state, "role_principal", None) is None:
+        role = settings.ADMIN_ROLE
+        request.state.role_principal = {
+            "principal_id": "admin",
+            "role": role,
+            "tenant_id": "*",
+        }
 
 
 admin_router = APIRouter(

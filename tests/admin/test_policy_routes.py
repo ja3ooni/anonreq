@@ -11,12 +11,14 @@ Tests cover:
 from __future__ import annotations
 
 import os
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from anonreq.admin.router import admin_router
+from anonreq.policy.models import PolicyAction, PolicyRule
 
 # The admin router requires Authorization: Bearer <ADMIN_API_KEY> at the
 # router level via require_auth / verify_admin_api_key. All tests that
@@ -31,8 +33,41 @@ def _auth_header() -> dict[str, str]:
     return {"Authorization": f"Bearer {_ADMIN_AUTH_KEY}"}
 
 
+def _sample_policy_rules() -> list[PolicyRule]:
+    """Return sample PolicyRule instances for testing."""
+    return [
+        PolicyRule(
+            rule_id="rule_001",
+            action=PolicyAction.BLOCK,
+            priority=10,
+            enabled=True,
+            conditions={"model": "gpt-4"},
+            tenant_id="test_tenant",
+        ),
+        PolicyRule(
+            rule_id="rule_002",
+            action=PolicyAction.ALLOW,
+            priority=5,
+            enabled=False,
+            conditions={"model": "claude-3"},
+            tenant_id="test_tenant",
+        ),
+        PolicyRule(
+            rule_id="rule_003",
+            action=PolicyAction.MONITOR,
+            priority=1,
+            enabled=True,
+            conditions={"model": "gpt-3.5-turbo"},
+            tenant_id="test_tenant",
+        ),
+    ]
+
+
 def _make_test_app(role: str = "administrator") -> FastAPI:
     """Create a FastAPI app with the admin router and role principal set.
+
+    Also wires a mock PolicyStore onto app.state so route handlers
+    that depend on the policy store can operate.
 
     Args:
         role: The role to assign to the authenticated principal.
@@ -41,6 +76,37 @@ def _make_test_app(role: str = "administrator") -> FastAPI:
         A configured FastAPI app ready for TestClient.
     """
     app = FastAPI()
+
+    # Wire a mock PolicyStore
+    mock_store = AsyncMock()
+    sample_rules = _sample_policy_rules()
+    mock_store.load_policies.return_value = list(sample_rules)
+    mock_store.get_policy.return_value = None  # default: no existing rule
+    mock_store.set_tenant_policy = AsyncMock()
+
+    # Track stored rules for upsert behavior
+    stored_rules: dict[str, list[PolicyRule]] = {
+        "test_tenant": list(sample_rules),
+    }
+
+    async def mock_load_policies(tenant_id: str) -> list[PolicyRule]:
+        return list(stored_rules.get(tenant_id, []))
+
+    async def mock_get_policy(rule_id: str, tenant_id: str | None = None) -> PolicyRule | None:
+        rules = stored_rules.get(tenant_id or "test_tenant", [])
+        for r in rules:
+            if r.rule_id == rule_id:
+                return r
+        return None
+
+    async def mock_set_tenant_policy(tenant_id: str, rules: list[PolicyRule]) -> None:
+        stored_rules[tenant_id] = list(rules)
+
+    mock_store.load_policies.side_effect = mock_load_policies
+    mock_store.get_policy.side_effect = mock_get_policy
+    mock_store.set_tenant_policy.side_effect = mock_set_tenant_policy
+
+    app.state.policy_store = mock_store
 
     @app.middleware("http")
     async def inject_principal(request, call_next):
