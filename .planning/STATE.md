@@ -51,7 +51,7 @@ Progress: [█████░░░░░] 46%
 |-------|-------|-------|--------|
 | 1. Foundation, Fail-Secure & Auth | 0/4 | 4 | Plans created — ready to execute |
 | 2. Core Pipeline & Classification | 0/5 | - | Context gathered — ready to plan |
-| 3. SSE Streaming + Multi-Provider | 3/4 | 4 | In Progress |
+| 3. SSE Streaming + Multi-Provider | 4/4 | 4 | Complete |
 | 4. Multi-Locale + Compliance Presets | 4/4 | 4 | Complete — 64 tests, 6 invariants |
 | 5. Configuration & Observability | 3/3 | 3 | Complete — 64+ tests, 7 invariants |
 | 6. Advanced Property-Based Tests | 2/4 | 4 | In Progress — 06-02 complete, 06-03 pending |

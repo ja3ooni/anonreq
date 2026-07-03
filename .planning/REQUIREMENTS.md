@@ -46,30 +46,30 @@
 - [ ] **CACH-02**: TTL range 60–3600s (default 300s), `allkeys-lru` eviction
 - [ ] **CACH-03**: Monitoring commands (MONITOR, SLOWLOG) disabled
 - [ ] **CACH-04**: Async DEL post-response, TTL as fallback
-- [ ] **CACH-05**: TTL extension at 80% elapsed time during long streams
+- [x] **CACH-05**: TTL extension at 80% elapsed time during long streams
 - [ ] **CACH-06**: Health check verifies persistence disabled, reachability, read/write
 
 ### SSE Streaming
 
-- [ ] **SSE-01**: `stream: true` requests return `text/event-stream` without buffering
-- [ ] **SSE-02**: Pre-fetch Mapping via `HGETALL` at stream start
-- [ ] **SSE-03**: Tail_Buffer (512 char max) handles split tokens across chunk boundaries
-- [ ] **SSE-04**: Case-insensitive Token matching (e.g. `[name_1]`, `[Name_1]`)
-- [ ] **SSE-05**: Bracket-optional Token matching (`NAME_1` at word boundaries)
-- [ ] **SSE-06**: Tail_Buffer flush after 50 consecutive chunks or 500ms
-- [ ] **SSE-07**: Anti-buffering headers: `Cache-Control: no-cache`, `X-Accel-Buffering: no`
-- [ ] **SSE-08**: Flush Tail_Buffer on terminal event
+- [x] **SSE-01**: `stream: true` requests return `text/event-stream` without buffering
+- [x] **SSE-02**: Pre-fetch Mapping via `HGETALL` at stream start
+- [x] **SSE-03**: Tail_Buffer (512 char max) handles split tokens across chunk boundaries
+- [x] **SSE-04**: Case-insensitive Token matching (e.g. `[name_1]`, `[Name_1]`)
+- [x] **SSE-05**: Bracket-optional Token matching (`NAME_1` at word boundaries)
+- [x] **SSE-06**: Tail_Buffer flush after 50 consecutive chunks or 500ms
+- [x] **SSE-07**: Anti-buffering headers: `Cache-Control: no-cache`, `X-Accel-Buffering: no`
+- [x] **SSE-08**: Flush Tail_Buffer on terminal event
 
 ### Multi-Provider
 
-- [ ] **PROV-01**: OpenAI-compatible providers (including Azure OpenAI) — native schema passthrough
-- [ ] **PROV-02**: Anthropic Claude — message format translation via Provider_Adapter
-- [ ] **PROV-03**: Google Gemini — contents[] format translation via Provider_Adapter
-- [ ] **PROV-04**: Ollama — OpenAI-compatible passthrough to configurable base URL
-- [ ] **PROV-05**: Model alias routing to upstream provider with name translation
-- [ ] **PROV-06**: API key injection from env/secrets at network boundary
-- [ ] **PROV-07**: `GET /v1/models` endpoint enumerating configured aliases
-- [ ] **PROV-08**: Provider errors forwarded with generic messages (no keys, URLs, or raw content)
+- [x] **PROV-01**: OpenAI-compatible providers (including Azure OpenAI) — native schema passthrough
+- [x] **PROV-02**: Anthropic Claude — message format translation via Provider_Adapter
+- [x] **PROV-03**: Google Gemini — contents[] format translation via Provider_Adapter
+- [x] **PROV-04**: Ollama — OpenAI-compatible passthrough to configurable base URL
+- [x] **PROV-05**: Model alias routing to upstream provider with name translation
+- [x] **PROV-06**: API key injection from env/secrets at network boundary
+- [x] **PROV-07**: `GET /v1/models` endpoint enumerating configured aliases
+- [x] **PROV-08**: Provider errors forwarded with generic messages (no keys, URLs, or raw content)
 
 ### Multilingual Detection
 
@@ -570,24 +570,23 @@
 | CACH-02 | Phase 2 | Pending |
 | CACH-03 | Phase 2 | Pending |
 | CACH-04 | Phase 2 | Pending |
-| CACH-05 | Phase 3 | Pending |
-| CACH-06 | Phase 2 | Pending |
-| SSE-01 | Phase 3 | Pending |
-| SSE-02 | Phase 3 | Pending |
-| SSE-03 | Phase 3 | Pending |
-| SSE-04 | Phase 3 | Pending |
-| SSE-05 | Phase 3 | Pending |
-| SSE-06 | Phase 3 | Pending |
-| SSE-07 | Phase 3 | Pending |
-| SSE-08 | Phase 3 | Pending |
-| PROV-01 | Phase 2 | Pending |
-| PROV-02 | Phase 3 | Pending |
-| PROV-03 | Phase 3 | Pending |
-| PROV-04 | Phase 3 | Pending |
-| PROV-05 | Phase 3 | Pending |
-| PROV-06 | Phase 3 | Pending |
-| PROV-07 | Phase 3 | Pending |
-| PROV-08 | Phase 3 | Pending |
+| CACH-05 | Phase 3 | Complete |
+| SSE-01 | Phase 3 | Complete |
+| SSE-02 | Phase 3 | Complete |
+| SSE-03 | Phase 3 | Complete |
+| SSE-04 | Phase 3 | Complete |
+| SSE-05 | Phase 3 | Complete |
+| SSE-06 | Phase 3 | Complete |
+| SSE-07 | Phase 3 | Complete |
+| SSE-08 | Phase 3 | Complete |
+| PROV-01 | Phase 2 | Complete |
+| PROV-02 | Phase 3 | Complete |
+| PROV-03 | Phase 3 | Complete |
+| PROV-04 | Phase 3 | Complete |
+| PROV-05 | Phase 3 | Complete |
+| PROV-06 | Phase 3 | Complete |
+| PROV-07 | Phase 3 | Complete |
+| PROV-08 | Phase 3 | Complete |
 | LOCL-01 | Phase 4 | Pending |
 | LOCL-02 | Phase 4 | Pending |
 | LOCL-03 | Phase 4 | Pending |
@@ -606,7 +605,7 @@
 | CLASS-AC-03 | Phase 2 | Pending |
 | CLASS-AC-04 | Phase 2 | Pending |
 | CLASS-AC-05 | Phase 2 | Pending |
-| SSE-DISCONNECT-01 | Phase 3 | Pending |
+| SSE-DISCONNECT-01 | Phase 3 | Complete |
 | PERF-LOAD-01 | Phase 5 | Pending |
 | AUDT-01 | Phase 1 | Pending |
 | AUDT-02 | Phase 1 | Pending |
@@ -629,7 +628,7 @@
 | TEST-04 | Phase 6 | Pending |
 | TEST-05 | Phase 6 | Pending |
 | TEST-06 | Phase 6 | Pending |
-| TEST-07 | Phase 6 | Pending |
+| TEST-07 | Phase 3 | Complete |
 | TEST-08 | Phase 6 | Complete |
 | DOCS-01 | Phase 7 | Pending |
 | DOCS-02 | Phase 7 | Pending |

@@ -153,12 +153,12 @@ understood before Tail_Buffer FSM is built).
 
 **Plans**:
 
-- [ ] 03-02: Provider adapters — Anthropic, Gemini, Ollama (execute first)
-- [ ] 03-01: SSE streaming route with Tail_Buffer FSM, HGETALL pre-fetch, case-insensitive +
+- [x] 03-02: Provider adapters — Anthropic, Gemini, Ollama (execute first)
+- [x] 03-01: SSE streaming route with Tail_Buffer FSM, HGETALL pre-fetch, case-insensitive +
       bracket-optional matching, flush heuristics, client disconnect handling
 
-- [ ] 03-03: Model alias routing and `GET /v1/models` endpoint
-- [ ] 03-04: Streaming property tests (Hypothesis) + disconnect load test
+- [x] 03-03: Model alias routing and `GET /v1/models` endpoint
+- [x] 03-04: Streaming property tests (Hypothesis) + disconnect load test
 
 ---
 
@@ -322,13 +322,13 @@ post-restoration token verification, and custom detection rules API.
 |-------|-------|--------|-----------|
 | 1. Foundation, Fail-Secure & Auth | 4/4 | Planned | — |
 | 2. Core Pipeline & Classification | 4/5 | In Progress|  |
-| 3. SSE Streaming + Multi-Provider | 3/4 | In Progress | — |
+| 3. SSE Streaming + Multi-Provider | 4/4 | Complete | 2026-07-03 |
 | 4. Multi-Locale + Compliance Presets | 4/4 | Complete | 2026-07-02 |
 | 5. Configuration & Observability | 3/3 | Complete | 2026-07-02 |
 | 6. Advanced Property-Based Tests | 4/4 | Complete | 2026-07-02 |
 | 6.5. Production Readiness Review | 0/1 | Planned | — |
 | 7. Developer Experience & Docs | 3/3 | Planned | — |
-| **Stage 1 Total** | **23/25** | | |
+| **Stage 1 Total** | **24/25** | | |
 
 ---
 
@@ -822,7 +822,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Stage | Phases | Plans | Status |
 |-------|--------|-------|--------|
-| 1. Prove the Problem | 7 (1–7) | 25 | 23/25 Complete |
+| 1. Prove the Problem | 7 (1–7) | 25 | 24/25 Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | TBD | 1 plan complete |
 | 3. Build the Moat | 5 (17–21) | TBD | Not started |
 | **Total** | **21** | **25+TBD** | |
