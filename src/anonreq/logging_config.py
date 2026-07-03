@@ -48,6 +48,22 @@ ALLOWLIST: frozenset[str] = frozenset({
     "latency_ms",
     "compliance_preset",
     "locale",
+    "actor_id",
+    "decision_id",
+    "action",
+    "matched_rule_ids",
+    "limit_type",
+    "current_value",
+    "limit",
+    "budget_type",
+    "current_spend",
+    "budget_limit",
+    "currency",
+    "region",
+    "allowed_regions",
+    "classification_level",
+    "matched_rule_id",
+    "reset_at",
 })
 
 
