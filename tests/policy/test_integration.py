@@ -277,3 +277,203 @@ class TestForwardingGuardIntegration:
                 "model": "gpt-4", "messages": [{"role": "user", "content": "hello"}],
             })
             assert response.status_code == 503
+
+
+
+class TestPolicyAdminApiIntegration:
+    @pytest.mark.asyncio
+    async def test_list_policies_authenticated(self, admin_app):
+        from httpx import ASGITransport, AsyncClient
+        from anonreq.policy.models import PolicyAction, PolicyRule
+
+        admin_app.state.policy_store.load_policies.return_value = [
+            PolicyRule(rule_id="r1", action=PolicyAction.BLOCK, priority=1, enabled=True)
+        ]
+
+        transport = ASGITransport(app=admin_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            headers = {
+                "Authorization": "Bearer adminkey12345678901234567890",
+                "X-AnonReq-Role": "administrator",
+                "X-AnonReq-Tenant-ID": "test_tenant",
+            }
+            response = await client.get("/v1/admin/policies", headers=headers)
+            assert response.status_code == 200
+            assert len(response.json()["policies"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_list_policies_unauthenticated(self, admin_app):
+        from httpx import ASGITransport, AsyncClient
+
+        transport = ASGITransport(app=admin_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/v1/admin/policies")
+            assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_upsert_policy_administrator(self, admin_app):
+        from httpx import ASGITransport, AsyncClient
+
+        admin_app.state.policy_store.get_policy.return_value = None
+        admin_app.state.policy_store.load_policies.return_value = []
+        admin_app.state.policy_store.set_tenant_policy = AsyncMock()
+
+        transport = ASGITransport(app=admin_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            headers = {
+                "Authorization": "Bearer adminkey12345678901234567890",
+                "X-AnonReq-Role": "administrator",
+                "X-AnonReq-Tenant-ID": "test_tenant",
+            }
+            payload = {
+                "rule_id": "r1",
+                "name": "Block GPT-3",
+                "action": "BLOCK",
+                "priority": 10,
+                "enabled": True,
+                "conditions": {"model": "gpt-3"},
+            }
+            response = await client.put("/v1/admin/policies/r1", json=payload, headers=headers)
+            assert response.status_code == 200
+            assert response.json()["policy"]["rule_id"] == "r1"
+
+    @pytest.mark.asyncio
+    async def test_upsert_policy_operator(self, admin_app):
+        from httpx import ASGITransport, AsyncClient
+
+        transport = ASGITransport(app=admin_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            headers = {
+                "Authorization": "Bearer adminkey12345678901234567890",
+                "X-AnonReq-Role": "operator",
+                "X-AnonReq-Tenant-ID": "test_tenant",
+            }
+            payload = {
+                "rule_id": "r1",
+                "name": "Block GPT-3",
+                "action": "BLOCK",
+                "priority": 10,
+                "enabled": True,
+            }
+            # Operators are not allowed to update/write policies (PUT is admin only)
+            response = await client.put("/v1/admin/policies/r1", json=payload, headers=headers)
+            assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_get_usage_authenticated(self, admin_app):
+        from decimal import Decimal
+        from httpx import ASGITransport, AsyncClient
+        from anonreq.policy.models import UsageRecord
+
+        admin_app.state.spend_controller.get_usage.return_value = UsageRecord(
+            tenant_id="tenant_a",
+            rpm_current=5,
+            tpm_current=100,
+            concurrent_current=1,
+            daily_spend=Decimal("1.50"),
+            monthly_spend=Decimal("10.00"),
+            reset_at=datetime.now(timezone.utc),
+        )
+        admin_app.state.usage_limiter.get_current.return_value = {
+            "rpm": 5,
+            "tpm": 100,
+            "concurrent": 1,
+        }
+
+        transport = ASGITransport(app=admin_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            headers = {
+                "Authorization": "Bearer adminkey12345678901234567890",
+                "X-AnonReq-Role": "administrator",
+                "X-AnonReq-Tenant-ID": "tenant_a",
+            }
+            response = await client.get("/v1/admin/tenants/tenant_a/usage", headers=headers)
+            assert response.status_code == 200
+            assert response.json()["usage"]["rpm_current"] == 5
+            assert response.json()["usage"]["daily_spend"] == 1.5
+
+    @pytest.mark.asyncio
+    async def test_dependency_outage_503(self, admin_app):
+        from httpx import ASGITransport, AsyncClient
+
+        admin_app.state.policy_store.load_policies.side_effect = Exception("DB Outage")
+
+        transport = ASGITransport(app=admin_app, raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            headers = {
+                "Authorization": "Bearer adminkey12345678901234567890",
+                "X-AnonReq-Role": "administrator",
+                "X-AnonReq-Tenant-ID": "test_tenant",
+            }
+            response = await client.get("/v1/admin/policies", headers=headers)
+            # Fail-secure returns 5xx error on exception
+            assert response.status_code >= 500
+
+    @pytest.mark.asyncio
+    async def test_multi_tenant_isolation(self, admin_app):
+        from httpx import ASGITransport, AsyncClient
+
+        transport = ASGITransport(app=admin_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            # Operator for tenant_a queries tenant_b -> should be rejected with 403
+            headers = {
+                "Authorization": "Bearer adminkey12345678901234567890",
+                "X-AnonReq-Role": "operator",
+                "X-AnonReq-Tenant-ID": "tenant_a",
+            }
+            response = await client.get("/v1/admin/tenants/tenant_b/usage", headers=headers)
+            assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_rbac_denies_wrong_role(self, admin_app):
+        from httpx import ASGITransport, AsyncClient
+
+        transport = ASGITransport(app=admin_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            headers = {
+                "Authorization": "Bearer adminkey12345678901234567890",
+                "X-AnonReq-Role": "read_only",  # insufficient role for write operations
+                "X-AnonReq-Tenant-ID": "test_tenant",
+            }
+            payload = {
+                "rule_id": "r1",
+                "name": "Block GPT-3",
+                "action": "BLOCK",
+                "priority": 10,
+                "enabled": True,
+            }
+            response = await client.put("/v1/admin/policies/r1", json=payload, headers=headers)
+            assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_durable_records_hash_only(self):
+        # Proves that compliance evidence records only store cryptographic hashes,
+        # rule counts, enabled counts, timestamps, and identifiers. No raw payloads.
+        from unittest.mock import AsyncMock
+        from anonreq.policy.evidence import EvidenceStore
+        from anonreq.policy.models import PolicyAction, PolicyDecision, PolicyRule
+
+        mock_store = AsyncMock()
+        mock_store.load_policies.return_value = [
+            PolicyRule(rule_id="r1", action=PolicyAction.ALLOW, priority=1, enabled=True)
+        ]
+        ev_store = EvidenceStore(mock_store)
+
+        decision = PolicyDecision(
+            action=PolicyAction.ALLOW,
+            matched_rule_ids=["r1"],
+            decision_ts=datetime.now(timezone.utc),
+        )
+        record = await ev_store.record_decision_evidence("tenant_abc", decision)
+
+        # Verify fields present
+        assert record.policy_hash is not None
+        assert record.policy_version is not None
+        assert record.rule_count == 1
+        assert record.enabled_rule_count == 1
+
+        # Check serialization contains no raw payloads or secrets
+        raw_json = record.model_dump_json()
+        assert "secret" not in raw_json
+        assert "payload" not in raw_json
+

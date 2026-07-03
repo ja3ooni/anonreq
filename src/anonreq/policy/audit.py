@@ -133,8 +133,8 @@ class DecisionAuditPublisher:
         metrics.record_decision(ctx.tenant_id, action_str)
 
         if decision.action == PolicyAction.BLOCK:
-            reason = decision.reason or (decision.matched_rule_ids[0] if decision.matched_rule_ids else "blocked")
-            metrics.record_denial(ctx.tenant_id, reason)
+            reason_metric = decision.matched_rule_ids[0] if decision.matched_rule_ids else "blocked"
+            metrics.record_denial(ctx.tenant_id, reason_metric)
 
     async def publish_rate_limit(self, tenant_id: str, limit_type: str, current: int, limit: int) -> None:
         """Publish a rate limit hit event and increment rate limit metrics."""

@@ -197,3 +197,38 @@ def reasoning_stream_strategy(draw):
         st.lists(st.integers(min_value=0, max_value=max(len(text) - 1, 0)), min_size=1, max_size=5)
     )
     return text, reasoning, positions
+
+
+@pytest.fixture
+def admin_app():
+    from fastapi import FastAPI
+    from fastapi.exceptions import HTTPException
+    from unittest.mock import AsyncMock
+    from anonreq.admin.router import admin_router
+    from anonreq.policy.store import PolicyStore
+    from anonreq.policy.spend_controller import SpendController
+    from anonreq.policy.usage_limiter import UsageLimiter
+    from anonreq.exceptions import global_exception_handler, http_exception_handler
+
+    app = FastAPI()
+    app.state.policy_store = AsyncMock(spec=PolicyStore)
+    app.state.spend_controller = AsyncMock(spec=SpendController)
+    app.state.usage_limiter = AsyncMock(spec=UsageLimiter)
+
+    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(Exception, global_exception_handler)
+
+    @app.middleware("http")
+    async def inject_principal(request, call_next):
+        # Allow tests to set role and tenant via request headers
+        role = request.headers.get("X-AnonReq-Role", "administrator")
+        tenant_id = request.headers.get("X-AnonReq-Tenant-ID", "test_tenant")
+        request.state.role_principal = {
+            "principal_id": "test_admin",
+            "role": role,
+            "tenant_id": tenant_id,
+        }
+        return await call_next(request)
+
+    app.include_router(admin_router)
+    return app
