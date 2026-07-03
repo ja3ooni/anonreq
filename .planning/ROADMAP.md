@@ -153,7 +153,14 @@ understood before Tail_Buffer FSM is built).
 
 **Plans**:
 
-- [x] 03-02: Provider adapters — Anthropic, Gemini, Ollama (execute first)
+- [x] 03-01-PLAN.md
+- [x] 03-02-PLAN.md
+- [x] 03-03-PLAN.md
+- [x] 03-04-PLAN.md
+- [x] 03-IMPLEMENTATION-PLAN.md
+
+5/5 plans complete
+
 - [x] 03-01: SSE streaming route with Tail_Buffer FSM, HGETALL pre-fetch, case-insensitive +
       bracket-optional matching, flush heuristics, client disconnect handling
 
@@ -322,7 +329,7 @@ post-restoration token verification, and custom detection rules API.
 |-------|-------|--------|-----------|
 | 1. Foundation, Fail-Secure & Auth | 4/4 | Planned | — |
 | 2. Core Pipeline & Classification | 4/5 | In Progress|  |
-| 3. SSE Streaming + Multi-Provider | 4/4 | Complete | 2026-07-03 |
+| 3. SSE Streaming + Multi-Provider | 5/5 | Complete   | 2026-07-03 |
 | 4. Multi-Locale + Compliance Presets | 4/4 | Complete | 2026-07-02 |
 | 5. Configuration & Observability | 3/3 | Complete | 2026-07-02 |
 | 6. Advanced Property-Based Tests | 4/4 | Complete | 2026-07-02 |
@@ -355,7 +362,14 @@ governance, and financial-services compliance.
 4. Usage resets at daily (00:00 UTC) and monthly (1st) boundaries; `budget_reset` audit events.
 5. Gateway fails closed (HTTP 503) when cache unavailable.
 
-**Plans**: TBD
+**Plans**: 3/6 plans executed
+
+- [x] 08-01-PLAN.md
+- [x] 08-02-PLAN.md
+- [x] 08-03-PLAN.md
+- [ ] 08-04-PLAN.md
+- [ ] 08-05-PLAN.md
+- [ ] 08-TEST-PLAN.md
 
 ---
 
@@ -624,7 +638,7 @@ Phase 4 + Phase 12. Phase 16 is independent.
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 8. Rate Limiting & Spend Controls | 0/TBD | Not started | — |
+| 8. Rate Limiting & Spend Controls | 3/6 | In Progress|  |
 | 9. Multimodal Document Anonymization | 5/5 | Complete | 2026-07-03 |
 | 10. AI Security Firewall | 1/5 | In Progress | 2026-07-03 |
 | 11. Operational Observability & Compliance | 1/5 | In Progress | 2026-07-03 |

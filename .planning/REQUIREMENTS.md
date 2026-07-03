@@ -121,7 +121,7 @@
 - [ ] **TEST-04**: Fail-secure — Detection/Cache/Timeout → HTTP 500, 0 forwarded
 - [ ] **TEST-05**: Locale checksum — invalid checksums not flagged
 - [ ] **TEST-06**: No-PII-in-logs — synthetic PII absent from log output
-- [ ] **TEST-07**: Streaming round-trip — all split indices produce byte-for-byte match
+- [x] **TEST-07**: Streaming round-trip — all split indices produce byte-for-byte match
 - [x] **TEST-08**: Cross-request randomization — 1000+ session pairs, ≥ 1 − 2⁻³² probability
 
 ### Developer Experience & Documentation
@@ -142,7 +142,7 @@
 - [ ] **RATE-04**: Per-tenant daily/monthly spend budgets (USD or configured currency)
 - [ ] **RATE-05**: Budget exceeded → HTTP 402 with `budget_type`, `current_spend`, `budget_limit`, `currency`
 - [ ] **RATE-06**: Daily reset at 00:00 UTC, monthly reset on 1st; `budget_reset` audit event
-- [ ] **RATE-07**: `GET /v1/admin/tenants/{tenant_id}/usage` endpoint (operator/admin role)
+- [x] **RATE-07**: `GET /v1/admin/tenants/{tenant_id}/usage` endpoint (operator/admin role)
 - [ ] **RATE-08**: Fail closed (HTTP 503) when cache unavailable
 
 ### Multimodal Document Anonymization (Req 23)
@@ -222,9 +222,9 @@
 
 ### AI System Transparency (Req 30)
 
-- [ ] **TRAN-01**: `X-AnonReq-Processed: true/false` response header on all responses
-- [ ] **TRAN-02**: `X-AnonReq-Entity-Count` response header (integer count)
-- [ ] **TRAN-03**: `X-AnonReq-Block-Reason` response header for blocked requests
+- [x] **TRAN-01**: `X-AnonReq-Processed: true/false` response header on all responses
+- [x] **TRAN-02**: `X-AnonReq-Entity-Count` response header (integer count)
+- [x] **TRAN-03**: `X-AnonReq-Block-Reason` response header for blocked requests
 - [ ] **TRAN-04**: Transparency record per session via `GET /v1/transparency/{session_id}`
 - [ ] **TRAN-05**: Periodic transparency report `GET /v1/admin/transparency/report?period=monthly`
 
@@ -342,7 +342,7 @@
 - [ ] **CLASS-04**: Per-level handling: allow_and_anonymize (≤ Confidential), anonymize_and_flag
       (Restricted), block (Highly Restricted) → HTTP 451
 
-- [ ] **CLASS-05**: Classification_Level in every audit log entry
+- [x] **CLASS-05**: Classification_Level in every audit log entry
 
 ### Financial Crime Controls (Req 42)
 
