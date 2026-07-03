@@ -156,10 +156,10 @@
 
 ### Operational Observability (Req 24)
 
-- [ ] **OBS-01**: SLO evaluation: success ≥ 99.9%, P95 ≤ 100ms, fail-secure ≤ 0.1%, audit ≥ 99.99%
-- [ ] **OBS-02**: `GET /v1/governance/status` with per-SLO compliance, breach alert webhook
-- [ ] **OBS-03**: SLO breach log entry `event_type: slo_breach_detected`
-- [ ] **OBS-04**: Metrics: `anonreq_rate_limit_hits_total`, `anonreq_spend_limit_hits_total`,
+- [x] **OBS-01**: SLO evaluation: success ≥ 99.9%, P95 ≤ 100ms, fail-secure ≤ 0.1%, audit ≥ 99.99%
+- [x] **OBS-02**: `GET /v1/governance/status` with per-SLO compliance, breach alert webhook
+- [x] **OBS-03**: SLO breach log entry `event_type: slo_breach_detected`
+- [x] **OBS-04**: Metrics: `anonreq_rate_limit_hits_total`, `anonreq_spend_limit_hits_total`,
       `anonreq_tenant_active_sessions`, `anonreq_config_reload_total`
 
 - [ ] **OBS-05**: `docs/operations/slo-runbook.md`
