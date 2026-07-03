@@ -129,6 +129,24 @@ None — no deviations needed. Code was already implemented and all tests pass.
 
 None
 
+## Self-Check: PASSED
+
+- [x] `src/anonreq/models/governance.py` exists (193 lines, exceeds 80-line minimum)
+- [x] `src/anonreq/governance/__init__.py` exists, re-exports all router + functions
+- [x] `src/anonreq/governance/records.py` exists (197 lines, exceeds 100-line minimum)
+- [x] `src/anonreq/governance/reviews.py` exists (235 lines, exceeds 60-line minimum)
+- [x] `src/anonreq/governance/risk.py` exists (306 lines, exceeds 100-line minimum)
+- [x] `src/anonreq/governance/router.py` exists (435 lines, exceeds 80-line minimum)
+- [x] `tests/test_governance_records.py` exists (371 lines, exceeds 60-line minimum)
+- [x] `tests/test_governance_risk.py` exists (428 lines, exceeds 60-line minimum)
+- [x] Alembic migration 002 exists with governance tables
+- [x] `main.py` includes governance routers with auth
+- [x] All 36 tests pass
+- [x] Model verification: models import and construct correctly
+- [x] Scoring arithmetic: compute_dimension_score(3,2) = 0.24, compute_overall_risk_score([0.24, 0.48]) = 0.36
+- [x] Config trigger detection: entity_types field triggers reassessment, rate_limit does not
+- [x] Metadata commit in git log: `674a980`
+
 ## User Setup Required
 
 None — no external service configuration required.
