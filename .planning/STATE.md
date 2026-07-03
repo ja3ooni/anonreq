@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06
-status: completed
+status: executing
 stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-07-02T09:47:33.050Z"
+last_updated: "2026-07-03T06:58:37.988Z"
 last_activity: 2026-07-02
 last_activity_desc: Phase 06 marked complete
 progress:
   total_phases: 22
-  completed_phases: 5
-  total_plans: 48
-  completed_plans: 24
-  percent: 23
+  completed_phases: 7
+  total_plans: 51
+  completed_plans: 33
+  percent: 32
 current_phase_name: advanced-property-based-tests
 ---
 
@@ -31,8 +31,8 @@ See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 
 Stage: 1 of 3 (Prove the Problem)
 Phase: 06 — COMPLETE
-Plan: 2 of 4
-Status: Phase 06 complete
+Plan: 3 of 4
+Status: Ready to execute
 Last activity: 2026-07-02 — Phase 06 marked complete
 
 Progress: [██░░░░░░░░] 19% (22 phases, 4 complete, 22/48 plans)
@@ -61,6 +61,7 @@ Progress: [██░░░░░░░░] 19% (22 phases, 4 complete, 22/48 pla
 | 7. Developer Experience & Docs | 0/3 | - | Not started |
 | **Stage 1 Total** | **21/25** | | |
 | Phase 02 P02-04 | 3600 | - tasks | - files |
+| Phase 18-agent-tool-call-governance P02 | 648 | - tasks | - files |
 
 ### Stage 2: Build the Enterprise Platform
 
@@ -111,6 +112,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Detection processed per-node
 - [Phase ?]: CleanupStage does NOT abort pipeline on DEL failure - TTL fallback handles expiry
 - [Phase ?]: Restorer iterates tokens sorted by length descending to prevent partial matches
+- [Phase ?]: Redis TTL for approval keys = business TTL + 3600s to allow data-level expiry check
+- [Phase ?]: Reconstruction detection cache_manager only queried when PII is detected (performance)
+- [Phase ?]: Suppression threshold set to >=0.9 confidence (not >0.9)
 
 ### Pending Todos
 
@@ -128,6 +132,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-02T07:40:49Z
+Last session: 2026-07-03T06:58:33.542Z
 Stopped at: Completed 06-02-PLAN.md
 Resume file: None

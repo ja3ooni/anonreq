@@ -666,7 +666,9 @@ Support MCP protocol and OpenAI/Anthropic tool call/result payloads.
 5. Audit entries: `tool_allowed`, `tool_blocked`, `tool_approval_required` with structured
    details.
 
-**Plans**: TBD
+**Plans**: 0/1 plans executed
+
+- [ ] 18-TEST-PLAN.md
 
 ---
 
@@ -766,7 +768,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
 | 17. Universal AI Traffic Gateway | 0/TBD | Not started | — |
-| 18. Agent & Tool Call Governance | 0/TBD | Not started | — |
+| 18. Agent & Tool Call Governance | 0/1 | Planned    |  |
 | 19. Network Discovery, CASB & Secure RAG | 0/TBD | Not started | — |
 | 20. AI SOC/SIEM Integration | 0/TBD | Not started | — |
 | 21. Endpoint Visibility & Sovereign Control | 0/TBD | Not started | — |

@@ -437,8 +437,8 @@
 - [ ] **APPL-AGENT-02**: Per-tool permission policies: allow, allow_with_audit,
       require_human_approval, block
 
-- [ ] **APPL-AGENT-03**: Tool call parameters anonymized for external API targets
-- [ ] **APPL-AGENT-04**: Tool results inspected for sensitive data
+- [x] **APPL-AGENT-03**: Tool call parameters anonymized for external API targets
+- [x] **APPL-AGENT-04**: Tool results inspected for sensitive data
 - [ ] **APPL-AGENT-05**: Agent execution suspended for tools requiring human approval
 - [ ] **APPL-AGENT-06**: Audit entries: `tool_allowed`, `tool_blocked`, `tool_approval_required`
 
