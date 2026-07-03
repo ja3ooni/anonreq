@@ -61,6 +61,11 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_ADMIN_API_KEY",
         description="Separate API key for admin endpoints. If unset, admin endpoints return 401.",
     )
+    ADMIN_ROLE: str = Field(
+        default="administrator",
+        validation_alias="ANONREQ_ADMIN_ROLE",
+        description="Default role assigned to admin API key users.",
+    )
 
     # Phase 17: Universal AI Traffic Gateway settings
     CA_DIR: str = Field(
