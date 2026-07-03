@@ -377,12 +377,13 @@ governance, and financial-services compliance.
 4. Unsupported content types → HTTP 415 with descriptive error.
 5. Property-based test: anonymize→restore produces byte-for-byte identical document.
 
-**Plans**:
+**Plans**: 5/5 executed
 
 - [x] 09-01: Content-Type Dispatcher + JSON/Multipart Analyzers
-- [ ] 09-02: Tool Call Argument Extraction
-- [ ] 09-03: Local Content Routing + Dispatcher Integration
-- [ ] 09-04: Hypothesis Property Tests + Security Tests
+- [x] 09-02: Tool Call Argument Extraction
+- [x] 09-03: Local Content Routing + Dispatcher Integration
+- [x] 09-04: Hypothesis Property Tests + Security Tests
+- [x] 09-TEST: Test specification
 
 ---
 
@@ -406,7 +407,13 @@ LLM outputs at the infrastructure layer.
 5. All events logged with Prometheus counters (`anonreq_prompt_security_events_total`) and
    structured audit entries.
 
-**Plans**: 5 plans (Waves: foundation, detection, streaming, admin API, property tests)
+**Plans**: 1/5 executed
+
+- [x] 10-01: Prompt injection detection + jailbreak rules + ONNX ML — **Complete 2026-07-03** (75 tests)
+- [ ] 10-02: Outbound LLM response inspection
+- [ ] 10-03: Admin API for rule management
+- [ ] 10-04: Property-based security tests
+- [ ] 10-TEST: Test specification
 
 ---
 
@@ -522,9 +529,13 @@ with risk management, human oversight, transparency, and lifecycle management.
 6. Conformity assessment package: `GET /v1/admin/compliance/conformity-package` returns ZIP
    with SBOM, governance export, risk assessments, config audit history, bias report, manifest.
 
-**Plans**: 0/1 plans executed
+**Plans**: 1/5 executed
 
-- [ ] 14-TEST-PLAN.md
+- [x] 14-01: Governance foundation + CRUD + risk assessment — **Complete 2026-07-03** (36 tests)
+- [ ] 14-02: Human oversight queue + approval/kill-switch endpoints
+- [ ] 14-03: Lifecycle management + transparency headers/reports
+- [ ] 14-04: Conformity assessment package
+- [ ] 14-TEST-PLAN.md: Test specification
 
 ---
 
@@ -614,15 +625,15 @@ Phase 4 + Phase 12. Phase 16 is independent.
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
 | 8. Rate Limiting & Spend Controls | 0/TBD | Not started | — |
-| 9. Multimodal Document Anonymization | 1/4 | In Progress | 2026-07-03 |
-| 10. AI Security Firewall | 0/5 | Planned | — |
-| 11. Operational Observability & Compliance | 0/TBD | Not started | — |
-| 12. Data Classification & Handling | 0/1 | Planned    |  |
-| 13. AI Firewall & Data Loss Prevention | 0/TBD | Not started | — |
-| 14. AI Governance & Oversight | 0/1 | Planned    |  |
-| 15. Financial Services Compliance | 0/TBD | Not started | — |
-| 16. Compliance, Audit & Fairness | 1/4 | In Progress | 2026-07-03 |
-| **Stage 2 Total** | **1/TBD** | | |
+| 9. Multimodal Document Anonymization | 5/5 | Complete | 2026-07-03 |
+| 10. AI Security Firewall | 1/5 | In Progress | 2026-07-03 |
+| 11. Operational Observability & Compliance | 1/5 | In Progress | 2026-07-03 |
+| 12. Data Classification & Handling | 1/4 | In Progress | 2026-07-03 |
+| 13. AI Firewall & Data Loss Prevention | 0/5 | Planned | — |
+| 14. AI Governance & Oversight | 1/5 | In Progress | 2026-07-03 |
+| 15. Financial Services Compliance | 0/5 | Planned | — |
+| 16. Compliance, Audit & Fairness | 1/5 | In Progress | 2026-07-03 |
+| **Stage 2 Total** | **10/39** | | |
 
 ---
 
@@ -656,9 +667,12 @@ transparent proxy, and appliance deployment topologies.
 4. P95 overhead ≤ 5ms for proxy-only mode (no anonymization — policy evaluation only).
 5. Inline inspection of MCP protocol traffic, tool call/result payloads, and structured content.
 
-**Plans**: 0/1 plans executed
+**Plans**: 1/4 executed
 
-- [ ] 17-TEST-PLAN.md
+- [x] 17-01: TLS interception + MITM proxy — **Complete 2026-07-03** (25 tests)
+- [ ] 17-02: Reverse proxy + appliance topology support
+- [ ] 17-03: Inline MCP protocol inspection
+- [ ] 17-TEST-PLAN.md: Test specification
 
 ---
 
@@ -718,9 +732,14 @@ Support MCP protocol and OpenAI/Anthropic tool call/result payloads.
 5. Tokens restored in RAG-anonymized content within LLM response. `rag_content_anonymized`
    audit entry.
 
-**Plans**: 0/1 plans executed
+**Plans**: 1/6 executed
 
-- [ ] 19-TEST-PLAN.md
+- [x] 19-01: Shadow AI discovery pipeline — **Complete 2026-07-03** (79 tests)
+- [ ] 19-02: AI SaaS usage monitoring + CASB policy enforcement
+- [ ] 19-03: Secure RAG pipeline inspection
+- [ ] 19-04: Token restoration in RAG content
+- [ ] 19-05: Full integration tests
+- [ ] 19-TEST-PLAN.md: Test specification
 
 ---
 
@@ -790,12 +809,12 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 17. Universal AI Traffic Gateway | 0/1 | Planned    |  |
-| 18. Agent & Tool Call Governance | 0/1 | Planned    |  |
-| 19. Network Discovery, CASB & Secure RAG | 0/1 | Planned    |  |
-| 20. AI SOC/SIEM Integration | 0/TBD | Not started | — |
-| 21. Endpoint Visibility & Sovereign Control | 0/TBD | Not started | — |
-| **Stage 3 Total** | **0/TBD** | | |
+| 17. Universal AI Traffic Gateway | 1/4 | In Progress | 2026-07-03 |
+| 18. Agent & Tool Call Governance | 4/4 | Complete | 2026-07-03 |
+| 19. Network Discovery, CASB & Secure RAG | 1/6 | In Progress | 2026-07-03 |
+| 20. AI SOC/SIEM Integration | 0/6 | Planned | — |
+| 21. Endpoint Visibility & Sovereign Control | 0/7 | Planned | — |
+| **Stage 3 Total** | **6/27** | | |
 
 ---
 
