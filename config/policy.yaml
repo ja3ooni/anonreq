@@ -1,0 +1,105 @@
+# AnonReq policy configuration
+# Phase 17: Universal AI Traffic Gateway — CA cert configuration
+
+ca_cert:
+  sources:
+    - type: api
+      description: "Admin API upload endpoint for CA certificates"
+    - type: filesystem
+      path: /etc/anonreq/ca
+      description: "File-based CA certificate directory with auto-reload"
+  validation:
+    key_size_min: 2048
+    key_size_max: 4096
+    allowed_algorithms:
+      - RSA
+      - ECDSA
+    max_chain_depth: 3
+  hot_reload:
+    enabled: true
+    debounce_seconds: 2
+    max_reload_attempts: 3
+
+proxy:
+  mode: transparent        # proxy-only | transparent | full
+  max_concurrent_tunnels: 100
+  tunnel_idle_timeout_seconds: 300
+  pinned_cert_action: block  # block | log | pass
+
+# Phase 18 extension: per-provider tool governance
+providers:
+  openai:
+    tool_risk_classification:
+      code_interpreter: critical
+      file_search: high
+    governance:
+      credentials: per_delegation
+      config: per_delegation
+      scope: per_delegation
+    tools:
+      - name: "code_interpreter"
+        permission: block
+      - name: "file_search"
+        permission: allow_with_audit
+        allowed_parameters:
+          - max_results
+        excluded_parameters:
+          - customer_id
+
+  anthropic:
+    tool_risk_classification:
+      computer_use: critical
+      text_editor: high
+      bash: critical
+    governance:
+      credentials: per_delegation
+      config: per_delegation
+      scope: per_delegation
+    tools:
+      - name: "computer_use"
+        permission: block
+      - name: "text_editor"
+        permission: allow_with_audit
+      - name: "bash"
+        permission: block
+
+  gemini:
+    tool_risk_classification:
+      code_execution: critical
+      google_search: low
+    governance:
+      credentials: per_delegation
+      config: per_delegation
+      scope: per_delegation
+    tools:
+      - name: "code_execution"
+        permission: require_human_approval
+      - name: "google_search"
+        permission: allow
+
+  host_mcp:
+    tool_risk_classification:
+      db_query: critical
+      slack_send: medium
+      email_read: high
+      file_read: medium
+    governance: isolated
+    tools:
+      - name: "db_query"
+        permission: require_human_approval
+      - name: "slack_send"
+        permission: allow_with_audit
+      - name: "email_read"
+        permission: allow_with_audit
+      - name: "file_read"
+        permission: allow
+      - name: "file_*"
+        permission: allow
+      - name: "data.*"
+        permission: allow_with_audit
+
+governance:
+  default_unlisted_tool_permission: allow
+  default_critical_tool_permission: require_human_approval
+  strict_domain_isolation: true
+  credential_isolation: per_delegation
