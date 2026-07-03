@@ -44,6 +44,10 @@ from anonreq.governance.approval import (
     ApprovalRecord,
     ApprovalStatus,
 )
+from anonreq.governance.tool_inspector import (
+    InspectionResult,
+    ToolResultInspector,
+)
 
 __all__ = [
     "create_governance_record",
@@ -78,4 +82,7 @@ __all__ = [
     "ApprovalManager",
     "ApprovalRecord",
     "ApprovalStatus",
+    # Tool result inspection (Plan 18-02)
+    "ToolResultInspector",
+    "InspectionResult",
 ]
