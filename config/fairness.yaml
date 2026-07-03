@@ -1,0 +1,24 @@
+fairness:
+  default_threshold: 0.05
+  dataset_bucket: "anonreq-fairness-datasets"
+  drift_threshold: 0.02
+  locales:
+    - "en-US"
+    - "de-DE"
+    - "fr-FR"
+    - "pt-BR"
+    - "ja-JP"
+    - "es-ES"
+    - "it-IT"
+    - "ar-SA"
+  demographic_groups:
+    - "male"
+    - "female"
+    - "non_binary"
+    - "unknown"
+  entity_types_for_fairness:
+    - "PERSON"
+    - "EMAIL"
+    - "PHONE"
+    - "ADDRESS"
+    - "DOB"
