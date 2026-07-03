@@ -666,9 +666,12 @@ Support MCP protocol and OpenAI/Anthropic tool call/result payloads.
 5. Audit entries: `tool_allowed`, `tool_blocked`, `tool_approval_required` with structured
    details.
 
-**Plans**: 0/1 plans executed
+**Plans**: 4/4 plans executed
 
-- [ ] 18-TEST-PLAN.md
+- [x] 18-01-PLAN.md — Tool permission policy, extraction, PDP #2 evaluation
+- [x] 18-02-PLAN.md — Async human approval flow, tool result inspection
+- [x] 18-03-PLAN.md — Observability, metrics, property-based tests
+- [x] 18-TEST-PLAN.md — Test specification
 
 ---
 
