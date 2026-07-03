@@ -4,9 +4,11 @@ Provides endpoints for audit chain status, verification, and
 retrieval via the AuditChainService and ChainAnchorService.
 """
 
-from __future__ import annotations
+import json
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from fastapi import APIRouter, HTTPException, Request
+from anonreq.middleware.rbac import Role, require_role
 
 router = APIRouter(prefix="/v1/governance", tags=["governance"])
 
@@ -84,4 +86,82 @@ async def verify_audit_chain(request: Request, tenant_id: str = "default") -> di
         "is_intact": result.is_intact,
         "checked_count": result.checked_count,
         "broken_at": result.broken_at,
+    }
+
+
+@router.get("/status", dependencies=[Depends(require_role(Role.ADMINISTRATOR))])
+async def get_governance_status(
+    request: Request,
+    tenant_id: str = "default",
+) -> dict:
+    """Return SLO compliance for all configured SLOs."""
+    slo_engine = getattr(request.app.state, "slo_engine", None)
+    if slo_engine is None:
+        raise HTTPException(status_code=503, detail="SLO engine not initialized")
+    
+    compliance = await slo_engine.get_all_compliance(tenant_id)
+    
+    # Format slos list or dict
+    slos_data = {}
+    for sname, comps in compliance.items():
+        slos_data[sname] = [
+            {
+                "window_type": c.window_type,
+                "window_key": c.window_key,
+                "target": c.target,
+                "current": c.current,
+                "compliant": c.compliant,
+                "last_breach": c.last_breach.isoformat() if c.last_breach else None,
+            }
+            for c in comps
+        ]
+
+    return {
+        "tenant_id": tenant_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "slos": slos_data,
+    }
+
+
+@router.get("/breaches", dependencies=[Depends(require_role(Role.ADMINISTRATOR))])
+async def list_governance_breaches(
+    request: Request,
+    tenant_id: str = "default",
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
+    """Return recent SLO breach events from the audit chain."""
+    chain = getattr(request.app.state, "audit_chain", None)
+    if chain is None:
+        raise HTTPException(status_code=503, detail="Audit chain service not initialized")
+    
+    events = await chain.get_events(
+        tenant_id=tenant_id,
+        limit=limit,
+        offset=offset,
+        event_type="slo_breach_detected",
+    )
+    
+    # Format response
+    data = []
+    for e in events:
+        metadata = {}
+        if e.metadata_json:
+            try:
+                metadata = json.loads(e.metadata_json)
+            except Exception:
+                pass
+        data.append({
+            "event_id": e.event_id,
+            "event_type": e.event_type,
+            "timestamp": e.timestamp.isoformat(),
+            "tenant_id": e.tenant_id,
+            "details": metadata,
+        })
+
+    return {
+        "object": "list",
+        "data": data,
+        "limit": limit,
+        "offset": offset,
     }

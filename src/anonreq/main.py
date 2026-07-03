@@ -269,6 +269,25 @@ def create_app() -> FastAPI:
         chain_anchor = ChainAnchorService(audit_chain, audit_engine, anchor_config)
         app.state.chain_anchor = chain_anchor
 
+        # Phase 11: Initialize SLO Engine and Breach Detector
+        from anonreq.services.slo_engine import SLOEngine
+        from anonreq.services.breach_detector import BreachDetector
+        import httpx
+
+        slo_engine = SLOEngine(cache_manager, "config/slo.yaml")
+        app.state.slo_engine = slo_engine
+
+        webhook_client = httpx.AsyncClient()
+        app.state.webhook_client = webhook_client
+        breach_detector = BreachDetector(
+            slo_engine=slo_engine,
+            audit_chain=audit_chain,
+            cache_manager=cache_manager,
+            http_client=webhook_client,
+            config_path="config/webhook.yaml"
+        )
+        app.state.breach_detector = breach_detector
+
         # Phase 14: AI Governance & Oversight services
         from anonreq.services.oversight import OversightService
         from anonreq.services.lifecycle import LifecycleService
@@ -301,6 +320,8 @@ def create_app() -> FastAPI:
 
         # Clean shutdown
         log.info("Shutting down", component="lifespan")
+        if hasattr(app.state, "webhook_client"):
+            await app.state.webhook_client.aclose()
         if hasattr(app.state, "audit_engine"):
             await app.state.audit_engine.dispose()
         if hasattr(app.state, "mitm_handler"):

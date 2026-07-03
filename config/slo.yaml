@@ -1,0 +1,19 @@
+slo:
+  targets:
+    success_rate:
+      target: 99.9
+      window_fixed: ["daily", "monthly"]
+      window_rolling: ["24h", "30d"]
+    p95_latency_ms:
+      target: 100
+      window_fixed: ["daily", "monthly"]
+      window_rolling: ["24h", "30d"]
+    fail_secure_rate:
+      target: 0.1
+      window_fixed: ["daily", "monthly"]
+      window_rolling: ["24h", "30d"]
+    audit_write_rate:
+      target: 99.99
+      window_fixed: ["daily", "monthly"]
+      window_rolling: ["24h", "30d"]
+  breach_cooldown_seconds: 300

@@ -1,0 +1,10 @@
+webhook:
+  slo_breach:
+    url: ""  # Configured via env var ANONREQ_BREACH_WEBHOOK_URL
+    retry_max: 3
+    retry_backoff_base: 2.0  # exponential: 2s, 4s, 8s
+    timeout_seconds: 10
+    dlq_max_entries: 1000
+  headers:
+    Content-Type: application/json
+    X-AnonReq-Event-Type: slo_breach
