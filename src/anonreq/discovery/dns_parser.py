@@ -165,8 +165,11 @@ class DNSParser:
     def _parse_syslog_timestamp(self, ts_str: str) -> datetime:
         now = datetime.now(timezone.utc)
         try:
-            parsed = datetime.strptime(ts_str, _SYSLOG_TIMESTAMP_FMT)
-            return parsed.replace(year=now.year, tzinfo=timezone.utc)
+            # Prepend current year to avoid ambiguous-date deprecation in 3.15+
+            parsed = datetime.strptime(
+                f"{now.year} {ts_str}", "%Y " + _SYSLOG_TIMESTAMP_FMT
+            )
+            return parsed.replace(tzinfo=timezone.utc)
         except ValueError:
             return now
 
