@@ -39,6 +39,11 @@ from anonreq.governance.pdp_tool_evaluator import (
     ToolBlockedError,
     ToolDecision,
 )
+from anonreq.governance.approval import (
+    ApprovalManager,
+    ApprovalRecord,
+    ApprovalStatus,
+)
 
 __all__ = [
     "create_governance_record",
@@ -69,4 +74,8 @@ __all__ = [
     "PDPToolEvaluator",
     "ToolDecision",
     "ToolBlockedError",
+    # Approval flow (Plan 18-02)
+    "ApprovalManager",
+    "ApprovalRecord",
+    "ApprovalStatus",
 ]

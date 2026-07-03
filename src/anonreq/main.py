@@ -58,12 +58,18 @@ from anonreq.models.request_context import RequestContext
 from anonreq.providers.registry import ProviderRegistry
 from anonreq.routing.chat import build_pipeline, router as chat_router
 from anonreq.routes.compliance import router as compliance_router
-from anonreq.governance.router import governance_router as governance_record_router
+from anonreq.governance.router import (
+    approval_router as approval_record_router,
+    governance_router as governance_record_router,
+)
 from anonreq.routes.governance import router as governance_router
 from anonreq.routes.oversight import router as oversight_router
 from anonreq.routes.models import router as models_router
 from anonreq.routing.alias_registry import AliasRegistry
 from anonreq.startup_checks import run_startup_checks
+from anonreq.gateway.passthrough import GatewayStatus
+from anonreq.gateway.detector import AIDetector
+from anonreq.gateway.router import RouteTable
 
 log = get_logger()
 
@@ -274,7 +280,22 @@ def create_app() -> FastAPI:
         app.state.transparency_service = TransparencyService(cache_manager)
         app.state.notification_service = NotificationService(cache_manager)
 
-        log.info("Phase 14 governance services initialized", component="lifespan")
+        # Phase 18: ApprovalManager for tool call governance
+        from anonreq.governance.approval import ApprovalManager
+
+        app.state.approval_manager = ApprovalManager(
+            cache_manager=cache_manager,
+            oversight_service=app.state.oversight_service,
+            ttl=settings.CACHE_TTL_SECONDS,
+        )
+        log.info("ApprovalManager initialized", component="lifespan", ttl=settings.CACHE_TTL_SECONDS)
+
+        # Phase 17: Universal AI Traffic Gateway
+        app.state.gateway_status = GatewayStatus()
+        app.state.ai_detector = AIDetector()
+        app.state.route_table = RouteTable()
+        log.info("Phase 17 gateway services initialized", component="lifespan")
+
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
@@ -348,8 +369,15 @@ def create_app() -> FastAPI:
     app.include_router(compliance_router, dependencies=[Depends(auth_context)])
     app.include_router(governance_router, dependencies=[Depends(auth_context)])
     app.include_router(governance_record_router, dependencies=[Depends(auth_context)])
+    app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
+
+    # Phase 17: Gateway status endpoint
+    @app.get("/v1/gateway/status")
+    async def gateway_status(ctx=Depends(auth_context)):
+        gs: GatewayStatus = app.state.gateway_status
+        return gs.get_status()
 
     @app.get("/")
     async def root(ctx=Depends(auth_context)):
