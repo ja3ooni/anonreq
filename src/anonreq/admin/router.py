@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from anonreq.admin.auth import verify_admin_api_key
 from anonreq.admin.policy_routes import router as policy_router
+from anonreq.admin.usage_routes import router as usage_router
 from anonreq.config import settings
 from anonreq.middleware.rbac import Role
 
@@ -59,3 +60,4 @@ admin_router = APIRouter(
     dependencies=[Depends(require_auth)],
 )
 admin_router.include_router(policy_router)
+admin_router.include_router(usage_router)

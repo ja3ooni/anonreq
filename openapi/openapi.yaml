@@ -160,6 +160,125 @@ paths:
             text/plain:
               schema:
                 type: string
+  /v1/admin/policies:
+    get:
+      summary: List all policies
+      description: Returns a list of all configured policy rules for the operator's tenant.
+      operationId: listPolicies
+      security:
+        - BearerAuth: []
+      x-rbac:
+        minimum_role: operator
+      parameters:
+        - name: enabled
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Filter policies by enabled status
+      responses:
+        "200":
+          description: A list of policies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PolicyRule"
+                  total:
+                    type: integer
+                    example: 3
+                  version:
+                    type: string
+                    example: v1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/policies/{policy_id}:
+    put:
+      summary: Create or update a policy rule
+      description: Upserts a policy rule for the tenant. Replaces existing rule if policy_id matches.
+      operationId: updatePolicy
+      security:
+        - BearerAuth: []
+      x-rbac:
+        minimum_role: administrator
+      parameters:
+        - name: policy_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The unique ID of the policy rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyRule"
+      responses:
+        "200":
+          description: Policy upserted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy:
+                    $ref: "#/components/schemas/PolicyRule"
+                  version:
+                    type: string
+                    example: v2
+                  updated:
+                    type: boolean
+                    example: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+  /v1/admin/tenants/{tenant_id}/usage:
+    get:
+      summary: Retrieve current tenant usage metrics
+      description: Returns current counters for rate limits (RPM, TPM, concurrent) and spend budgets (daily/monthly).
+      operationId: getTenantUsage
+      security:
+        - BearerAuth: []
+      x-rbac:
+        minimum_role: operator
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The tenant ID to query
+      responses:
+        "200":
+          description: Tenant usage metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenant_id:
+                    type: string
+                    example: test_tenant
+                  usage:
+                    $ref: "#/components/schemas/UsageRecord"
+                  reset_at:
+                    type: string
+                    format: date-time
+                    example: "2026-07-03T12:00:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 components:
   schemas:
     ChatCompletionRequest:
@@ -407,6 +526,122 @@ components:
         - multipart/form-data
         - unknown
       description: Supported content types for the multimodal pipeline
+    PolicyAction:
+      type: string
+      enum:
+        - BLOCK
+        - ALLOW
+        - ROUTE_LOCAL
+        - FLAG_AND_FORWARD
+        - MONITOR
+    PolicyRule:
+      type: object
+      required:
+        - rule_id
+        - action
+      additionalProperties: false
+      properties:
+        rule_id:
+          type: string
+          example: rule_001
+        enabled:
+          type: boolean
+          default: true
+          example: true
+        version:
+          type: integer
+          default: 1
+          example: 1
+        name:
+          type: string
+          default: ""
+          example: "Block GPT-4 for external users"
+        description:
+          type: string
+          nullable: true
+          example: "Strict PII block rule"
+        action:
+          $ref: "#/components/schemas/PolicyAction"
+        priority:
+          type: integer
+          default: 0
+          example: 10
+        conditions:
+          type: object
+          nullable: true
+          example: {"model": "gpt-4"}
+        metadata:
+          type: object
+          example: {}
+        tenant_id:
+          type: string
+          nullable: true
+          example: test_tenant
+    PolicyDecision:
+      type: object
+      required:
+        - action
+        - matched_rule_ids
+        - decision_ts
+      additionalProperties: false
+      properties:
+        action:
+          $ref: "#/components/schemas/PolicyAction"
+        matched_rule_ids:
+          type: array
+          items:
+            type: string
+          example: ["rule_001"]
+        decision_ts:
+          type: string
+          format: date-time
+          example: "2026-07-03T12:00:00Z"
+        ttl_seconds:
+          type: integer
+          default: 60
+          example: 60
+        reason:
+          type: string
+          nullable: true
+          example: "PII detected"
+        enforcement:
+          type: string
+          nullable: true
+          example: "503"
+    UsageRecord:
+      type: object
+      required:
+        - tenant_id
+        - rpm_current
+        - tpm_current
+        - concurrent_current
+        - daily_spend
+        - monthly_spend
+        - reset_at
+      additionalProperties: false
+      properties:
+        tenant_id:
+          type: string
+          example: test_tenant
+        rpm_current:
+          type: integer
+          example: 42
+        tpm_current:
+          type: integer
+          example: 5000
+        concurrent_current:
+          type: integer
+          example: 3
+        daily_spend:
+          type: number
+          example: 12.5
+        monthly_spend:
+          type: number
+          example: 350.0
+        reset_at:
+          type: string
+          format: date-time
+          example: "2026-07-03T12:00:00Z"
   responses:
     BadRequest:
       description: Bad request — invalid payload format
@@ -432,3 +667,26 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Unauthorized request — missing or invalid admin API key
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: Forbidden request — insufficient role permissions or tenant scope violation
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    UnprocessableEntity:
+      description: Unprocessable entity — request body validation failure
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+

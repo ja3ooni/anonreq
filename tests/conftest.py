@@ -23,6 +23,8 @@ from hypothesis import strategies as st
 os.environ.setdefault("ANONREQ_API_KEY", "a" * 32)
 os.environ.setdefault("ANONREQ_VALKEY_URL", "redis://localhost:6379/0")
 os.environ.setdefault("ANONREQ_PRESIDIO_URL", "http://localhost:5001")
+os.environ.setdefault("ANONREQ_ADMIN_API_KEY", "adminkey12345678901234567890")
+
 
 
 @pytest.fixture
