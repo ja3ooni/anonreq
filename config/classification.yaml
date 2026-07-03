@@ -78,3 +78,91 @@ rules:
       roles: [user, assistant, tool]
       regex: []
       keywords: ["email", "phone", "address", "ssn", "credit card", "my name is"]
+
+# ---------------------------------------------------------------------------
+# Phase 12: Entity-type-to-classification mapping (CLASS-01, CLASS-02)
+# ---------------------------------------------------------------------------
+# Default sensitivity levels per entity type. Used by ClassificationEngine
+# (anonreq.services.classification_engine) to compute the highest-sensitivity
+# level for each request using the deterministic max algorithm.
+#
+# Overridable per tenant via Phase 8 policy YAML
+# (config/policies/default.yaml → classification.entity_mapping).
+# Unknown entity types default to INTERNAL.
+
+classification:
+  version: 1
+
+  levels:
+    PUBLIC:
+      display_name: "Public"
+      ordinal: 0
+      description: "No sensitivity — publicly available information"
+    INTERNAL:
+      display_name: "Internal"
+      ordinal: 1
+      description: "Internal business data — default for undetected"
+    CONFIDENTIAL:
+      display_name: "Confidential"
+      ordinal: 2
+      description: "Sensitive business data — requires anonymization"
+    RESTRICTED:
+      display_name: "Restricted"
+      ordinal: 3
+      description: "Highly sensitive — requires anonymization + audit"
+    HIGHLY_RESTRICTED:
+      display_name: "Highly Restricted"
+      ordinal: 4
+      description: "Critical — blocked from external providers (HTTP 451)"
+
+  entity_mapping:
+    # Internal (Level 1)
+    PERSON: INTERNAL
+    LOCATION: INTERNAL
+    DATE_TIME: INTERNAL
+    NRP: INTERNAL
+    AGE: INTERNAL
+    DOMAIN_NAME: INTERNAL
+    ORGANIZATION: INTERNAL
+    ZIP_CODE: INTERNAL
+    IP_ADDRESS: INTERNAL
+
+    # Confidential (Level 2)
+    EMAIL: CONFIDENTIAL
+    PHONE: CONFIDENTIAL
+    URL: CONFIDENTIAL
+    CRYPTO: CONFIDENTIAL
+
+    # Restricted (Level 3)
+    CREDIT_CARD: RESTRICTED
+    CREDIT_CARD_TYPE: RESTRICTED
+    IBAN: RESTRICTED
+    SWIFT: RESTRICTED
+    BANK_ACCOUNT: RESTRICTED
+    SSN: RESTRICTED
+    MEDICAL_LICENSE: RESTRICTED
+    DRIVERS_LICENSE: RESTRICTED
+    PASSPORT: RESTRICTED
+    TAX_ID: RESTRICTED
+    HEALTH_INFO: RESTRICTED
+
+    # Highly Restricted (Level 4)
+    API_KEY: HIGHLY_RESTRICTED
+    PASSWORD: HIGHLY_RESTRICTED
+    AUTH_TOKEN: HIGHLY_RESTRICTED
+    SOURCE_CODE: HIGHLY_RESTRICTED
+
+  # Default per-level handling policy (overridable in Phase 8 tenant policy)
+  handling:
+    PUBLIC:
+      action: PASS
+    INTERNAL:
+      action: PASS
+    CONFIDENTIAL:
+      action: ANONYMIZE
+    RESTRICTED:
+      action: ANONYMIZE
+      audit_flag: true
+    HIGHLY_RESTRICTED:
+      action: BLOCK
+      http_status: 451
