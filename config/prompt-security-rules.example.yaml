@@ -1,0 +1,56 @@
+# Example prompt security rules configuration for AnonReq.
+# Copy this to prompt-security-rules.yaml and customize.
+#
+# Each rule supports:
+#   rule_id:  Unique identifier (required)
+#   category: One of the 7 detection categories (required)
+#   enabled:  true/false — disabled rules are skipped (default: true)
+#   description: Human-readable description
+#   pattern:  Regex pattern for matching (optional — if omitted, semantic-only)
+#   action:   BLOCK | FLAG_AND_FORWARD | MONITOR (default: BLOCK)
+#   severity: HIGH | MEDIUM | LOW (default: HIGH)
+#   priority: Higher = evaluated first (default: 0)
+#   metadata: Arbitrary key-value pairs
+#
+# category_config controls per-category thresholds and enablement.
+# severity_mapping maps severity levels to default actions.
+
+version: "1.0"
+
+rules:
+  - rule_id: "example_injection_001"
+    category: prompt_injection
+    enabled: true
+    description: "Example rule — replace with actual patterns"
+    pattern: '(?i)(example pattern)'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+category_config:
+  prompt_injection:
+    enabled: true
+    threshold: 0.85
+  jailbreak:
+    enabled: true
+    threshold: 0.85
+  system_prompt_extraction:
+    enabled: true
+    threshold: 0.85
+  instruction_override:
+    enabled: true
+    threshold: 0.85
+  role_escalation:
+    enabled: true
+    threshold: 0.85
+  hidden_tool_invocation:
+    enabled: true
+    threshold: 0.85
+  secret_exfiltration:
+    enabled: true
+    threshold: 0.85
+
+severity_mapping:
+  high: BLOCK
+  medium: FLAG_AND_FORWARD
+  low: MONITOR

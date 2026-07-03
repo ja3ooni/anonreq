@@ -1,0 +1,155 @@
+version: "1.0"
+rules:
+  - rule_id: "direct_injection_001"
+    category: prompt_injection
+    enabled: true
+    description: "Direct prompt injection — ignore previous instructions"
+    pattern: '(?i)(ignore\s+(all\s+)?(previous|above)\s+instructions|forget\s+(all\s+)?(previous|prior)\s+instructions|you\s+(are|were)\s+told|disregard\s+prior|new\s+instructions\s*:)'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "indirect_injection_001"
+    category: prompt_injection
+    enabled: true
+    description: "Indirect prompt injection via retrieved content"
+    pattern: '(?i)(injected\s+instruction|malicious\s+content\s+says|hidden\s+command|embedded\s+directive)'
+    action: FLAG_AND_FORWARD
+    severity: HIGH
+    priority: 80
+
+  - rule_id: "jailbreak_001"
+    category: jailbreak
+    enabled: true
+    description: "Classic DAN jailbreak pattern"
+    pattern: '(?i)(DAN|do\s+anything\s+now|you\s+are\s+now\s+|roleplay\s+as|act\s+as\s+if|hypothetical\s+scenario|character\s+play)'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "jailbreak_002"
+    category: jailbreak
+    enabled: true
+    description: "Alignment override and moral bypass attempts"
+    pattern: '(?i)(alignment\s+bypass|ethical\s+override|moral\s+exception|safety\s+filter\s+off|uncensored\s+mode|restriction\s+lifted)'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "extraction_001"
+    category: system_prompt_extraction
+    enabled: true
+    description: "Attempts to extract system prompt verbatim"
+    pattern: '(?i)(what\s+(is|was)\s+(your|the)\s+(system\s+)?(prompt|instruction)|repeat\s+(your|the)\s+(system\s+)?prompt|output\s+(your|the)\s+initial|show\s+(your|the)\s+prompt|print\s+(your|the)\s+system)'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "extraction_002"
+    category: system_prompt_extraction
+    enabled: true
+    description: "Encoding-based extraction attempts"
+    pattern: '(?i)(base64.*(prompt|instruction)|rot13.*(prompt|instruction)|reverse.*(prompt|instruction)|encoded.*system|obfuscated.*prompt)'
+    action: BLOCK
+    severity: HIGH
+    priority: 90
+
+  - rule_id: "override_001"
+    category: instruction_override
+    enabled: true
+    description: "Attempts to override core instructions"
+    pattern: '(?i)(override\s+(instructions|commands|directives)|ignore\s+(safety|policy|rule|guideline)|disregard\s+policies|bypass\s+filters|you\s+must\s+not\s+(refuse|decline))'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "override_002"
+    category: instruction_override
+    enabled: true
+    description: "Format/reset override attempts"
+    pattern: '(?i)(reset\s+(your|the)\s+(instructions|config|state)|new\s+session\s+rules|clear\s+(your|the)\s+context|start\s+over|fresh\s+instructions)'
+    action: BLOCK
+    severity: MEDIUM
+    priority: 80
+
+  - rule_id: "escalation_001"
+    category: role_escalation
+    enabled: true
+    description: "Role escalation — assume admin/system role"
+    pattern: '(?i)(you\s+are\s+(now|an?\s+|the\s+)(admin(istrator)?|root|superuser|system|god\s+mode)|with\s+(elevated|full)\s+(privileges|access|permissions)|escalate\s+(my|your)\s+(role|privileges))'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "escalation_002"
+    category: role_escalation
+    enabled: true
+    description: "Impersonation and privilege elevation"
+    pattern: '(?i)(pretend\s+(you\s+are|to\s+be)\s+(admin|root|sudo|superuser)|act\s+as\s+(an?\s+)?admin|sudo\s+mode|privilege\s+escalation|assume\s+role)'
+    action: BLOCK
+    severity: HIGH
+    priority: 90
+
+  - rule_id: "tool_invocation_001"
+    category: hidden_tool_invocation
+    enabled: true
+    description: "Hidden function/tool invocation attempts"
+    pattern: '(?i)(hidden\s+(function|tool|command|api|endpoint)|covert\s+(call|invocation)|call\s+(function|tool)\s+(silently|without\s+notice)|invoke\s+hidden|suppressed\s+(function|tool))'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "tool_invocation_002"
+    category: hidden_tool_invocation
+    enabled: true
+    description: "Backdoor function calling patterns"
+    pattern: '(?i)(backdoor|secret\s+function|unlisted\s+(api|endpoint|tool)|undocumented\s+(feature|command)|private\s+(api|function)|internal\s+(only|endpoint))'
+    action: BLOCK
+    severity: HIGH
+    priority: 90
+
+  - rule_id: "exfiltration_001"
+    category: secret_exfiltration
+    enabled: true
+    description: "Prompt leaking secrets via output"
+    pattern: '(?i)((leak|exfiltrate|extract|dump)\s+(key|secret|token|password|credential)|output\s+(all|the)\s+(api\s+)?keys|show\s+(me\s+)?(your\s+)?(keys|tokens|secrets)|reveal\s+(hidden|confidential|secret|private))'
+    action: BLOCK
+    severity: HIGH
+    priority: 100
+
+  - rule_id: "exfiltration_002"
+    category: secret_exfiltration
+    enabled: true
+    description: "Data exfiltration via encoded channels"
+    pattern: '(?i)(encode.*(key|secret|token|password)|exfiltrate.*(via|through|using)|send\s+(key|secret|token)\s+(to|via|through)|callback\s+url|webhook.*(key|token))'
+    action: BLOCK
+    severity: HIGH
+    priority: 90
+
+category_config:
+  prompt_injection:
+    enabled: true
+    threshold: 0.85
+  jailbreak:
+    enabled: true
+    threshold: 0.85
+  system_prompt_extraction:
+    enabled: true
+    threshold: 0.85
+  instruction_override:
+    enabled: true
+    threshold: 0.85
+  role_escalation:
+    enabled: true
+    threshold: 0.85
+  hidden_tool_invocation:
+    enabled: true
+    threshold: 0.85
+  secret_exfiltration:
+    enabled: true
+    threshold: 0.85
+
+severity_mapping:
+  high: BLOCK
+  medium: FLAG_AND_FORWARD
+  low: MONITOR
