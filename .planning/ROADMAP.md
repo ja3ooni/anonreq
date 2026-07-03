@@ -515,7 +515,9 @@ with risk management, human oversight, transparency, and lifecycle management.
 6. Conformity assessment package: `GET /v1/admin/compliance/conformity-package` returns ZIP
    with SBOM, governance export, risk assessments, config audit history, bias report, manifest.
 
-**Plans**: TBD
+**Plans**: 0/1 plans executed
+
+- [ ] 14-TEST-PLAN.md
 
 ---
 
@@ -603,7 +605,7 @@ Phase 4 + Phase 12. Phase 16 is independent.
 | 11. Operational Observability & Compliance | 0/TBD | Not started | — |
 | 12. Data Classification & Handling | 0/TBD | Not started | — |
 | 13. AI Firewall & Data Loss Prevention | 0/TBD | Not started | — |
-| 14. AI Governance & Oversight | 0/TBD | Not started | — |
+| 14. AI Governance & Oversight | 0/1 | Planned    |  |
 | 15. Financial Services Compliance | 0/TBD | Not started | — |
 | 16. Compliance, Audit & Fairness | 0/TBD | Not started | — |
 | **Stage 2 Total** | **0/TBD** | | |
