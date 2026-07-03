@@ -118,7 +118,7 @@
 - [ ] **TEST-01**: Round-trip correctness — anonymize → restore → byte-for-byte match
 - [ ] **TEST-02**: Token uniqueness — N distinct values → N distinct Tokens
 - [ ] **TEST-03**: Deduplication — same value K times → same Token
-- [ ] **TEST-04**: Fail-secure — Detection/Cache/Timeout → HTTP 500, 0 forwarded
+- [x] **TEST-04**: Fail-secure — Detection/Cache/Timeout → HTTP 500, 0 forwarded
 - [ ] **TEST-05**: Locale checksum — invalid checksums not flagged
 - [ ] **TEST-06**: No-PII-in-logs — synthetic PII absent from log output
 - [x] **TEST-07**: Streaming round-trip — all split indices produce byte-for-byte match
@@ -137,13 +137,13 @@
 ### Rate Limiting & Spend Controls (Req 22)
 
 - [ ] **RATE-01**: Per-tenant RPM/TPM/concurrent rate limits — configurable independently
-- [ ] **RATE-02**: RPM/TPM exceeded → HTTP 429 with `Retry-After` header
+- [x] **RATE-02**: RPM/TPM exceeded → HTTP 429 with `Retry-After` header
 - [ ] **RATE-03**: Concurrent limit exceeded → HTTP 429 with `reason: concurrent_limit_exceeded`
 - [ ] **RATE-04**: Per-tenant daily/monthly spend budgets (USD or configured currency)
-- [ ] **RATE-05**: Budget exceeded → HTTP 402 with `budget_type`, `current_spend`, `budget_limit`, `currency`
+- [x] **RATE-05**: Budget exceeded → HTTP 402 with `budget_type`, `current_spend`, `budget_limit`, `currency`
 - [x] **RATE-06**: Daily reset at 00:00 UTC, monthly reset on 1st; `budget_reset` audit event
 - [x] **RATE-07**: `GET /v1/admin/tenants/{tenant_id}/usage` endpoint (operator/admin role)
-- [ ] **RATE-08**: Fail closed (HTTP 503) when cache unavailable
+- [x] **RATE-08**: Fail closed (HTTP 503) when cache unavailable
 
 ### Multimodal Document Anonymization (Req 23)
 
@@ -625,7 +625,7 @@
 | TEST-01 | Phase 6 | Pending |
 | TEST-02 | Phase 6 | Pending |
 | TEST-03 | Phase 6 | Pending |
-| TEST-04 | Phase 6 | Pending |
+| TEST-04 | Phase 6 | Complete |
 | TEST-05 | Phase 6 | Pending |
 | TEST-06 | Phase 6 | Pending |
 | TEST-07 | Phase 3 | Complete |

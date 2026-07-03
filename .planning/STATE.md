@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 8
 current_phase_name: Enterprise-Policy-Engine
 status: executing
-stopped_at: Completed 08-04-PLAN.md
-last_updated: "2026-07-03T12:06:49.745Z"
+stopped_at: Completed 08-05-PLAN.md
+last_updated: "2026-07-03T16:30:00.029Z"
 last_activity: 2026-07-03
 last_activity_desc: Phase 8 execution started
 progress:
   total_phases: 22
   completed_phases: 10
   total_plans: 101
-  completed_plans: 55
+  completed_plans: 56
   percent: 45
 ---
 
@@ -31,7 +31,7 @@ See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 
 Stage: 1 of 3 (Prove the Problem)
 Phase: 8 (Enterprise-Policy-Engine) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-07-03 — Phase 8 execution started
 
@@ -70,6 +70,7 @@ Progress: [█████░░░░░] 46%
 | Phase 03-sse-streaming-multi-provider PIMPLEMENTATION | ~5h aggregate | 4 sub-plans tasks | 28 files |
 | Phase 08 P03 | 15min | 4 tasks | 6 files |
 | Phase 08 P04 | 20min | 3 tasks | 7 files |
+| Phase 08 P05 | 25min | 4 tasks | 8 files |
 
 ### Stage 2: Build the Enterprise Platform
 
@@ -141,6 +142,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Unknown entity types default to Internal (conservative, not Public)
 - [Phase 08]: Operators are strictly scoped to their own tenant's usage metrics; administrators can access any tenant's metrics.
 - [Phase 08]: Explicitly omit the decision.reason field from PolicyEvidence metadata to prevent accidental leaks of sensitive raw content or tokens.
+- [Phase 08]: Inject the mock role_principal dynamically from request headers in the test admin app middleware to allow multi-role RBAC API verification.
+- [Phase 08]: Set raise_app_exceptions=False on ASGITransport in outage integration tests to properly verify global exception handlers response rendering.
 
 ### Pending Todos
 
@@ -158,6 +161,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-03T12:06:47.551Z
-Stopped at: Completed 08-04-PLAN.md
+Last session: 2026-07-03T16:29:58.726Z
+Stopped at: Completed 08-05-PLAN.md
 Resume file: None
