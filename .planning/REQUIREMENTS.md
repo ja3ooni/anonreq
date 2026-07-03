@@ -149,9 +149,9 @@
 
 - [ ] **MULTI-01**: Tool call arguments (`tool_calls` JSON) anonymized
 - [ ] **MULTI-02**: Tool call results (`tool` role content) anonymized
-- [ ] **MULTI-03**: JSON documents — recursive string leaf scan, structural validity preserved
-- [ ] **MULTI-04**: Multimodal metadata (file names, `image_url` descriptions) anonymized
-- [ ] **MULTI-05**: Unsupported content types → HTTP 415
+- [x] **MULTI-03**: JSON documents — recursive string leaf scan, structural validity preserved
+- [x] **MULTI-04**: Multimodal metadata (file names, `image_url` descriptions) anonymized
+- [x] **MULTI-05**: Unsupported content types → HTTP 415
 - [ ] **MULTI-06**: Property-based test: anonymize→restore byte-for-byte identical document
 
 ### Operational Observability (Req 24)
