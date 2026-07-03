@@ -62,6 +62,18 @@ class Settings(BaseSettings):
         description="Separate API key for admin endpoints. If unset, admin endpoints return 401.",
     )
 
+    # Phase 17: Universal AI Traffic Gateway settings
+    CA_DIR: str = Field(
+        default="/etc/anonreq/ca",
+        validation_alias="ANONREQ_CA_DIR",
+        description="Directory for CA certificate storage.",
+    )
+    PROXY_MODE: str = Field(
+        default="proxy-only",
+        validation_alias="ANONREQ_PROXY_MODE",
+        description="Proxy mode: proxy-only | transparent | full",
+    )
+
     @field_validator("API_KEY", mode="before")
     @classmethod
     def validate_api_key_length(cls, v: Any) -> str:

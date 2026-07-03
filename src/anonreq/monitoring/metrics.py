@@ -62,3 +62,14 @@ active_config_version = Gauge(
     "anonreq_active_config_version",
     "Current active custom rules config version (incremented on successful hot-reload)",
 )
+
+# Phase 17: Proxy metrics for TLS tunnel monitoring
+proxy_connections_active = Gauge(
+    "anonreq_proxy_connections_active",
+    "Number of currently active TLS tunnels through the MITM proxy",
+)
+
+proxy_pinning_blocks = Counter(
+    "anonreq_proxy_pinning_blocks_total",
+    "Total number of certificate pinning blocks triggered",
+)
