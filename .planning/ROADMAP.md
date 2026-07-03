@@ -369,7 +369,7 @@ governance, and financial-services compliance.
 - [x] 08-03-PLAN.md
 - [x] 08-04-PLAN.md
 - [x] 08-05-PLAN.md
-- [ ] 08-TEST-PLAN.md
+- [x] 08-TEST-PLAN.md
 
 ---
 
