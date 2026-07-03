@@ -362,12 +362,12 @@ governance, and financial-services compliance.
 4. Usage resets at daily (00:00 UTC) and monthly (1st) boundaries; `budget_reset` audit events.
 5. Gateway fails closed (HTTP 503) when cache unavailable.
 
-**Plans**: 3/6 plans executed
+**Plans**: 4/6 plans executed
 
 - [x] 08-01-PLAN.md
 - [x] 08-02-PLAN.md
 - [x] 08-03-PLAN.md
-- [ ] 08-04-PLAN.md
+- [x] 08-04-PLAN.md
 - [ ] 08-05-PLAN.md
 - [ ] 08-TEST-PLAN.md
 
@@ -638,7 +638,7 @@ Phase 4 + Phase 12. Phase 16 is independent.
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 8. Rate Limiting & Spend Controls | 3/6 | In Progress|  |
+| 8. Rate Limiting & Spend Controls | 4/6 | In Progress|  |
 | 9. Multimodal Document Anonymization | 5/5 | Complete | 2026-07-03 |
 | 10. AI Security Firewall | 1/5 | In Progress | 2026-07-03 |
 | 11. Operational Observability & Compliance | 1/5 | In Progress | 2026-07-03 |

@@ -92,7 +92,7 @@
 ### Audit Logging
 
 - [ ] **AUDT-01**: Structured JSON to stdout with timestamp, session_id, provider, model, entity_counts, latency_ms, compliance_preset, locale
-- [ ] **AUDT-02**: No raw prompt text, raw response text, tokens, entity values, credentials, or internal URLs in logs
+- [x] **AUDT-02**: No raw prompt text, raw response text, tokens, entity values, credentials, or internal URLs in logs
 - [ ] **AUDT-03**: Structured-log field allowlist — non-allowlisted fields stripped
 - [ ] **AUDT-04**: Fail-secure event log entries (timestamp, session_id, failure_type, http_status)
 - [ ] **AUDT-05**: Log entry written before HTTP response flushed
@@ -141,7 +141,7 @@
 - [ ] **RATE-03**: Concurrent limit exceeded → HTTP 429 with `reason: concurrent_limit_exceeded`
 - [ ] **RATE-04**: Per-tenant daily/monthly spend budgets (USD or configured currency)
 - [ ] **RATE-05**: Budget exceeded → HTTP 402 with `budget_type`, `current_spend`, `budget_limit`, `currency`
-- [ ] **RATE-06**: Daily reset at 00:00 UTC, monthly reset on 1st; `budget_reset` audit event
+- [x] **RATE-06**: Daily reset at 00:00 UTC, monthly reset on 1st; `budget_reset` audit event
 - [x] **RATE-07**: `GET /v1/admin/tenants/{tenant_id}/usage` endpoint (operator/admin role)
 - [ ] **RATE-08**: Fail closed (HTTP 503) when cache unavailable
 
@@ -608,7 +608,7 @@
 | SSE-DISCONNECT-01 | Phase 3 | Complete |
 | PERF-LOAD-01 | Phase 5 | Pending |
 | AUDT-01 | Phase 1 | Pending |
-| AUDT-02 | Phase 1 | Pending |
+| AUDT-02 | Phase 1 | Complete |
 | AUDT-03 | Phase 1 | Pending |
 | AUDT-04 | Phase 2 | Pending |
 | AUDT-05 | Phase 2 | Pending |
