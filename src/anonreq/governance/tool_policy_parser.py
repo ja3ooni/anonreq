@@ -333,6 +333,24 @@ class ToolPolicyParser:
             max_arguments_size=max_args_size,
         )
 
+    def get_provider_policy(
+        self,
+        provider: str,
+        domain: str,
+    ) -> ProviderToolPolicy | None:
+        """Get the full provider policy for a provider+domain pair.
+
+        Returns the ``ProviderToolPolicy`` containing the tools list,
+        risk classification map, and governance metadata, or ``None``
+        if the provider+domain is not loaded.
+
+        Args:
+            provider: Provider identifier.
+            domain: Tool domain ("model" or "host").
+        """
+        key = f"{provider}:{domain}"
+        return self._parsed_policies.get(key)
+
     def get_policy(
         self,
         provider: str,

@@ -354,6 +354,11 @@ class PDPToolEvaluator:
     ) -> ToolRiskLevel | None:
         """Determine risk level for a tool from policy classification.
 
+        Checks two sources (priority order):
+        1. The tool's individual policy (``ToolPolicy.risk_level``).
+        2. The provider's risk classification map
+           (``ProviderToolPolicy.risk_classification``), for unlisted tools.
+
         Args:
             tool_name: Name of the tool.
             provider: Provider identifier.
@@ -361,11 +366,19 @@ class PDPToolEvaluator:
         Returns:
             ToolRiskLevel if known, None if unknown.
         """
-        # Check policy risk classification for each loaded provider
+        # Priority 1: tool policy risk_level
         for domain in ("model", "host"):
             policy = self._parser.get_policy(provider, domain, tool_name)
             if policy is not None and policy.risk_level is not None:
                 return policy.risk_level
+
+        # Priority 2: provider risk_classification map (for unlisted tools)
+        for domain in ("model", "host"):
+            provider_policy = self._parser.get_provider_policy(provider, domain)
+            if provider_policy is not None and provider_policy.risk_classification:
+                risk = provider_policy.risk_classification.get(tool_name)
+                if risk is not None:
+                    return risk
 
         return None
 
