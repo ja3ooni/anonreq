@@ -34,6 +34,11 @@ from anonreq.governance.tool_extractor import (
     ToolExtractor,
     ToolResult,
 )
+from anonreq.governance.pdp_tool_evaluator import (
+    PDPToolEvaluator,
+    ToolBlockedError,
+    ToolDecision,
+)
 
 __all__ = [
     "create_governance_record",
@@ -61,4 +66,7 @@ __all__ = [
     "ToolCall",
     "ToolResult",
     "ToolExtractionError",
+    "PDPToolEvaluator",
+    "ToolDecision",
+    "ToolBlockedError",
 ]

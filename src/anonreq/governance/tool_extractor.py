@@ -45,6 +45,7 @@ class ToolCall:
     domain: str = "model"
     provider: str | None = None
     raw: dict[str, Any] | None = None
+    credential_context: str | None = None
 
 
 @dataclass

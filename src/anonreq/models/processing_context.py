@@ -80,10 +80,16 @@ class ProcessingContext:
     stream_finished: bool = False
     terminal_state: str | None = None
 
+    # Tool governance (Phase 18)
+    requires_approval: bool = False
+
     # Timing fields for Prometheus observability (D-140, D-141, D-160, D-161)
     request_receipt_time: float | None = None
     provider_dispatch_time: float | None = None
     processing_overhead_ms: float | None = None
+
+    policy_decision: Any | None = None
+    policy_enforcement: Any | None = None
 
     audit_metadata: dict[str, Any] = field(default_factory=dict)
     errors: list[Exception] = field(default_factory=list)
