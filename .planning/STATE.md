@@ -5,7 +5,7 @@ milestone_name: milestone
 current_phase: 18
 status: verifying
 stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-07-03T07:21:24.675Z"
+last_updated: "2026-07-03T07:21:41.614Z"
 last_activity: 2026-07-03
 progress:
   total_phases: 22
@@ -110,7 +110,8 @@ Recent decisions affecting current work:
 - **Phase 6.5 inserted**: Production Readiness Review checkpoint after Phase 6. Produces PRR.md, THREAT_MODEL.md, DEPLOYMENT_GUIDE.md, RUNBOOK.md, SRE_PLAYBOOK.md.
 - **D-190 (06-02)**: Test at Tokenizer level, not full HTTP pipeline, for cross-request randomization tests. Tokenizer.initialize_session() is the production source of per-session randomness.
 - **D-191 (06-02)**: Use 0xFFFFFFFF (32-bit) mask instead of 0x3FFFFFFF (30-bit) for token index seed offset to meet P ≤ 2⁻³² bound.
-- **189 total decisions** (D-01 through D-191), **20 total guardrails** (AG-01 through AG-20) across all 6 phases.
+- **190 total decisions** (D-01 through D-192), **20 total guardrails** (AG-01 through AG-20) across all phases.
+- **D-192 (16-01)**: Fairness evaluation uses 5 entity types (PERSON, EMAIL, PHONE, ADDRESS, DOB) matching config/fairness.yaml. Recall disparity threshold at 0.05. Incident classification: CRITICAL (data exposure with immediate notification), HIGH (SLO breach + high impact, 24h), MEDIUM (SLO breach alone, 72h), LOW (next review cycle).
 - [Phase ?]: Detection processed per-node
 - [Phase ?]: CleanupStage does NOT abort pipeline on DEL failure - TTL fallback handles expiry
 - [Phase ?]: Restorer iterates tokens sorted by length descending to prevent partial matches
@@ -123,6 +124,8 @@ Recent decisions affecting current work:
 - [Phase 19]: Webhook — fire-and-forget with 5s timeout, HTTPS only
 - [Phase 19]: Batch parsing — configurable max batch size (10k), lines > 4KB rejected
 - [Phase 19]: Dedup merge keyed by (provider, hostname) tuple, latest last_seen wins
+- [Phase ?]: Dual-path CA management: admin API upload (validate+write PEMs) AND filesystem file watch (watchdog with 2s debounce) — both supported simultaneously
+- [Phase ?]: Certificate pinning detection via key size heuristic: RSA ≤ 1024 or EC ≤ 192 identified as pinning-susceptible
 
 ### Pending Todos
 

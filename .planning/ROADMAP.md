@@ -587,7 +587,14 @@ data subject rights, and breach notification.
 7. Breach notification automation: configurable templates, regulator notification queue,
    affected-tenant notification workflow.
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+**Plan execution order**: 16-01 → 16-02 → 16-03 → 16-04
+
+- [x] 16-01: Fairness evaluation pipeline + drift monitoring + incident classification — **Complete 2026-07-03** (65 tests)
+- [ ] 16-02: Third-party AI supplier governance + post-deployment surveillance
+- [ ] 16-03: Data lineage, record retention + data subject rights (DSAR/erasure)
+- [ ] 16-04: Breach notification automation + data lineage audit trail
 
 ---
 
@@ -642,7 +649,9 @@ transparent proxy, and appliance deployment topologies.
 4. P95 overhead ≤ 5ms for proxy-only mode (no anonymization — policy evaluation only).
 5. Inline inspection of MCP protocol traffic, tool call/result payloads, and structured content.
 
-**Plans**: TBD
+**Plans**: 0/1 plans executed
+
+- [ ] 17-TEST-PLAN.md
 
 ---
 
@@ -774,7 +783,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 17. Universal AI Traffic Gateway | 0/TBD | Not started | — |
+| 17. Universal AI Traffic Gateway | 0/1 | Planned    |  |
 | 18. Agent & Tool Call Governance | 0/1 | Planned    |  |
 | 19. Network Discovery, CASB & Secure RAG | 0/1 | Planned    |  |
 | 20. AI SOC/SIEM Integration | 0/TBD | Not started | — |
@@ -788,7 +797,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 | Stage | Phases | Plans | Status |
 |-------|--------|-------|--------|
 | 1. Prove the Problem | 7 (1–7) | 25 | 23/25 Complete |
-| 2. Build the Enterprise Platform | 9 (8–16) | TBD | Not started |
+| 2. Build the Enterprise Platform | 9 (8–16) | TBD | 1 plan complete |
 | 3. Build the Moat | 5 (17–21) | TBD | Not started |
 | **Total** | **21** | **25+TBD** | |
 
