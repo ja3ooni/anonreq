@@ -444,8 +444,8 @@
 
 ### Network Discovery (Req 52)
 
-- [ ] **APPL-DISC-01**: AI API traffic identification by hostname/IP across 8+ providers
-- [ ] **APPL-DISC-02**: Shadow AI detection via network flow/DNS analysis
+- [x] **APPL-DISC-01**: AI API traffic identification by hostname/IP across 8+ providers
+- [x] **APPL-DISC-02**: Shadow AI detection via network flow/DNS analysis
 - [ ] **APPL-DISC-03**: `shadow_ai_detected` event emission
 - [ ] **APPL-DISC-04**: AI asset inventory export (JSON/CSV)
 
