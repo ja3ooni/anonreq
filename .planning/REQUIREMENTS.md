@@ -278,14 +278,14 @@
 
 ### Prompt Security & AI Firewall (Req 36)
 
-- [ ] **FIREWALL-01**: Inbound prompt inspection: direct injection, indirect injection, role-confusion
+- [x] **FIREWALL-01**: Inbound prompt inspection: direct injection, indirect injection, role-confusion
 - [ ] **FIREWALL-02**: Injection detected ≥ threshold (default 0.85) → HTTP 400 `prompt_injection_detected`
-- [ ] **FIREWALL-03**: Jailbreak YAML rule set with block/flag_and_forward/monitor actions
+- [x] **FIREWALL-03**: Jailbreak YAML rule set with block/flag_and_forward/monitor actions
 - [ ] **FIREWALL-04**: Outbound response inspection for policy-violating content → HTTP 451
 - [ ] **FIREWALL-05**: All events logged: `event_type`, session_id, tenant_id, confidence_score, rule_id
 - [ ] **FIREWALL-06**: Prometheus counter `anonreq_prompt_security_events_total` (event_type, tenant_id)
-- [ ] **FIREWALL-07**: `GET /v1/admin/prompt-security/rules` listing active rules
-- [ ] **FIREWALL-08**: Hot-reload rules within 60 seconds without restart
+- [x] **FIREWALL-07**: `GET /v1/admin/prompt-security/rules` listing active rules
+- [x] **FIREWALL-08**: Hot-reload rules within 60 seconds without restart
 
 ### Financial Services Compliance Framework (Req 37)
 
