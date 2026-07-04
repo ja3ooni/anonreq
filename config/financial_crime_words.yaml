@@ -1,0 +1,25 @@
+financial_crime:
+  high_risk_words:
+    - "transfer"
+    - "payment"
+    - "settlement"
+    - "clearing"
+    - "swift"
+    - "remittance"
+    - "invoice"
+    - "transaction"
+    - "compliance"
+    - "aml"
+    - "anti-money"
+    - "kyc"
+    - "sanctions"
+    - "fraud"
+    - "suspicious"
+    - "unauthorized"
+    - "breach"
+    - "reconciliation"
+    - "overdraft"
+    - "chargeback"
+  boost_amount: 0.15
+  proximity_chars: 50
+  financial_entity_types: ["IBAN", "PAYMENT_REF", "CUSTOMER_ID", "AML_CASE_REF"]
