@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase
@@ -182,3 +182,36 @@ class ExportResult:
     event_count: int
     checksums: dict[str, str]
     created_at: datetime
+
+
+@dataclass
+class MnpiAuditEvent:
+    """MNPI-specific audit event for SEC 17a-4 compliance.
+
+    Stores only metadata and hashed values — never raw PII/MNPI
+    (per T-15-01-01). Events are stored in the dedicated MinIO WORM
+    bucket ``anonreq-mnpi-audit`` with COMPLIANCE mode and 7-year
+    retention.
+
+    Attributes:
+        event_id: Unique event identifier (UUID hex).
+        tenant_id: Tenant identifier.
+        session_id: Session/context identifier.
+        entity_type: MNPI entity type (MNPI_TICKER, MNPI_DEAL,
+            MNPI_RESTRICTED_NAME).
+        policy_action: Applied MNPI policy action (anonymize, flag,
+            block, quarantine).
+        detected_value_hash: SHA-256 hex digest of detected value.
+            NOT the raw value — only the hash is stored.
+        timestamp: When the event occurred.
+        policy_rule_id: Optional policy rule that triggered this action.
+    """
+
+    event_id: str
+    tenant_id: str
+    session_id: str
+    entity_type: str
+    policy_action: str
+    detected_value_hash: str
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    policy_rule_id: str | None = None
