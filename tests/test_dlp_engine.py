@@ -23,9 +23,10 @@ def dlp_engine(dlp_config):
 
 
 def test_dlp_categories_and_actions_exist():
-    assert len(DLPCategory) == 8
+    assert len(DLPCategory) == 9
     assert len(DLPAction) == 5
     assert DLPCategory.PII == "PII"
+    assert DLPCategory.EXFILTRATION == "Exfiltration"
     assert DLPAction.BLOCK == "block"
 
 

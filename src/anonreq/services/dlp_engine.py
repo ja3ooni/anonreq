@@ -17,6 +17,7 @@ from uuid import uuid4
 from anonreq.models.dlp import DLPCategory, DLPAction, DLPDetection, DLPResult
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.models.classification import ClassificationLevel
+from anonreq.services.exfiltration_detector import ExfiltrationDetector
 
 
 @dataclass
@@ -55,6 +56,7 @@ class DLPEngine:
         self._core_patterns: dict[DLPCategory, list[dict[str, Any]]] = {}
         self._tenant_patterns: dict[str, list[dict[str, Any]]] = {}  # tenant_id -> patterns
         self._load_core_patterns(config.get("core_categories", {}))
+        self._exfiltration_detector = ExfiltrationDetector(config)
 
     def _load_core_patterns(self, categories: dict[str, Any]) -> None:
         """Load and compile regex patterns for core categories."""
@@ -116,6 +118,20 @@ class DLPEngine:
                     end=match.end(),
                     pattern_id=pattern["id"],
                     is_custom_category=True,
+                ))
+
+        # Run exfiltration encoding detection
+        exf_results = await self._exfiltration_detector.detect(text)
+        for exf in exf_results:
+            if exf.detected:
+                detections.append(DLPDetection(
+                    category=DLPCategory.EXFILTRATION,
+                    action=DLPAction.BLOCK,
+                    match_text="[EXFILTRATION_DETECTED]",
+                    confidence=exf.confidence,
+                    start=exf.start,
+                    end=exf.end,
+                    pattern_id=f"exfiltration_{exf.method}",
                 ))
 
         # Compute max action (most restrictive wins)

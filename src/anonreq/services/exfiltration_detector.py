@@ -175,9 +175,10 @@ class ExfiltrationDetector:
             covered_spans.update(ranges)
 
         # Method 2: High-entropy detection for unknown encodings
-        if self._config.get("entropy", {}).get("enabled", True):
-            threshold = self._config["entropy"].get("threshold", 6.0)
-            min_length = self._config["entropy"].get("min_length", 30)
+        entropy_config = self._config.get("entropy", {})
+        if entropy_config.get("enabled", True):
+            threshold = entropy_config.get("threshold", 6.0)
+            min_length = entropy_config.get("min_length", 30)
             for word in re.finditer(r"\S{30,}", text):
                 word_text = word.group()
                 word_start = word.start()
