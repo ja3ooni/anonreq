@@ -1,0 +1,18 @@
+# Tenant restricted-names list for MNPI detection.
+#
+# Phase 15 Financial Services Compliance, D-002.
+# Hot-reloadable: RestrictedNamesManager checks file mtime on reload().
+#
+# Each tenant has a list of restricted names that are checked during
+# MNPI detection. Matching is case-insensitive substring-based.
+
+tenants:
+  acme-corp:
+    restricted_names:
+      - "Acme Merger Target Alpha"
+      - "Project Firestorm"
+      - "Unicorn Acquisition"
+  bigbank:
+    restricted_names:
+      - "Mercury Deal"
+      - "Jupiter Partnership"

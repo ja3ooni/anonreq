@@ -22,6 +22,7 @@ from anonreq.cache.manager import CacheManager
 from anonreq.classification.engine import ClassificationEngine
 from anonreq.classification.loader import ClassificationRuleLoader
 from anonreq.config import settings
+from anonreq.config.restricted_names import RestrictedNamesManager
 from anonreq.dependencies import auth_context
 from anonreq.admin.routes import registry as admin_config_registry
 from anonreq.detection.exclusion_list import ExclusionList
@@ -92,6 +93,10 @@ def build_pre_provider_pipeline(
         locale_negotiator = LocaleNegotiator(locale_registry)
         recognizer_merger = RecognizerMerger(universal)
 
+    restricted_names_mgr = RestrictedNamesManager(
+        config_path="config/restricted_names.yaml",
+    )
+
     stages = [
         ClassificationStage(engine=classification_engine),
         LocaleNegotiationStage(
@@ -107,6 +112,7 @@ def build_pre_provider_pipeline(
             config_registry=admin_config_registry,
             mnpi_recognizers=load_mnpi_recognizers(
                 config_path="config/mnpi_recognizers.yaml",
+                restricted_names_mgr=restricted_names_mgr,
             ),
         ),
         SensitivityClassificationStage(),
