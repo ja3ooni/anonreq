@@ -1,13 +1,50 @@
-"""DLPEngine — inspects request text against core and custom DLP categories (Plan 13-01)."""
+"""DLPEngine — inspects request text against core and custom DLP categories (Plan 13-01).
+
+Plan 13-03 additions:
+- QuarantineResult: metadata-only quarantine response dataclass
+- DLPEngine.quarantine_request(): block + metadata-only audit (no payload stored)
+"""
 
 from __future__ import annotations
 
+import math
 import re
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
+from uuid import uuid4
 
 from anonreq.models.dlp import DLPCategory, DLPAction, DLPDetection, DLPResult
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.models.classification import ClassificationLevel
+
+
+@dataclass
+class QuarantineResult:
+    """Metadata-only result of a quarantine action.
+
+    Contains only metadata fields for audit and response.  NEVER stores
+    match_text, original content, or provider response.
+
+    Attributes:
+        event_id: Unique quarantine event identifier (``q_<uuid_hex>``).
+        tenant_id: Tenant identifier.
+        request_id: Original request identifier.
+        category: DLP category that triggered the quarantine.
+        action: Always ``"quarantine"``.
+        detection_count: Number of DLP detections.
+        max_action: Most restrictive DLP action across all detections.
+        timestamp: ISO-8601 timestamp of the quarantine event.
+    """
+
+    event_id: str
+    tenant_id: str
+    request_id: str
+    category: str
+    action: str
+    detection_count: int
+    max_action: str
+    timestamp: str
 
 
 class DLPEngine:
@@ -137,3 +174,39 @@ class DLPEngine:
             else:
                 texts.append(str(node))
         return "\n".join(texts)
+
+    async def quarantine_request(
+        self,
+        ctx: ProcessingContext,
+        dlp_result: DLPResult,
+    ) -> QuarantineResult:
+        """Quarantine a request: block + metadata-only logging.
+
+        1. Generate quarantine event_id
+        2. Create metadata-only result (no payload content)
+        3. Emit ``dlp_violation`` audit event with metadata only
+        4. Return ``QuarantineResult`` with event_id, category, action, timestamp
+
+        CRITICAL: NEVER store or return the matched payload content.
+        """
+        metadata = {
+            "event_id": f"q_{uuid4().hex[:16]}",
+            "tenant_id": ctx.tenant_id,
+            "request_id": ctx.request_id,
+            "category": (
+                dlp_result.detections[0].category.value
+                if dlp_result.detections
+                else "unknown"
+            ),
+            "action": "quarantine",
+            "detection_count": len(dlp_result.detections),
+            "max_action": dlp_result.max_action.value,
+            "timestamp": datetime.utcnow().isoformat(),
+            # NO: match_text, NO: raw request body, NO: provider response
+        }
+
+        # Emit audit event via audit chain (if available)
+        if hasattr(ctx, "audit_chain") and ctx.audit_chain is not None:
+            await ctx.audit_chain.log_event("dlp_violation", **metadata)
+
+        return QuarantineResult(**metadata)

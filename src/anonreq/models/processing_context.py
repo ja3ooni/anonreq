@@ -93,6 +93,9 @@ class ProcessingContext:
     # Tool governance (Phase 18)
     requires_approval: bool = False
 
+    # Audit chain (Phase 13-03 — quarantine audit)
+    audit_chain: Any | None = None
+
     # Timing fields for Prometheus observability (D-140, D-141, D-160, D-161)
     request_receipt_time: float | None = None
     provider_dispatch_time: float | None = None
