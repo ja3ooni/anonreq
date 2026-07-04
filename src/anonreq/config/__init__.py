@@ -9,7 +9,12 @@ Per D-07, D-08, D-09, D-10:
 - Optional vars have documented defaults
 - Unknown vars are silently ignored (extra='ignore')
 - YAML safe_load prevents code injection
+
+Submodules:
+- ``restricted_names``: Hot-reloadable tenant restricted-names list (Phase 15)
 """
+
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
