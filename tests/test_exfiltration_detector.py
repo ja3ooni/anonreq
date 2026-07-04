@@ -30,17 +30,17 @@ def exfiltration_config():
                     "base64": {
                         "enabled": True,
                         "min_length": 20,
-                        "pattern": r"^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                        "pattern": r"[A-Za-z0-9+/]{20,}={0,2}",
                         "entropy_threshold": 4.5,
                     },
                     "hex": {
                         "enabled": True,
                         "min_length": 20,
-                        "pattern": r"^(?:[0-9a-fA-F]{2})+$",
+                        "pattern": r"[0-9a-fA-F]{20,}",
                     },
                     "jwt": {
                         "enabled": True,
-                        "pattern": r"^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$",
+                        "pattern": r"[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+",
                     },
                     "pem": {
                         "enabled": True,
@@ -133,8 +133,14 @@ async def test_pem_detection(detector):
 @pytest.mark.asyncio
 async def test_high_entropy_detection(detector):
     """High-entropy strings (Shannon entropy > 6.0) are detected."""
-    # A high-entropy random-looking string >= 30 chars
-    text = "aK3m9xR7pL2vN5qW8tY1bJ4sH6dF0gC2eR7tY3wM9nP1kL5vX8rT4zA"
+    # Build a string with entropy > 6.0 using diverse byte values.
+    # To exceed 6.0 bits/byte, we need > 64 unique byte values in the encoding.
+    # Using mixed printable ASCII (0x21-0x7E = 94 possible values) with
+    # a uniform-ish distribution on a 60-char string achieves ~5.7-6.3 bits/byte.
+    text = (
+        "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUV"
+        "WXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+    )  # 94 unique printable ASCII chars, entropy > 6.0
     results = await detector.detect(text)
     entropy_results = [r for r in results if r.method == "high_entropy"]
     assert len(entropy_results) >= 1
@@ -202,12 +208,12 @@ async def test_shannon_entropy_single_char(detector):
 @pytest.mark.asyncio
 async def test_gate_support_inbound_outbound(detector):
     """detect() works for both inbound (prompt) and outbound (response) gates."""
-    # Inbound: exfiltration attempt in prompt
-    inbound_text = "Here is the data encoded: SGVsbG8gV29ybGQ="
+    # Inbound: exfiltration attempt in prompt (base64 >= 20 chars)
+    inbound_text = "Here is the data encoded: SGVsbG9Xb3JsZFNvbWV0aGluZ01vcmU="
     inbound_results = await detector.detect(inbound_text)
     assert len(inbound_results) >= 1
 
-    # Outbound: exfiltrated data in response
+    # Outbound: exfiltrated data in response (hex >= 20 chars)
     outbound_text = "The leaked data is: 48656c6c6f20576f726c64"
     outbound_results = await detector.detect(outbound_text)
     assert len(outbound_results) >= 1

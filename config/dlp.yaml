@@ -55,3 +55,32 @@ dlp:
 
   # Tenant custom categories (extend via dlp.yaml per tenant)
   tenant_categories: {}
+
+  # Exfiltration encoding detection (Plan 13-03, Task 2)
+  exfiltration:
+    default_action: block
+    detection:
+      enabled: true
+      methods:
+        base64:
+          enabled: true
+          min_length: 20
+          pattern: "[A-Za-z0-9+/]{20,}={0,2}"
+          entropy_threshold: 4.5
+        hex:
+          enabled: true
+          min_length: 20
+          pattern: "[0-9a-fA-F]{20,}"
+        jwt:
+          enabled: true
+          pattern: "[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+"
+        pem:
+          enabled: true
+          pattern: "-----BEGIN [A-Z ]+-----"
+      entropy:
+        enabled: true
+        threshold: 6.0
+        min_length: 30
+      heuristics:
+        enabled: true
+        bigru_block: true
