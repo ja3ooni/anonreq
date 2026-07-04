@@ -1,0 +1,57 @@
+dlp:
+  core_categories:
+    PII:
+      patterns:
+        - id: pii_email
+          regex: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+        - id: pii_phone
+          regex: "\\+?[1-9]\\d{1,14}"
+        - id: pii_ssn
+          regex: "\\d{3}-\\d{2}-\\d{4}"
+      default_action: block
+    Financial:
+      patterns:
+        - id: fin_credit_card
+          regex: "\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}"
+        - id: fin_iban
+          regex: "[A-Z]{2}\\d{2}[A-Z0-9]{1,30}"
+        - id: fin_swift
+          regex: "[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?"
+      default_action: block
+    Health:
+      patterns:
+        - id: health_hipaa
+          regex: "(?i)\\b(hipaa|phi|protected health information)\\b"
+      default_action: block
+    Source Code:
+      patterns:
+        - id: sc_api_key
+          regex: "(?i)(api[_-]?key|apikey|secret[_-]?key)\\s*[:=]\\s*['\"][A-Za-z0-9_+=/]{16,}['\"]"
+        - id: sc_aws_key
+          regex: "(?i)AKIA[0-9A-Z]{16}"
+      default_action: anonymize
+    Credentials:
+      patterns:
+        - id: cred_password
+          regex: "(?i)(password|passwd|pwd)\\s*[:=]\\s*['\"][^'\"]{8,}['\"]"
+        - id: cred_token
+          regex: "(?i)(token|bearer|auth)\\s*[:=]\\s*['\"][A-Za-z0-9_=.-]{20,}['\"]"
+      default_action: block
+    Legal:
+      patterns:
+        - id: legal_attorney_client
+          regex: "(?i)\\b(attorney-client privilege|legal advice|confidential legal)\\b"
+      default_action: anonymize
+    Export Controlled:
+      patterns:
+        - id: export_ear
+          regex: "(?i)\\b(export controlled|ear|itAR|dual-use|munitions)\\b"
+      default_action: block
+    Intellectual Property:
+      patterns:
+        - id: ip_patent
+          regex: "(?i)\\b(patent pending|trade secret|proprietary|confidential information)\\b"
+      default_action: quarantine
+
+  # Tenant custom categories (extend via dlp.yaml per tenant)
+  tenant_categories: {}

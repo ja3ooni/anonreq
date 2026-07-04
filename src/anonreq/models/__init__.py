@@ -16,6 +16,7 @@ from anonreq.models.classification import (
 )
 from anonreq.models.detection import TextNode, DetectionResult
 from anonreq.models.tokenization import TokenMapping, TokenizationResult, TOKEN_PATTERN
+from anonreq.models.dlp import DLPCategory, DLPAction, DLPDetection, DLPResult
 from anonreq.providers.adapter import (
     ProviderAdapter,
     ProviderCapabilities,
@@ -48,4 +49,8 @@ __all__ = [
     "ProviderResponse",
     "ProviderResult",
     "RestoredResponse",
+    "DLPCategory",
+    "DLPAction",
+    "DLPDetection",
+    "DLPResult",
 ]
