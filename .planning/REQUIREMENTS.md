@@ -171,16 +171,16 @@
 
 - [ ] **AUDT-CFG-02**: Entry fields: timestamp, operator_id, tenant_id, change_type, prev_value_hash, new_value_hash
 - [ ] **AUDT-CFG-03**: Append-only trail — no modify or delete API (except Legal Hold)
-- [ ] **AUDT-CFG-04**: `GET /v1/admin/audit/config-history` paginated + filterable
-- [ ] **AUDT-CFG-05**: JSON Lines export via `GET /v1/admin/audit/config-history/export`
+- [x] **AUDT-CFG-04**: `GET /v1/admin/audit/config-history` paginated + filterable
+- [x] **AUDT-CFG-05**: JSON Lines export via `GET /v1/admin/audit/config-history/export`
 - [ ] **AUDT-CFG-06**: 7-year retention (or longer per regulatory framework)
 
 ### Supply Chain Security & SBOM (Req 26)
 
-- [ ] **SBOM-01**: CycloneDX JSON SBOM per release (all direct + transitive Python deps)
-- [ ] **SBOM-02**: Container image SBOM via Syft (OS packages, Python, model artifacts)
-- [ ] **SBOM-03**: SBOM published as release artifact + OCI attestation via cosign
-- [ ] **SBOM-04**: Dependabot weekly scans; CVSS ≥ 9.0 auto-issue within 24h
+- [x] **SBOM-01**: CycloneDX JSON SBOM per release (all direct + transitive Python deps)
+- [x] **SBOM-02**: Container image SBOM via Syft (OS packages, Python, model artifacts)
+- [x] **SBOM-03**: SBOM published as release artifact + OCI attestation via cosign
+- [x] **SBOM-04**: Dependabot weekly scans; CVSS ≥ 9.0 auto-issue within 24h
 - [ ] **SBOM-05**: `docs/security/incident-response.md`
 - [ ] **SBOM-06**: `SECURITY.md` with disclosure contact, response SLA (≤ 5 business days)
 
