@@ -240,7 +240,7 @@ class TestClassificationRule:
             regex_patterns=[r"(?i)password\s*[:=]\s*\S+"],
         )
         nodes = [
-            {"path": "messages[0].content", "role": "user", "value": "My password is secret123"},
+            {"path": "messages[0].content", "role": "user", "value": "My password: secret123"},
             {"path": "messages[1].content", "role": "assistant", "value": "OK"},
         ]
         assert rule.matches(nodes) is True
@@ -422,7 +422,7 @@ class TestClassificationEngine:
     def test_block_action_returned_for_matching_block_rule(self):
         """BLOCK action returned when a BLOCK rule matches."""
         engine = ClassificationEngine(rules=self.DEFAULT_RULES)
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "My password is hunter2"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "My password: hunter2"}]
         result = engine.classify(nodes)
         assert result["action"] == "BLOCK"
         assert "BLK-001" in result["matched_rule_ids"]
@@ -431,7 +431,7 @@ class TestClassificationEngine:
         """BLOCK wins over ANONYMIZE when both match (action precedence)."""
         engine = ClassificationEngine(rules=self.DEFAULT_RULES)
         # Both BLOCK (BLK-001: password) and ANONYMIZE (ANZ-001: email) could match here
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "Email me at test@example.com, password is x"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "Email me at test@example.com, password: x"}]
         result = engine.classify(nodes)
         assert result["action"] == "BLOCK"
         assert "BLK-001" in result["matched_rule_ids"]

@@ -109,7 +109,8 @@ class ClassificationService:
         """
         if not result.labels:
             return None
+        max_detected = max(result.detected_levels) if result.detected_levels else None
         for label, level in zip(result.labels, result.detected_levels):
-            if level == result.highest:
+            if level == max_detected:
                 return label
         return None

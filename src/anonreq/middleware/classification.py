@@ -67,6 +67,11 @@ class ClassificationMiddleware(BaseHTTPMiddleware):
                     "type": "classification_block",
                     "code": "highly_restricted",
                 },
+                "classification": {
+                    "highest": "HIGHLY_RESTRICTED",
+                    "labels": [],
+                    "reason": "Request blocked due to data classification policy",
+                },
             }
             return JSONResponse(
                 status_code=451,

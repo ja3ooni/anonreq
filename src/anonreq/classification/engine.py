@@ -61,6 +61,8 @@ class ClassificationRule:
         self.action = action
         self.metadata = metadata or {}
         self.roles = roles or []
+        self.regex_patterns = regex_patterns or []
+        self.keywords = keywords or []
 
         # Pre-compile regex patterns with IGNORECASE
         self._compiled_patterns = (

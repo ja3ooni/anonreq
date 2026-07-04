@@ -45,7 +45,11 @@ from anonreq.pipeline.forwarding_guard import ForwardingGuard
 from anonreq.pipeline.manager import PipelineManager
 from anonreq.pipeline.provider import ProviderStage
 from anonreq.pipeline.restoration import RestorationStage
-from anonreq.pipeline.stages import LocaleNegotiationStage
+from anonreq.pipeline.stages import (
+    LocaleNegotiationStage,
+    SensitivityClassificationStage,
+    PolicyEnforcementStage,
+)
 from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.routing.alias_registry import AliasNotFoundError, AliasRegistry
 from anonreq.streaming.cleanup import SessionCleanup
@@ -65,6 +69,7 @@ def build_pre_provider_pipeline(
     locale_negotiator: LocaleNegotiator | None = None,
     recognizer_merger: RecognizerMerger | None = None,
     checksum_registry: ChecksumValidatorRegistry | None = None,
+    app_state: Any = None,
 ) -> PipelineManager:
     """Construct stages shared by streaming and non-streaming requests."""
     try:
@@ -100,6 +105,8 @@ def build_pre_provider_pipeline(
             checksum_registry=checksum_registry,
             config_registry=admin_config_registry,
         ),
+        SensitivityClassificationStage(),
+        PolicyEnforcementStage(app_state=app_state),
         TokenizationStage(
             tokenizer=Tokenizer(),
             cache_manager=cache_manager,
@@ -121,17 +128,9 @@ def build_pipeline(
     locale_negotiator: LocaleNegotiator | None = None,
     recognizer_merger: RecognizerMerger | None = None,
     checksum_registry: ChecksumValidatorRegistry | None = None,
+    app_state: Any = None,
 ) -> PipelineManager:
-    """Construct the full anonymization pipeline with all stages.
-
-    Args:
-        cache_manager: Initialised ``CacheManager`` for token mapping store.
-        presidio_client: Initialised ``PresidioClient`` for NER analysis.
-
-    Returns:
-        A fully registered ``PipelineManager`` with all stages in the
-        correct execution order per D-47.
-    """
+    """Construct the full anonymization pipeline with all stages."""
     # Determine provider config
     provider_base_url = settings.PROVIDER_BASE_URL
     provider_api_key = settings.PROVIDER_API_KEY or settings.API_KEY
@@ -144,6 +143,7 @@ def build_pipeline(
         locale_negotiator=locale_negotiator,
         recognizer_merger=recognizer_merger,
         checksum_registry=checksum_registry,
+        app_state=app_state,
     ).stages + [
         ProviderStage(
             openai_base_url=provider_base_url,
@@ -168,7 +168,7 @@ def _raise_for_pipeline_errors(proc_ctx: ProcessingContext) -> None:
 
     last_error = proc_ctx.errors[-1]
     if isinstance(last_error, PipelineAbortError):
-        if last_error.status_code in (400, 403, 404, 501):
+        if last_error.status_code in (400, 403, 404, 501, 451):
             raise HTTPException(
                 status_code=last_error.status_code,
                 detail=last_error.message,
@@ -196,6 +196,7 @@ def _new_processing_context(
     proc_ctx.text_nodes = TextExtractor.extract(proc_ctx.original_request)
     if request is not None:
         proc_ctx.locale_header = request.headers.get("X-AnonReq-Locale")
+        proc_ctx.client_classification = getattr(request.state, "client_classification", None)
         active_presets = getattr(request.app.state, "active_compliance_presets", [])
         if active_presets:
             proc_ctx.audit_metadata["compliance_preset"] = ",".join(active_presets)
@@ -216,6 +217,7 @@ async def _stream_chat_completions(
     checksum_registry: ChecksumValidatorRegistry = request.app.state.checksum_registry
 
     proc_ctx = _new_processing_context(body, ctx, request=request)
+    request.state.ctx = proc_ctx
     pre_provider = build_pre_provider_pipeline(
         cache_manager,
         presidio_client,
@@ -329,15 +331,20 @@ async def _stream_chat_completions(
             proc_ctx.terminal_state = terminal_state
             await cleanup.cleanup(terminal_state)
 
+    headers = {
+        **emitter.get_headers(),
+        "X-AnonReq-Request-ID": proc_ctx.request_id,
+        "X-AnonReq-Processed": "true" if action == "ANONYMIZE" else "false",
+        "X-AnonReq-Entity-Count": str(len(proc_ctx.detections or [])),
+    }
+    if proc_ctx.classification_result_v2:
+        headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name
+        headers["X-AnonReq-Highest-Entity"] = proc_ctx.classification_result_v2.highest_entity or ""
+
     return StreamingResponse(
         stream_generator(),
         media_type="text/event-stream",
-        headers={
-            **emitter.get_headers(),
-            "X-AnonReq-Request-ID": proc_ctx.request_id,
-            "X-AnonReq-Processed": "true" if action == "ANONYMIZE" else "false",
-            "X-AnonReq-Entity-Count": str(len(proc_ctx.detections or [])),
-        },
+        headers=headers,
     )
 
 
@@ -373,6 +380,7 @@ async def chat_completions(
     # Access pipeline from app state
     pipeline: PipelineManager = request.app.state.pipeline
     proc_ctx = _new_processing_context(body, ctx, request=request)
+    request.state.ctx = proc_ctx
 
     # Run the pipeline
     proc_ctx = await pipeline.run(proc_ctx)
@@ -407,6 +415,9 @@ async def chat_completions(
     response.headers["X-AnonReq-Request-ID"] = proc_ctx.request_id
     response.headers["X-AnonReq-Processed"] = "true" if was_anonymized else "false"
     response.headers["X-AnonReq-Entity-Count"] = str(entity_count)
+    if proc_ctx.classification_result_v2:
+        response.headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name
+        response.headers["X-AnonReq-Highest-Entity"] = proc_ctx.classification_result_v2.highest_entity or ""
 
     # Serialize response
     validated = ChatCompletionResponse.model_validate(response_data)

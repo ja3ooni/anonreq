@@ -52,6 +52,7 @@ from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.registry import LocaleRegistry
 from anonreq.logging_config import setup_logging
 from anonreq.middleware.classification import ClassificationMiddleware
+from anonreq.middleware.response_headers import ClassificationResponseMiddleware
 from anonreq.middleware.policy import PolicyMiddleware
 from anonreq.monitoring.middleware import MetricsMiddleware
 from anonreq.models.request_context import RequestContext
@@ -179,6 +180,7 @@ def create_app() -> FastAPI:
             locale_negotiator=app.state.locale_negotiator,
             recognizer_merger=app.state.recognizer_merger,
             checksum_registry=app.state.checksum_registry,
+            app_state=app.state,
         )
         app.state.pipeline = pipeline
 
@@ -360,6 +362,9 @@ def create_app() -> FastAPI:
     # PolicyMiddleware — evaluates PDP/PEP on chat-completion routes.
     # Runs after request-context middleware so request_id is available.
     app.add_middleware(PolicyMiddleware)
+
+    # ClassificationResponseMiddleware — conditionally returns classification result headers
+    app.add_middleware(ClassificationResponseMiddleware)
 
     # Add /metrics endpoint for Prometheus scraping (no auth — scrapers
     # connect on internal networks; secured at network level)

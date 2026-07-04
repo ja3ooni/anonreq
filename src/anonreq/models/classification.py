@@ -80,7 +80,9 @@ ENTITY_CLASSIFICATION_MAP: dict[str, ClassificationLevel] = {
     "IP_ADDRESS": ClassificationLevel.INTERNAL,
     # Confidential (Level 2)
     "EMAIL": ClassificationLevel.CONFIDENTIAL,
+    "EMAIL_ADDRESS": ClassificationLevel.CONFIDENTIAL,
     "PHONE": ClassificationLevel.CONFIDENTIAL,
+    "PHONE_NUMBER": ClassificationLevel.CONFIDENTIAL,
     "URL": ClassificationLevel.CONFIDENTIAL,
     "CRYPTO": ClassificationLevel.CONFIDENTIAL,
     # Restricted (Level 3)

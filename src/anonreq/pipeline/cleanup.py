@@ -126,6 +126,19 @@ class CleanupStage(PipelineStage):
             # a metadata field.  We just note that a response was received.
             provider_status = 200 if ctx.restored_response else 0
 
+        # Classification (Phase 12)
+        classification_level = None
+        classification_labels = []
+        classification_client_override = False
+        classification_client_asserted_level = None
+
+        if ctx.classification_result_v2:
+            res = ctx.classification_result_v2
+            classification_level = res.highest.name
+            classification_labels = res.labels
+            classification_client_override = res.client_override
+            classification_client_asserted_level = res.client_asserted_level.name if res.client_asserted_level else None
+
         return {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "request_id": ctx.request_id,
@@ -138,4 +151,8 @@ class CleanupStage(PipelineStage):
             "provider_status": provider_status,
             "error_type": error_type,
             "action_taken": action_taken,
+            "classification_level": classification_level,
+            "classification_labels": classification_labels,
+            "classification_client_override": classification_client_override,
+            "classification_client_asserted_level": classification_client_asserted_level,
         }

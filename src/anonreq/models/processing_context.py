@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from anonreq.models.classification import ClassificationLevel
+
 
 @dataclass
 class ProcessingContext:
@@ -79,6 +81,9 @@ class ProcessingContext:
     stream_events: Any | None = None
     stream_finished: bool = False
     terminal_state: str | None = None
+
+    # Classification (Phase 12)
+    client_classification: ClassificationLevel | None = None
 
     # Tool governance (Phase 18)
     requires_approval: bool = False

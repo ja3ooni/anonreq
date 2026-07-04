@@ -266,4 +266,21 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         code="http_error",
         request_id=request_id,
     )
+
+    if exc.status_code == 451:
+        ctx = getattr(request.state, "ctx", None)
+        if ctx and getattr(ctx, "classification_result_v2", None):
+            res = ctx.classification_result_v2
+            body["classification"] = {
+                "highest": res.highest.name,
+                "labels": res.labels,
+                "reason": exc.detail if isinstance(exc.detail, str) else "Request blocked due to classification policy",
+            }
+        else:
+            body["classification"] = {
+                "highest": "HIGHLY_RESTRICTED",
+                "labels": [],
+                "reason": exc.detail if isinstance(exc.detail, str) else "Request blocked due to classification policy",
+            }
+
     return JSONResponse(status_code=exc.status_code, content=body)
