@@ -162,7 +162,7 @@
 - [x] **OBS-04**: Metrics: `anonreq_rate_limit_hits_total`, `anonreq_spend_limit_hits_total`,
       `anonreq_tenant_active_sessions`, `anonreq_config_reload_total`
 
-- [ ] **OBS-05**: `docs/operations/slo-runbook.md`
+- [x] **OBS-05**: `docs/operations/slo-runbook.md`
 
 ### Configuration Change Audit Trail (Req 25)
 
@@ -181,8 +181,8 @@
 - [x] **SBOM-02**: Container image SBOM via Syft (OS packages, Python, model artifacts)
 - [x] **SBOM-03**: SBOM published as release artifact + OCI attestation via cosign
 - [x] **SBOM-04**: Dependabot weekly scans; CVSS ≥ 9.0 auto-issue within 24h
-- [ ] **SBOM-05**: `docs/security/incident-response.md`
-- [ ] **SBOM-06**: `SECURITY.md` with disclosure contact, response SLA (≤ 5 business days)
+- [x] **SBOM-05**: `docs/security/incident-response.md`
+- [x] **SBOM-06**: `SECURITY.md` with disclosure contact, response SLA (≤ 5 business days)
 
 ### AI Governance & Accountability (Req 27)
 
