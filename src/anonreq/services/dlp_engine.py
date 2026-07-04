@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -201,7 +201,7 @@ class DLPEngine:
             "action": "quarantine",
             "detection_count": len(dlp_result.detections),
             "max_action": dlp_result.max_action.value,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             # NO: match_text, NO: raw request body, NO: provider response
         }
 
