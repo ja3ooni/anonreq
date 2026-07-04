@@ -254,54 +254,79 @@ class AuditChainService:
 
     async def get_events(
         self,
-        tenant_id: str,
+        tenant_id: str | None = None,
         limit: int = 100,
         offset: int = 0,
         event_type: str | None = None,
+        operator_id: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
     ) -> list[AuditEvent]:
-        """Paginated event query.
-
-        Args:
-            tenant_id: The tenant to query.
-            limit: Maximum number of events to return.
-            offset: Number of events to skip.
-            event_type: Optional event type filter.
-
-        Returns:
-            List of AuditEvent objects.
-        """
+        """Paginated, filterable event query."""
+        query = "SELECT * FROM audit_event WHERE 1=1"
+        params = {"limit": limit, "offset": offset}
+        
+        if tenant_id is not None:
+            query += " AND tenant_id = :tenant_id"
+            params["tenant_id"] = tenant_id
+            
+        if event_type is not None:
+            query += " AND event_type = :event_type"
+            params["event_type"] = event_type
+            
+        if operator_id is not None:
+            query += " AND operator_id = :operator_id"
+            params["operator_id"] = operator_id
+            
+        if date_from is not None:
+            query += " AND timestamp >= :date_from"
+            params["date_from"] = date_from
+            
+        if date_to is not None:
+            query += " AND timestamp <= :date_to"
+            params["date_to"] = date_to
+            
+        query += " ORDER BY id DESC LIMIT :limit OFFSET :offset"
+        
         async with self._session_factory() as session:
-            if event_type:
-                result = await session.execute(
-                    text(
-                        "SELECT * FROM audit_event "
-                        "WHERE tenant_id = :tenant_id "
-                        "AND event_type = :event_type "
-                        "ORDER BY id DESC "
-                        "LIMIT :limit OFFSET :offset"
-                    ),
-                    {
-                        "tenant_id": tenant_id,
-                        "event_type": event_type,
-                        "limit": limit,
-                        "offset": offset,
-                    },
-                )
-            else:
-                result = await session.execute(
-                    text(
-                        "SELECT * FROM audit_event "
-                        "WHERE tenant_id = :tenant_id "
-                        "ORDER BY id DESC "
-                        "LIMIT :limit OFFSET :offset"
-                    ),
-                    {
-                        "tenant_id": tenant_id,
-                        "limit": limit,
-                        "offset": offset,
-                    },
-                )
+            result = await session.execute(text(query), params)
             return [self._row_to_event(dict(row)) for row in result.mappings().all()]
+
+    async def count_events(
+        self,
+        tenant_id: str | None = None,
+        event_type: str | None = None,
+        operator_id: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+    ) -> int:
+        """Count events matching the given filters."""
+        query = "SELECT COUNT(*) FROM audit_event WHERE 1=1"
+        params = {}
+        
+        if tenant_id is not None:
+            query += " AND tenant_id = :tenant_id"
+            params["tenant_id"] = tenant_id
+            
+        if event_type is not None:
+            query += " AND event_type = :event_type"
+            params["event_type"] = event_type
+            
+        if operator_id is not None:
+            query += " AND operator_id = :operator_id"
+            params["operator_id"] = operator_id
+            
+        if date_from is not None:
+            query += " AND timestamp >= :date_from"
+            params["date_from"] = date_from
+            
+        if date_to is not None:
+            query += " AND timestamp <= :date_to"
+            params["date_to"] = date_to
+            
+        async with self._session_factory() as session:
+            result = await session.execute(text(query), params)
+            return result.scalar() or 0
 
     @staticmethod
     def _row_to_event(row: dict) -> AuditEvent:

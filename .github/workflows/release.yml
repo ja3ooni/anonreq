@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate Python SBOM
+        run: |
+          pip install cyclonedx-bom
+          cyclonedx-py --e --output sbom.cyclonedx.json
+
+      - name: Install Syft
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Generate Container SBOM
+        run: |
+          # Build a local dry-run image to scan
+          docker build --build-arg VERSION=${{ github.ref_name }} -t anonreq:${{ github.ref_name }} .
+          syft anonreq:${{ github.ref_name }} -o json > sbom.container.json
+          syft anonreq:${{ github.ref_name }} -o cyclonedx-json > sbom.container.cyclonedx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: Cosign Attest
+        run: |
+          # Create a dummy keypair for demo/attestation blob signature
+          # In real production, this would use GitHub Actions OCI OIDC provider or a secret key
+          cosign generate-key-pair
+          cosign attest-blob sbom.cyclonedx.json \
+            --key cosign.key \
+            --type cyclonedx \
+            --output sbom.cyclonedx.json.att
+        env:
+          COSIGN_PASSWORD: "test"
+
+      - name: Upload SBOM Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            sbom.cyclonedx.json
+            sbom.container.json
+            sbom.container.cyclonedx.json
+            sbom.cyclonedx.json.att
+
+      - name: Attach to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            sbom.cyclonedx.json
+            sbom.container.json
+            sbom.container.cyclonedx.json
+            sbom.cyclonedx.json.att
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

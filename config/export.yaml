@@ -1,0 +1,16 @@
+export:
+  monthly:
+    enabled: true
+    schedule: "0 0 5 * *"  # 5th day of each month at midnight
+    formats: ["jsonl", "parquet"]
+    compression: gzip
+  minio:
+    endpoint: "http://minio:9000"
+    bucket: "anonreq-audit-archives"
+    access_key: "${ANONREQ_MINIO_ACCESS_KEY}"
+    secret_key: "${ANONREQ_MINIO_SECRET_KEY}"
+    secure: false
+    worm_enabled: true
+    retention_days: 2557
+  parquet:
+    schema_version: "1.0"

@@ -51,6 +51,20 @@ class AuditEventModel(Base):
     retention_days = Column(Integer, nullable=False, server_default="2557")
 
 
+class ExportTrackingModel(Base):
+    """SQLAlchemy ORM model for tracking monthly compliance exports."""
+
+    __tablename__ = "export_tracking"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    year = Column(Integer, nullable=False)
+    month = Column(Integer, nullable=False)
+    event_count = Column(Integer, nullable=False)
+    formats = Column(Text, nullable=False)          # JSON list of formats (e.g. '["jsonl", "parquet"]')
+    checksums_json = Column(Text, nullable=False)   # JSON dict of SHA-384 hashes
+    created_at = Column(DateTime(timezone=True), nullable=False)
+
+
 @dataclass
 class AuditEvent:
     """Immutable audit event with hash chain support.
@@ -156,3 +170,15 @@ class DailyAnchor:
     event_count: int
     created_at: datetime = field(default_factory=datetime.utcnow)
     verified_at: datetime | None = None
+
+
+@dataclass
+class ExportResult:
+    """Dataclass representing a monthly compliance export result."""
+
+    year: int
+    month: int
+    formats: list[str]
+    event_count: int
+    checksums: dict[str, str]
+    created_at: datetime

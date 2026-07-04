@@ -42,6 +42,11 @@ RUN pip install --no-cache-dir .
 # ---------------------------------------------------------------------------
 FROM python:3.12-slim AS runtime
 
+ARG VERSION=unknown
+LABEL org.opencontainers.image.source="https://github.com/yourorg/anonreq"
+LABEL org.opencontainers.image.version="${VERSION}"
+LABEL org.opencontainers.image.description="AnonReq AI Security Gateway"
+
 WORKDIR /app
 
 # Copy installed packages from builder

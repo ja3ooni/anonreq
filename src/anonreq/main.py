@@ -65,6 +65,7 @@ from anonreq.governance.router import (
 from anonreq.routes.governance import router as governance_router
 from anonreq.routes.oversight import router as oversight_router
 from anonreq.routes.models import router as models_router
+from anonreq.api.v1.admin.audit import router as admin_audit_router
 from anonreq.routing.alias_registry import AliasRegistry
 from anonreq.startup_checks import run_startup_checks
 from anonreq.gateway.passthrough import GatewayStatus
@@ -393,6 +394,7 @@ def create_app() -> FastAPI:
     app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
+    app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
 
     # Phase 17: Gateway status endpoint
     @app.get("/v1/gateway/status")
