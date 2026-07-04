@@ -1,0 +1,45 @@
+# MITRE ATT&CK mapping for DLP rules
+# See: https://attack.mitre.org/
+mitre_attack:
+  version: "15.1"
+  mappings:
+    PII:
+      technique_id: "T1048.002"
+      technique_name: "Exfiltration Over Alternative Protocol - Asymmetric Encrypted"
+      tactics: ["TA0010 - Exfiltration"]
+      notes: "PII data leaving via AI API"
+    Financial:
+      technique_id: "T1048.002"
+      technique_name: "Exfiltration Over Alternative Protocol - Asymmetric Encrypted"
+      tactics: ["TA0010 - Exfiltration"]
+    Health:
+      technique_id: "T1048.002"
+      technique_name: "Exfiltration Over Alternative Protocol - Asymmetric Encrypted"
+      tactics: ["TA0010 - Exfiltration"]
+    Source Code:
+      technique_id: "T1567.002"
+      technique_name: "Exfiltration Over Web Service - Exfiltration to Cloud Storage"
+      tactics: ["TA0010 - Exfiltration"]
+    Credentials:
+      technique_id: "T1552"
+      technique_name: "Unsecured Credentials"
+      tactics: ["TA0006 - Credential Access"]
+    Legal:
+      technique_id: "T1048.002"
+      technique_name: "Exfiltration Over Alternative Protocol"
+      tactics: ["TA0010 - Exfiltration"]
+    Export Controlled:
+      technique_id: "T1048.003"
+      technique_name: "Exfiltration Over Alternative Protocol - HTTP"
+      tactics: ["TA0010 - Exfiltration"]
+    Intellectual Property:
+      technique_id: "T1567.002"
+      technique_name: "Exfiltration Over Web Service - Exfiltration to Cloud Storage"
+      tactics: ["TA0010 - Exfiltration"]
+    Exfiltration:
+      technique_id: "T1048"
+      technique_name: "Exfiltration Over Alternative Protocol"
+      tactics: ["TA0010 - Exfiltration"]
+  default:
+    technique_id: "T1048"
+    technique_name: "Exfiltration Over Alternative Protocol"

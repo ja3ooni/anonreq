@@ -24,7 +24,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from structlog import get_logger
 
-from prometheus_client import generate_latest, REGISTRY
+from prometheus_client import Counter, Histogram, generate_latest, REGISTRY
 
 from anonreq.__about__ import __version__
 from anonreq.cache.manager import CacheManager
@@ -74,6 +74,23 @@ from anonreq.gateway.detector import AIDetector
 from anonreq.gateway.router import RouteTable
 
 log = get_logger()
+
+# DLP Prometheus counters (Plan 13-04, Task 2)
+dlp_violations_total = Counter(
+    "anonreq_dlp_violations_total",
+    "Total DLP violations by category and action",
+    ["tenant_id", "category", "action"],
+)
+dlp_exfiltration_total = Counter(
+    "anonreq_dlp_exfiltration_total",
+    "Total exfiltration detections by encoding type",
+    ["tenant_id", "encoding_type"],
+)
+dlp_actions_total = Counter(
+    "anonreq_dlp_actions_total",
+    "Total DLP actions applied by action type",
+    ["tenant_id", "action"],
+)
 
 
 def create_app() -> FastAPI:
