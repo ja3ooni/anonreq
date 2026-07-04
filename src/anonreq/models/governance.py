@@ -10,7 +10,7 @@ Provides:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -169,6 +169,66 @@ class ModelRecord(BaseModel):
         if isinstance(v, str):
             return ModelRiskClassification(v.upper())
         raise ValueError(f"Invalid risk classification: {v}")
+
+
+# ── AML Webhook models (D-014) ───────────────────────────────────────────
+
+AML_EVENT_TYPES: list[str] = ["IBAN", "PAYMENT_REF", "CUSTOMER_ID", "AML_CASE_REF"]
+
+
+class AmlWebhookConfig(BaseModel):
+    """Per-tenant AML webhook configuration.
+
+    Attributes:
+        tenant_id: Tenant identifier.
+        webhook_url: Target URL for AML alert POST.
+        secret: Optional HMAC-SHA256 signing secret.
+        enabled: Whether the webhook is active.
+        threshold: Confidence threshold (0.0–1.0) to trigger alert.
+        entity_types: List of entity types that trigger the webhook.
+            None means all financial crime types.
+    """
+
+    tenant_id: str
+    webhook_url: str
+    secret: str | None = None
+    enabled: bool = True
+    threshold: float = 0.85
+    entity_types: list[str] | None = None
+
+    model_config = {"extra": "ignore"}
+
+
+class AmlEventPayload(BaseModel):
+    """AML webhook event payload — metadata only, no raw entity values.
+
+    Per D-014: Payload MUST NOT contain raw entity values (IBAN numbers,
+    payment references, customer IDs, or AML case references). Only
+    entity type labels and metadata are included.
+
+    Attributes:
+        event_id: Unique event identifier.
+        tenant_id: Tenant identifier.
+        event_type: Event type (default "aml_alert").
+        entity_type: Entity type label (e.g. "IBAN", "PAYMENT_REF").
+        confidence_score: Confidence score that triggered the alert.
+        threshold: Tenant's configured threshold.
+        timestamp: Event timestamp (defaults to current UTC time).
+        session_metadata: Session metadata (no raw values).
+        alert_id: Alert identifier (auto-generated if not provided).
+    """
+
+    event_id: str
+    tenant_id: str
+    event_type: str = "aml_alert"
+    entity_type: str
+    confidence_score: float
+    threshold: float
+    timestamp: datetime = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    session_metadata: dict[str, str] = {}
+    alert_id: str = ""
+
+    model_config = {"extra": "ignore"}
 
 
 # ── DORA ICT Third-Party Provider Inventory ──────────────────────────────
