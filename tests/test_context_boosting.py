@@ -55,7 +55,7 @@ class TestProximityDetection:
 
     def test_word_beyond_proximity_boundary(self, booster: ContextBooster):
         """Word 51 chars from entity start → False (boundary exclusive)."""
-        assert booster.is_within_proximity(61, 70, [(10, 15)], 50) is False
+        assert booster.is_within_proximity(66, 75, [(10, 15)], 50) is False
 
     def test_empty_word_positions(self, booster: ContextBooster):
         """No word positions → False."""
@@ -65,9 +65,9 @@ class TestProximityDetection:
         """find_high_risk_word_positions returns correct positions."""
         text = "processing swift transfer for payment"
         positions = booster.find_high_risk_word_positions(text, ["swift", "payment"])
-        # "swift" is at index 11-15, "payment" is at index 24-30
+        # "swift" is at index 11-15, "payment" is at index 30-36
         assert (11, 16) in positions
-        assert (24, 31) in positions
+        assert (30, 37) in positions
         assert len(positions) == 2
 
     def test_find_high_risk_words_case_insensitive(self, booster: ContextBooster):

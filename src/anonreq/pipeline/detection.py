@@ -208,6 +208,29 @@ class DetectionStage(PipelineStage):
                         mnpi_results.extend(per_node)
                 ctx.detections.extend(mnpi_results)
 
+            # Phase 15, D-013: Apply context-word boosting to financial crime
+            # entities using the bridge from the detection pipeline module.
+            # Boost runs per text node so word-position detection uses the
+            # correct source text for each node's detections. Only boosts
+            # financial crime entity types (IBAN, PAYMENT_REF, CUSTOMER_ID,
+            # AML_CASE_REF), capped at 1.0. Per T-15-03-01: single boost per
+            # entity, no stacking.
+            if ctx.detections and ctx.text_nodes:
+                from anonreq.detection.pipeline import boost_detections
+
+                boosted_detections: list[dict[str, Any]] = []
+                for i, node in enumerate(ctx.text_nodes):
+                    node_value = node.get("value", "")
+                    node_detections: list[dict[str, Any]] = [
+                        d for d in ctx.detections
+                        if d.get("node_index") == i
+                    ]
+                    if node_detections:
+                        boosted_detections.extend(
+                            boost_detections(node_detections, node_value),
+                        )
+                ctx.detections = boosted_detections
+
             # Log entity counts grouped by type
             entity_counts: dict[str, int] = {}
             for d in ctx.detections:

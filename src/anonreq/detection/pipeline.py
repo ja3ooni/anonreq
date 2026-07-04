@@ -1,11 +1,16 @@
-"""MNPI pipeline integration for the detection engine.
+"""MNPI pipeline integration and context boosting for the detection engine.
 
 Per Phase 15, D-001, D-002, D-003:
 - Loads MNPI recognizer bundle at startup alongside core recognizers
 - MNPI runs after core Presidio pipeline (as additional recognizer)
 - Merged detection list includes MNPI entities alongside core entities
 
+Per D-013:
+- Context-word boosting applies +0.15 within 50 chars of high-risk words
+- Only financial crime entity types boosted, capped at 1.0
+
 Per T-15-01-01: All detection happens in-memory; only hashed values stored in audit.
+Per T-15-03-01: Boost capped at 1.0; only financial entity types; single boost per entity.
 """
 
 from __future__ import annotations
@@ -13,7 +18,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from anonreq.detection.boost import ContextBooster
 from anonreq.detection.recognizers.mnpi import MNPIRecognizer, create_mnpi_bundle
+from anonreq.models.detection import DetectionResult
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +58,64 @@ def load_mnpi_recognizers(
     except Exception:
         logger.exception("Failed to load MNPI recognizers")
         return []
+
+
+def boost_detections(
+    detections: list[dict[str, Any]],
+    text: str,
+    booster: ContextBooster | None = None,
+) -> list[dict[str, Any]]:
+    """Apply context-word confidence boosting to financial crime detections.
+
+    Runs the ``ContextBooster`` on each dict-based detection, converting
+    between pipeline dicts and ``DetectionResult`` objects as needed.
+
+    Only financial crime entity types (IBAN, PAYMENT_REF, CUSTOMER_ID,
+    AML_CASE_REF) within 50 chars of high-risk words receive the +0.15
+    boost. The boost is capped at 1.0 (T-15-03-01).
+
+    Args:
+        detections: List of detection dicts from the pipeline (must have
+            keys ``entity_type``, ``start``, ``end``, ``score``, ``source``).
+        text: The original text containing the detected entities.
+        booster: Optional ``ContextBooster`` instance. A default one is
+            created if not provided.
+
+    Returns:
+        The modified detection list with boosted scores where applicable.
+    """
+    if not detections:
+        return detections
+
+    if booster is None:
+        booster = ContextBooster()
+
+    word_positions = booster.find_high_risk_word_positions(
+        text, booster.high_risk_words
+    )
+
+    if not word_positions:
+        return detections
+
+    boosted: list[dict[str, Any]] = []
+    for det in detections:
+        entity = DetectionResult(
+            entity_type=det.get("entity_type", ""),
+            start=det.get("start", 0),
+            end=det.get("end", 0),
+            score=det.get("score", 0.0),
+            source=det.get("source", "regex"),
+        )
+        result = booster.apply_boost(entity, text, word_positions)
+        # Preserve all other dict keys (node_index, locale, etc.)
+        det["entity_type"] = result.entity_type
+        det["start"] = result.start
+        det["end"] = result.end
+        det["score"] = result.score
+        det["source"] = result.source
+        boosted.append(det)
+
+    return boosted
 
 
 def merge_mnpi_detections(
