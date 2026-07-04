@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from anonreq.admin.aml_webhook_routes import router as aml_webhook_router
 from anonreq.admin.auth import verify_admin_api_key
+from anonreq.admin.compliance_routes import router as compliance_router
 from anonreq.admin.incident_routes import router as incident_router
 from anonreq.admin.policy_routes import router as policy_router
 from anonreq.admin.provider_routes import router as provider_router
@@ -67,3 +68,4 @@ admin_router.include_router(provider_router)
 admin_router.include_router(usage_router)
 admin_router.include_router(incident_router)
 admin_router.include_router(aml_webhook_router)
+admin_router.include_router(compliance_router)
