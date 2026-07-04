@@ -10,11 +10,12 @@ Provides:
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
@@ -351,6 +352,72 @@ class ProviderAnonReqModel(SQLAlchemyBase):
     next_review_date = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False)
     updated_at = Column(DateTime(timezone=True), nullable=False)
+
+
+# ── DORA Incident models (D-016, D-017, D-018) ───────────────────────────
+
+
+class ServiceCriticality(str, Enum):
+    """DORA ICT service criticality classification.
+
+    Per D-017, services are classified into three tiers:
+    - CRITICAL: SLO breach auto-creates incident + notifies
+    - IMPORTANT: SLO breach logs incident only (no notification)
+    - STANDARD: No escalation on SLO breach
+    """
+
+    CRITICAL = "CRITICAL"
+    IMPORTANT = "IMPORTANT"
+    STANDARD = "STANDARD"
+
+
+class IncidentRecord(BaseModel):
+    """DORA ICT incident record.
+
+    Tracks incidents from creation through resolution, with
+    criticality-based escalation behavior.
+
+    Attributes:
+        id: Unique incident identifier (auto-generated if empty).
+        tenant_id: Tenant identifier.
+        service_id: Service that experienced the incident.
+        service_name: Human-readable service name.
+        criticality: Service criticality tier.
+        severity: Severity level (e.g. S1, S2, S3).
+        title: Short incident title.
+        description: Detailed incident description.
+        status: Incident status (open, resolved).
+        created_at: Timestamp of creation.
+        escalated: Whether the incident was escalated.
+        escalated_at: When the escalation occurred.
+        notified: Whether notification was sent.
+        notified_at: When notification was sent.
+        resolved_at: When the incident was resolved.
+    """
+
+    id: str = ""
+    tenant_id: str
+    service_id: str
+    service_name: str
+    criticality: ServiceCriticality
+    severity: str
+    title: str
+    description: str
+    status: str = "open"
+    created_at: datetime = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    escalated: bool = False
+    escalated_at: datetime | None = None
+    notified: bool = False
+    notified_at: datetime | None = None
+    resolved_at: datetime | None = None
+
+    model_config = {"extra": "ignore", "use_enum_values": True}
+
+    @model_validator(mode="after")
+    def ensure_id(self) -> IncidentRecord:
+        if not self.id:
+            self.id = f"inc_{uuid.uuid4().hex[:12]}"
+        return self
 
 
 # ── Serialization helpers ────────────────────────────────────────────────
