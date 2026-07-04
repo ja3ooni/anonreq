@@ -15,6 +15,7 @@ class DLPCategory(str, Enum):
     LEGAL = "Legal"
     EXPORT_CONTROLLED = "Export Controlled"
     INTELLECTUAL_PROPERTY = "Intellectual Property"
+    EXFILTRATION = "Exfiltration"
 
 
 class DLPAction(str, Enum):

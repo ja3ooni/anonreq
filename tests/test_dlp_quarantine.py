@@ -262,3 +262,61 @@ async def test_quarantine_response_structure_boundary(dlp_engine):
     assert "match_text" not in response_body
     assert "matched_text" not in response_body
     assert "provider_response" not in response_body
+
+
+@pytest.mark.asyncio
+async def test_dlp_engine_detects_base64_exfiltration(dlp_engine):
+    """DLPEngine.inspect() detects Base64 as EXFILTRATION category."""
+    text = "SGVsbG9Xb3JsZFNvbWV0aGluZ01vcmU="
+    result = await dlp_engine.inspect(text)
+    exf_results = [d for d in result.detections if d.category == DLPCategory.EXFILTRATION]
+    assert len(exf_results) >= 1
+    assert exf_results[0].action == DLPAction.BLOCK
+    assert exf_results[0].pattern_id.startswith("exfiltration_")
+    assert exf_results[0].match_text == "[EXFILTRATION_DETECTED]"
+
+
+@pytest.mark.asyncio
+async def test_dlp_engine_detects_hex_exfiltration(dlp_engine):
+    """DLPEngine.inspect() detects hex-encoded text as EXFILTRATION."""
+    text = "The hex block: 48656c6c6f20576f726c64205468697320697320612074657374 more text"
+    result = await dlp_engine.inspect(text)
+    exf_results = [d for d in result.detections if d.category == DLPCategory.EXFILTRATION]
+    assert len(exf_results) >= 1
+
+
+@pytest.mark.asyncio
+async def test_dlp_engine_combined_exfiltration_and_category(dlp_engine):
+    """DLPEngine.inspect() returns both exfiltration and category DLP detections."""
+    text = "My email is john@example.com and here is the encoded: SGVsbG9Xb3JsZFNvbWV0aGluZ01vcmU="
+    result = await dlp_engine.inspect(text)
+    # Should detect both PII (email) and EXFILTRATION (base64)
+    categories = {d.category for d in result.detections}
+    assert DLPCategory.PII in categories
+    assert DLPCategory.EXFILTRATION in categories
+    # Exfiltration uses BLOCK action
+    exf_results = [d for d in result.detections if d.category == DLPCategory.EXFILTRATION]
+    assert exf_results[0].action == DLPAction.BLOCK
+    # Combined result should be blocked
+    assert result.is_blocked is True
+    assert result.max_action in (DLPAction.BLOCK,)
+
+
+@pytest.mark.asyncio
+async def test_dlp_engine_exfiltration_metadata_only(dlp_engine):
+    """Exfiltration detection in DLPEngine uses metadata-only placeholders."""
+    text = "SGVsbG9Xb3JsZFNvbWV0aGluZ01vcmU="
+    result = await dlp_engine.inspect(text)
+    exf_results = [d for d in result.detections if d.category == DLPCategory.EXFILTRATION]
+    if exf_results:
+        # match_text is placeholder, NOT the actual encoded content
+        assert exf_results[0].match_text == "[EXFILTRATION_DETECTED]"
+
+
+@pytest.mark.asyncio
+async def test_dlp_engine_no_exfiltration_on_normal_text(dlp_engine):
+    """Normal English text does NOT produce exfiltration detections."""
+    text = "The quick brown fox jumps over the lazy dog"
+    result = await dlp_engine.inspect(text)
+    exf_results = [d for d in result.detections if d.category == DLPCategory.EXFILTRATION]
+    assert len(exf_results) == 0
