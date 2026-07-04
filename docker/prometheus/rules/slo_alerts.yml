@@ -1,0 +1,26 @@
+groups:
+  - name: slo_alerts
+    rules:
+      - alert: SLOSuccessRateBreach
+        expr: anonreq_slo_success_rate < 99.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SLO success rate below target (current: {{ $value }}%)"
+
+      - alert: SLOP95LatencyBreach
+        expr: anonreq_slo_p95_latency_ms > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency exceeds 100ms (current: {{ $value }}ms)"
+
+      - alert: FailSecureRateBreach
+        expr: anonreq_slo_fail_secure_rate > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Fail-secure rate exceeds 0.1% (current: {{ $value }}%)"

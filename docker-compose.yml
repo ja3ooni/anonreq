@@ -1,23 +1,24 @@
 # =============================================================================
 # AnonReq — Docker Compose orchestration
 # =============================================================================
-# Three services on an isolated internal bridge network:
+# Services on an isolated internal bridge network:
 #   1. valkey          — ephemeral cache (persistence disabled)
 #   2. presidio-analyzer — PII detection engine
 #   3. anonreq         — anonymization gateway (build from Dockerfile)
 #
-# The gateway only starts after valkey and presidio-analyzer pass their
-# respective healthchecks (depends_on with condition: service_healthy).
+# Observability profile services:
+#   4. postgres        — PostgreSQL database for audit logs
+#   5. postgres-exporter — Prometheus metric exporter for PostgreSQL
+#   6. minio           — MinIO object storage for compliance archives
+#   7. prometheus      — Metrics collection and alerting engine
+#   8. grafana         — Visualization dashboards
+#   9. valkey-exporter — Prometheus metric exporter for Valkey
 # =============================================================================
 
 services:
 
   # -------------------------------------------------------------------------
   # Valkey — ephemeral key-value store (Redis-compatible)
-  # -------------------------------------------------------------------------
-  # Per DOCK-03 / T-01-02-02: no ports exposed, internal network only.
-  # Persistence disabled (save "", appendonly no) per DOCK-03.
-  # Image: valkey/valkey:8 (official, verified in RESEARCH.md)
   # -------------------------------------------------------------------------
   valkey:
     image: valkey/valkey:8
@@ -39,9 +40,6 @@ services:
   # -------------------------------------------------------------------------
   # Presidio Analyzer — PII / PHI detection
   # -------------------------------------------------------------------------
-  # Per DOCK-03 / T-01-02-02: no ports exposed, internal network only.
-  # Image: mcr.microsoft.com/presidio-analyzer:latest (Microsoft official)
-  # -------------------------------------------------------------------------
   presidio-analyzer:
     image: mcr.microsoft.com/presidio-analyzer:latest
     container_name: anonreq-presidio
@@ -58,10 +56,6 @@ services:
   # -------------------------------------------------------------------------
   # AnonReq Gateway — anonymization proxy
   # -------------------------------------------------------------------------
-  # Builds from the local Dockerfile. Exposes port 8080 to the host.
-  # Depends on valkey and presidio being healthy before starting.
-  # ANONREQ_API_KEY is required at startup (:?err syntax per DOCK-07).
-  # -------------------------------------------------------------------------
   anonreq:
     build:
       context: .
@@ -70,12 +64,14 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Required — Docker Compose refuses to start if unset (:?err per DOCK-07 / T-01-02-01)
       ANONREQ_API_KEY: ${ANONREQ_API_KEY:?err}
-      # Internal service URLs
       ANONREQ_VALKEY_URL: redis://valkey:6379/0
       ANONREQ_PRESIDIO_URL: http://presidio-analyzer:5001
-      # Optional with defaults
+      ANONREQ_DATABASE_URL: ${ANONREQ_DATABASE_URL:-sqlite+aiosqlite:////app/anonreq.db}
+      ANONREQ_MINIO_ACCESS_KEY: ${ANONREQ_MINIO_ACCESS_KEY:-minioadmin}
+      ANONREQ_MINIO_SECRET_KEY: ${ANONREQ_MINIO_SECRET_KEY:-minioadmin}
+      ANONREQ_BREACH_WEBHOOK_URL: ${ANONREQ_BREACH_WEBHOOK_URL:-}
+      ANONREQ_ANCHOR_SIGNING_KEY: ${ANONREQ_ANCHOR_SIGNING_KEY:-}
       ANONREQ_LOG_LEVEL: ${ANONREQ_LOG_LEVEL:-INFO}
       ANONREQ_HOST: 0.0.0.0
       ANONREQ_PORT: "8080"
@@ -94,6 +90,138 @@ services:
       - anonreq-net
     restart: unless-stopped
 
+  # -------------------------------------------------------------------------
+  # PostgreSQL — Audit log database (Observability Profile)
+  # -------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: anonreq-postgres
+    environment:
+      POSTGRES_USER: anonreq
+      POSTGRES_PASSWORD: anonreq
+      POSTGRES_DB: anonreq
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U anonreq"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    networks:
+      - anonreq-net
+    profiles: ["observability"]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Postgres Exporter — Metrics (Observability Profile)
+  # -------------------------------------------------------------------------
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: anonreq-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://anonreq:anonreq@postgres:5432/anonreq?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - anonreq-net
+    profiles: ["observability"]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # MinIO — Compliance Archive Object Storage (Observability Profile)
+  # -------------------------------------------------------------------------
+  minio:
+    image: minio/minio:latest
+    container_name: anonreq-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - anonreq-net
+    profiles: ["observability"]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Prometheus — Metrics Collection Engine (Observability Profile)
+  # -------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: anonreq-prometheus
+    volumes:
+      - ./docker/prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    ports:
+      - "9090:9090"
+    depends_on:
+      anonreq:
+        condition: service_started
+    networks:
+      - anonreq-net
+    profiles: ["observability"]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Grafana — Visualization Dashboards (Observability Profile)
+  # -------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: anonreq-grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/slo_dashboard.json
+    volumes:
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - anonreq-net
+    profiles: ["observability"]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Valkey Exporter — Metrics (Observability Profile)
+  # -------------------------------------------------------------------------
+  valkey-exporter:
+    image: oliver006/redis_exporter:v1.61.0
+    container_name: anonreq-valkey-exporter
+    environment:
+      REDIS_ADDR: redis://valkey:6379
+    depends_on:
+      valkey:
+        condition: service_started
+    networks:
+      - anonreq-net
+    profiles: ["observability"]
+    restart: unless-stopped
+
 networks:
   anonreq-net:
     driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
