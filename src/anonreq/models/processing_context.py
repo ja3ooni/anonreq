@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from anonreq.models.classification import ClassificationLevel
+from anonreq.models.dlp import DLPResult
 
 
 @dataclass
@@ -84,6 +85,10 @@ class ProcessingContext:
 
     # Classification (Phase 12)
     client_classification: ClassificationLevel | None = None
+
+    # DLP (Phase 13 — Plan 13-02)
+    dlp_result: DLPResult | None = None
+    outbound_dlp_result: DLPResult | None = None
 
     # Tool governance (Phase 18)
     requires_approval: bool = False

@@ -144,6 +144,57 @@ class PipelineAbortError(AnonReqError):
         )
 
 
+class PipelineBlockedError(PipelineAbortError):
+    """Raised when DLP or PDP #2 blocks a request (HTTP 451).
+
+    Used by the DLP pipeline and PDP #2 to signal that a request or
+    response should be blocked due to DLP policy.  The 451 status code
+    is semantically appropriate: "Unavailable For Legal Reasons" —
+    the content is being withheld due to an legal/regulatory policy
+    (DLP, data classification, etc.).
+
+    Threat model: T-13-02-01 (Loosening DLP via classification)
+    — this error ensures blocked content never reaches the provider.
+    """
+
+    def __init__(
+        self,
+        detail: str = "Request blocked by DLP policy",
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            status_code=451,
+            message=detail,
+            request_id=request_id,
+        )
+
+
+class OutboundDLPError(PipelineAbortError):
+    """Raised when outbound DLP detects exfiltration in the LLM response.
+
+    The provider successfully produced a response, but the response
+    contains content that the outbound DLP scan flags as a policy
+    violation.  The response is suppressed — the client receives
+    HTTP 451 instead.
+
+    Threat model: T-13-02-02 (Outbound DLP failure)
+    — inbound DLP is the primary guard; outbound DLP is a secondary
+    layer.  If outbound DLP fails open (cannot inspect), the response
+    passes through rather than being incorrectly suppressed.
+    """
+
+    def __init__(
+        self,
+        detail: str = "Outbound DLP blocked response",
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            status_code=451,
+            message=detail,
+            request_id=request_id,
+        )
+
+
 class AuthenticationError(AnonReqError):
     """Raised when API key validation fails.
 
