@@ -18,6 +18,13 @@ Instrumentation (D-160, D-161):
 - Records ``detection_latency_ms`` histogram after detection completes
 - Increments ``entities_detected`` counter per entity type and locale
 - Increments ``fail_secure_events_total`` on fail-secure path
+
+Phase 15 Financial Services Compliance — MNPI Integration:
+- DetectionStage optionally accepts a list of MNPI recognizers
+- After core detection completes, MNPI recognizers run against text nodes
+- MNPI results are merged into ``ctx.detections`` alongside core results
+- Per D-001, D-003: MNPI entity types (tickers, deal codenames) do not
+  overlap with core entity types — no arbitration needed
 """
 
 from __future__ import annotations
@@ -39,6 +46,7 @@ from anonreq.pipeline.extraction import TextExtractor
 
 if TYPE_CHECKING:
     from anonreq.admin.config import AtomicConfigRegistry
+    from anonreq.detection.recognizers.mnpi import MNPIRecognizer
 
 logger = get_logger("anonreq.pipeline.detection")
 
@@ -52,6 +60,7 @@ class DetectionStage(PipelineStage):
     3. Merges regex + NER results per node via SpanArbiter
     4. Filters through ExclusionList per node
     5. Collects all detections into ``ctx.detections``
+    6. Optionally runs MNPI recognizers after core detection (Phase 15)
     """
 
     def __init__(
@@ -62,6 +71,7 @@ class DetectionStage(PipelineStage):
         exclusion_list: Any,
         checksum_registry: ChecksumValidatorRegistry | None = None,
         config_registry: AtomicConfigRegistry | None = None,
+        mnpi_recognizers: list[MNPIRecognizer] | None = None,
     ) -> None:
         """Initialise with detection dependencies.
 
@@ -73,6 +83,8 @@ class DetectionStage(PipelineStage):
             checksum_registry: Optional registry for checksum validation.
             config_registry: Optional ``AtomicConfigRegistry`` for hot-reloaded
                 custom recognizer patterns (D-152, D-154).
+            mnpi_recognizers: Optional list of ``MNPIRecognizer`` instances
+                for MNPI detection (Phase 15, D-001).
         """
         super().__init__("DetectionStage")
         self._regex_detector = regex_detector
@@ -81,6 +93,7 @@ class DetectionStage(PipelineStage):
         self._exclusion_list = exclusion_list
         self._checksum_registry = checksum_registry or ChecksumValidatorRegistry()
         self._config_registry = config_registry
+        self._mnpi_recognizers = mnpi_recognizers or []
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Detect PII in request text nodes.
@@ -181,9 +194,23 @@ class DetectionStage(PipelineStage):
 
             ctx.detections = all_detections
 
+            # Phase 15: MNPI detection — runs after core detection pipeline.
+            # MNPI entity types (MNPI_TICKER, MNPI_DEAL, MNPI_RESTRICTED_NAME)
+            # do not overlap with core entity types; no arbitration needed.
+            if self._mnpi_recognizers:
+                mnpi_results: list[dict[str, Any]] = []
+                for i, node in enumerate(ctx.text_nodes):
+                    node_value = node.get("value", "")
+                    for recognizer in self._mnpi_recognizers:
+                        per_node = recognizer.analyze(node_value, node_index=i)
+                        for d in per_node:
+                            d["node_index"] = i
+                        mnpi_results.extend(per_node)
+                ctx.detections.extend(mnpi_results)
+
             # Log entity counts grouped by type
             entity_counts: dict[str, int] = {}
-            for d in all_detections:
+            for d in ctx.detections:
                 etype = d.get("entity_type", "UNKNOWN")
                 entity_counts[etype] = entity_counts.get(etype, 0) + 1
 

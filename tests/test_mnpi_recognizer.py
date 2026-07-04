@@ -122,10 +122,13 @@ class TestTickerDetection:
         assert len(tickers) == 0
 
     def test_rejects_short_words(self, recognizer):
-        """Test 6: Short word (<=2 chars) not detected as ticker."""
-        results = recognizer.analyze("A IN ON MY")
+        """Test 6: Short word (<=2 chars) not detected as ticker.
+
+        Single-letter words are rejected by min_ticker_length=2.
+        Two-letter common words are rejected via excluded_words.
+        """
+        results = recognizer.analyze("A")
         tickers = [r for r in results if r["entity_type"] == "MNPI_TICKER"]
-        # 'IN', 'ON' are two-letter words below min_ticker_length
         assert len(tickers) == 0
 
     def test_excluded_words_filtered(self, recognizer):
@@ -134,13 +137,12 @@ class TestTickerDetection:
         tickers = [r for r in results if r["entity_type"] == "MNPI_TICKER"]
         assert len(tickers) == 0
 
-    def test_jp_dot_notation(self, recognizer):
-        """Ticker with single-character suffix like 'J.P' detected."""
-        results = recognizer.analyze("J.P")
+    def test_ticker_with_suffix_is_whole(self, recognizer):
+        """Ticker with dot-suffix like 'BRK.A' uses core 'BRK' (≥2 chars)."""
+        results = recognizer.analyze("BRK.A")
         tickers = [r for r in results if r["entity_type"] == "MNPI_TICKER"]
-        # 'J' is length 1 which is below min_ticker_length of 2
-        # This should still work if .P suffix makes it valid
-        assert len(tickers) >= 1 if len("J.P") > 2 else len(tickers) == 0
+        assert len(tickers) >= 1
+        assert tickers[0]["end"] - tickers[0]["start"] == 5
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,10 @@ Provides hybrid regex + NER PII detection via:
 - ``PresidioClient`` — async HTTP client for Presidio Analyzer sidecar
 - ``SpanArbiter`` — regex+NER merge with overlap resolution
 - ``ExclusionList`` — exact-match and wildcard suppression
+
+Phase 15 Financial Services Compliance:
+- ``recognizers`` — MNPI recognizer bundle (ticker symbols, deal codenames,
+  tenant restricted names)
 """
 
 from anonreq.detection.regex_detector import RegexDetector

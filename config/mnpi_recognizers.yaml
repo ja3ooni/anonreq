@@ -1,0 +1,22 @@
+# MNPI Recognizer Configuration (Phase 15, D-001, D-002)
+# Detects ticker symbols, deal codenames, and tenant restricted names.
+# Loaded at startup by MNPIRecognizer via create_mnpi_bundle().
+mnpi:
+  ticker_pattern: '\b[A-Z]{1,4}(\.\w{1,2})?\b'
+  ticker_exchanges:
+    - "NYSE"
+    - "NASDAQ"
+    - "AMEX"
+  deal_codename_patterns:
+    - '\b(Project|Operation|Initiative)\s+[A-Z][a-zA-Z]{2,}\b'
+    - '\b(Codenamed|Codename)\s+"[A-Z][a-zA-Z]+"\b'
+  excluded_words:
+    - "THE"
+    - "FOR"
+    - "AND"
+    - "NOT"
+    - "YOU"
+    - "ARE"
+    - "WAS"
+  min_ticker_length: 2
+  score: 0.85

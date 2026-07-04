@@ -6,12 +6,31 @@ Per D-29 through D-33:
 
 Per D-31, the TextNode model is reused across classification, detection,
 tokenization, and restoration stages.
+
+Phase 15 Financial Services Compliance:
+- MNPI entity types (MNPI_TICKER, MNPI_DEAL, MNPI_RESTRICTED_NAME)
+- MNPI_POLICY_ACTION literal type for 4 handling policies per D-003
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
+
+
+# MNPI (Material Non-Public Information) entity types (Phase 15, D-001, D-003)
+MNPI_ENTITY_TYPES: set[str] = {
+    "MNPI_TICKER",
+    "MNPI_DEAL",
+    "MNPI_RESTRICTED_NAME",
+}
+
+# MNPI handling policy actions per D-003:
+# - anonymize: tokenize and forward (default)
+# - flag: tokenize, forward, and flag for review
+# - block: block the request entirely
+# - quarantine: block and capture payload for review
+MNPI_POLICY_ACTION = Literal["anonymize", "flag", "block", "quarantine"]
 
 
 @dataclass

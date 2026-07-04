@@ -25,6 +25,7 @@ from anonreq.config import settings
 from anonreq.dependencies import auth_context
 from anonreq.admin.routes import registry as admin_config_registry
 from anonreq.detection.exclusion_list import ExclusionList
+from anonreq.detection.pipeline import load_mnpi_recognizers
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
@@ -104,6 +105,9 @@ def build_pre_provider_pipeline(
             exclusion_list=ExclusionList(),
             checksum_registry=checksum_registry,
             config_registry=admin_config_registry,
+            mnpi_recognizers=load_mnpi_recognizers(
+                config_path="config/mnpi_recognizers.yaml",
+            ),
         ),
         SensitivityClassificationStage(),
         PolicyEnforcementStage(app_state=app_state),
