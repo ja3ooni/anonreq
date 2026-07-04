@@ -118,6 +118,88 @@ RISK_DIMENSIONS_CORE: list[str] = [
 ]
 
 
+# ── SR 11-7 Model Risk Management ────────────────────────────────────────
+
+
+class ModelRiskClassification(str, Enum):
+    """SR 11-7 risk classification for models.
+
+    Per SR 11-7, models are classified by their potential impact:
+    - LOW: Limited impact, well-understood risks
+    - MODERATE: Moderate impact, some complexity
+    - HIGH: Significant impact, complex or novel
+    """
+
+    LOW = "LOW"
+    MODERATE = "MODERATE"
+    HIGH = "HIGH"
+
+
+class ModelRecord(BaseModel):
+    """SR 11-7 model inventory record.
+
+    Tracks risk classification, approval status, review cycles,
+    and lifecycle integration with Phase 14 LifecycleService.
+    """
+
+    id: str = ""
+    provider: str
+    model_name: str
+    risk_classification: ModelRiskClassification
+    approval_status: str = "pending"
+    current_stage: str = "DRAFT"
+    lifecycle_object_id: str = ""
+    version: str = "1.0.0"
+    documentation_url: str | None = None
+    validation_status: str | None = None
+    validation_date: datetime | None = None
+    review_cycle_days: int = 365
+    last_review_date: datetime | None = None
+    next_review_date: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"extra": "ignore", "from_attributes": True}
+
+    @field_validator("risk_classification", mode="before")
+    @classmethod
+    def coerce_risk_classification(cls, v: Any) -> ModelRiskClassification:
+        if isinstance(v, ModelRiskClassification):
+            return v
+        if isinstance(v, str):
+            return ModelRiskClassification(v.upper())
+        raise ValueError(f"Invalid risk classification: {v}")
+
+
+# ── DORA ICT Third-Party Provider Inventory ──────────────────────────────
+
+
+class ProviderRecord(BaseModel):
+    """Third-party provider record per DORA ICT requirements.
+
+    Tracks provider status, DORA ICT critical designation,
+    concentration risk, and lifecycle integration.
+    """
+
+    id: str = ""
+    name: str
+    provider_type: str
+    status: str = "active"
+    lifecycle_object_id: str = ""
+    dora_ict_critical: bool = False
+    concentration_risk: bool = False
+    concentration_risk_justification: str | None = None
+    concentration_risk_justification_date: datetime | None = None
+    contract_end_date: datetime | None = None
+    review_cycle_days: int = 365
+    last_review_date: datetime | None = None
+    next_review_date: datetime | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"extra": "ignore", "from_attributes": True}
+
+
 # ── SQLAlchemy ORM models ────────────────────────────────────────────────
 
 
@@ -164,6 +246,53 @@ class RiskAssessmentModel(SQLAlchemyBase):
     updated_at = Column(DateTime(timezone=True), nullable=False)
 
 
+class ModelAnonReqModel(SQLAlchemyBase):
+    """SR 11-7 model inventory ORM model."""
+
+    __tablename__ = "model_inventory"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    model_id = Column(String(64), unique=True, nullable=False, index=True)
+    provider = Column(String(64), nullable=False)
+    model_name = Column(String(128), nullable=False)
+    risk_classification = Column(String(32), nullable=False)
+    approval_status = Column(String(32), nullable=False, default="pending")
+    current_stage = Column(String(32), nullable=False, default="DRAFT")
+    lifecycle_object_id = Column(String(64), nullable=False, default="")
+    version = Column(String(32), nullable=False, default="1.0.0")
+    documentation_url = Column(String(512), nullable=True)
+    validation_status = Column(String(32), nullable=True)
+    validation_date = Column(DateTime(timezone=True), nullable=True)
+    review_cycle_days = Column(Integer, nullable=False, default=365)
+    last_review_date = Column(DateTime(timezone=True), nullable=True)
+    next_review_date = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+
+class ProviderAnonReqModel(SQLAlchemyBase):
+    """DORA ICT third-party provider ORM model."""
+
+    __tablename__ = "provider_inventory"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    provider_id = Column(String(64), unique=True, nullable=False, index=True)
+    name = Column(String(128), nullable=False)
+    provider_type = Column(String(64), nullable=False)
+    status = Column(String(32), nullable=False, default="active")
+    lifecycle_object_id = Column(String(64), nullable=False, default="")
+    dora_ict_critical = Column(Boolean, nullable=False, default=False)
+    concentration_risk = Column(Boolean, nullable=False, default=False)
+    concentration_risk_justification = Column(Text, nullable=True)
+    concentration_risk_justification_date = Column(DateTime(timezone=True), nullable=True)
+    contract_end_date = Column(DateTime(timezone=True), nullable=True)
+    review_cycle_days = Column(Integer, nullable=False, default=365)
+    last_review_date = Column(DateTime(timezone=True), nullable=True)
+    next_review_date = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(DateTime(timezone=True), nullable=False)
+
+
 # ── Serialization helpers ────────────────────────────────────────────────
 
 
@@ -191,3 +320,19 @@ def json_to_change_history(raw: str | None) -> list[ChangeEntry]:
     if not raw:
         return []
     return [ChangeEntry(**e) for e in json.loads(raw)]
+
+
+def model_record_to_json(record: ModelRecord) -> str:
+    return record.model_dump_json()
+
+
+def json_to_model_record(raw: str) -> ModelRecord:
+    return ModelRecord(**json.loads(raw))
+
+
+def provider_record_to_json(record: ProviderRecord) -> str:
+    return record.model_dump_json()
+
+
+def json_to_provider_record(raw: str) -> ProviderRecord:
+    return ProviderRecord(**json.loads(raw))
