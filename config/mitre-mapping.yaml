@@ -1,0 +1,46 @@
+# MITRE ATT&CK / ATLAS technique ID mappings for AI security events.
+#
+# Per D-013 through D-016:
+# - Maps every security event_type to a MITRE ATT&CK for Enterprise or
+#   ATLAS technique ID
+# - Applied at the event normalizer stage, before sink formatting
+# - Covers all security event types from Phases 10, 13, 12, 8, 17, 18
+# - Unknown event types receive TEMP:UNMAPPED fallback
+
+event_type_mappings:
+  prompt_injection_blocked:
+    mitre_id: T1566.001
+    framework: ATT&CK
+    technique: "Phishing: Spearphishing Attachment"
+  jailbreak_flagged:
+    mitre_id: T1566.002
+    framework: ATT&CK
+    technique: "Phishing: Spearphishing Link"
+  dlp_violation:
+    mitre_id: T1048
+    framework: ATT&CK
+    technique: "Exfiltration Over Alternative Protocol"
+  dlp_exfiltration_detected:
+    mitre_id: T1048.003
+    framework: ATT&CK
+    technique: "Exfiltration Over Unencrypted Non-C2 Protocol"
+  shadow_ai_detected:
+    mitre_id: T1213.002
+    framework: ATT&CK
+    technique: "Data from Information Repositories: Sharepoint"
+  mnpi_detected:
+    mitre_id: AML.T0025
+    framework: ATLAS
+    technique: "Exfiltration from AI System"
+  firewall_violation:
+    mitre_id: T1190
+    framework: ATT&CK
+    technique: "Exploit Public-Facing Application"
+  classification_blocked:
+    mitre_id: T1530
+    framework: ATT&CK
+    technique: "Data from Cloud Storage"
+  governance_action_applied:
+    mitre_id: AML.T0043
+    framework: ATLAS
+    technique: "Model Access via Compromised Credentials"

@@ -11,9 +11,13 @@ Provides:
 """SOC Integration Service — AI Security Event Pipeline."""
 
 from anonreq.soc.event import NormalizedEvent, SeverityLevel, RawSecurityEvent
+from anonreq.soc.mitre import MITREMapper, MappingEntry, load_mitre_mapping
 
 __all__ = [
     "NormalizedEvent",
     "SeverityLevel",
     "RawSecurityEvent",
+    "MITREMapper",
+    "MappingEntry",
+    "load_mitre_mapping",
 ]
