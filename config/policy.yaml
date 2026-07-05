@@ -103,3 +103,17 @@ governance:
   default_critical_tool_permission: require_human_approval
   strict_domain_isolation: true
   credential_isolation: per_delegation
+
+# Phase 17-02: Block-all-unintercepted-AI enforcement (PDP #2 policy rule)
+# When enabled, AI traffic that does not arrive through the corporate proxy
+# (missing X-AnonReq-Proxy header) is blocked with HTTP 403.
+pdp2_rules:
+  - id: "block-unintercepted-ai"
+    enabled: true
+    conditions:
+      source_not_proxy: true
+      destination_is_ai: true
+    action: BLOCK
+    metadata:
+      response_message: "AI traffic must be routed through the corporate proxy. Contact IT."
+      audit_event_type: "block_all_unintercepted_triggered"

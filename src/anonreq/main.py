@@ -72,6 +72,9 @@ from anonreq.startup_checks import run_startup_checks
 from anonreq.gateway.passthrough import GatewayStatus
 from anonreq.gateway.detector import AIDetector
 from anonreq.gateway.router import RouteTable
+from anonreq.discovery.hostname_allowlist import HostnameAllowlist
+from anonreq.discovery.flow_analyzer import FlowAnalyzer
+from anonreq.proxy.pac import PACGenerator, router as pac_router
 
 log = get_logger()
 
@@ -333,6 +336,41 @@ def create_app() -> FastAPI:
         app.state.gateway_status = GatewayStatus()
         app.state.ai_detector = AIDetector()
         app.state.route_table = RouteTable()
+
+        # Phase 17-02: AI traffic detection and MCP inspection
+        allowlist = HostnameAllowlist()
+        flow_analyzer = FlowAnalyzer()
+        app.state.allowlist = allowlist
+        app.state.flow_analyzer = flow_analyzer
+
+        # Create PACGenerator with all known AI provider domains
+        pac_domains = allowlist.get_all_proxy_domains()
+        pac_generator = PACGenerator(
+            pac_domains,
+            settings.HOST,
+            settings.PORT,
+        )
+        app.state.pac_generator = pac_generator
+        log.info(
+            "PAC generator initialized",
+            component="lifespan",
+            domain_count=len(pac_domains),
+        )
+
+        # Create MCP inspector for protocol detection
+        try:
+            from anonreq.mcp.inspector import MCPInspector as MCPInspectorCls
+
+            mcp_inspector = MCPInspectorCls(flow_analyzer, allowlist)
+            app.state.mcp_inspector = mcp_inspector
+            log.info("MCP inspector initialized", component="lifespan")
+        except Exception as exc:
+            log.warning(
+                "MCP inspector not available",
+                component="lifespan",
+                error=str(exc),
+            )
+
         log.info("Phase 17 gateway services initialized", component="lifespan")
 
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
@@ -417,6 +455,9 @@ def create_app() -> FastAPI:
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
+
+    # PAC file endpoint — public (no auth, used by browsers/proxies)
+    app.include_router(pac_router)
 
     # Phase 17: Gateway status endpoint
     @app.get("/v1/gateway/status")
