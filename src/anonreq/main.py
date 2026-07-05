@@ -439,11 +439,49 @@ def create_app() -> FastAPI:
                 error=str(exc),
             )
 
+        # Phase 20-05: SIEM sink infrastructure (config-driven)
+        try:
+            from anonreq.soc.sink_config import SinkConfigLoader
+            from anonreq.soc.sink_factory import build_sinks
+            from anonreq.soc.api import create_soc_status_router
+
+            sink_loader = SinkConfigLoader("config/soc-sinks.yaml")
+            sink_definitions = sink_loader.load()
+            sink_router, sink_health_monitor = build_sinks(sink_definitions)
+
+            # Start all enabled sinks
+            await sink_router.start_all()
+
+            # Start periodic health monitor
+            await sink_health_monitor.start()
+
+            app.state.soc_sink_router = sink_router
+            app.state.soc_sink_health_monitor = sink_health_monitor
+
+            log.info(
+                "SIEM sinks initialized",
+                component="lifespan",
+                sink_count=len(sink_definitions),
+                enabled_count=sum(1 for d in sink_definitions if d.enabled),
+            )
+        except Exception as exc:
+            log.warning(
+                "SIEM sinks not available — SOC events will not be forwarded",
+                component="lifespan",
+                error=str(exc),
+            )
+
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
         # Clean shutdown
         log.info("Shutting down", component="lifespan")
+        if hasattr(app.state, "soc_sink_health_monitor"):
+            await app.state.soc_sink_health_monitor.stop()
+            log.info("Sink health monitor stopped", component="lifespan")
+        if hasattr(app.state, "soc_sink_router"):
+            await app.state.soc_sink_router.stop_all()
+            log.info("Sink router stopped", component="lifespan")
         if hasattr(app.state, "soc_normalizer"):
             await app.state.soc_normalizer.stop()
             log.info("SOC normalizer stopped", component="lifespan")
@@ -534,6 +572,14 @@ def create_app() -> FastAPI:
     async def gateway_status(ctx=Depends(auth_context)):
         gs: GatewayStatus = app.state.gateway_status
         return gs.get_status()
+
+    # Phase 20-05: SOC integration status endpoint
+    @app.get("/v1/admin/soc/integration/status")
+    async def soc_integration_status(ctx=Depends(auth_context)):
+        from anonreq.soc.api import create_soc_status_response
+        return create_soc_status_response(
+            app.state.soc_sink_health_monitor
+        )
 
     @app.get("/")
     async def root(ctx=Depends(auth_context)):
