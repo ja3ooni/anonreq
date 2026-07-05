@@ -778,14 +778,14 @@ Support MCP protocol and OpenAI/Anthropic tool call/result payloads.
 5. Tokens restored in RAG-anonymized content within LLM response. `rag_content_anonymized`
    audit entry.
 
-**Plans**: 1/6 executed
+**Plans**: 6/6 complete
 
 - [x] 19-01: Shadow AI discovery pipeline — **Complete 2026-07-03** (79 tests)
-- [ ] 19-02: AI SaaS usage monitoring + CASB policy enforcement
-- [ ] 19-03: Secure RAG pipeline inspection
-- [ ] 19-04: Token restoration in RAG content
-- [ ] 19-05: Full integration tests
-- [ ] 19-TEST-PLAN.md: Test specification
+- [x] 19-02: AI SaaS usage monitoring + CASB policy enforcement — **Complete 2026-07-05** (RAG vector connector, chunk metadata, audit)
+- [x] 19-03: Secure RAG pipeline inspection — **Complete 2026-07-05** (retrieval-time detection, RAG restoration)
+- [x] 19-04: Token restoration in RAG content — **Complete 2026-07-05** (CASB classifier + enforcement engine)
+- [x] 19-05: Full integration tests + AI asset inventory — **Complete 2026-07-05** (risk scoring, cost attribution, admin API)
+- [x] 19-TEST-PLAN.md: Test specification — **Complete 2026-07-05** (119 total Phase 19 tests)
 
 ---
 
@@ -811,9 +811,16 @@ major platforms.
 
 4. Sink health status available at `GET /v1/admin/soc/integration/status`.
 5. Local event buffer (max 10k events) with exponential backoff retry. `soc_buffer_overflow`
-   when full (discard oldest, never block processing).
+    when full (discard oldest, never block processing).
 
-**Plans**: TBD
+**Plans**: 2/6
+
+- [x] 20-01: SOC Integration Service core — event normalizer, field stripping, tenant isolation
+- [x] 20-02: Splunk HEC + QRadar CEF sinks
+- [ ] 20-03: Microsoft Sentinel + Elastic + Datadog sinks
+- [ ] 20-04: Webhook sink + per-sink buffer/retry infrastructure
+- [ ] 20-05: Health monitoring + configuration management API
+- [ ] 20-TEST-PLAN.md: Test specification
 
 ---
 
@@ -857,10 +864,10 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 |-------|-------|--------|-----------|
 | 17. Universal AI Traffic Gateway | 4/4 | Complete | 2026-07-05 — TLS/MITM, PAC/allowlist/flow, MCP, proxy modes, appliance, 182 tests |
 | 18. Agent & Tool Call Governance | 4/4 | Complete | 2026-07-03 |
-| 19. Network Discovery, CASB & Secure RAG | 5/6 | In Progress | 2026-07-05 |
-| 20. AI SOC/SIEM Integration | 0/6 | Planned | — |
+| 19. Network Discovery, CASB & Secure RAG | 6/6 | Complete | 2026-07-05 — CASB, RAG pipeline, inventory, 119 tests |
+| 20. AI SOC/SIEM Integration | 2/6 | In Progress | Phase 10+13+12 — unblocked, executing |
 | 21. Endpoint Visibility & Sovereign Control | 0/7 | Planned | — |
-| **Stage 3 Total** | **9/27** | | |
+| **Stage 3 Total** | **16/27** | | |
 
 ---
 
@@ -870,8 +877,8 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 |-------|--------|-------|--------|
 | 1. Prove the Problem | 7 (1–7) | 25 | 24/25 Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44 | 44/44 Complete |
-| 3. Build the Moat | 5 (17–21) | 27 | 9/27 Complete |
-| **Total** | **21** | **96** | **77/96 Complete** |
+| 3. Build the Moat | 5 (17–21) | 27 | 16/27 Complete |
+| **Total** | **21** | **96** | **84/96 Complete** |
 
 ---
 

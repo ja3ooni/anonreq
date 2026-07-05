@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 19
-current_phase_name: Network Discovery, CASB & Secure RAG
+current_phase: 20
+current_phase_name: AI SOC/SIEM Integration
 status: executing
-stopped_at: Completed 19-02 through 19-05
-last_updated: "2026-07-05T14:00:00.000Z"
+stopped_at: Completed 20-01 and 20-02
+last_updated: "2026-07-05T15:08:00.000Z"
 last_activity: 2026-07-05
 progress:
   total_phases: 22
-  completed_phases: 18
-  total_plans: 110
-  completed_plans: 96
-  percent: 87
+  completed_phases: 19
+  total_plans: 116
+  completed_plans: 99
+  percent: 85
 ---
 
 # Project State
@@ -29,22 +29,23 @@ See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 ## Current Position
 
 Stage: 3 of 3 (Build the Moat)
-Phase: 19 — Network Discovery, CASB & Secure RAG
-Plan: 5/6 (19-02 through 19-05 complete)
-Status: Phase 19 in progress — 19-02 though 19-05 done (RAG ingestion/retrieval, CASB, inventory/risk). Remaining: 19-TEST-PLAN.
+Phase: 20 — AI SOC/SIEM Integration
+Plan: 2/6 (20-01 and 20-02 complete)
+Status: Phase 20 in progress — 20-01 (SOC normalizer core) and 20-02 (Splunk HEC + QRadar CEF sinks) done. Remaining: 20-03 (Sentinel/Elastic/Datadog), 20-04 (Webhook + buffer/retry), 20-05 (Health/config API), 20-TEST-PLAN.
 Last activity: 2026-07-05
-Last session: 2026-07-05T14:00:00Z
+Last session: 2026-07-05T15:08:00Z
 
-Progress: [██████████] 100% Stage 1 · [██████████] 100% Stage 2 · [██████░░░░] 50% Stage 3
-Overall: [██████████] 87% plans complete (96/110)
+Progress: [██████████] 100% Stage 1 · [██████████] 100% Stage 2 · [██████░░░░] 59% Stage 3
+Overall: [██████████] 85% plans complete (99/116)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 96/110 (across 22 phases, 18 complete, Phase 19 in progress)
-- Completed phases: 1, 2, 3, 4, 5, 6, 6.5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
-- Most recent complete: Phase 19 plans 19-02 through 19-05
+- Total plans completed: 99/116 (across 22 phases, 19 complete)
+- Completed phases: 1, 2, 3, 4, 5, 6, 6.5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+- Most recent complete: Phase 20 (AI SOC/SIEM Integration) — in progress
+- Most recent complete: Plan 20-02 (Splunk HEC + QRadar CEF sinks)
 
 **By Stage:**
 
@@ -82,7 +83,7 @@ Overall: [██████████] 87% plans complete (96/110)
 |-------|-------|-------|--------|
 | 17. Universal AI Traffic Gateway | 4/4 | 4 | Complete — TLS/MITM, PAC/allowlist/flow, MCP, proxy modes, appliance, 182 tests |
 | 18. Agent & Tool Call Governance | 4/4 | 4 | Complete — tool policy, PDP #2, human approval flow, property tests |
-| 19. Network Discovery, CASB & Secure RAG | 5/6 | 6 | In Progress — 19-01 through 19-05 complete (discovery, RAG ingest/retrieval, CASB, inventory/risk, 119 tests) |
+| 19. Network Discovery, CASB & Secure RAG | 6/6 | 6 | Complete — shadow AI discovery, RAG ingest/retrieval, CASB enforcement, AI asset inventory/risk, 119 tests |
 | 20. AI SOC/SIEM Integration | 0/6 | 6 | Planned — 6 plan documents exist |
 | 21. Endpoint Visibility & Sovereign Control | 0/7 | 7 | Planned — 7 plan documents exist |
 
@@ -158,6 +159,13 @@ Recent decisions affecting current work:
 - **D-204**: sqlalchemy and asyncpg added to production dependencies; greenlet (sqlalchemy async) and aiosqlite (test fixtures) added as transitive deps. This represents the first SQL database dependency in the project — justified by SR 11-7's record-keeping requirements and DORA's provider register mandates.
 - [Phase 11]: Encompassed all observability containers under Docker Compose profiles option ('observability') to keep core runtime lightweight.
 - [Phase 11]: Established an SLA of <= 5 business days for vulnerability response in SECURITY.md.
+- [Phase 20]: SOC normalizer is async throughout — _normalize() made async so audit emission doesn't force ensure_future.
+- [Phase 20]: Fail-secure content stripping — ANY content field present → event dropped entirely (not just stripped). Matching D-012.
+- [Phase 20]: SOC service runs in-process (not separate gateway process) per D-002.
+- [Phase 20-02]: CEF severity mapping: informational→3, low→4, medium→6, high→8, critical→10 (non-linear, per plan spec).
+- [Phase 20-02]: SinkRouter registered as normalizer callback — full config-driven wiring deferred to Plan 20-05.
+- [Phase 20-02]: CEF header format uses standard space separator between 7th field and extensions (no trailing pipe).
+- [Phase 20-02]: Splunk HEC consumer index parameter omitted — index set server-side via Splunk configuration.
 
 ### Pending Todos
 
@@ -169,7 +177,8 @@ Recent decisions affecting current work:
 - [x] Execute Phase 17 remaining plans (17-03)
 - [x] Execute Phase 19 remaining plans (19-02 through 19-05)
 - [ ] Execute Phase 19 remaining plans (19-TEST-PLAN)
-- [ ] Plan & execute Phase 20 (AI SOC/SIEM Integration)
+- [x] Plan & execute Phase 20 (AI SOC/SIEM Integration) — 20-01 and 20-02 complete
+- [ ] Execute Phase 20 remaining plans (20-03 through 20-05, 20-TEST-PLAN)
 - [ ] Plan & execute Phase 21 (Endpoint Visibility & Sovereign Control)
 
 ### Blockers/Concerns
@@ -178,6 +187,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-05T14:00:00Z
-Stopped at: Completed 19-02 through 19-05
+Last session: 2026-07-05T15:08:00Z
+Stopped at: Completed 20-01 (SOC normalizer) and 20-02 (Splunk HEC + QRadar CEF sinks)
 Resume file: None
