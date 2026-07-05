@@ -63,14 +63,19 @@ def empty_monitor():
     return monitor
 
 
+from anonreq.soc.api import create_soc_status_response
+
+
 def _make_test_app(monitor) -> AsyncClient:
-    """Create a test app with the SOC status router and the given monitor."""
+    """Create a test app with the SOC status endpoint."""
     from fastapi import FastAPI
-    from anonreq.soc.api import create_soc_status_router
 
     app = FastAPI()
-    router = create_soc_status_router(monitor)
-    app.include_router(router)
+
+    @app.get("/v1/admin/soc/integration/status")
+    async def get_status():
+        return create_soc_status_response(monitor)
+
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
@@ -145,6 +150,18 @@ class TestSocStatusApi:
     async def test_status_empty_sinks(self, empty_monitor):
         """Empty sinks returns unknown aggregate and zero counts."""
         async with _make_test_app(empty_monitor) as client:
+            resp = await client.get("/v1/admin/soc/integration/status")
+            body = resp.json()
+            assert body["aggregate_status"] == "unknown"
+            assert body["summary"]["healthy"] == 0
+            assert body["summary"]["degraded"] == 0
+            assert body["summary"]["unknown"] == 0
+            assert body["sinks"] == {}
+
+    @pytest.mark.asyncio
+    async def test_status_none_monitor(self):
+        """None monitor returns safe defaults."""
+        async with _make_test_app(None) as client:
             resp = await client.get("/v1/admin/soc/integration/status")
             body = resp.json()
             assert body["aggregate_status"] == "unknown"
