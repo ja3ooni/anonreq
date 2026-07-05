@@ -57,7 +57,15 @@ class SinkRouter:
                     extra={"sink_name": sink_name, "event_type": getattr(event, "event_type", "unknown")},
                 )
 
-    def get_sinks(self) -> dict[str, SinkStatus]:
+    def get_sinks(self) -> dict[str, SinkBase]:
+        """Return all registered sink instances.
+
+        Returns:
+            Dict mapping sink name to ``SinkBase`` instances.
+        """
+        return dict(self._sinks)
+
+    def get_sink_statuses(self) -> dict[str, SinkStatus]:
         """Return status dict for all registered sinks.
 
         Returns:
@@ -77,6 +85,11 @@ class SinkRouter:
                     healthy=False, reachable=False, last_error="Unknown"
                 )
         return result
+
+    @property
+    def sinks(self) -> dict[str, SinkBase]:
+        """Return all registered sink instances."""
+        return dict(self._sinks)
 
     async def start_all(self) -> None:
         """Call start() on all registered sinks."""
@@ -109,8 +122,3 @@ class SinkRouter:
                     "Failed to stop sink '%s'",
                     sink_name,
                 )
-
-    @property
-    def sinks(self) -> dict[str, SinkBase]:
-        """Return all registered sink instances."""
-        return dict(self._sinks)

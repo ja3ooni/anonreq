@@ -130,6 +130,31 @@ class SinkBuffer:
         # Initialize Prometheus
         _buffer_size.labels(sink_name=self._sink_label).set(0)
 
+    @property
+    def enabled(self) -> bool:
+        """Delegate enabled flag to the inner sink."""
+        return getattr(self._sink, "enabled", True)
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        """Set enabled flag on the inner sink if it supports it."""
+        if hasattr(self._sink, "enabled"):
+            self._sink.enabled = value
+
+    @property
+    def name(self) -> str:
+        """Delegate name to the inner sink."""
+        return self._sink.name
+
+    @property
+    def sink_type(self) -> str:
+        """Delegate sink_type to the inner sink."""
+        return self._sink.sink_type
+
+    async def health_check(self) -> Any:
+        """Delegate health_check to the inner sink."""
+        return await self._sink.health_check()
+
     async def put(self, event: NormalizedEvent) -> None:
         """Add an event to the buffer (non-blocking).
 
