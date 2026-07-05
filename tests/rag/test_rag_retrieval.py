@@ -201,7 +201,7 @@ class TestRetrievalPolicyEngine:
         )
         hr_user = UserContext(
             user_id="u_hr", roles=["hr"], clearance="Internal",
-            applications=["hr_app"], business_unit="HR",
+            applications=["hr_app", "eng_app"], business_unit="HR",
         )
         result = self.engine.evaluate(chunk, hr_user)
         assert result.allowed is True
