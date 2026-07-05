@@ -150,9 +150,9 @@ class LineageTracker:
             "tenant_id": record.tenant_id,
             "provider": record.provider,
             "model": record.model,
-            "entity_types": ",".join(record.entity_types) if record.entity_types else None,
+            "entity_types": ",".join(record.entity_types) if record.entity_types is not None else None,
             "entity_count": record.entity_count,
-            "policies_applied": ",".join(record.policies_applied) if record.policies_applied else None,
+            "policies_applied": ",".join(record.policies_applied) if record.policies_applied is not None else None,
             "classification_action": record.classification_action,
             "processing_time_ms": record.processing_time_ms,
             "request_timestamp": record.request_timestamp,
@@ -244,7 +244,7 @@ class LineageTracker:
 
         try:
             result = await self._db.execute(stmt, params)
-            rows = await result.fetchall()
+            rows = result.fetchall()
         except Exception:
             # Table or query might not exist yet; return empty
             return []
