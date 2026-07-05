@@ -477,6 +477,257 @@ def _parse_optional_dt(value: str | None) -> datetime | None:
         return None
 
 
+# ── DSAR endpoints ────────────────────────────────────────────────────────────
+
+
+@governance_router.post("/dsar/requests")
+async def submit_request(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """POST /v1/governance/dsar/requests — submit a DSAR request."""
+    from anonreq.dsar.workflow import DsarWorkflow
+
+    body = await request.json()
+    workflow = DsarWorkflow(db)
+    subject_id = body.get("subject_id", body.get("tenant_id", "default"))
+    dsar_request = await workflow.submit_request(
+        subject_id=subject_id,
+        request_type=body["request_type"],
+        notes=body.get("notes"),
+        tenant_id=body.get("tenant_id", "default"),
+    )
+    return dsar_request.model_dump()
+
+
+@governance_router.get("/dsar/requests")
+async def list_dsar_requests(
+    request: Request,
+    tenant_id: str | None = None,
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """GET /v1/governance/dsar/requests — list DSAR requests with filters."""
+    from anonreq.dsar.workflow import DsarWorkflow
+
+    workflow = DsarWorkflow(db)
+    requests_list = await workflow.list_requests(
+        tenant_id=tenant_id, status=status
+    )
+    return {"object": "list", "data": [r.model_dump() for r in requests_list]}
+
+
+@governance_router.get("/dsar/requests/{request_id}")
+async def get_dsar_request(
+    request_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """GET /v1/governance/dsar/requests/{request_id} — get request status."""
+    from anonreq.dsar.workflow import DsarWorkflow
+
+    workflow = DsarWorkflow(db)
+    dsar_request = await workflow.get_request_status(request_id)
+    if dsar_request is None:
+        raise HTTPException(status_code=404, detail="DSAR request not found")
+    return dsar_request.model_dump()
+
+
+@governance_router.post("/dsar/requests/{request_id}/fulfill")
+async def fulfill_dsar_request(
+    request_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """POST /v1/governance/dsar/requests/{request_id}/fulfill — fulfill."""
+    from anonreq.dsar.workflow import DsarWorkflow
+
+    body = await request.json()
+    workflow = DsarWorkflow(db)
+    try:
+        result = await workflow.fulfill_request(
+            request_id=request_id,
+            fulfilled_by=body.get("fulfilled_by", "unknown"),
+            notes=body.get("notes"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return result.model_dump()
+
+
+@governance_router.post("/dsar/erasure/{subject_id}")
+async def erase_subject_data(
+    subject_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """POST /v1/governance/dsar/erasure/{subject_id} — erase subject data."""
+    from anonreq.dsar.erasure import DataErasureService
+
+    service = DataErasureService(db)
+    erased = await service.erase_subject_data(subject_id)
+    return {"subject_id": subject_id, "erased": erased, "erased_at": datetime.now(timezone.utc).isoformat()}
+
+
+@governance_router.get("/dsar/erasure/{subject_id}")
+async def check_subject_erasure(
+    subject_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """GET /v1/governance/dsar/erasure/{subject_id} — check erasure status."""
+    from anonreq.dsar.erasure import DataErasureService
+
+    service = DataErasureService(db)
+    erased = await service.has_been_erased(subject_id)
+    return {"subject_id": subject_id, "erased": erased}
+
+
+@governance_router.post("/dsar/restriction/{subject_id}")
+async def restrict_subject(
+    subject_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """POST /v1/governance/dsar/restriction/{subject_id} — restrict processing."""
+    from anonreq.dsar.restriction import DataRestrictionService
+
+    body = await request.json()
+    service = DataRestrictionService(db)
+    await service.restrict_subject(
+        subject_id,
+        reason=body.get("reason", ""),
+        restricted_by=body.get("restricted_by", "unknown"),
+    )
+    return {"subject_id": subject_id, "restricted": True}
+
+
+@governance_router.get("/dsar/restriction/{subject_id}")
+async def check_subject_restriction(
+    subject_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """GET /v1/governance/dsar/restriction/{subject_id} — check restriction."""
+    from anonreq.dsar.restriction import DataRestrictionService
+
+    service = DataRestrictionService(db)
+    restricted = await service.is_subject_restricted(subject_id)
+    return {"subject_id": subject_id, "restricted": restricted}
+
+
+@governance_router.delete("/dsar/restriction/{subject_id}")
+async def remove_subject_restriction(
+    subject_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """DELETE /v1/governance/dsar/restriction/{subject_id} — remove restriction."""
+    from anonreq.dsar.restriction import DataRestrictionService
+
+    service = DataRestrictionService(db)
+    removed = await service.remove_restriction(subject_id)
+    return {"subject_id": subject_id, "removed": removed}
+
+
+@governance_router.get("/dsar/restrictions")
+async def list_restricted_subjects(
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """GET /v1/governance/dsar/restrictions — list restricted subjects."""
+    from anonreq.dsar.restriction import DataRestrictionService
+
+    service = DataRestrictionService(db)
+    subjects = await service.list_restricted_subjects()
+    return {"object": "list", "data": subjects}
+
+
+# ── Breach notification endpoints ─────────────────────────────────────────────
+
+
+@governance_router.post("/breach/notify")
+async def send_breach_notifications(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """POST /v1/governance/breach/notify — send breach notifications."""
+    from anonreq.breach.notifications import BreachNotifier
+    from anonreq.breach.templates import BreachTemplateManager
+
+    body = await request.json()
+    template_mgr = BreachTemplateManager()
+    notifier = BreachNotifier(db=db, template_manager=template_mgr)
+    result = await notifier.send_breach_notifications(
+        breach_id=body["breach_id"],
+        framework=body.get("framework", "gdpr"),
+        description=body.get("description", ""),
+        affected_tenants=body.get("affected_tenants", []),
+    )
+    return result
+
+
+@governance_router.get("/breach/queue")
+async def get_breach_notification_queue(
+    request: Request,
+    status: str | None = None,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """GET /v1/governance/breach/queue — get notification queue."""
+    from anonreq.breach.notifications import BreachNotifier
+    from anonreq.breach.templates import BreachTemplateManager
+
+    template_mgr = BreachTemplateManager()
+    notifier = BreachNotifier(db=db, template_manager=template_mgr)
+    queue = await notifier.get_notification_queue(status=status)
+    return {"object": "list", "data": queue}
+
+
+@governance_router.post("/breach/retry")
+async def retry_failed_notifications(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """POST /v1/governance/breach/retry — retry failed notifications."""
+    from anonreq.breach.notifications import BreachNotifier
+    from anonreq.breach.templates import BreachTemplateManager
+
+    template_mgr = BreachTemplateManager()
+    notifier = BreachNotifier(db=db, template_manager=template_mgr)
+    count = await notifier.retry_failed_notifications()
+    return {"retried": count}
+
+
+@governance_router.get("/breach/templates")
+async def list_breach_templates(
+    request: Request,
+) -> dict:
+    """GET /v1/governance/breach/templates — list available templates."""
+    from anonreq.breach.templates import BreachTemplateManager
+
+    mgr = BreachTemplateManager()
+    templates = mgr.list_available_templates()
+    return {"object": "list", "data": templates}
+
+
+@governance_router.post("/breach/templates")
+async def set_breach_custom_template(
+    request: Request,
+) -> dict:
+    """POST /v1/governance/breach/templates — set custom template."""
+    from anonreq.breach.templates import BreachTemplateManager
+    from anonreq.models.breach import BreachTemplate
+
+    body = await request.json()
+    mgr = BreachTemplateManager()
+    custom = BreachTemplate(
+        id=body.get("id", f"custom-{body['framework']}-{body['region']}"),
+        framework=body["framework"],
+        region=body["region"],
+        subject_template=body["subject_template"],
+        body_template=body["body_template"],
+    )
+    import asyncio
+
+    await mgr.set_custom_template(body["framework"], body["region"], custom)
+    return {"status": "ok", "template_id": custom.id}
+
+
 # ── Approval manager endpoint ────────────────────────────────────────────────
 
 
