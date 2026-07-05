@@ -29,9 +29,9 @@ qradar_events_total = Counter(
 _SEVERITY_MAP: dict[SeverityLevel, int] = {
     SeverityLevel.CRITICAL: 10,
     SeverityLevel.HIGH: 8,
-    SeverityLevel.MEDIUM: 5,
-    SeverityLevel.LOW: 2,
-    SeverityLevel.INFORMATIONAL: 1,
+    SeverityLevel.MEDIUM: 6,
+    SeverityLevel.LOW: 4,
+    SeverityLevel.INFORMATIONAL: 3,
 }
 
 

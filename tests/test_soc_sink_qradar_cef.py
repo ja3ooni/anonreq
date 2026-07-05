@@ -79,9 +79,9 @@ class TestQRadarCEFFormat:
         test_cases = [
             (SeverityLevel.CRITICAL, "10"),
             (SeverityLevel.HIGH, "8"),
-            (SeverityLevel.MEDIUM, "5"),
-            (SeverityLevel.LOW, "2"),
-            (SeverityLevel.INFORMATIONAL, "1"),
+            (SeverityLevel.MEDIUM, "6"),
+            (SeverityLevel.LOW, "4"),
+            (SeverityLevel.INFORMATIONAL, "3"),
         ]
         try:
             for sev, expected in test_cases:
