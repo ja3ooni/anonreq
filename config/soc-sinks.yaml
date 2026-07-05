@@ -1,0 +1,58 @@
+# SOC SIEM sink configuration
+# Secret references: $env:VAR_NAME or $file:/path/to/secret
+sinks:
+  - name: splunk_main
+    type: splunk_hec
+    enabled: true
+    endpoint: "https://splunk.internal:8088/services/collector/event"
+    token: "$env:SPLUNK_HEC_TOKEN"
+    tls_verify: true
+    timeout: 30
+
+  - name: qradar_main
+    type: qradar_cef
+    enabled: true
+    host: "qradar.internal"
+    port: 514
+    protocol: tcp
+    tls_verify: true
+
+  - name: sentinel_prod
+    type: sentinel_dcr
+    enabled: false
+    tenant_id: "$env:AZURE_TENANT_ID"
+    client_id: "$env:AZURE_CLIENT_ID"
+    client_secret: "$env:AZURE_CLIENT_SECRET"
+    dcr_endpoint: "https://eastus.ingest.monitor.azure.com"
+    dcr_immutable_id: "dcr-abc123"
+    stream_name: "Custom-AnonReqEvents"
+    tls_verify: true
+
+  - name: elastic_security
+    type: elastic_bulk
+    enabled: false
+    endpoint: "https://elastic.internal:9200"
+    api_key: "$file:/etc/anonreq/secrets/elastic_api_key"
+    index_pattern: "anonreq-ai-security-%Y.%m.%d"
+    tls_verify: true
+    timeout: 30
+
+  - name: datadog_prod
+    type: datadog_logs
+    enabled: false
+    api_key: "$env:DD_API_KEY"
+    site: "datadoghq.com"
+    source_tag: "anonreq"
+    tls_verify: true
+    timeout: 30
+
+  - name: webhook_custom
+    type: webhook
+    enabled: false
+    url: "https://custom-siem.internal/webhook"
+    method: POST
+    headers:
+      Authorization: "Bearer $env:CUSTOM_SIEM_TOKEN"
+    content_type: "application/json"
+    timeout: 30
+    tls_verify: true
