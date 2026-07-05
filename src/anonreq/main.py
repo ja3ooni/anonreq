@@ -81,6 +81,9 @@ from anonreq.gateway.passthrough import GatewayStatus
 from anonreq.gateway.detector import AIDetector
 from anonreq.gateway.router import RouteTable
 from anonreq.discovery.hostname_allowlist import HostnameAllowlist
+from anonreq.soc.config import SOCConfig
+from anonreq.soc.mitre import MITREMapper
+from anonreq.soc.normalizer import SOCNormalizer
 from anonreq.discovery.flow_analyzer import FlowAnalyzer
 from anonreq.proxy.pac import PACGenerator, router as pac_router
 
@@ -412,11 +415,38 @@ def create_app() -> FastAPI:
 
         log.info("Phase 17 gateway services initialized", component="lifespan")
 
+        # Phase 20: SOC Integration Service
+        try:
+            soc_config = SOCConfig()
+            mitre_mapper = MITREMapper("config/mitre-mapping.yaml")
+            soc_normalizer = SOCNormalizer(
+                mitre_mapper=mitre_mapper,
+                config=soc_config,
+            )
+            await soc_normalizer.start()
+            app.state.soc_normalizer = soc_normalizer
+            app.state.soc_mitre_mapper = mitre_mapper
+            log.info(
+                "SOC Integration Service initialized",
+                component="lifespan",
+                gateway_version=soc_config.gateway_version,
+                appliance_instance_id=soc_config.appliance_instance_id,
+            )
+        except Exception as exc:
+            log.warning(
+                "SOC Integration Service not available",
+                component="lifespan",
+                error=str(exc),
+            )
+
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
         # Clean shutdown
         log.info("Shutting down", component="lifespan")
+        if hasattr(app.state, "soc_normalizer"):
+            await app.state.soc_normalizer.stop()
+            log.info("SOC normalizer stopped", component="lifespan")
         if hasattr(app.state, "webhook_client"):
             await app.state.webhook_client.aclose()
         if hasattr(app.state, "audit_engine"):

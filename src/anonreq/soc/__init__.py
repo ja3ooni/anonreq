@@ -12,6 +12,7 @@ Provides:
 
 from anonreq.soc.event import NormalizedEvent, SeverityLevel, RawSecurityEvent
 from anonreq.soc.mitre import MITREMapper, MappingEntry, load_mitre_mapping
+from anonreq.soc.normalizer import SOCNormalizer
 
 __all__ = [
     "NormalizedEvent",
@@ -20,4 +21,5 @@ __all__ = [
     "MITREMapper",
     "MappingEntry",
     "load_mitre_mapping",
+    "SOCNormalizer",
 ]
