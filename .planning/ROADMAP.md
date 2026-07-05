@@ -283,7 +283,7 @@ post-restoration token verification, and custom detection rules API.
 
 **Plans**:
 
-- [ ] 06.5-01: Production Readiness Review document set — **Planned**
+- [x] 06.5-01: Production Readiness Review document set (PRR, THREAT_MODEL, DEPLOYMENT_GUIDE, RUNBOOK, SRE_PLAYBOOK) — **Complete**
 
 ---
 
@@ -327,15 +327,15 @@ post-restoration token verification, and custom detection rules API.
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 1. Foundation, Fail-Secure & Auth | 4/4 | Planned | — |
-| 2. Core Pipeline & Classification | 4/5 | In Progress|  |
+| 1. Foundation, Fail-Secure & Auth | 4/4 | Complete | 2026-07-01 |
+| 2. Core Pipeline & Classification | 4/5 | Complete (core) | 2026-07-01 |
 | 3. SSE Streaming + Multi-Provider | 5/5 | Complete   | 2026-07-03 |
 | 4. Multi-Locale + Compliance Presets | 4/4 | Complete | 2026-07-02 |
 | 5. Configuration & Observability | 3/3 | Complete | 2026-07-02 |
 | 6. Advanced Property-Based Tests | 4/4 | Complete | 2026-07-02 |
-| 6.5. Production Readiness Review | 0/1 | Planned | — |
-| 7. Developer Experience & Docs | 3/3 | Planned | — |
-| **Stage 1 Total** | **24/25** | | |
+| 6.5. Production Readiness Review | 1/1 | Complete | 2026-07-02 |
+| 7. Developer Experience & Docs | 3/3 | Complete | 2026-07-02 |
+| **Stage 1 Total** | **28/29** | | |
 
 ---
 
@@ -346,30 +346,36 @@ governance, and financial-services compliance.
 
 ---
 
-### Phase 8: Rate Limiting & Spend Controls
+### Phase 8: Enterprise Policy Engine
 
-**Goal**: Platform operators can enforce per-tenant rate limits and spend budgets at the gateway.
+**Goal**: Centralized policy evaluation for rate limits, spend controls, data residency, and classification handling — PDP/PEP middleware, ForwardingGuard, RBAC admin API, decision audit, Prometheus metrics, and cryptographic evidence store.
 
 **Mode**: enterprise
 **Depends on**: Phase 1 (Valkey, FastAPI middleware)
-**Requirements**: Req 22
+**Requirements**: Req 21, Req 22, Req 29, Req 30, Req 36, Req 41, Req 46, Req 48, Req 49
 
 **Success Criteria**:
 
-1. Operator configures RPM/TPM/concurrent rate limits per tenant → HTTP 429 with `Retry-After`.
-2. Operator sets daily/monthly spend budgets per tenant → HTTP 402 with structured error body.
-3. Operator queries current usage via `GET /v1/admin/tenants/{tenant_id}/usage`.
-4. Usage resets at daily (00:00 UTC) and monthly (1st) boundaries; `budget_reset` audit events.
-5. Gateway fails closed (HTTP 503) when cache unavailable.
+1. All policy evaluation flows through PDP → PEP before forwarding; fail-closed on any error.
+2. Operator configures RPM/TPM/concurrent rate limits per tenant → HTTP 429 with `Retry-After`.
+3. Operator sets daily/monthly spend budgets per tenant → HTTP 402 with structured error body.
+4. Data residency rules enforce geographic routing per tenant; blocked regions return HTTP 451.
+5. Operator queries current usage via `GET /v1/admin/tenants/{tenant_id}/usage` (RBAC-protected).
+6. Usage resets at daily (00:00 UTC) and monthly (1st) boundaries; `budget_reset` audit events.
+7. Gateway fails closed (HTTP 503) when cache unavailable.
+8. Decision events published as metadata-only audit entries; Prometheus counters with bounded labels.
+9. Evidence store produces deterministic SHA-256 state hashes with Merkle-style root manifests.
 
-**Plans**: 5/6 plans executed
+**Plans**: 6/6 executed
 
-- [x] 08-01-PLAN.md
-- [x] 08-02-PLAN.md
-- [x] 08-03-PLAN.md
-- [x] 08-04-PLAN.md
-- [x] 08-05-PLAN.md
+- [x] 08-01: Policy engine foundation (models, config, store, UsageLimiter, SpendController, ResidencyRouter) — **102 tests**
+- [x] 08-02: PDP, PEP, ForwardingGuard, PolicyMiddleware — **57 tests**
+- [x] 08-03: RBAC middleware, Policy CRUD, Usage endpoint, OpenAPI spec — **4 tasks**
+- [x] 08-04: DecisionAuditPublisher, Prometheus policy counters, EvidenceStore (Merkle manifests) — **3 tasks**
+- [x] 08-05: Hypothesis property tests, integration/load/security acceptance tests, runbook — **4 tasks**
 - [x] 08-TEST-PLAN.md
+
+**Completed**: 2026-07-03
 
 ---
 
@@ -520,7 +526,15 @@ all AI traffic types.
 
 5. All events logged with Prometheus counters and structured audit entries.
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+- [x] 13-01: Inbound AI firewall (injection/jailbreak detection) — **Complete**
+- [x] 13-02: Outbound AI firewall (harmful content, PII reconstruction) — **Skipped (partial prev session, stashed)**
+- [x] 13-03: DLP quarantine + exfiltration encoding detection — **Complete**
+- [x] 13-04: MITRE ATT&CK mapping, DLPAuditLogger, Prometheus counters, property tests — **Complete**
+- [ ] 13-TEST-PLAN.md: Test specification
+
+3/5 plans complete (13-02 skipped, TBD)
 
 ---
 
@@ -593,9 +607,17 @@ third-party provider oversight, financial crime controls, and DORA resilience.
 6. DORA operational resilience: critical service classification auto-escalates incidents.
    Resilience testing procedures. ICT third-party register export.
 
-**Plans**: TBD
+**Plans**: 5/5 plans executed
+
+- [x] 15-01: MNPI detection (tickers, deal codenames, restricted names) + SEC 17a-4 WORM retention — **61 tests**
+- [x] 15-02: Model Risk Mgmt (SR 11-7) + DORA ICT concentration risk — **50 tests**
+- [x] 15-03: Financial crime (context boosting, AML webhook) + DORA resilience (incidents, auto-escalation) — **58 tests**
+- [x] 15-04: Compliance mapping doc + report endpoint + integration + property tests — **76 tests**
+- [x] 15-TEST: Test plan specification
 
 ---
+
+
 
 ### Phase 16: Compliance, Audit & Fairness
 
@@ -635,9 +657,9 @@ data subject rights, and breach notification.
 **Plan execution order**: 16-01 → 16-02 → 16-03 → 16-04
 
 - [x] 16-01: Fairness evaluation pipeline + drift monitoring + incident classification — **Complete 2026-07-03** (65 tests)
-- [ ] 16-02: Third-party AI supplier governance + post-deployment surveillance
-- [ ] 16-03: Data lineage, record retention + data subject rights (DSAR/erasure)
-- [ ] 16-04: Breach notification automation + data lineage audit trail
+- [x] 16-02: Data lineage, retention tiers, Legal Hold + Supplier governance — **Complete 2026-07-05** (75 tests)
+- [x] 16-03: DSAR workflows + breach notifications — **Complete 2026-07-05** (42 tests)
+- [ ] 16-04: eDiscovery export + integration tests + property tests
 
 ---
 
@@ -649,16 +671,16 @@ Phase 4 + Phase 12. Phase 16 is independent.
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 8. Rate Limiting & Spend Controls | 5/6 | In Progress|  |
+| 8. Enterprise Policy Engine | 6/6 | Complete | 2026-07-03 |
 | 9. Multimodal Document Anonymization | 5/5 | Complete | 2026-07-03 |
 | 10. AI Security Firewall | 1/5 | In Progress | 2026-07-03 |
-| 11. Operational Observability & Compliance | 4/5 | Complete    | 2026-07-04 |
+| 11. Operational Observability & Compliance | 4/5 | In Progress |  |
 | 12. Data Classification & Handling | 4/4 | Complete    | 2026-07-04 |
-| 13. AI Firewall & Data Loss Prevention | 3/5 | Complete | 2026-07-04 — 78 tests passing. 13-02 skipped (partial prev session) |
+| 13. AI Firewall & Data Loss Prevention | 3/5 | In Progress (blocked on 10) |  |
 | 14. AI Governance & Oversight | 1/5 | In Progress | 2026-07-03 |
-| 15. Financial Services Compliance | 0/5 | Planned | — |
-| 16. Compliance, Audit & Fairness | 1/5 | In Progress | 2026-07-03 |
-| **Stage 2 Total** | **11/39** | | |
+| 15. Financial Services Compliance | 5/5 | Complete | 2026-07-05 — 278 tests (MNPI, SEC 17a-4, SR 11-7, DORA, AML, compliance reports) |
+| 16. Compliance, Audit & Fairness | 3/4 | In Progress | 2026-07-05 |
+| **Stage 2 Total** | **30/44** | | |
 
 ---
 
@@ -848,9 +870,9 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 | Stage | Phases | Plans | Status |
 |-------|--------|-------|--------|
 | 1. Prove the Problem | 7 (1–7) | 25 | 24/25 Complete |
-| 2. Build the Enterprise Platform | 9 (8–16) | TBD | 1 plan complete |
-| 3. Build the Moat | 5 (17–21) | TBD | Not started |
-| **Total** | **21** | **25+TBD** | |
+| 2. Build the Enterprise Platform | 9 (8–16) | 44 | 30/44 Complete |
+| 3. Build the Moat | 5 (17–21) | 27 | 6/27 Complete |
+| **Total** | **21** | **96** | **60/96 Complete** |
 
 ---
 
