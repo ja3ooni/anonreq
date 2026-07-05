@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 15
-current_phase_name: financial-services-compliance
+current_phase: 16
+current_phase_name: compliance-audit-fairness
 status: executing
-stopped_at: Completed 13-04-PLAN.md (MITRE mapping, DLP audit, Prometheus counters, property-based DLP invariants)
-last_updated: "2026-07-04T18:42:04.397Z"
-last_activity: 2026-07-04
+stopped_at: Plan 16-02 complete — data lineage, retention tiers, legal hold, supplier governance (75 tests)
+last_updated: "2026-07-05T06:50:00.000Z"
+last_activity: 2026-07-05
 progress:
   total_phases: 22
-  completed_phases: 12
-  total_plans: 101
-  completed_plans: 71
-  percent: 55
+  completed_phases: 14
+  total_plans: 106
+  completed_plans: 77
+  percent: 73
 ---
 
 # Project State
@@ -24,25 +24,26 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 
 **Core value:** Raw PII never crosses the network boundary.
-**Current focus:** Phase 15 — financial-services-compliance
+**Current focus:** Phase 16 — compliance-audit-fairness
 
 ## Current Position
 
 Stage: 2 of 3 (Build the Enterprise Platform)
-Phase: 15 (financial-services-compliance) — EXECUTING
-Plan: 2 of 5
-Status: Ready to execute
-Last activity: 2026-07-04
+Phase: 16 (compliance-audit-fairness) — In Progress
+Plan: 2 of 4 (16-02 complete)
+Status: In Progress
+Last activity: 2026-07-05
 
-Progress: [███████░░░] 70%
+Progress: [██████████] 100% Stage 1 · [████████░░] 68% Stage 2 · [█░░░░░░░░░] 22% Stage 3
+Overall: [████████░░] 77% plans complete (77/106)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 9
-- Average duration: N/A
-- Total execution time: 0.0 hours
+- Total plans completed: 60/96 (across 22 phases, 14 complete)
+- Completed phases: 1, 2, 3, 4, 5, 6, 6.5, 7, 8, 9, 12, 15, 18
+- Most recent complete: Phase 8 (Enterprise Policy Engine), Phase 15 (Financial Services Compliance)
 
 **By Stage:**
 
@@ -50,54 +51,39 @@ Progress: [███████░░░] 70%
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 1. Foundation, Fail-Secure & Auth | 0/4 | 4 | Plans created — ready to execute |
-| 2. Core Pipeline & Classification | 0/5 | - | Context gathered — ready to plan |
-| 3. SSE Streaming + Multi-Provider | 4/4 | 4 | Complete |
+| 1. Foundation, Fail-Secure & Auth | 4/4 | 4 | Complete |
+| 2. Core Pipeline & Classification | 4/5 | 5 | Complete (core) |
+| 3. SSE Streaming + Multi-Provider | 5/5 | 5 | Complete |
 | 4. Multi-Locale + Compliance Presets | 4/4 | 4 | Complete — 64 tests, 6 invariants |
 | 5. Configuration & Observability | 3/3 | 3 | Complete — 64+ tests, 7 invariants |
-| 6. Advanced Property-Based Tests | 2/4 | 4 | In Progress — 06-02 complete, 06-03 pending |
-| 6.5. Production Readiness Review | 0/1 | 1 | Planned |
-| 7. Developer Experience & Docs | 0/3 | - | Not started |
-| **Stage 1 Total** | **21/25** | | |
-| Phase 02 P02-04 | 3600 | - tasks | - files |
-| Phase 18-agent-tool-call-governance P02 | 648 | - tasks | - files |
-| Phase 14 P01 | 21 | 2 tasks | 9 files |
-| Phase 10-ai-security-firewall P01 | 1min | 4 tasks | 12 files |
-| Phase 17-universal-ai-traffic-gateway P01 | 8min | 3 tasks | 11 files |
-| Phase 19-network-discovery-casb-secure-rag P01 | 5 | 2 tasks | 14 files |
-| Phase 09-multimodal-document-anonymization P09-01 | 0min | 4 tasks | 13 files |
-| Phase 03-sse-streaming-multi-provider PIMPLEMENTATION | ~5h aggregate | 4 sub-plans tasks | 28 files |
-| Phase 08 P03 | 15min | 4 tasks | 6 files |
-| Phase 08 P04 | 20min | 3 tasks | 7 files |
-| Phase 08 P05 | 25min | 4 tasks | 8 files |
-| Phase 11 P02 | 20min | 3 tasks | 11 files |
-| Phase 11 P03 | 25min | 3 tasks | 12 files |
-| Phase 11 P04 | 15min | 3 tasks | 10 files |
-| Phase 13 P04 | 2min | 3 tasks | 6 files |
+| 6. Advanced Property-Based Tests | 4/4 | 4 | Complete |
+| 6.5. Production Readiness Review | 1/1 | 1 | Complete |
+| 7. Developer Experience & Docs | 3/3 | 3 | Complete |
+| **Stage 1 Total** | **28/29** | | |
 
 ### Stage 2: Build the Enterprise Platform
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 8. Enterprise Policy Engine | 0/TBD | - | Wrong upload (skip) |
-| 9. Multimodal Document Anonymization | 0/TBD | - | Context gathered — ready to plan |
-| 10. AI Security Firewall | 0/5 | - | Planned |
-| 11. Operational Observability & Compliance | 0/TBD | - | Context gathered — ready to plan |
-| 12. Data Classification & Handling | 0/TBD | - | Discussed — ready to plan |
-| 13. AI Firewall & Data Loss Prevention | 3/5 | - | Complete — 78 tests passing. 13-02 skipped (partial prev session, stashed) |
-| 14. AI Governance & Oversight | 0/TBD | - | Context gathered — ready to plan |
-| 15. Financial Services Compliance | 0/TBD | - | Context gathered — ready to plan |
-| 16. Compliance, Audit & Fairness | 1/4 | - | In Progress — 16-01 complete |
+| 8. Enterprise Policy Engine | 6/6 | 6 | Complete — 5 plans + test spec, PDP/PEP/RBAC/audit/metrics/evidence |
+| 9. Multimodal Document Anonymization | 5/5 | 5 | Complete |
+| 10. AI Security Firewall | 1/5 | 5 | In Progress — 10-01 complete (firewall models, rules, ONNX, 75 tests) |
+| 11. Operational Observability & Compliance | 4/5 | 5 | In Progress — 11-02/03/04 complete (SLO, breach alerting, SBOM, Grafana) |
+| 12. Data Classification & Handling | 4/4 | 4 | Complete |
+| 13. AI Firewall & Data Loss Prevention | 4/5 | 5 | In Progress — 13-01/03/04 complete, 13-02 skipped (partial, stashed) |
+| 14. AI Governance & Oversight | 4/5 | 5 | In Progress — 14-01/02/03/04 complete (governance, oversight, lifecycle, transparency) |
+| 15. Financial Services Compliance | 5/5 | 5 | Complete — 278 tests (MNPI, SEC 17a-4, SR 11-7, DORA, AML, compliance reports) |
+| 16. Compliance, Audit & Fairness | 2/4 | 4 | In Progress — 16-02 complete (data lineage, retention tiers, legal hold, supplier governance) |
 
 ### Stage 3: Build the Moat
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 17. Universal AI Traffic Gateway | 0/TBD | - | Context gathered — ready to plan |
-| 18. Agent & Tool Call Governance | 0/TBD | - | Discussed and updated — ready to plan |
-| 19. Network Discovery, CASB & Secure RAG | 0/TBD | - | Generated — ready to plan |
-| 20. AI SOC/SIEM Integration | 0/TBD | - | Generated — ready to plan |
-| 21. Endpoint Visibility & Sovereign Control | 0/TBD | - | Generated — ready to plan |
+| 17. Universal AI Traffic Gateway | 1/4 | 4 | In Progress — 17-01 complete (TLS interception, MITM, CA management, 25 tests) |
+| 18. Agent & Tool Call Governance | 4/4 | 4 | Complete — tool policy, PDP #2, human approval flow, property tests |
+| 19. Network Discovery, CASB & Secure RAG | 1/6 | 6 | In Progress — 19-01 complete (shadow AI discovery, DNS/proxy parsing, 79 tests) |
+| 20. AI SOC/SIEM Integration | 0/6 | 6 | Planned — 6 plan documents exist |
+| 21. Endpoint Visibility & Sovereign Control | 0/7 | 7 | Planned — 7 plan documents exist |
 
 *Updated after each plan completion*
 
@@ -160,18 +146,25 @@ Recent decisions affecting current work:
 - **D-197 (13-04)**: MITRE ATT&CK as YAML config (config/mitre_attack.yaml) — version-controlled, extensible without code changes.
 - **D-198 (13-04)**: DLPAuditLogger emits via audit_chain.log_event() — same pattern as existing FirewallAuditPublisher. All audit events are metadata-only (field allowlist).
 - **D-199 (13-04)**: Property-based DLP invariant tests prove existing behavior under random inputs (monotonicity, encoding detection, tenant isolation, benign content).
+- **D-200 (15-01)**: MNPI recognizer uses YAML-configured ticker symbols + deal codenames with Presidio pattern recognizer. Restricted names list hot-reloads via YAML watcher (watchdog, 2s debounce). SEC 17a-4 WORM bucket uses MinIO COMPLIANCE mode with 7-year retention (2557 days). MnpiAuditEvent stores metadata + hashed values only — never raw MNPI.
+- **D-201 (15-02)**: Model inventory uses SQLAlchemy ORM (SQLite in tests, PostgreSQL in prod) for SR 11-7 alignment. Provider inventory stored via SQLAlchemy for DORA ICT concentration risk analysis. Concentration threshold at ≥30% market share from single provider triggers flag. ForwardingGuard blocks unapproved models at pipeline level.
+- **D-202 (15-03)**: ContextBooster adds +0.15 confidence within 50 chars proximity to financial keywords (cap at 1.0). AML webhook POSTs HMAC-SHA256 signed metadata-only payload (no raw values). DORA incident auto-escalation by criticality: CRITICAL → immediate, IMPORTANT → log, STANDARD → none. SLO breach (≥3 violations in 1h window) auto-escalates to CRITICAL.
+- **D-203 (15-04)**: Compliance report endpoint generates docs from YAML mapping in compliance/registry.py. 16 frameworks supported (DORA, NIS2, GDPR, ISO 27001/42001, EBA, FCA, SEC, FINRA, SOX, GLBA, PCI DSS, HIPAA, SOC 2, NYDFS, CCPA, EU AI Act).
+- **D-204**: sqlalchemy and asyncpg added to production dependencies; greenlet (sqlalchemy async) and aiosqlite (test fixtures) added as transitive deps. This represents the first SQL database dependency in the project — justified by SR 11-7's record-keeping requirements and DORA's provider register mandates.
 - [Phase 11]: Encompassed all observability containers under Docker Compose profiles option ('observability') to keep core runtime lightweight.
 - [Phase 11]: Established an SLA of <= 5 business days for vulnerability response in SECURITY.md.
 
 ### Pending Todos
 
-- [ ] Execute Phase 6.5 plan (create 5 PRR documents, review + sign off)
-- [ ] After Phase 6.5 sign-off → proceed to Phase 7 (Developer Experience & Documentation)
-- [ ] Plan Phase 12 (Data Classification & Handling)
-- [ ] Plan Phase 18 (Agent & Tool Call Governance)
-- [ ] Plan Phase 19 (Network Discovery, CASB & Secure RAG)
-- [ ] Plan Phase 20 (AI SOC/SIEM Integration)
-- [ ] Plan Phase 21 (Endpoint Visibility & Sovereign Control)
+- [ ] Execute Phase 10 remaining plans (10-02 through 10-04)
+- [ ] Execute Phase 11 remaining plans (11-TEST-PLAN)
+- [ ] Execute Phase 13 remaining plan (13-02: DLP pipeline integration)
+- [ ] Execute Phase 14 remaining plan (14-TEST-PLAN)
+- [ ] Execute Phase 16 remaining plans (16-02 through 16-04)
+- [ ] Execute Phase 17 remaining plans (17-02, 17-03)
+- [ ] Execute Phase 19 remaining plans (19-02 through 19-05)
+- [ ] Plan & execute Phase 20 (AI SOC/SIEM Integration)
+- [ ] Plan & execute Phase 21 (Endpoint Visibility & Sovereign Control)
 
 ### Blockers/Concerns
 
@@ -179,6 +172,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-04T18:42:04.392Z
-Stopped at: Completed 13-04-PLAN.md (MITRE mapping, DLP audit, Prometheus counters, property-based DLP invariants)
+Last session: 2026-07-05T18:00:00.000Z
+Stopped at: ROADMAP/STATE sync — Phase 8 corrected to "Enterprise Policy Engine" (6/6 complete), Stage totals updated
 Resume file: None
