@@ -93,8 +93,7 @@ async def _make_session() -> AsyncSession:
 class TestLineageImmutability:
     """Lineage tracker exposes no update or delete operations."""
 
-    @given(_lineage_record_strategy)
-    def test_no_update_method(self, lin_rec: Any) -> None:
+    def test_no_update_method(self) -> None:
         """LineageTracker has no 'update_lineage' method."""
         import inspect
         members = {name for name, _ in inspect.getmembers(LineageTracker)}
