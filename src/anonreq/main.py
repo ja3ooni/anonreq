@@ -37,6 +37,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from anonreq.admin.routes import admin_router
 from anonreq.proxy.ca_manager import CAManager
 from anonreq.proxy.mitm_handler import MITMHandler, mitm_middleware
+from anonreq.proxy.modes import (
+    ProxyMode,
+    get_pipeline_for_mode,
+    mode_from_env,
+    requires_detection,
+    requires_mitm,
+    proxy_mode_description,
+)
 from anonreq.proxy.tls import TLSInterceptor, ConfigurationError
 from anonreq.dependencies import auth_context
 from anonreq.detection.presidio_client import PresidioClient
@@ -115,10 +123,24 @@ def create_app() -> FastAPI:
     # Configure structured logging first
     setup_logging(level="INFO")
 
+    # Resolve proxy mode at startup — immutable for the lifetime of the process
+    active_mode: ProxyMode = mode_from_env()
+    log.info(
+        "AnonReq starting in %s mode",
+        active_mode.value,
+        component="lifespan",
+        mode=active_mode.value,
+        mode_description=proxy_mode_description(active_mode),
+        pipeline_stages=get_pipeline_for_mode(active_mode),
+    )
+
     # Create lifespan context manager
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         log.info("Starting pre-flight checks", component="lifespan")
+
+        # Store active mode on app state
+        app.state.proxy_mode = active_mode
 
         # Create cache manager for the application lifetime
         cache_manager = CacheManager(
@@ -153,56 +175,73 @@ def create_app() -> FastAPI:
         app.state.alias_registry = AliasRegistry(
             provider_registry=app.state.provider_registry
         )
-        checksum_registry = ChecksumValidatorRegistry()
-        locale_registry = LocaleRegistry(checksum_registry=checksum_registry)
-        universal_bundle = locale_registry.get("en")
-        if universal_bundle is None:
-            await cache_manager.close()
-            raise RuntimeError("Universal locale bundle 'en' is required")
-        app.state.checksum_registry = checksum_registry
-        app.state.locale_registry = locale_registry
-        app.state.locale_negotiator = LocaleNegotiator(locale_registry)
-        app.state.recognizer_merger = RecognizerMerger(universal_bundle)
-        preset_engine = PresetEngine()
-        active_presets = [
-            preset.strip()
-            for preset in settings.ACTIVE_PRESETS.split(",")
-            if preset.strip()
-        ]
-        base_config = {
-            "entity_types": {
-                entity.name: {
-                    "tier": entity.tier,
-                    "confidence_threshold": entity.confidence_threshold,
-                }
-                for entity in universal_bundle.entity_types
-            },
-            "requires_checksum": list(checksum_registry.registered_entity_types()),
-        }
-        if active_presets:
-            preset_engine.assert_startup_checks(active_presets, base_config)
-        app.state.preset_engine = preset_engine
-        app.state.active_compliance_presets = active_presets
 
-        # Create Presidio client for the application lifetime
-        presidio_client = PresidioClient(
-            base_url=settings.PRESIDIO_URL,
-            timeout=settings.REQUEST_TIMEOUT_SECONDS,
-            max_concurrency=10,
-        )
-        app.state.presidio_client = presidio_client
+        # Detection/anonymization setup — only for modes that need it
+        app.state.presidio_client = None
+        app.state.pipeline = None
+        app.state.checksum_registry = None
+        app.state.locale_registry = None
+        app.state.locale_negotiator = None
+        app.state.recognizer_merger = None
+        app.state.preset_engine = None
+        app.state.active_compliance_presets = []
 
-        # Build and store the pipeline manager
-        pipeline = build_pipeline(
-            cache_manager=cache_manager,
-            presidio_client=presidio_client,
-            alias_registry=app.state.alias_registry,
-            locale_negotiator=app.state.locale_negotiator,
-            recognizer_merger=app.state.recognizer_merger,
-            checksum_registry=app.state.checksum_registry,
-            app_state=app.state,
-        )
-        app.state.pipeline = pipeline
+        if requires_detection(active_mode):
+            checksum_registry = ChecksumValidatorRegistry()
+            locale_registry = LocaleRegistry(checksum_registry=checksum_registry)
+            universal_bundle = locale_registry.get("en")
+            if universal_bundle is None:
+                await cache_manager.close()
+                raise RuntimeError("Universal locale bundle 'en' is required")
+            app.state.checksum_registry = checksum_registry
+            app.state.locale_registry = locale_registry
+            app.state.locale_negotiator = LocaleNegotiator(locale_registry)
+            app.state.recognizer_merger = RecognizerMerger(universal_bundle)
+            preset_engine = PresetEngine()
+            active_presets = [
+                preset.strip()
+                for preset in settings.ACTIVE_PRESETS.split(",")
+                if preset.strip()
+            ]
+            base_config = {
+                "entity_types": {
+                    entity.name: {
+                        "tier": entity.tier,
+                        "confidence_threshold": entity.confidence_threshold,
+                    }
+                    for entity in universal_bundle.entity_types
+                },
+                "requires_checksum": list(checksum_registry.registered_entity_types()),
+            }
+            if active_presets:
+                preset_engine.assert_startup_checks(active_presets, base_config)
+            app.state.preset_engine = preset_engine
+            app.state.active_compliance_presets = active_presets
+
+            # Create Presidio client for the application lifetime
+            presidio_client = PresidioClient(
+                base_url=settings.PRESIDIO_URL,
+                timeout=settings.REQUEST_TIMEOUT_SECONDS,
+                max_concurrency=10,
+            )
+            app.state.presidio_client = presidio_client
+
+            # Build and store the pipeline manager
+            pipeline = build_pipeline(
+                cache_manager=cache_manager,
+                presidio_client=presidio_client,
+                alias_registry=app.state.alias_registry,
+                locale_negotiator=app.state.locale_negotiator,
+                recognizer_merger=app.state.recognizer_merger,
+                checksum_registry=app.state.checksum_registry,
+                app_state=app.state,
+            )
+            app.state.pipeline = pipeline
+        else:
+            log.info(
+                "Skipping detection/anonymization setup — proxy-only mode",
+                component="lifespan",
+            )
 
         # Phase 8: Enterprise Policy Engine
         try:
@@ -246,7 +285,7 @@ def create_app() -> FastAPI:
         app.state.ca_manager = ca_manager
 
         ca_info = await ca_manager.get_ca_info()
-        if ca_info is None and settings.PROXY_MODE == "transparent":
+        if ca_info is None and requires_mitm(active_mode):
             log.warning(
                 "No CA certificate loaded in transparent proxy mode",
                 component="lifespan",
@@ -386,7 +425,8 @@ def create_app() -> FastAPI:
             await app.state.mitm_handler.close()
         if hasattr(app.state, "ca_manager"):
             await app.state.ca_manager.close()
-        await presidio_client.close()
+        if app.state.presidio_client is not None:
+            await app.state.presidio_client.close()
         await cache_manager.close()
 
     app = FastAPI(
