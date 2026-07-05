@@ -713,12 +713,12 @@ transparent proxy, and appliance deployment topologies.
 4. P95 overhead ≤ 5ms for proxy-only mode (no anonymization — policy evaluation only).
 5. Inline inspection of MCP protocol traffic, tool call/result payloads, and structured content.
 
-**Plans**: 2/4 executed
+**Plans**: 4/4 complete
 
 - [x] 17-01: TLS interception + MITM proxy — **Complete 2026-07-03** (25 tests)
 - [x] 17-02: PAC file generation, allowlist, flow analysis, MCP parser/inspector — **Complete 2026-07-05** (84 tests)
-- [ ] 17-03: Reverse proxy + appliance topology support
-- [ ] 17-TEST-PLAN.md: Test specification
+- [x] 17-03: Proxy-only mode + performance optimization + VM appliance — **Complete 2026-07-05** (86 tests)
+- [x] 17-TEST-PLAN.md: Test specification — **Complete 2026-07-05** (182 total Phase 17 tests)
 
 ---
 
@@ -855,12 +855,12 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
-| 17. Universal AI Traffic Gateway | 2/4 | In Progress | 2026-07-05 |
+| 17. Universal AI Traffic Gateway | 4/4 | Complete | 2026-07-05 — TLS/MITM, PAC/allowlist/flow, MCP, proxy modes, appliance, 182 tests |
 | 18. Agent & Tool Call Governance | 4/4 | Complete | 2026-07-03 |
-| 19. Network Discovery, CASB & Secure RAG | 1/6 | In Progress | 2026-07-03 |
+| 19. Network Discovery, CASB & Secure RAG | 5/6 | In Progress | 2026-07-05 |
 | 20. AI SOC/SIEM Integration | 0/6 | Planned | — |
 | 21. Endpoint Visibility & Sovereign Control | 0/7 | Planned | — |
-| **Stage 3 Total** | **6/27** | | |
+| **Stage 3 Total** | **9/27** | | |
 
 ---
 
@@ -870,8 +870,8 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 |-------|--------|-------|--------|
 | 1. Prove the Problem | 7 (1–7) | 25 | 24/25 Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44 | 44/44 Complete |
-| 3. Build the Moat | 5 (17–21) | 27 | 7/27 Complete |
-| **Total** | **21** | **96** | **74/96 Complete** |
+| 3. Build the Moat | 5 (17–21) | 27 | 9/27 Complete |
+| **Total** | **21** | **96** | **77/96 Complete** |
 
 ---
 

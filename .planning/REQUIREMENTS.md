@@ -446,21 +446,21 @@
 
 - [x] **APPL-DISC-01**: AI API traffic identification by hostname/IP across 8+ providers
 - [x] **APPL-DISC-02**: Shadow AI detection via network flow/DNS analysis
-- [ ] **APPL-DISC-03**: `shadow_ai_detected` event emission
-- [ ] **APPL-DISC-04**: AI asset inventory export (JSON/CSV)
+- [x] **APPL-DISC-03**: `shadow_ai_detected` event emission
+- [x] **APPL-DISC-04**: AI asset inventory export (JSON/CSV)
 
 ### CASB Integration (Req 53)
 
-- [ ] **APPL-CASB-01**: AI SaaS usage monitoring via corporate proxy/CASB telemetry
-- [ ] **APPL-CASB-02**: Application classification: sanctioned / tolerated / unsanctioned
-- [ ] **APPL-CASB-03**: Per-application policies
+- [x] **APPL-CASB-01**: AI SaaS usage monitoring via corporate proxy/CASB telemetry
+- [x] **APPL-CASB-02**: Application classification: sanctioned / tolerated / unsanctioned
+- [x] **APPL-CASB-03**: Per-application policies
 
 ### Secure RAG (Req 54)
 
-- [ ] **APPL-RAG-01**: RAG pipeline document inspection at retrieval injection point
-- [ ] **APPL-RAG-02**: Full detection pipeline applied to retrieved content before LLM exposure
-- [ ] **APPL-RAG-03**: Token restoration in RAG-anonymized content within LLM response
-- [ ] **APPL-RAG-04**: `rag_content_anonymized` audit entry
+- [x] **APPL-RAG-01**: RAG pipeline document inspection at retrieval injection point
+- [x] **APPL-RAG-02**: Full detection pipeline applied to retrieved content before LLM exposure
+- [x] **APPL-RAG-03**: Token restoration in RAG-anonymized content within LLM response
+- [x] **APPL-RAG-04**: `rag_content_anonymized` audit entry
 
 ### Content Disarm & Behavioral Analytics (Req 55)
 
@@ -674,9 +674,9 @@
 |-------------|-------|--------|
 | APPL-01 to APPL-07 | Phase 17 | Pending |
 | APPL-AGENT-01 to APPL-AGENT-06 | Phase 18 | Pending |
-| APPL-DISC-01 to APPL-DISC-04 | Phase 19 | Pending |
-| APPL-CASB-01 to APPL-CASB-03 | Phase 19 | Pending |
-| APPL-RAG-01 to APPL-RAG-04 | Phase 19 | Pending |
+| APPL-DISC-01 to APPL-DISC-04 | Phase 19 | Complete |
+| APPL-CASB-01 to APPL-CASB-03 | Phase 19 | Complete |
+| APPL-RAG-01 to APPL-RAG-04 | Phase 19 | Complete |
 | APPL-SOC-01 to APPL-SOC-10 | Phase 20 | Pending |
 | Endpoint/Sovereign features | Phase 21 | Pending |
 

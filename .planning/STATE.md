@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 17
-current_phase_name: Universal AI Traffic Gateway
+current_phase: 19
+current_phase_name: Network Discovery, CASB & Secure RAG
 status: executing
-stopped_at: Completed 17-03-PLAN.md
-last_updated: "2026-07-05T11:43:53.718Z"
+stopped_at: Completed 19-02 through 19-05
+last_updated: "2026-07-05T14:00:00.000Z"
 last_activity: 2026-07-05
 progress:
   total_phases: 22
-  completed_phases: 14
-  total_plans: 101
-  completed_plans: 78
-  percent: 64
+  completed_phases: 18
+  total_plans: 110
+  completed_plans: 96
+  percent: 87
 ---
 
 # Project State
@@ -29,22 +29,22 @@ See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 ## Current Position
 
 Stage: 3 of 3 (Build the Moat)
-Phase: 17 — Universal AI Traffic Gateway
-Plan: 3/4 (17-03 complete)
-Status: Stage 2 fully complete. Phase 17 in progress — 17-03 done (proxy modes, performance, appliance).
+Phase: 19 — Network Discovery, CASB & Secure RAG
+Plan: 5/6 (19-02 through 19-05 complete)
+Status: Phase 19 in progress — 19-02 though 19-05 done (RAG ingestion/retrieval, CASB, inventory/risk). Remaining: 19-TEST-PLAN.
 Last activity: 2026-07-05
-Last session: 2026-07-05T11:36:27Z
+Last session: 2026-07-05T14:00:00Z
 
-Progress: [██████████] 100% Stage 1 · [██████████] 100% Stage 2 · [██░░░░░░░░] 27% Stage 3
-Overall: [██████████] 84% plans complete (90/107)
+Progress: [██████████] 100% Stage 1 · [██████████] 100% Stage 2 · [██████░░░░] 50% Stage 3
+Overall: [██████████] 87% plans complete (96/110)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 89/108 (across 22 phases, 18 complete)
-- Completed phases: 1, 2, 3, 4, 5, 6, 6.5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18
-- Most recent complete: Phase 14 (AI Governance & Oversight)
+- Total plans completed: 96/110 (across 22 phases, 18 complete, Phase 19 in progress)
+- Completed phases: 1, 2, 3, 4, 5, 6, 6.5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18
+- Most recent complete: Phase 19 plans 19-02 through 19-05
 
 **By Stage:**
 
@@ -80,9 +80,9 @@ Overall: [██████████] 84% plans complete (90/107)
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 17. Universal AI Traffic Gateway | 3/4 | 4 | In Progress — 17-03 complete (proxy modes, performance, appliance, 86 tests) |
+| 17. Universal AI Traffic Gateway | 4/4 | 4 | Complete — TLS/MITM, PAC/allowlist/flow, MCP, proxy modes, appliance, 182 tests |
 | 18. Agent & Tool Call Governance | 4/4 | 4 | Complete — tool policy, PDP #2, human approval flow, property tests |
-| 19. Network Discovery, CASB & Secure RAG | 1/6 | 6 | In Progress — 19-01 complete (shadow AI discovery, DNS/proxy parsing, 79 tests) |
+| 19. Network Discovery, CASB & Secure RAG | 5/6 | 6 | In Progress — 19-01 through 19-05 complete (discovery, RAG ingest/retrieval, CASB, inventory/risk, 119 tests) |
 | 20. AI SOC/SIEM Integration | 0/6 | 6 | Planned — 6 plan documents exist |
 | 21. Endpoint Visibility & Sovereign Control | 0/7 | 7 | Planned — 7 plan documents exist |
 
@@ -121,6 +121,10 @@ Recent decisions affecting current work:
 - [Phase 19]: Webhook — fire-and-forget with 5s timeout, HTTPS only
 - [Phase 19]: Batch parsing — configurable max batch size (10k), lines > 4KB rejected
 - [Phase 19]: Dedup merge keyed by (provider, hostname) tuple, latest last_seen wins
+- [Phase 19-02]: Existing DocumentChunker in ingest.py is sufficient; no separate chunker.py needed — all 31 ingest tests pass
+- [Phase 19-04]: ALLOW events recorded in activity log but audit_event returned as None — enables telemetry without double-emitting
+- [Phase 19-05]: RiskScoreEngine provides two APIs: calculate() for simple sum-based scoring, compute_risk() for weighted evaluation
+- [Phase 19-05]: Provider trust tiers — major (15), regional (40), unknown (80); mistral moved to regional per test expectation
 - [Phase ?]: Dual-path CA management: admin API upload (validate+write PEMs) AND filesystem file watch (watchdog with 2s debounce) — both supported simultaneously
 - [Phase ?]: Certificate pinning detection via key size heuristic: RSA ≤ 1024 or EC ≤ 192 identified as pinning-susceptible
 - [Phase 09-multimodal-document-anonymization]: Unknown Content-Type returns ROUTE_LOCAL via LocalRouter, never FORWARD — Fail-secure principle: unknown media type cannot bypass the anonymization pipeline
@@ -163,7 +167,8 @@ Recent decisions affecting current work:
 - [ ] Execute Phase 14 remaining plan (14-TEST-PLAN)
 - [ ] Execute Phase 16 remaining plans (16-04)
 - [x] Execute Phase 17 remaining plans (17-03)
-- [ ] Execute Phase 19 remaining plans (19-02 through 19-05)
+- [x] Execute Phase 19 remaining plans (19-02 through 19-05)
+- [ ] Execute Phase 19 remaining plans (19-TEST-PLAN)
 - [ ] Plan & execute Phase 20 (AI SOC/SIEM Integration)
 - [ ] Plan & execute Phase 21 (Endpoint Visibility & Sovereign Control)
 
@@ -173,6 +178,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-07-05T11:36:27Z
-Stopped at: Completed 17-03-PLAN.md
+Last session: 2026-07-05T14:00:00Z
+Stopped at: Completed 19-02 through 19-05
 Resume file: None
