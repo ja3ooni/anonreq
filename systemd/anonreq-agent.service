@@ -1,0 +1,26 @@
+[Unit]
+Description=AnonReq Appliance Management Agent
+After=docker.service
+Requires=docker.service
+Documentation=https://anonreq.dev/docs/appliance
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -m anonreq.appliance.agent
+WorkingDirectory=/opt/anonreq
+EnvironmentFile=/etc/anonreq/config.env
+Restart=always
+RestartSec=10
+User=anonreq
+Group=anonreq
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+CapabilityBoundingSet=
+# Allow docker compose access via docker socket
+SupplementaryGroups=docker
+
+[Install]
+WantedBy=multi-user.target
