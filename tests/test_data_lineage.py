@@ -37,7 +37,20 @@ def sample_record() -> LineageRecord:
 
 @pytest.fixture
 def mock_db_session():
-    return AsyncMock()
+    session = AsyncMock()
+
+    async def mock_execute(stmt, params=None):
+        result = AsyncMock(spec=['fetchall', 'fetchone', 'rowcount'])
+        result.rowcount = 0
+        result.fetchall.return_value = []
+        result.fetchone.return_value = None
+        return result
+
+    session.execute.side_effect = mock_execute
+    session.add = AsyncMock()
+    session.commit = AsyncMock()
+    session.rollback = AsyncMock()
+    return session
 
 
 @pytest.fixture

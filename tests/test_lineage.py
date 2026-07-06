@@ -57,7 +57,7 @@ class TestLineageRecordCreation:
         members = await lineage_service._redis.smembers(
             "anonreq:lineage:tenant:acme-corp"
         )
-        assert b"ses-001" in members
+        assert "ses-001" in members
 
     async def test_create_record_with_source_app_id(self, lineage_service):
         record = sample_record()
