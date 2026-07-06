@@ -125,8 +125,35 @@ async def update_governance_record(
     if model is None:
         raise ValueError(f"No governance record for tenant: {tenant_id}")
 
+    # Record the change in change_history for audit trail
+    now = datetime.now(timezone.utc)
+    existing_history = json_to_change_history(
+        getattr(model, "change_history", None)
+    )
+    next_version = max((e.version for e in existing_history), default=0) + 1
+
+    old_officers = json.loads(model.officers)
+    changes_desc = {}
+    old_names = {o["name"] for o in old_officers}
+    new_names = {o.name for o in officers}
+    if old_names != new_names:
+        changes_desc["officers"] = (
+            f"updated from {len(old_officers)} to {len(officers)} officers"
+        )
+
+    new_entry = ChangeEntry(
+        version=next_version,
+        changed_at=now,
+        changed_by="system",
+        description=f"Governance record updated to version {next_version}",
+        changes=changes_desc,
+    )
+    updated_history = existing_history + [new_entry]
+
     model.officers = officers_to_json(officers)
-    model.updated_at = datetime.now(timezone.utc)
+    model.change_history = change_history_to_json(updated_history)
+    model.version = next_version
+    model.updated_at = now
     await db.flush()
     await db.refresh(model, ["review_cycle"])
     return _model_to_record(model)

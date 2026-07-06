@@ -440,7 +440,7 @@ def json_to_dimensions(raw: str) -> list[RiskDimensionScore]:
 
 
 def change_history_to_json(history: list[ChangeEntry]) -> str:
-    return json.dumps([e.model_dump() for e in history])
+    return json.dumps([e.model_dump(mode="json") for e in history])
 
 
 def json_to_change_history(raw: str | None) -> list[ChangeEntry]:
