@@ -616,8 +616,6 @@ third-party provider oversight, financial crime controls, and DORA resilience.
 
 ---
 
-
-
 ### Phase 16: Compliance, Audit & Fairness
 
 **Goal**: Bias monitoring, post-deployment surveillance, data lineage, record retention,
@@ -678,7 +676,7 @@ Phase 4 + Phase 12. Phase 16 is independent.
 | 13. AI Firewall & Data Loss Prevention | 5/5 | Complete | 2026-07-05 — DLP detection, exfiltration, quarantine, MITRE, pipeline integration, PDP #2, 93 tests |
 | 14. AI Governance & Oversight | 5/5 | Complete | 2026-07-05 — governance records, risk, oversight, lifecycle, transparency, conformity, 162 tests |
 | 15. Financial Services Compliance | 5/5 | Complete | 2026-07-05 — 278 tests (MNPI, SEC 17a-4, SR 11-7, DORA, AML, compliance reports) |
-| 16. Compliance, Audit & Fairness | 4/4 | Complete | 2026-07-05 — ~232 tests (fairness 65, lineage/supplier 75, DSAR/breach 42, eDiscovery/integration/property 50) |
+| 16. Compliance, Audit & Fairness | 4/5 | In Progress|  |
 | **Stage 2 Total** | **44/44** | **Complete** | |
 
 ---
@@ -813,14 +811,14 @@ major platforms.
 5. Local event buffer (max 10k events) with exponential backoff retry. `soc_buffer_overflow`
     when full (discard oldest, never block processing).
 
-**Plans**: 2/6
+**Plans**: 6/6 complete
 
-- [x] 20-01: SOC Integration Service core — event normalizer, field stripping, tenant isolation
-- [x] 20-02: Splunk HEC + QRadar CEF sinks
-- [ ] 20-03: Microsoft Sentinel + Elastic + Datadog sinks
-- [ ] 20-04: Webhook sink + per-sink buffer/retry infrastructure
-- [ ] 20-05: Health monitoring + configuration management API
-- [ ] 20-TEST-PLAN.md: Test specification
+- [x] 20-01: SOC Integration Service core — event normalizer, field stripping, tenant isolation — **Complete 2026-07-05**
+- [x] 20-02: Splunk HEC + QRadar CEF sinks — **Complete 2026-07-05** (17 tests)
+- [x] 20-03: Microsoft Sentinel + Elastic + Datadog sinks — **Complete 2026-07-05**
+- [x] 20-04: Webhook sink + per-sink buffer/retry infrastructure — **Complete 2026-07-05**
+- [x] 20-05: Health monitoring + configuration management API — **Complete 2026-07-05** (48 new tests)
+- [x] 20-TEST-PLAN.md: Test specification — **Complete 2026-07-05** (151 total SOC tests)
 
 ---
 
@@ -851,7 +849,22 @@ AI deployment with local model routing and GPU inference integration.
 5. Air-gapped deployment mode: all provider traffic routed to local models, no external
    network required.
 
-**Plans**: TBD
+**Plans**: 7/7 plans complete
+
+- [x] 21-01-PLAN.md
+- [x] 21-02-PLAN.md
+- [x] 21-03-PLAN.md
+- [x] 21-04-PLAN.md
+- [x] 21-05-PLAN.md
+- [x] 21-06-PLAN.md
+
+- [x] 21-01: Endpoint Agent Foundation (macOS + cross-platform core)
+- [x] 21-02: Windows endpoint agent
+- [x] 21-03: Local model router (vLLM, Ollama, GPU)
+- [x] 21-04: Sovereign policy engine + jurisdiction routing
+- [x] 21-05: Hybrid AI architecture — provider selection engine
+- [x] 21-06: Metrics, fail-closed integration, and property tests
+- [x] 21-TEST-PLAN.md: Test specification
 
 ---
 
@@ -865,9 +878,9 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 | 17. Universal AI Traffic Gateway | 4/4 | Complete | 2026-07-05 — TLS/MITM, PAC/allowlist/flow, MCP, proxy modes, appliance, 182 tests |
 | 18. Agent & Tool Call Governance | 4/4 | Complete | 2026-07-03 |
 | 19. Network Discovery, CASB & Secure RAG | 6/6 | Complete | 2026-07-05 — CASB, RAG pipeline, inventory, 119 tests |
-| 20. AI SOC/SIEM Integration | 2/6 | In Progress | Phase 10+13+12 — unblocked, executing |
-| 21. Endpoint Visibility & Sovereign Control | 0/7 | Planned | — |
-| **Stage 3 Total** | **16/27** | | |
+| 20. AI SOC/SIEM Integration | 6/6 | Complete | 2026-07-05 — Splunk, QRadar, Sentinel, Elastic, Datadog, webhook, health API, 151 tests |
+| 21. Endpoint Visibility & Sovereign Control | 7/7 | Complete   | 2026-07-06 |
+| **Stage 3 Total** | **21/27** | | |
 
 ---
 
@@ -877,8 +890,8 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 |-------|--------|-------|--------|
 | 1. Prove the Problem | 7 (1–7) | 25 | 24/25 Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44 | 44/44 Complete |
-| 3. Build the Moat | 5 (17–21) | 27 | 16/27 Complete |
-| **Total** | **21** | **96** | **84/96 Complete** |
+| 3. Build the Moat | 5 (17–21) | 27 | 20/27 Complete |
+| **Total** | **21** | **96** | **88/96 Complete** |
 
 ---
 
