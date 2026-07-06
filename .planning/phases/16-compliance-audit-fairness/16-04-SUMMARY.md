@@ -99,7 +99,7 @@ in the same commit (see deviations).
 | 5 | Test auth protections for governance routes (2 tests) | auto | 5be37d3 |
 | 6 | Test lifecycle transition auth (4 tests) | auto | 5be37d3 |
 
-**Plan metadata (SUMMARY + state):** `TBD` (final commit)
+**Plan metadata (SUMMARY + state):** `530dcf3` (docs: complete plan)
 
 ## Files Created/Modified
 
@@ -183,8 +183,10 @@ Total: 35 passed
 - `tests/test_governance_test_plan.py` — exists, 1187 lines, 43 tests
 - `src/anonreq/models/governance.py` — `change_history_to_json` fixed with `model_dump(mode="json")`
 - `src/anonreq/governance/records.py` — `update_governance_record` appends change history
-- Commit `5be37d3` present in git log
+- Commit `5be37d3` present in git log (task commit)
+- Commit `530dcf3` present in git log (final metadata commit)
 - All 43 + 35 governance tests pass
+- SUMMARY.md verified on disk
 
 ## Next Phase Readiness
 
