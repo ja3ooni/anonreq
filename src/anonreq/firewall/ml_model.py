@@ -37,7 +37,10 @@ class FirewallMLModel:
     async def load(self, path: str) -> None:
         import onnxruntime
 
-        self._session = onnxruntime.InferenceSession(path)
+        try:
+            self._session = onnxruntime.InferenceSession(path)
+        except onnxruntime.capi.onnxruntime_pybind11_state.NoSuchFile as exc:
+            raise FileNotFoundError(f"ONNX model not found: {path}") from exc
         self._input_name = self._session.get_inputs()[0].name
         self._output_name = self._session.get_outputs()[0].name
 
