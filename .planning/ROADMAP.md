@@ -83,7 +83,10 @@
   2. Translation manifest (`docs/TRANSLATION_MANIFEST.md`) tracks every source→target mapping with per-file review status
   3. Glossary of technical terms maintained with translations across all 8 languages
   4. Arabic documentation includes RTL rendering guidance note
-**Plans**: TBD
+**Plans**: 2 plans
+**Plan list:**
+- [ ] 25-01-PLAN.md — Translation infrastructure (glossary, manifest, English source docs, language directories)
+- [ ] 25-02-PLAN.md — Translation content (translate 9 docs to 6 languages, update manifest, validate links)
 
 ### Phase 26: Enterprise Guardrails
 **Goal**: Enterprise-grade secret detection, compliance automation, and commercial licensing are operational
