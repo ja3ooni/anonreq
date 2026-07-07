@@ -51,7 +51,7 @@ def sample_request_dict():
     return {
         "model": "gpt-4",
         "messages": [
-            {"role": "user", "content": "My email is john@example.com"},
+            {"role": "user", "content": "My name is John and email is john@example.com"},
             {"role": "assistant", "content": "Sure, I can help with that."},
         ],
         "stream": False,
@@ -679,12 +679,7 @@ class TestProviderStage:
         from anonreq.pipeline.provider import ProviderStage
 
         router = respx.mock
-        router.post("https://api.openai.com/v1/chat/completions").mock(
-            lambda request: (
-                None,  # Don't return a response
-            )
-        )
-        # Simulate timeout by raising
+        # Simulate timeout by raising immediately
         router.post("https://api.openai.com/v1/chat/completions").side_effect = (
             httpx.TimeoutException("Timeout")
         )
@@ -1073,20 +1068,26 @@ class TestFullPipelineWithDetection:
 
         # Use real RegexDetector + SpanArbiter + ExclusionList + PresidioClient (mocked)
         regex_detector = MagicMock()
-        # Mock: first text node "My email is john@example.com" has email at 11-27
+        # Text: "My name is John and email is john@example.com"
+        # John at 11-15, john@example.com at 29-45
         regex_detector.detect.return_value = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 11, "end": 27, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 29, "end": 45, "score": 1.0, "source": "regex"},
         ]
 
         presidio_client = MagicMock()
         presidio_client.analyze_text_nodes.return_value = [
-            [{"entity_type": "PERSON", "start": 3, "end": 7, "score": 0.95}],
+            [{"entity_type": "PERSON", "start": 11, "end": 15, "score": 0.95}],
             [],
         ]
 
         span_arbiter = SpanArbiter()
         exclusion_list = ExclusionList()
         tokenizer = Tokenizer()
+        original_init_session = tokenizer.initialize_session
+        def _patched_init_session():
+            original_init_session()
+            tokenizer._seed = 0  # Deterministic seed so tokens match mock response
+        tokenizer.initialize_session = _patched_init_session
 
         # Use fakeredis-backed cache manager
         import fakeredis.aioredis
@@ -1125,7 +1126,7 @@ class TestFullPipelineWithDetection:
                 {
                     "path": "messages[0].content",
                     "role": "user",
-                    "value": "My email is john@example.com",
+                    "value": "My name is John and email is john@example.com",
                 },
             ]
             proc_ctx.context_id = "integration-test-session"
@@ -1181,7 +1182,7 @@ class TestAPIIntegration:
     async def test_chat_route_accepts_request(self):
         """POST /v1/chat/completions with valid auth → 200."""
         # Create a minimal app with the chat router
-        from fastapi import FastAPI
+        from fastapi import Depends, FastAPI
         from httpx import ASGITransport, AsyncClient
 
         from anonreq.config import settings
@@ -1220,6 +1221,7 @@ class TestAPIIntegration:
         }
         ctx_result.text_nodes = []
         ctx_result.errors = []
+        ctx_result.classification_result_v2 = None
 
         pipeline_mock.run.return_value = ctx_result
 
@@ -1242,7 +1244,7 @@ class TestAPIIntegration:
     @pytest.mark.asyncio
     async def test_chat_route_without_auth_returns_401(self):
         """POST /v1/chat/completions without auth → 401."""
-        from fastapi import FastAPI
+        from fastapi import Depends, FastAPI
         from httpx import ASGITransport, AsyncClient
 
         from anonreq.dependencies import auth_context
@@ -1265,7 +1267,7 @@ class TestAPIIntegration:
     @pytest.mark.asyncio
     async def test_chat_route_with_invalid_body_returns_422(self):
         """POST /v1/chat/completions with invalid body → 422."""
-        from fastapi import FastAPI
+        from fastapi import Depends, FastAPI
         from httpx import ASGITransport, AsyncClient
 
         from anonreq.dependencies import auth_context
@@ -1288,7 +1290,7 @@ class TestAPIIntegration:
     @pytest.mark.asyncio
     async def test_chat_route_returns_x_anonreq_headers(self):
         """Response includes X-AnonReq-Request-ID header."""
-        from fastapi import FastAPI
+        from fastapi import Depends, FastAPI
         from httpx import ASGITransport, AsyncClient
 
         from anonreq.config import settings
@@ -1326,6 +1328,7 @@ class TestAPIIntegration:
         }
         ctx_result.text_nodes = []
         ctx_result.errors = []
+        ctx_result.classification_result_v2 = None
 
         pipeline_mock.run.return_value = ctx_result
 

@@ -57,6 +57,7 @@ class LineageService:
 
     async def create_record(self, record: LineageRecord) -> LineageRecord:
         payload = record.model_dump(mode="json")
+        payload.pop("integrity_hash", None)
         payload["integrity_hash"] = _compute_integrity_hash(payload)
         record.integrity_hash = payload["integrity_hash"]
         await self._redis.set(

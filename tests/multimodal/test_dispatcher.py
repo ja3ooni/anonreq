@@ -58,6 +58,11 @@ class TestContentTypeEnum:
     def test_unknown_value(self):
         assert ContentType.UNKNOWN.value == "unknown"
 
+    def test_agent_content_type_values(self):
+        assert ContentType.AGENT_TOOL_CALL.value == "agent_tool_call"
+        assert ContentType.AGENT_TOOL_RESULT.value == "agent_tool_result"
+        assert ContentType.MCP_MESSAGE.value == "mcp_message"
+
 
 class TestUnifiedDetectionResult:
     def test_default_values(self):
@@ -126,6 +131,34 @@ class TestContentTypeDispatcher:
         result = await dispatcher.dispatch("application/json", b'{"key": "val"}', None)
         assert result.content_type == ContentType.APPLICATION_JSON
         mock_json_analyzer.analyze.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "header,expected",
+        [
+            ("application/x-anonreq-agent-tool-call", ContentType.AGENT_TOOL_CALL),
+            ("application/x-anonreq-agent-tool-result", ContentType.AGENT_TOOL_RESULT),
+            ("application/x-anonreq-mcp", ContentType.MCP_MESSAGE),
+            ("application/vnd.mcp+json", ContentType.MCP_MESSAGE),
+        ],
+    )
+    async def test_routes_agent_content_types(
+        self,
+        header,
+        expected,
+        mock_json_analyzer,
+        mock_multipart_analyzer,
+    ):
+        from anonreq.multimodal.dispatcher import ContentTypeDispatcher
+
+        dispatcher = ContentTypeDispatcher(
+            json_analyzer=mock_json_analyzer,
+            multipart_analyzer=mock_multipart_analyzer,
+        )
+        result = await dispatcher.dispatch(header, b'{"id":"call_1"}', None)
+        assert result.content_type == expected
+        assert result.action == "ANONYMIZE"
+        assert result.detection_result.analyzer_metadata["raw_type"] == header
 
     @pytest.mark.asyncio
     async def test_routes_multipart_form_data(self, mock_json_analyzer, mock_multipart_analyzer):

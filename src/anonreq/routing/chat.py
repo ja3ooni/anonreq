@@ -271,7 +271,7 @@ async def _stream_chat_completions(
     except ValueError:
         raise HTTPException(
             status_code=502,
-            detail=f"Provider credentials not configured for '{proc_ctx.provider}'",
+            detail="Provider configuration error",
         )
 
     emitter = SSEEmitter()
@@ -309,7 +309,11 @@ async def _stream_chat_completions(
 
                 if event.event_type == EventType.ERROR:
                     terminal_state = "PROVIDER_ERROR"
-                    yield emitter.emit(event)
+                    yield emitter.emit(StreamEvent(
+                        event_type=EventType.ERROR,
+                        provider=proc_ctx.provider or "unknown",
+                        metadata={"message": "stream error", "type": "provider_error"},
+                    ))
                     yield emitter.close_frame()
                     return
 
@@ -332,7 +336,15 @@ async def _stream_chat_completions(
             yield emitter.emit(StreamEvent(
                 event_type=EventType.ERROR,
                 provider=proc_ctx.provider or "unknown",
-                metadata={"message": exc.message, "type": "provider_error"},
+                metadata={"message": "stream error", "type": "provider_error"},
+            ))
+            yield emitter.close_frame()
+        except Exception:
+            terminal_state = "PROVIDER_ERROR"
+            yield emitter.emit(StreamEvent(
+                event_type=EventType.ERROR,
+                provider=proc_ctx.provider or "unknown",
+                metadata={"message": "stream error", "type": "provider_error"},
             ))
             yield emitter.close_frame()
         finally:

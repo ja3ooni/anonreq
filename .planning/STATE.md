@@ -4,17 +4,17 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: —
 current_phase_name: —
-status: complete
-stopped_at: All 22 phases complete. Milestone v1.0 ready for finalization.
-last_updated: "2026-07-06T07:00:00.000Z"
-last_activity: 2026-07-06
-last_activity_desc: Phase 20 complete (SOC/SIEM Integration, 151 tests). All phases 1-21 + 6.5 done. 22/22 phases complete.
+status: planning
+stopped_at: Phase 22 added to close v1.0 milestone audit runtime integration blockers.
+last_updated: "2026-07-07T00:00:00.000Z"
+last_activity: 2026-07-07
+last_activity_desc: Phase 22 added: Close milestone audit gaps — runtime integration blockers.
 progress:
-  total_phases: 22
+  total_phases: 23
   completed_phases: 22
   total_plans: 101
   completed_plans: 101
-  percent: 100
+  percent: 96
 ---
 
 # Project State
@@ -25,19 +25,19 @@ See: .planning/PROJECT.md (updated 2026-06-19)
 See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 
 **Core value:** Raw PII never crosses the network boundary.
-**Current focus:** Phase 20 — ai-soc-siem-integration
+**Current focus:** Phase 22 — close-milestone-audit-gaps-runtime-integration-blockers
 
 ## Current Position
 
 Stage: 3 of 3 (Build the Moat)
-Phase: 20 (ai-soc-siem-integration) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 20
-Last activity: 2026-07-06 — Phase 20 execution started
+Phase: 22 (close-milestone-audit-gaps-runtime-integration-blockers) — NOT PLANNED
+Plan: —
+Status: Ready for planning
+Last activity: 2026-07-07 — Phase 22 added from milestone audit gaps
 Last session: 2026-07-06T06:48:13.126Z
 
-Progress: [█████████░] 89%
-Overall: [██████████] 99% plans complete (115/116)
+Progress: [█████████░] 96%
+Overall: [█████████░] milestone has open audit-closure phase
 
 ## Performance Metrics
 
@@ -91,6 +91,10 @@ Overall: [██████████] 99% plans complete (115/116)
 *Updated after each plan completion*
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 22 added: Close milestone audit gaps — runtime integration blockers (from `.planning/v1.0-MILESTONE-AUDIT.md`).
 
 ### Decisions
 
@@ -174,7 +178,7 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 - [x] Plan & execute Phase 21 (Endpoint Visibility & Sovereign Control)
-- [ ] Plan & execute Phase 22
+- [ ] Plan & execute Phase 22 (milestone audit runtime integration blockers)
 
 ### Blockers/Concerns
 
@@ -183,4 +187,4 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-07-06
-Stopped at: Phase 8 complete (Enterprise Policy Engine, 210 tests). Codebase mapped. All phases 1-21 complete. Phase 22 (milestone finalization) remaining.
+Stopped at: Phase 22 added from v1.0 milestone audit. Next step is planning the runtime integration blocker closure phase.

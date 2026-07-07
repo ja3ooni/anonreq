@@ -1,0 +1,71 @@
+# AnonReq Enterprise Policy Configuration
+# ========================================
+# This file defines the policy decision engine rules for the AnonReq
+# anonymization gateway.  Changes take effect on reload (no restart required
+# if hot-reload is enabled).
+
+version: "1.0"
+# Schema version for cache invalidation.  Bump when the structure changes.
+
+tenant_id: null
+# Optional tenant scope.  Set to a specific tenant ID to scope this config,
+# or leave null for global defaults that apply to all tenants.
+
+default_action: ALLOW
+# Default action when no rule matches:
+#   ALLOW        - Forward request to provider (default)
+#   BLOCK        - Deny request with 403
+#   MONITOR      - Allow but log for audit
+#   ROUTE_LOCAL  - Route to configured on-prem endpoint
+#   FLAG_AND_FORWARD - Allow with audit flag
+
+rules:
+  # Rules are evaluated in priority order (highest first).
+  # First matching rule wins.  If conditions are specified, ALL conditions
+  # must match (AND logic).
+
+  - rule_id: "block_highly_restricted"
+    enabled: true
+    version: 1
+    name: "Block Highly Restricted"
+    description: "Block any classified as Highly Restricted"
+    action: BLOCK
+    priority: 100
+    conditions:
+      classification_level: "Highly Restricted"
+
+  - rule_id: "flag_restricted"
+    enabled: true
+    version: 1
+    name: "Flag Restricted Content"
+    description: "Flag Restricted level for audit review"
+    action: FLAG_AND_FORWARD
+    priority: 50
+    conditions:
+      classification_level: "Restricted"
+
+rate_limits:
+  # Per-tenant rate limits applied before provider forwarding.
+  rpm: 1000
+  tpm: 100000
+  concurrent: 50
+  enabled: true
+
+spend_budgets: {}
+  # Per-tenant spend budgets keyed by tenant_id:
+  # tenant_acme:
+  #   daily_usd: 100.00
+  #   monthly_usd: 3000.00
+  #   currency: USD
+  #   enabled: true
+
+residency_rules: {}
+  # Per-tenant data residency rules keyed by tenant_id:
+  # tenant_acme:
+  #   allowed_regions:
+  #     - us-east-1
+  #     - eu-west-1
+  #   blocked_regions:
+  #     - cn-north-1
+  #   fallback_action: BLOCK
+  #   required: true

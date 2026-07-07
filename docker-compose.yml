@@ -28,7 +28,7 @@ services:
       - --save ""
       - --appendonly no
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -44,7 +44,11 @@ services:
     image: mcr.microsoft.com/presidio-analyzer:latest
     container_name: anonreq-presidio
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:3000/health', timeout=5).read()"
       interval: 15s
       timeout: 5s
       retries: 10
@@ -61,27 +65,48 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: anonreq-gateway
+    user: root
+    command:
+      - sh
+      - -c
+      - >
+        mkdir -p /app/data/ca &&
+        chown -R anonreq:anonreq /app/data &&
+        exec su anonreq -s /bin/sh -c
+        'uvicorn anonreq.main:app --host 0.0.0.0 --port 8080 --no-server-header'
     ports:
       - "8080:8080"
     environment:
       ANONREQ_API_KEY: ${ANONREQ_API_KEY:?err}
       ANONREQ_VALKEY_URL: redis://valkey:6379/0
-      ANONREQ_PRESIDIO_URL: http://presidio-analyzer:5001
-      ANONREQ_DATABASE_URL: ${ANONREQ_DATABASE_URL:-sqlite+aiosqlite:////app/anonreq.db}
+      ANONREQ_PRESIDIO_URL: http://presidio-analyzer:3000
+      ANONREQ_POLICY_CONFIG_PATH: config/enterprise-policy.yaml
+      ANONREQ_DATABASE_URL: ${ANONREQ_DATABASE_URL:-sqlite+aiosqlite:////app/data/anonreq.db}
       ANONREQ_MINIO_ACCESS_KEY: ${ANONREQ_MINIO_ACCESS_KEY:-minioadmin}
       ANONREQ_MINIO_SECRET_KEY: ${ANONREQ_MINIO_SECRET_KEY:-minioadmin}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${ANONREQ_MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${ANONREQ_MINIO_SECRET_KEY:-minioadmin}
+      MINIO_SECURE: "false"
       ANONREQ_BREACH_WEBHOOK_URL: ${ANONREQ_BREACH_WEBHOOK_URL:-}
       ANONREQ_ANCHOR_SIGNING_KEY: ${ANONREQ_ANCHOR_SIGNING_KEY:-}
       ANONREQ_LOG_LEVEL: ${ANONREQ_LOG_LEVEL:-INFO}
       ANONREQ_HOST: 0.0.0.0
       ANONREQ_PORT: "8080"
+      ANONREQ_CA_DIR: /app/data/ca
+    volumes:
+      - anonreq_data:/app/data
     depends_on:
       valkey:
         condition: service_healthy
       presidio-analyzer:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        - CMD
+        - python
+        - -c
+        - "import os, urllib.request; req = urllib.request.Request('http://localhost:8080/health', headers={'Authorization': 'Bearer ' + os.environ['ANONREQ_API_KEY']}); urllib.request.urlopen(req, timeout=5).read()"
       interval: 10s
       timeout: 5s
       retries: 3
@@ -225,3 +250,4 @@ volumes:
   minio_data:
   prometheus_data:
   grafana_data:
+  anonreq_data:

@@ -11,6 +11,14 @@ _MIME_MAP: dict[str, ContentType] = {
     "text/plain": ContentType.TEXT_PLAIN,
     "application/json": ContentType.APPLICATION_JSON,
     "multipart/form-data": ContentType.MULTIPART_FORM_DATA,
+    "application/x-anonreq-voice-stream": ContentType.VOICE_STREAM,
+    "audio/pcm": ContentType.VOICE_STREAM,
+    "audio/wav": ContentType.VOICE_STREAM,
+    "audio/opus": ContentType.VOICE_STREAM,
+    "application/x-anonreq-agent-tool-call": ContentType.AGENT_TOOL_CALL,
+    "application/x-anonreq-agent-tool-result": ContentType.AGENT_TOOL_RESULT,
+    "application/x-anonreq-mcp": ContentType.MCP_MESSAGE,
+    "application/vnd.mcp+json": ContentType.MCP_MESSAGE,
 }
 
 
@@ -105,6 +113,30 @@ class ContentTypeDispatcher:
                 source_analyzer="multipart_analyzer",
                 content_type=ContentType.MULTIPART_FORM_DATA,
                 detection_result=dr,
+            )
+
+        if ct == ContentType.VOICE_STREAM:
+            return AnalyzerResult(
+                source_analyzer="voice_stream",
+                content_type=ContentType.VOICE_STREAM,
+                detection_result=UnifiedDetectionResult(
+                    content_type=ContentType.VOICE_STREAM,
+                    analyzer_metadata={"raw_type": raw_type},
+                ),
+            )
+
+        if ct in {
+            ContentType.AGENT_TOOL_CALL,
+            ContentType.AGENT_TOOL_RESULT,
+            ContentType.MCP_MESSAGE,
+        }:
+            return AnalyzerResult(
+                source_analyzer=ct.value,
+                content_type=ct,
+                detection_result=UnifiedDetectionResult(
+                    content_type=ct,
+                    analyzer_metadata={"raw_type": raw_type},
+                ),
             )
 
         # Fallback — should not be reachable after LocalRouter integration

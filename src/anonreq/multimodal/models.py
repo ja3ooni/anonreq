@@ -9,6 +9,10 @@ class ContentType(str, Enum):
     TEXT_PLAIN = "text/plain"
     APPLICATION_JSON = "application/json"
     MULTIPART_FORM_DATA = "multipart/form-data"
+    VOICE_STREAM = "voice_stream"
+    AGENT_TOOL_CALL = "agent_tool_call"
+    AGENT_TOOL_RESULT = "agent_tool_result"
+    MCP_MESSAGE = "mcp_message"
     UNKNOWN = "unknown"
 
 

@@ -18,10 +18,9 @@ import re
 
 PATTERNS: dict[str, re.Pattern] = {
     "EMAIL_ADDRESS": re.compile(
-        r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9]"
-        r"(?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
-        r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*"
-        r"\.[a-zA-Z]{2,}"
+        r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+        r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+"
+        r"[a-zA-Z]{2,}"
     ),
     "PHONE_NUMBER": re.compile(
         r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}"

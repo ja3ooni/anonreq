@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from anonreq.streaming.stream_event import StreamEvent
 
-TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,19}_\d+\]")
+TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,49}_\d+\]")
 """Regex matching a complete ``[TYPE_N]`` token at the buffer frontier."""
 
 PARTIAL_PATTERN = re.compile(r"\[[A-Za-z][A-Za-z_]{0,19}_?\d*$")

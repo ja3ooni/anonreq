@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     PROVIDER_BASE_URL: str = "https://api.openai.com"
     PROVIDER_API_KEY: str | None = None
     ACTIVE_PRESETS: str = ""
+    POLICY_CONFIG_PATH: str = Field(
+        default="config/enterprise-policy.yaml",
+        validation_alias="ANONREQ_POLICY_CONFIG_PATH",
+        description="Enterprise PDP policy config path. Kept separate from Appliance PDP2 policy.yaml.",
+    )
+    DATABASE_URL: str = Field(
+        default="sqlite+aiosqlite:///./anonreq.db",
+        validation_alias="ANONREQ_DATABASE_URL",
+        description="SQLAlchemy async database URL for audit/governance persistence.",
+    )
+    ANCHOR_SIGNING_KEY: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_ANCHOR_SIGNING_KEY",
+        description="Optional HMAC signing key for tamper-evident audit chain anchors.",
+    )
     ADMIN_API_KEY: str | None = Field(
         default=None,
         validation_alias="ANONREQ_ADMIN_API_KEY",

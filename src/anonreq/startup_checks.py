@@ -17,6 +17,7 @@ Threat model coverage:
 """
 
 import socket
+from collections.abc import Awaitable, Callable
 from urllib.parse import urlparse
 
 import structlog
@@ -106,12 +107,45 @@ async def check_presidio(url: str) -> bool:
         return False
 
 
-async def run_startup_checks(settings: Settings) -> None:
-    """Run all pre-flight dependency checks.
+async def _check_with_retry(
+    name: str,
+    check_fn: Callable[[], Awaitable[bool]],
+    max_retries: int = 5,
+    delay: float = 3.0,
+) -> bool:
+    """Run a health check with retries.
 
-    Checks Valkey and Presidio reachability sequentially. If either check
-    fails, raises ``DependencyUnavailableError`` with the name of the
-    failing dependency to prevent the application from starting.
+    Args:
+        name: Human-readable dependency name for logging.
+        check_fn: An async callable returning ``True`` if reachable.
+        max_retries: Number of retry attempts (default 5).
+        delay: Seconds between retries (default 3.0).
+
+    Returns:
+        ``True`` if the check passes within retry budget.
+    """
+    import asyncio
+
+    for attempt in range(max_retries):
+        ok = await check_fn()
+        if ok:
+            return True
+        if attempt < max_retries - 1:
+            logger.warning(
+                "%s unreachable (attempt %d/%d), retrying in %.0fs",
+                name, attempt + 1, max_retries, delay,
+                component="startup_checks",
+            )
+            await asyncio.sleep(delay)
+    return False
+
+
+async def run_startup_checks(settings: Settings) -> None:
+    """Run all pre-flight dependency checks with retries.
+
+    Checks Valkey and Presidio reachability sequentially with retries
+    to handle container startup races in Docker Compose. If either check
+    exhausts its retry budget, raises ``DependencyUnavailableError``.
 
     Args:
         settings: The application settings instance providing dependency URLs.
@@ -121,7 +155,10 @@ async def run_startup_checks(settings: Settings) -> None:
     """
     # Check Valkey
     logger.info("Checking Valkey connectivity", component="startup_checks")
-    valkey_ok = await check_valkey(settings.VALKEY_URL)
+    valkey_ok = await _check_with_retry(
+        "Valkey",
+        lambda: check_valkey(settings.VALKEY_URL),
+    )
     if not valkey_ok:
         logger.error("Valkey unreachable", component="startup_checks")
         from anonreq.exceptions import DependencyUnavailableError
@@ -132,7 +169,10 @@ async def run_startup_checks(settings: Settings) -> None:
 
     # Check Presidio
     logger.info("Checking Presidio connectivity", component="startup_checks")
-    presidio_ok = await check_presidio(settings.PRESIDIO_URL)
+    presidio_ok = await _check_with_retry(
+        "Presidio",
+        lambda: check_presidio(settings.PRESIDIO_URL),
+    )
     if not presidio_ok:
         logger.error("Presidio unreachable", component="startup_checks")
         from anonreq.exceptions import DependencyUnavailableError

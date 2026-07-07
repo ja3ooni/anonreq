@@ -17,7 +17,7 @@ from anonreq.cache.manager import CacheManager
 from anonreq.detection.presidio_client import PresidioClient
 
 # Regex patterns for reconstruction attempt detection
-TOKEN_PATTERN = re.compile(r"\[([A-Z_]+)_(\d+)\]")
+TOKEN_PATTERN = re.compile(r"\[([A-Z][A-Z_]{0,49})_(\d+)\]")
 RECONSTRUCTION_PROMPT_PATTERNS = [
     re.compile(r"regenerate\s+(the\s+)?(email|phone|ssn|address|name|token)", re.IGNORECASE),
     re.compile(r"fill\s+(in|out)\s+(the\s+)?(\[.*?\]|placeholder)", re.IGNORECASE),

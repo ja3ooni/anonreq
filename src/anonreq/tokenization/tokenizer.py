@@ -14,11 +14,11 @@ import re
 import secrets
 from typing import Any
 
-TOKEN_PATTERN = re.compile(r"\[([A-Z][A-Z_]{0,19})_(\d+)\]")
+TOKEN_PATTERN = re.compile(r"\[([A-Z][A-Z_]{0,49})_(\d+)\]")
 """Regex matching a ``[TYPE_N]`` token per TOKN-01.
 
 Groups:
-    1. The entity type (uppercase, 1-20 chars)
+    1. The entity type (uppercase, 1-50 chars)
     2. The index (positive integer)
 """
 

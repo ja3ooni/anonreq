@@ -7,11 +7,14 @@ from anonreq.firewall.models import (
     SeverityActionMapping,
     SeverityLevel,
 )
+from anonreq.firewall.config import FIREWALL_DECISIONS, FirewallConfig
 
 __all__ = [
     "DetectionCategory",
     "DetectionResult",
+    "FIREWALL_DECISIONS",
     "FirewallAction",
+    "FirewallConfig",
     "FirewallRule",
     "RuleCategoryConfig",
     "SeverityActionMapping",

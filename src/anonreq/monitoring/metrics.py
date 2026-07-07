@@ -73,3 +73,10 @@ proxy_pinning_blocks = Counter(
     "anonreq_proxy_pinning_blocks_total",
     "Total number of certificate pinning blocks triggered",
 )
+
+# Phase 21 agent metric aliases live in anonreq.agent.metrics so their label
+# contract matches the Phase 21 security acceptance table.
+from anonreq.agent.metrics import (  # noqa: E402
+    agent_tool_calls_inspected_total as agent_tool_calls_inspected,
+    agent_tool_results_sanitized_total as agent_tool_results_sanitized,
+)

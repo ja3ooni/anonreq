@@ -1,7 +1,7 @@
 """Tests for the Tokenization Engine.
 
 Per TOKN-01 through TOKN-07:
-- Token format is [TYPE_N] with uppercase type (1-20 chars) and positive integer N
+- Token format is [TYPE_N] with uppercase type (1-50 chars) and positive integer N
 - Same value → same token (deduplication)
 - Different values of same type → different tokens with different indices
 - Reverse-offset replacement prevents position drift
@@ -622,9 +622,10 @@ class TestLargeText:
         text = base * 20
         assert len(text) > 1000, f"Test text too short: {len(text)}"
 
+        BLOCK_LEN = len(base)
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 31, "end": 47, "score": 1.0},
-            {"entity_type": "EMAIL_ADDRESS", "start": 97, "end": 113, "score": 1.0},
+            {"entity_type": "EMAIL_ADDRESS", "start": n * BLOCK_LEN + 31, "end": n * BLOCK_LEN + 47, "score": 1.0}
+            for n in range(20)
         ]
 
         tokenized, mapping = t.tokenize(text, detections)

@@ -26,8 +26,12 @@ RUN apt-get update && \
 # Copy dependency manifest first for layer caching
 COPY requirements.txt .
 
-# Install pinned production dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install pinned production dependencies.
+# openai-whisper's sdist imports pkg_resources during setup; recent isolated
+# setuptools builds no longer expose it. Build without isolation after pinning a
+# setuptools version that still provides pkg_resources.
+RUN pip install --no-cache-dir "setuptools<81" wheel && \
+    pip install --no-cache-dir --no-build-isolation -r requirements.txt
 
 # Copy the rest of the source tree
 COPY pyproject.toml .
@@ -67,10 +71,10 @@ USER anonreq
 # Service port
 EXPOSE 8080
 
-# Healthcheck — ensures the gateway is serving /health before dependants connect
-# start-period gives the application time to initialise
+# Healthcheck — /health is authenticated, so use the configured gateway key.
+# Use Python stdlib instead of curl; python:3.12-slim does not include curl.
 HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD python -c "import os, urllib.request; req = urllib.request.Request('http://localhost:8080/health', headers={'Authorization': 'Bearer ' + os.environ['ANONREQ_API_KEY']}); urllib.request.urlopen(req, timeout=5).read()"
 
 # --no-server-header per RESEARCH Pitfall 2 (prevents Uvicorn version leak)
 CMD ["uvicorn", "anonreq.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-server-header"]

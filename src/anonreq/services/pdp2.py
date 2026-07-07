@@ -1,38 +1,47 @@
-"""PDP #2 — Policy Decision Point with DLP-aware evaluation (Plan 13-02).
-
-PDP #2 sits after the DLP Engine in the pipeline and enforces the most
-restrictive action across:
-1. DLP detections (category determines base action)
-2. Classification level (tightens, never loosens)
-3. Tenant policy overrides
-
-Execution order:
-  ... → DLP Engine → PDP #2 → Anonymize → Forward → Restore → ...
-
-Per D-010: Category wins, then filter — classification tightens, never loosens.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
+from anonreq.models.classification import ClassificationLevel
+from anonreq.models.dlp import DLPAction, DLPResult
 from anonreq.models.processing_context import ProcessingContext
+
+ACTION_RANK = {
+    DLPAction.ALLOW: 0,
+    DLPAction.ANONYMIZE: 1,
+    DLPAction.REDACT: 2,
+    DLPAction.QUARANTINE: 3,
+    DLPAction.BLOCK: 4,
+}
+
+CLASS_TO_DLP = {
+    ClassificationLevel.PUBLIC: DLPAction.ALLOW,
+    ClassificationLevel.INTERNAL: DLPAction.ALLOW,
+    ClassificationLevel.CONFIDENTIAL: DLPAction.ANONYMIZE,
+    ClassificationLevel.RESTRICTED: DLPAction.ANONYMIZE,
+    ClassificationLevel.HIGHLY_RESTRICTED: DLPAction.BLOCK,
+}
+
+ACTION_TO_STATUS = {
+    "ALLOW": 200,
+    "ANONYMIZE": 200,
+    "REDACT": 200,
+    "QUARANTINE": 451,
+    "BLOCK": 451,
+}
+
+ACTION_TO_AUDIT = {
+    "ALLOW": "dlp_cleared",
+    "ANONYMIZE": "dlp_anonymize",
+    "REDACT": "dlp_redact",
+    "QUARANTINE": "dlp_action_applied",
+    "BLOCK": "dlp_action_applied",
+}
 
 
 @dataclass
 class PolicyDecision:
-    """Result of PDP #2 evaluation.
-
-    Attributes:
-        action: The final action to take (ALLOW, ANONYMIZE, REDACT,
-            QUARANTINE, BLOCK).
-        status_code: HTTP status code for the response.
-        detail: Human-readable reason (safe, no internals).
-        audit_event_type: Audit event type for logging.
-        metadata_only: If True, only metadata is logged (no payload).
-    """
-
     action: str
     status_code: int
     detail: str
@@ -41,23 +50,44 @@ class PolicyDecision:
 
 
 class PDP2Service:
-    """Policy Decision Point #2 — DLP-aware policy evaluation.
-
-    Evaluates the combined DLP + classification + tenant policy context
-    and produces a single PolicyDecision that the pipeline enforces.
-    """
-
     def __init__(self, tenant_policies: dict[str, Any] | None = None) -> None:
         self._tenant_policies: dict[str, Any] = tenant_policies or {}
 
+    def _tighten_action(self, base: DLPAction, constraint: DLPAction) -> DLPAction:
+        if ACTION_RANK[constraint] > ACTION_RANK[base]:
+            return constraint
+        return base
+
+    def _classification_to_dlp_action(self, level: ClassificationLevel) -> DLPAction:
+        return CLASS_TO_DLP.get(level, DLPAction.ALLOW)
+
     async def evaluate(self, ctx: ProcessingContext) -> PolicyDecision:
-        """Evaluate policies against the processing context.
+        dlp_action = self._get_dlp_action(ctx)
+        classification_action = self._get_classification_action(ctx)
 
-        Args:
-            ctx: ProcessingContext with dlp_result and
-                classification_result_v2 populated.
+        combined = self._tighten_action(dlp_action, classification_action)
 
-        Returns:
-            A PolicyDecision with the combined enforcement action.
-        """
-        raise NotImplementedError("PDP2Service.evaluate not yet implemented")
+        action_str = combined.value.upper()
+        return PolicyDecision(
+            action=action_str,
+            status_code=ACTION_TO_STATUS.get(action_str, 200),
+            detail=self._build_detail(action_str),
+            audit_event_type=ACTION_TO_AUDIT.get(action_str, "dlp_cleared"),
+            metadata_only=combined in (DLPAction.QUARANTINE, DLPAction.BLOCK),
+        )
+
+    def _get_dlp_action(self, ctx: ProcessingContext) -> DLPAction:
+        if ctx.dlp_result is not None:
+            return ctx.dlp_result.max_action
+        return DLPAction.ALLOW
+
+    def _get_classification_action(self, ctx: ProcessingContext) -> DLPAction:
+        res_v2 = getattr(ctx, "classification_result_v2", None)
+        if res_v2 is not None and hasattr(res_v2, "highest"):
+            return self._classification_to_dlp_action(res_v2.highest)
+        return DLPAction.ALLOW
+
+    def _build_detail(self, action: str) -> str:
+        if action in ("BLOCK", "QUARANTINE"):
+            return f"Request {action.lower()}ed by policy"
+        return "Allowed by policy"

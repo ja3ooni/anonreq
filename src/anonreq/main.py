@@ -86,6 +86,12 @@ from anonreq.soc.mitre import MITREMapper
 from anonreq.soc.normalizer import SOCNormalizer
 from anonreq.discovery.flow_analyzer import FlowAnalyzer
 from anonreq.proxy.pac import PACGenerator, router as pac_router
+from anonreq.deployment.modes import DeploymentMode, TopologyConfig, get_deployment_config
+from anonreq.proxy.detection import AITrafficDetector
+from anonreq.proxy.reverse_proxy import ReverseProxy
+from anonreq.proxy.tls_interceptor import TLSInterceptor as DynamicTLSInterceptor
+from anonreq.proxy.transparent_proxy import TransparentProxy
+from anonreq.firewall.pipeline import FirewallPipeline
 
 log = get_logger()
 
@@ -105,6 +111,42 @@ dlp_actions_total = Counter(
     "Total DLP actions applied by action type",
     ["tenant_id", "action"],
 )
+
+
+def _network_proxy_autostart_enabled() -> bool:
+    import os
+
+    return os.environ.get("ANONREQ_START_NETWORK_PROXY", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def create_deployment_proxy(
+    topology: TopologyConfig,
+    dispatcher,
+):
+    """Create the proxy object for a deployment topology.
+
+    Network listeners are started by lifespan only when explicitly enabled.
+    This keeps regular FastAPI tests from binding appliance ports.
+    """
+    if topology.mode == DeploymentMode.REVERSE:
+        return ReverseProxy(dispatcher)
+
+    tls_interceptor = DynamicTLSInterceptor(
+        ca_cert_path=topology.ca_cert_path,
+        ca_key_path=topology.ca_key_path,
+    )
+    return TransparentProxy(
+        tls_interceptor=tls_interceptor,
+        traffic_detector=AITrafficDetector(),
+        content_dispatcher=dispatcher,
+        fail_open=topology.fail_open_policy,
+        firewall_pipeline=FirewallPipeline(),
+    )
 
 
 def create_app() -> FastAPI:
@@ -144,6 +186,8 @@ def create_app() -> FastAPI:
 
         # Store active mode on app state
         app.state.proxy_mode = active_mode
+        app.state.deployment_config = get_deployment_config()
+        app.state.deployment_proxy = None
 
         # Create cache manager for the application lifetime
         cache_manager = CacheManager(
@@ -258,7 +302,7 @@ def create_app() -> FastAPI:
             from anonreq.policy.pep import PolicyEnforcementPoint
             from anonreq.policy.forwarding_guard import ForwardingGuard
 
-            policy_config = load_policy_config("config/policy.yaml")
+            policy_config = load_policy_config(settings.POLICY_CONFIG_PATH)
             policy_store = PolicyStore(cache_manager, policy_config)
             rate_limits = policy_config.rate_limits or RateLimitConfig()
             usage_limiter = UsageLimiter(cache_manager, rate_limits)
@@ -471,11 +515,43 @@ def create_app() -> FastAPI:
                 error=str(exc),
             )
 
+        # Phase 21: Endpoint visibility deployment topology.
+        try:
+            dispatcher = app.state.pipeline
+            if dispatcher is None:
+                dispatcher = lambda request: b""
+            app.state.deployment_proxy = create_deployment_proxy(
+                app.state.deployment_config,
+                dispatcher,
+            )
+            if _network_proxy_autostart_enabled() and hasattr(app.state.deployment_proxy, "start"):
+                await app.state.deployment_proxy.start(
+                    app.state.deployment_config.listen_host,
+                    app.state.deployment_config.listen_port,
+                )
+            log.info(
+                "Deployment proxy initialized",
+                component="lifespan",
+                deployment_mode=app.state.deployment_config.mode.value,
+                listener_started=_network_proxy_autostart_enabled(),
+            )
+        except Exception as exc:
+            log.error(
+                "Failed to initialize deployment proxy",
+                component="lifespan",
+                deployment_mode=app.state.deployment_config.mode.value,
+                error=str(exc),
+            )
+            await cache_manager.close()
+            raise
+
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
         # Clean shutdown
         log.info("Shutting down", component="lifespan")
+        if hasattr(app.state, "deployment_proxy") and hasattr(app.state.deployment_proxy, "stop"):
+            await app.state.deployment_proxy.stop()
         if hasattr(app.state, "soc_sink_health_monitor"):
             await app.state.soc_sink_health_monitor.stop()
             log.info("Sink health monitor stopped", component="lifespan")

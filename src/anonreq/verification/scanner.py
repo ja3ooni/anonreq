@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 
 # Matches [TYPE_N] where TYPE is 1-20 uppercase chars/underscores, N is positive integer
-TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,19}_\d+\]")
+TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,49}_\d+\]")
 
 
 @dataclass

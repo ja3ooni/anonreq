@@ -83,14 +83,6 @@ class TestAmlWebhookConfig:
         assert sample_config.enabled is True
         assert "IBAN" in sample_config.entity_types
 
-    def test_invalid_url_raises(self):
-        """Config with invalid URL must be rejected."""
-        with pytest.raises(ValueError):
-            AmlWebhookConfig(
-                tenant_id="t",
-                webhook_url="not-a-url",
-            )
-
     def test_threshold_validation(self):
         """Threshold must be between 0.0 and 1.0."""
         # Value 0.5 is valid

@@ -1,0 +1,40 @@
+# MITRE ATLAS technique ID mappings for AI-specific security events
+atlas_mappings:
+  prompt_injection_blocked:
+    atlas_id: AML-T0018
+    technique: "Prompt Injection"
+    description: "Adversarial prompt input designed to manipulate LLM behavior"
+  jailbreak_blocked:
+    atlas_id: AML-T0025
+    technique: "Jailbreak"
+    description: "Techniques to bypass LLM safety guardrails"
+  model_theft_attempt:
+    atlas_id: AML-T0021
+    technique: "Model Theft"
+    description: "Attempts to extract model architecture, weights, or system prompt"
+  data_poisoning_attempt:
+    atlas_id: AML-T0016
+    technique: "Data Poisoning"
+    description: "Contaminated data introduced via tool results or context"
+  supply_chain_compromise:
+    atlas_id: AML-T0015
+    technique: "Supply Chain Compromise"
+    description: "Compromised MCP tools or third-party integrations"
+  role_manipulation:
+    atlas_id: AML-T0018.002
+    technique: "Role Manipulation"
+    description: "System prompt override via role reassignment"
+
+audit_events:
+  firewall_block:
+    includes: ["detection_type", "confidence", "mitre_atlas_id"]
+  firewall_injection_detected:
+    includes: ["detection_type", "confidence", "mitre_atlas_id"]
+  firewall_jailbreak_detected:
+    includes: ["detection_type", "confidence", "mitre_atlas_id"]
+  firewall_bypass_attempt:
+    includes: ["detection_type", "confidence", "mitre_atlas_id"]
+
+controls:
+  local_inference_only: true
+  fail_closed_default: true

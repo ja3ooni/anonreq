@@ -1,24 +1,58 @@
 from __future__ import annotations
 
-from prometheus_client import Counter
+from collections.abc import Callable
+from typing import Any
+
+from prometheus_client import Counter, Histogram, REGISTRY
+
+
+def _collector(name: str, factory: Callable[[], Any]) -> Any:
+    existing = getattr(REGISTRY, "_names_to_collectors", {}).get(name)
+    if existing is not None:
+        return existing
+    return factory()
+
+
+firewall_blocks_total = _collector(
+    "anonreq_firewall_blocks_total",
+    lambda: Counter(
+        "anonreq_firewall_blocks_total",
+        "AI Firewall blocked requests",
+        labelnames=["detection_type", "tenant_id"],
+    ),
+)
+
+firewall_evaluation_duration_ms = _collector(
+    "anonreq_firewall_evaluation_duration_ms",
+    lambda: Histogram(
+        "anonreq_firewall_evaluation_duration_ms",
+        "AI Firewall evaluation latency",
+        labelnames=["decision"],
+        buckets=(1, 5, 10, 20, 50, 100, 200),
+    ),
+)
+
+firewall_latency_budget_exceeded_total = _collector(
+    "anonreq_firewall_latency_budget_exceeded_total",
+    lambda: Counter(
+        "anonreq_firewall_latency_budget_exceeded_total",
+        "Firewall latency over 20ms budget",
+    ),
+)
 
 
 class FirewallMetrics:
     _instance: FirewallMetrics | None = None
 
     def __init__(self) -> None:
-        try:
-            self.prompt_security_events = Counter(
+        self.prompt_security_events = _collector(
+            "anonreq_prompt_security_events_total",
+            lambda: Counter(
                 "anonreq_prompt_security_events_total",
                 "Total prompt security events (injection, violation, rule reload)",
                 labelnames=["event_type", "tenant_id", "category"],
-            )
-        except ValueError:
-            from prometheus_client import REGISTRY
-
-            self.prompt_security_events = REGISTRY._names_to_collectors[
-                "anonreq_prompt_security_events_total"
-            ]
+            ),
+        )
 
     @classmethod
     def get_instance(cls) -> FirewallMetrics:

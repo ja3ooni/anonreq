@@ -1,7 +1,7 @@
 """Tokenization engine data models.
 
 Per TOKN-01 through TOKN-07:
-- Tokens follow the ``[TYPE_N]`` pattern with uppercase type (1-20 chars)
+- Tokens follow the ``[TYPE_N]`` pattern with uppercase type (1-50 chars)
   and a positive integer N.
 - TokenMapping records a single token-to-value association.
 - TokenizationResult captures the full result of tokenizing a text.
@@ -14,13 +14,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,19}_\d+\]")
+TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,49}_\d+\]")
 """Regex matching ``[TYPE_N]`` tokens per TOKN-01.
 
 - ``[`` literal opening bracket
-- ``[A-Z][A-Z_]{0,19}`` uppercase type (1-20 chars, may include underscore)
+- ``[A-Z][A-Z_]{0,49}`` uppercase type (1-50 chars, may include underscore)
 - ``_`` literal separator
-- ``\d+`` one or more digits
+- ``\\d+`` one or more digits
 - ``\]`` literal closing bracket
 
 Reused by the restoration engine (SSE-04 case-insensitive matching) and

@@ -204,6 +204,15 @@ Each task was committed atomically (TDD tasks with separate RED/GREEN commits):
 
 ---
 
+## Self-Check: PASSED
+
+- ✅ All 11 created files exist
+- ✅ All 5 modified files exist  
+- ✅ All 6 commits present in git log
+- ✅ All 61 tests pass (17 MNPI + 22 restricted-names + 22 MinIO)
+
+---
+
 *Phase: 15-financial-services-compliance*
 *Plan: 01*
 *Completed: 2026-07-04*

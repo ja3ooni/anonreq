@@ -1,6 +1,6 @@
 # Production dependencies for AnonReq
 # Pinned exact versions for reproducible builds
-# Generated from pip freeze after pip install -e .
+# Generated from pyproject.toml dependency list
 fastapi==0.138.2
 uvicorn[standard]==0.49.0
 pydantic-settings==2.14.2
@@ -9,4 +9,17 @@ python-json-logger==4.1.0
 redis==8.0.1
 pyyaml==6.0.3
 httpx==0.28.1
+jinja2==3.1.6
 prometheus-client==0.25.0
+cryptography==44.0.0
+watchdog==6.0.0
+minio==7.2.15
+pyarrow==19.0.1
+reportlab==4.3.1
+onnxruntime==1.21.0
+soundfile==0.13.1
+presidio-analyzer==2.2.363
+sqlalchemy==2.0.51
+asyncpg==0.31.0
+aiosqlite==0.22.0
+greenlet==3.5.3

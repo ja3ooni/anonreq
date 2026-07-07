@@ -97,6 +97,9 @@ class TestDLPPipelineIntegration:
         pipeline._run_extraction = AsyncMock()
         pipeline._run_detection = AsyncMock()
         pipeline._run_classification = AsyncMock()
+        pipeline._run_anonymization = AsyncMock()
+        pipeline._run_forward = AsyncMock()
+        pipeline._run_restoration = AsyncMock()
 
         ctx = ProcessingContext(request_id="test_002", tenant_id="default")
         ctx.text_nodes = [{"value": "email: john@example.com"}]

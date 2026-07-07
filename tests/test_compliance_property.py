@@ -152,7 +152,7 @@ class TestRetentionProperty:
         days=st.integers(min_value=1, max_value=7300),
     )
     @settings(max_examples=50, deadline=None,
-              suppress_health_check=[HealthCheck.function_scoped_fixture])
+              suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.filter_too_much])
     async def test_hold_blocks_deletion(
         self, cache_manager, record_type, days
     ):

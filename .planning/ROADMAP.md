@@ -868,10 +868,41 @@ AI deployment with local model routing and GPU inference integration.
 
 ---
 
+### Phase 22: Close Milestone Audit Gaps — Runtime Integration Blockers
+
+**Goal**: Close the v1.0 milestone audit blockers by wiring completed enterprise/appliance
+modules into real runtime paths, reconciling planning traceability, and restoring milestone
+verification evidence before archive.
+
+**Mode**: gap-closure
+**Depends on**: Phase 21; `.planning/v1.0-MILESTONE-AUDIT.md`
+**Requirements**: APPL-01 to APPL-03, APPL-06, APPL-DLP-01 to APPL-DLP-05,
+MULTI-05, APPL-CDP-01, APPL-DISC-04, APPL-AGENT-01 to APPL-AGENT-02,
+APPL-AGENT-05 to APPL-AGENT-06, APPL-SOC-01 to APPL-SOC-09
+
+**Success Criteria**:
+
+1. Appliance reverse/transparent proxy paths dispatch through an anonymization-capable runtime
+   path instead of returning raw request bodies or status-only routing responses.
+
+2. DLP, multimodal content-type enforcement, discovery inventory admin routes, agent/tool
+   governance, and SOC normalizer-to-sink fan-out are wired into the real FastAPI runtime where
+   their requirements claim runtime behavior.
+
+3. Planning artifacts are reconciled: phase verification artifacts exist, roadmap/state totals
+   agree, and requirements checklist status matches verified evidence.
+
+4. Re-running `$gsd-audit-milestone` produces no critical runtime integration blockers.
+
+**Plans**: Not planned yet
+
+---
+
 ### Stage 3 Progress
 
 **Execution order**: Phase 17 is independent (starts from Stage 1). Phase 18 depends on Phase 9.
 Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends on Phase 17.
+Phase 22 depends on Phase 21 and the v1.0 milestone audit.
 
 | Phase | Plans | Status | Completed |
 |-------|-------|--------|-----------|
@@ -880,6 +911,7 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 | 19. Network Discovery, CASB & Secure RAG | 6/6 | Complete | 2026-07-05 — CASB, RAG pipeline, inventory, 119 tests |
 | 20. AI SOC/SIEM Integration | 6/6 | Complete | 2026-07-05 — Splunk, QRadar, Sentinel, Elastic, Datadog, webhook, health API, 151 tests |
 | 21. Endpoint Visibility & Sovereign Control | 7/7 | Complete   | 2026-07-06 |
+| 22. Close Milestone Audit Gaps | 0/0 | Not planned | — |
 | **Stage 3 Total** | **21/27** | | |
 
 ---
@@ -890,10 +922,10 @@ Phase 19 is independent. Phase 20 depends on Phases 10, 12, 13. Phase 21 depends
 |-------|--------|-------|--------|
 | 1. Prove the Problem | 7 (1–7) | 25 | 24/25 Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44 | 44/44 Complete |
-| 3. Build the Moat | 5 (17–21) | 27 | 20/27 Complete |
-| **Total** | **21** | **96** | **88/96 Complete** |
+| 3. Build the Moat | 6 (17–22) | 27 | 20/27 Complete; Phase 22 not planned |
+| **Total** | **22** | **96** | **88/96 Complete; Phase 22 not planned** |
 
 ---
 
 *Consolidated from roadmap1.md, roadmap2.md, roadmap3.md, roadmap4.md, req/ROADMAP.md,
-and .planning/REQUIREMENTS.md. Last updated: 2026-06-19.*
+and .planning/REQUIREMENTS.md. Last updated: 2026-07-07.*

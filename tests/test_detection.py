@@ -172,7 +172,7 @@ class TestRegexDetector:
         assert len(results) >= 1
         email_result = next(r for r in results if r["entity_type"] == "EMAIL_ADDRESS")
         assert email_result["start"] == 12
-        assert email_result["end"] == 30
+        assert email_result["end"] == 28
         assert email_result["score"] == 1.0
         assert email_result["source"] == "regex"
 

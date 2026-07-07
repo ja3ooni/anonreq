@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from anonreq.models.classification import ClassificationLevel
+from anonreq.models.classification import ClassificationLevel, ClassificationResult
 from anonreq.models.dlp import DLPResult
 
 
@@ -85,6 +85,7 @@ class ProcessingContext:
 
     # Classification (Phase 12)
     client_classification: ClassificationLevel | None = None
+    classification_result_v2: ClassificationResult | None = None
 
     # DLP (Phase 13 — Plan 13-02)
     dlp_result: DLPResult | None = None

@@ -90,6 +90,16 @@ class ProviderStage(PipelineStage):
             )
             return ctx
 
+        if request_body.get("stream") is True:
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=500,
+                    message="Streaming requests must use provider adapter streaming",
+                    request_id=ctx.request_id,
+                )
+            )
+            return ctx
+
         if self._alias_registry is not None:
             alias_name = str(request_body.get("model", ""))
             try:
