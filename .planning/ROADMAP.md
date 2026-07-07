@@ -53,8 +53,12 @@
   1. Every push/PR to main triggers GitHub Actions running the full pytest suite and reporting pass/fail
   2. Ruff and mypy violations cause CI failure (staged rollout with pre-existing violations baseline)
   3. Docker Compose exposes only gateway port 8080 by default; Grafana anonymous auth is disabled
-  4. Developers can run the same lint/type-check commands locally via `uv run` with identical configuration
-**Plans**: TBD
+   4. Developers can run the same lint/type-check commands locally via `uv run` with identical configuration
+**Plans**: 3 plans
+**Plan list:**
+- [ ] 23-01-PLAN.md — ruff/mypy configuration and auto-fix sweep
+- [ ] 23-02-PLAN.md — Docker secure defaults (remove host ports, disable Grafana anonymous auth)
+- [ ] 23-03-PLAN.md — CI/CD test workflow (ruff, mypy, pytest, coverage)
 
 ### Phase 24: Trust Center
 **Goal**: Enterprises can publicly demonstrate security posture, compliance, and operational health
@@ -117,7 +121,7 @@
 | 20. AI SOC/SIEM Integration | v1.0 | 6/6 | Complete | 2026-07-05 |
 | 21. Endpoint Visibility & Sovereign Control | v1.0 | 7/7 | Complete | 2026-07-06 |
 | 22. Close Milestone Audit Gaps | v1.0 | 4/4 | Complete | 2026-07-07 |
-| 23. Engineering Hygiene | v1.5 | 0/0 | Not started | - |
+| 23. Engineering Hygiene | v1.5 | 0/3 | In progress | - |
 | 24. Trust Center | v1.5 | 0/0 | Not started | - |
 | 25. Documentation Parity | v1.5 | 0/0 | Not started | - |
 | 26. Enterprise Guardrails | v1.5 | 0/0 | Not started | - |
@@ -129,7 +133,7 @@
 | 1. Prove the Problem | 7 (1–7) | 26/26 | Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44/44 | Complete |
 | 3. Build the Moat | 6 (17–22) | 31/31 | Complete |
-| 4. Enterprise Hardening | 4 (23–26) | 0/0 | In progress |
-| **Total** | **26** | **101/101** | **In progress** |
+| 4. Enterprise Hardening | 4 (23–26) | 0/3 | In progress |
+| **Total** | **26** | **101/104** | **In progress** |
 
 *Archived from consolidated roadmaps. See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.*
