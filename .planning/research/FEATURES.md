@@ -1,95 +1,136 @@
-# Feature Landscape
+# Feature Landscape — AnonReq v1.5 Enterprise Hardening
 
-**Domain:** Self-hosted LLM Anonymization Gateway
-**Researched:** 2026-06-19
+**Domain:** Self-hosted AI security & anonymization gateway
+**Researched:** 2026-07-07
+**Confidence:** HIGH
 
-## Table Stakes
+## Feature Landscape
 
-Features users expect from any LLM proxy/PII gateway. Missing these = product feels incomplete.
+### Table Stakes (Enterprise Expects These)
+
+Features that enterprise customers assume exist. Missing these = product feels incomplete or risky.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| OpenAI-compatible endpoint | `POST /v1/chat/completions` is the universal wire protocol | Low | Just FastAPI + Pydantic schema matching the OpenAI spec. All major LLM clients (openai-python, langchain, llamaindex) support base_url override. |
-| PII detection (email, phone, SSN, credit card, names, addresses) | Core value prop — must catch common PII out of the box | Medium | Presidio ships with built-in recognizers for US/EU PII. Regex patterns for CC# (Luhn), phone (E.164), email, SSN are well-known. |
-| Token replacement (`[NAME_1]`) | Informative placeholders preserve LLM reasoning ability | Low | Simple string replacement in reverse span order. Format `[TYPE_N]` is compact and context-preserving. |
-| Token restoration in responses | Needed for round-trip correctness | Low | String replacement of `[TYPE_N]` with original values. Case-insensitive + bracket-optional matching adds slight complexity. |
-| SSE streaming | Real-time chat apps require streaming responses | High | Tail_Buffer state machine for split tokens across chunk boundaries. Pre-fetch cache at stream start. |
-| Multi-provider routing (OpenAI, Anthropic, Gemini) | Enterprise users have existing provider contracts | Medium | Schema translation layer. OpenAI → Anthropic Messages API, OpenAI → Gemini contents[], Ollama = passthrough. |
-| Fail-secure: any error → HTTP 5xx, never forward unsanitized data | Core trust guarantee for compliance teams | Medium | Error boundary middleware, per-component health probes, pre-flight startup checks, detection timeout handling. |
-| Docker Compose deployment | `docker compose up` must work | Low | Req 12 specifies this exactly. Three services: anonreq, presidio, valkey. Health check dependencies. |
-| Health endpoint (`GET /health`) | Kubernetes liveness/readiness probes | Low | Returns 200 only when Presidio + Valkey are healthy. Returns 503 with degraded component info. |
-| Metadata-only audit logging | Audit trail without PII liability | Medium | Structured JSON to stdout. Field allowlist enforced. Empty prompt/response in logs = compliance requirement. |
+| CI/CD pipeline | Every enterprise project requires automated testing in CI before merge | Low | GitHub Actions — pytest, ruff, mypy. Specified in HYG-01, HYG-02. |
+| Code quality enforcement (ruff/mypy) | Enterprise security audits scan for code quality. Unchecked projects get flagged. | Low | Configured in Phase 1. Must pass before subsequent phases. |
+| Docker security hardening | Security teams scan exposed ports. Default config must not expose internal services. | Low | Phase 1.3 — remove host ports from non-gateway services. |
+| Public compliance evidence | Enterprise prospects check Trust Center before evaluation (Vanta baseline). | Medium | Phase 2 — Trust Center portal. SLO, compliance frameworks, metrics, security posture. |
+| Multi-language documentation | Global enterprises need documentation in local languages. English-only limits TAM. | Low-Med | Phase 3 — 6 new languages (FR, ES, PT, IT, AR, NL). Content work, not code. |
+| Commercial licensing | Legal/procurement requires license terms. Apache 2.0 alone insufficient for enterprise add-ons. | Medium | Phase 4.3 — HMAC-SHA256 license validation. Core remains free. |
+| Secret detection (API keys, tokens) | DLP requirements include detecting leaked credentials, not just PII. | Medium | Phase 4.1 — Custom recognizers for API keys, AWS keys, GitHub tokens, internal hostnames. |
+| Continuous compliance monitoring | SOC 2 / ISO 27001 require ongoing evidence collection, not just point-in-time audits. | Medium | Phase 4.2 — Evidence endpoint, automated snapshots. |
 
-## Differentiators
+### Differentiators (Competitive Advantage)
 
-Features that set AnonReq apart from open-source alternatives (e.g., direct Presidio usage, generic MITM proxies).
+Features that set AnonReq apart from alternatives (e.g., NodeShift, open-source proxies).
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **Ephemeral, provably-deleted mapping store** | Cache with `save ""`, no AOF, no RDB. Configuration includes `MONITOR`/`SLOWLOG` disable to prevent operational leak. | Low | Most PII tools write to persistent DB. AnonReq's in-memory-only architecture is a differentiator for compliance teams. |
-| **Per-jurisdiction compliance presets (GDPR, LGPD, PDPA, POPIA)** | Select a named regulation; gateway auto-configures entity types and thresholds | Medium | Preset defines mandatory entity types + minimum confidence thresholds. Multiple presets merge as union-of-entities, highest-threshold. |
-| **Cross-request token randomization** | Same value in different sessions = different token strings, preventing token-based correlation attacks | Low | Cryptographically random seed per session drives token index assignment. `P(duplicate) ≥ 1 − 2⁻³²` across 1000+ sessions. |
-| **Multi-locale PII detection (8 locales)** | German Steuer-ID, French NIR, Dutch BSN, Brazilian CPF/CNPJ, Italian Codice Fiscale, Arabic GCC national IDs | High | Each locale needs regex patterns + checksum validation. Presidio's recognizer architecture supports locale bundles loaded from config files. |
-| **Post-restoration token verification** | Scan response for residual `[TYPE_N]` tokens before delivery | Low | Simple regex scan. Logs warning if any remain — doesn't block, but signals misconfiguration. |
-| **Prompt injection detection** | Block jailbreak/direct injection attempts at gateway level | Medium | Pattern-matching rules loaded from YAML. Configurable actions: block, flag-and-forward, monitor. |
-| **Hot-reloadable custom recognizers + exclusion lists** | Define org-specific patterns (employee IDs, fund codes) without restarting | Medium | RCU pattern: build new config in full, then atomic pointer swap. 60-second polling interval. |
+| HMAC-based licensing without phone-home | Air-gapped and sovereign deployments don't need internet to validate licenses. Competitors often require SaaS phone-home. | Low | `hmac` from stdlib. Zero external calls. |
+| Public Trust Center as part of open-source gateway | Most open-source AI gateways lack a dedicated compliance evidence portal. Having one builds trust. | Medium | Config-gated, public endpoints. Reads from existing SLO engine. |
+| Custom recognizer gating by license tier | Enterprise pays for advanced detection; free tier gets basic PII. Clean monetization without bifurcating the codebase. | Medium | License gate on recognizer loading. Same code path for both tiers. |
+| Integrated translation manifest | Most projects have ad-hoc translation. A manifest creates accountability and audit trail for enterprise compliance. | Low | `docs/TRANSLATION_MANIFEST.md` with per-file status. |
 
-## Anti-Features
-
-Features to explicitly NOT build in v1.0 (core).
+### Anti-Features (Avoid These)
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Persistent storage of any kind** | Violates fail-secure + ephemeral principles | TTL-based eviction in Valkey. Logs are stdout only (Docker log driver handles persistence). |
-| **Image/video PII detection** | Requires OCR pipeline (Tesseract + image processing). Presidio supports this but it adds 2-3x complexity for v1. | Focus on text-only. Image de-identification can be v2. |
-| **User management / RBAC dashboard** | Requires a full web UI, session management, database | Use middleware API keys + JWT validation. Admin endpoints are API-only. Web UI is a commercial tier feature. |
-| **Data residency / geo-routing** | Requires latency-based provider selection, failover logic | Client-side selection of provider via model alias. Geo-routing is a future differentiator. |
-| **Anomaly detection on user behavior** | ML model training + serving pipeline | Focus on deterministic detection. ML-based anomaly detection leads to false positives in compliance contexts. |
-| **Custom encryption of tokens in cache** | Adds complexity without additional security guarantee | Valkey runs on isolated Docker network, persistence disabled. Encryption at rest is irrelevant when there's no disk. |
+| Phone-home license validation | Breaks air-gapped deployments. Adds latency. Creates dependency on external service availability. | HMAC-SHA256 with local key. Zero network calls. |
+| Modifying Presidio sidecar for custom recognizers | Forking the upstream docker image creates maintenance burden. Presidio updates become merge headaches. | Route custom recognizers through existing `RegexDetector` pipeline. Only use Presidio for NER-based entities. |
+| Trust Center with auth | Defeats the purpose — compliance evidence is for public consumption. Auth reduces trust. | Public endpoints with IP-based rate limiting only. |
+| Gating the core anonymization pipeline | Kills adoption. Core PII detection/tokenization must remain free. Only Appliance tier additions are gated. | License check only on `trust_center`, `ai_firewall`, `soc_integration`, `advanced_detection`, `compliance_monitoring` features. |
+| Real-time metrics in Trust Center | Each `/v1/trust/status` call to Prometheus `REGISTRY.get_sample_value()` is O(1) but could become a bottleneck. | Snapshot metrics to a pre-computed cache key at a configurable interval. Not needed for MVP (low traffic portal). |
 
 ## Feature Dependencies
 
 ```
-Client SDK compatibility (OpenAI schema)
-  └── Pydantic request/response models
-       ├── Text extraction from messages
-       │    └── PII detection (Presidio sidecar)
-       │         └── Tokenization (reverse-order replacement)
-       │              ├── Cache write (Valkey HSET)
-       │              │    ├── Provider call (translated schema)
-       │              │    │    ├── Non-streaming restoration
-       │              │    │    │    └── Post-restore verification
-       │              │    │    │         └── Audit log
-       │              │    │    └── SSE streaming restoration
-       │              │    │         ├── Tail_Buffer state machine
-       │              │    │         ├── Pre-fetch cache at stream start
-       │              │    │         └── Post-stream verification
-       │              │    └── Cache cleanup (DEL)
-       │              └── Fail-secure: all error paths → HTTP 5xx
-       └── Health probes (composite: detection + cache)
-            └── Pre-flight startup validation
+Phase 1 (CI/CD, ruff/mypy, Docker security)
+  ├── No dependencies
+  └── Required by: Phase 2, Phase 4
+
+Phase 2 (Trust Center)
+  └── Requires: Phase 1 (CI for automated testing)
+  └── Data sources: SLOEngine, PresetEngine, prometheus_client REGISTRY
+      (all available via app.state — no new infrastructure)
+
+Phase 3 (Documentation)
+  └── No code dependencies
+  └── Content mirroring only
+
+Phase 4 (Guardrails)
+  ├── Requires: Phase 1 (CI for automated testing)
+  ├── Requires: Phase 2 (licensing gates the Trust Center)
+  └── Internal dependency chain:
+      4.1 (Custom recognizers) → DetectonStage pipeline
+      4.2 (Compliance evidence) → AuditChainService, SLOEngine, governance records
+      4.3 (License module) → Used by 4.1 (gates recognizer loading) and Phase 2
 ```
 
-## MVP Recommendation
+### Dependency Notes
 
-Prioritize:
-1. **Non-streaming anonymization round-trip** — Req 1. OpenAI → AnonReq → OpenAI → AnonReq → Client. PII detected, tokenized, forwarded, restored.
-2. **Fail-secure architecture** — Req 2. Error boundaries, health probes, pre-flight checks. Ship NOTHING without this.
-3. **Docker Compose deployment** — Req 12. Make `docker compose up` the single command that works end-to-end.
-4. **SSE streaming** — Req 6. Most LLM interactions are streaming. Without it, the product is a toy.
-5. **Multi-provider routing** — Req 7. At minimum: OpenAI + Ollama (the two simplest). Anthropic and Gemini can follow.
+- **Custom recognizers (4.1) require DetectionStage modification:** Pipeline manager must accept new `custom_recognizers` parameter. This is a small change following the existing MNPI recognizer pattern.
+- **License module (4.3) is a prerequisite for Trust Center gating:** Even though SPEC says Trust Center is "core" tier, the license module must exist for the gate to function. Phase 4 depends on Phase 2 because the Trust Center needs a license gate.
+- **Compliance evidence (4.2) requires governance record persistence:** Needs PostgreSQL (for `AuditChainService`) and MinIO (for evidence archive). These are optional in the observability profile — evidence collection should warn if dependencies are missing, not crash.
 
-Defer:
-- **Multi-locale detection (Req 8)**: The 8-locale recognizer bundles are labor-intensive to write and validate. Start with English + `en-*` locale. Add per-locale regex + checksum in Phase 6.
-- **Compliance presets (Req 9)**: Presets are metadata overlays on entity type config. Implement after the core detection pipeline is stable.
-- **Custom recognizer hot-reload (Req 11)**: Requires config file watching + atomic swap. Important for enterprise adoption but not for MVP.
-- **Rate limiting / spend controls (Req 22)**: Enterprise feature. Add when you have > 1 tenant.
-- **Prompt injection detection (Req 36)**: Completely separate feature track (AI firewall). Not part of core anonymization.
+## Phase-by-Phase Feature Breakdown
+
+### Phase 1 — Engineering Hygiene (3 features)
+
+| Feature | Type | Complexity | Verification |
+|---------|------|------------|-------------|
+| CI/CD workflow (`.github/workflows/test.yml`) | Table stake | Low | Workflow passes on PR |
+| ruff + mypy enforcement | Table stake | Low | `ruff check src/ tests/`, `mypy src/` pass |
+| Secure Docker defaults | Table stake | Low | `docker compose up` exposes only port 8080 on host |
+
+### Phase 2 — Trust Center (1 feature, 4 endpoints)
+
+| Endpoint | Type | Sources | Notes |
+|----------|------|---------|-------|
+| `GET /v1/trust/status` | Table stake | `SLOEngine.get_all_compliance("*")` | Aggregated SLO compliance summary |
+| `GET /v1/trust/compliance` | Table stake | `PresetEngine.list_presets()` | Supported frameworks + presets list |
+| `GET /v1/trust/metrics` | Differentiator | `prometheus_client.REGISTRY` | Aggregate throughput, entity counts, uptime |
+| `GET /v1/trust/security` | Differentiator | `config/trust_center.yaml` | Security posture summary |
+
+### Phase 3 — Documentation Parity (1 feature)
+
+| Item | Type | Languages | Notes |
+|------|------|-----------|-------|
+| 6 new language directories | Table stake | FR, ES, PT, IT, AR, NL | Mirror `docs/en/` structure |
+| Translation manifest | Differentiator | All | Tracks review state per file |
+| Glossary | Differentiator | All | Technical term translations |
+
+### Phase 4 — Enterprise Guardrails (3 features)
+
+| Feature | Type | Sub-components | Complexity |
+|---------|------|----------------|------------|
+| License module | Table stake | `models.py`, `validator.py`, `deps.py`, `router.py` | Medium |
+| Custom secret detection recognizers | Table stake | 4 recognizer modules, config YAML, DetectionStage integration | Medium |
+| Compliance evidence collection | Differentiator | Evidence endpoint, scheduled snapshots, archive storage | Medium |
+
+## Feature Prioritization Matrix
+
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| CI/CD pipeline (Phase 1) | HIGH — prerequisite for all enterprise adoption | LOW — standard GitHub Actions YAML | P1 |
+| Code quality enforcement (Phase 1) | HIGH — security audit requirement | LOW — ruff + mypy config | P1 |
+| Docker security (Phase 1) | HIGH — security team gate | LOW — remove port bindings | P1 |
+| Trust Center (Phase 2) | HIGH — Vanta baseline for enterprise sales | MEDIUM — new module with 3 data sources | P1 |
+| License module (Phase 4.3) | HIGH — commercial gating requirement | MEDIUM — HMAC + deps + admin endpoint | P1 |
+| Custom recognizers (Phase 4.1) | MEDIUM — DLP requirement | MEDIUM — 4 modules + config + integration | P2 |
+| Compliance evidence (Phase 4.2) | MEDIUM — compliance automation | MEDIUM — evidence schema + scheduled collection | P2 |
+| Documentation translation (Phase 3) | MEDIUM — global enterprise requirement | LOW-MED — content work, no code | P2 |
 
 ## Sources
 
-- Req 1-21 (requirements.md): HIGH confidence — directly specifies features
-- Req 22-56 (requirements_v2.md): HIGH confidence — enterprise feature specifications
-- **Presidio built-in recognizers**: microsoft.github.io/presidio/supported_entities — HIGH confidence
-- **OpenAI API schema**: platform.openai.com/docs/api-reference/chat — HIGH confidence
-- **SSE streaming patterns**: fastapi.tiangolo.com/tutorial/server-sent-events — HIGH confidence
+- `.planning/v1.5-SPEC.md` — Canonical feature specification for all four phases
+- `.planning/PROJECT.md` — Project context and validated features
+- `src/anonreq/services/slo_engine.py` — SLOEngine interface (Trust Center data source)
+- `src/anonreq/compliance/engine.py` — PresetEngine interface (compliance framework data source)
+- `src/anonreq/detection/recognizers/mnpi.py` — Existing custom recognizer pattern
+- `src/anonreq/admin/config.py` — AtomicConfigRegistry hot-reload pattern
+- `docs/en/` — Source documentation structure for translation mirroring
+
+---
+*Feature research for: AnonReq v1.5 Enterprise Hardening*
+*Researched: 2026-07-07*

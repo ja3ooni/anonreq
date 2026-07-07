@@ -1,855 +1,808 @@
-# Architecture Patterns
+# Architecture Patterns — AnonReq v1.5 Enterprise Hardening
 
-**Domain:** Self-hosted LLM Anonymization Gateway (FastAPI proxy)
-**Researched:** 2026-06-19
+**Domain:** Self-hosted AI security & anonymization gateway
+**Researched:** 2026-07-07
+**Project Phase:** v1.5 — Enterprise Hardening & Trust Center, Documentation Parity, Guardrails
 
 ## Recommended Architecture
 
-### High-Level Component Diagram
-
 ```
-┌──────────────┐     ┌─────────────────────────────────────────────────────┐
-│   Client     │────▶│              AnonReq Gateway Process                │
-│  (curl/SDK)  │     │                                                     │
-└──────────────┘     │  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │
-                     │  │ FastAPI  │  │ ASGI     │  │ Route Handlers   │  │
-                     │  │ Server   │─▶│ Middle-  │─▶│ POST /v1/chat/   │  │
-                     │  │ (uvicorn)│  │ ware     │  │ completions      │  │
-                     │  └──────────┘  │ Stack    │  │ GET /health      │  │
-                     │                └──────────┘  │ GET /v1/models   │  │
-                     │                              └────────┬─────────┘  │
-                     │                                       │            │
-                     │                 ┌─────────────────────┼────────────┘
-                     │                 │  In-Process Engine  │
-                     │                 │  Pipeline            │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Text Extractor │  │  (1)
-                     │                 │  │ (flatten msgs) │  │
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Request        │  │  (2)
-                     │                 │  │ Context Builder│  │
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Detection      │  │  (3) ◀── Sidecar
-                     │                 │  │ Engine Client  ├──┼──────── /analyze
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Tokenization   │  │  (4)
-                     │                 │  │ Engine         │  │
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Cache Writer   │  │  (5) ───▶ Valkey
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Provider       │  │  (6) ───▶ External LLM
-                     │                 │  │ Adapter + HTTPX│  │
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Restoration    │  │  (7)  (non-streaming)
-                     │                 │  │ Engine         │  │
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Post-Restore   │  │  (8)
-                     │                 │  │ Verification   │  │
-                     │                 │  └───────┬────────┘  │
-                     │                 │          ▼           │
-                     │                 │  ┌────────────────┐  │
-                     │                 │  │ Cache Cleanup  │  │  (9)
-                     │                 │  │ + Audit Logger │  │
-                     │                 │  └────────────────┘  │
-                     │                 └──────────────────────┘
-                     │
-┌──────────────┐     │  ┌──────────────────┐  ┌──────────────────┐
-│  Presidio    │◀────┼──│  HTTPX Client   │  │  Valkey/Redis    │
-│  Analyzer    │─────┼─▶│  (in Gateway)   │  │  (ephemeral)     │
-│  Container   │     │  └──────────────────┘  └──────────────────┘
-└──────────────┘     │
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         FastAPI Application (create_app)                │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Middleware Stack                                                       │
+│  ┌──────────┐ ┌────────────┐ ┌──────────────┐ ┌──────────────────────┐ │
+│  │ Metrics  │ │Classifictn│ │   Policy     │ │ ClassificationResp   │ │
+│  │Middleware│ │Middleware  │ │ Middleware   │ │ Middleware           │ │
+│  └──────────┘ └────────────┘ └──────────────┘ └──────────────────────┘ │
+├─────────────────────────────────────────────────────────────────────────┤
+│  Router Registration Section (in create_app)                            │
+│  ┌─────────────┐ ┌──────────┐ ┌────────────────┐ ┌──────────────────┐ │
+│  │ Health       │ │ Chat +   │ │ Compliance     │ │ Governance /     │ │
+│  │ (auth)       │ │ Models   │ │ (auth)         │ │ Oversight (auth) │ │
+│  └─────────────┘ └──────────┘ └────────────────┘ └──────────────────┘ │
+│  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────────────────┐│
+│  │ Admin        │ │ Discovery    │ │ TRUST CENTER  ◄── NEW + public   ││
+│  │ (auth)       │ │ (auth)       │ │ (no auth, rate-limited, gated)   ││
+│  └──────────────┘ └──────────────┘ └──────────────────────────────────┘│
+├─────────────────────────────────────────────────────────────────────────┤
+│  Root / Metadata / Metrics endpoints                                    │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                        NEW: Config + License Gate Layer
+            ┌──────────────────────────────────────────────────┐
+            │  Config Gate: settings.TRUST_CENTER_ENABLED      │
+            │  License Gate: Depends(check_license("trust"))   │
+            │  Result: Trust Center routes return 404 if off   │
+            └──────────────────────────────────────────────────┘
+
+                        NEW: Trust Center Module
+┌─────────────────────────────────────────────────────────────────────────┐
+│  src/anonreq/trust_center/                                              │
+│  ├── __init__.py                                                        │
+│  ├── router.py         APIRouter(prefix="/v1/trust")                    │
+│  ├── schemas.py        Pydantic response models                         │
+│  ├── service.py        Reads from SLOEngine, PresetEngine, REGISTRY     │
+│  ├── config.py         TrustCenterSettings (pydantic-settings)          │
+│  └── deps.py           Gate dependencies (toggle + license)             │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                        NEW: License Module
+┌─────────────────────────────────────────────────────────────────────────┐
+│  src/anonreq/license/                                                   │
+│  ├── __init__.py                                                        │
+│  ├── models.py         LicenseKey, FeatureGate, LicenseStatus           │
+│  ├── validator.py      HMAC-SHA256 validation                           │
+│  ├── config.py         LicenseSettings (pydantic-settings)              │
+│  └── deps.py           check_license(feature) → FastAPI Dependency      │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                        NEW: Custom Recognizers
+┌─────────────────────────────────────────────────────────────────────────┐
+│  src/anonreq/detection/recognizers/                                     │
+│  ├── __init__.py                                                        │
+│  ├── mnpi.py           Existing MNPI recognizer                         │
+│  ├── api_key.py        APIKeyRecognizer (NEW)                           │
+│  ├── aws_access_key.py AWSAccessKeyRecognizer (NEW)                     │
+│  ├── github_token.py   GitHubTokenRecognizer (NEW)                      │
+│  └── hostname.py       InternalHostnameRecognizer (NEW)                 │
+│                                                                         │
+│  config/recognizers.yaml  → Enable/disable + thresholds config          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Component Boundaries — In-Process vs Sidecar
+### Component Boundaries
 
-| Component | Boundary | Rationale |
-|-----------|----------|-----------|
-| **FastAPI Server + ASGI Middleware** | In-process | Core routing; must be at application boundary |
-| **Text Extractor** | In-process | Parses JSON, no state; pure function |
-| **Detection Engine Client** | In-process HTTP client | Talks to Presidio Analyzer sidecar over HTTP. NOT the Presidio library directly — the sidecar architecture gives process isolation, independent scaling, and avoids loading spaCy models into the gateway process (which would double memory). |
-| **Tokenization Engine** | In-process | Pure transformation: entity spans → `[TYPE_N]` tokens. No I/O after receiving detection results. |
-| **Cache Writer/Reader** | In-process (driver) | redis-py / valkey async client. Valkey runs as separate container for fail-secure isolation. |
-| **Provider Adapter** | In-process | Schema translation only (OpenAI → Anthropic/Gemini/Ollama). Pure transformations. |
-| **Restoration Engine** | In-process | Token replacement + Tail_Buffer state machine for SSE. Must be in-process for zero-copy streaming. |
-| **Audit Logger** | In-process | Writes structured JSON to stdout via Python logging. No external dependency. |
-| **Health/Metrics** | In-process | Exposes from same FastAPI process. |
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `trust_center/router.py` | Public endpoints for compliance evidence | `trust_center/service.py` |
+| `trust_center/service.py` | Aggregates SLO, compliance, metrics data | `app.state.slo_engine`, `app.state.preset_engine`, `prometheus_client.REGISTRY` |
+| `trust_center/config.py` | Trust Center settings (enabled, display name, frameworks) | YAML config file `config/trust_center.yaml` |
+| `trust_center/deps.py` | Gate dependencies: config toggle + license check | `trust_center/config.py`, `license/validator.py` |
+| `license/validator.py` | HMAC-SHA256 symmetric key verification | `ANONREQ_LICENSE_SECRET` env var |
+| `license/deps.py` | `Depends(check_license("feature"))` for gated routes | `license/validator.py` |
+| Detection custom recognizers | Pattern-based secret detection (API keys, tokens) | `RegexDetector` (not Presidio sidecar) |
+| Doc translation infrastructure | `docs/{lang}/` mirrors + manifest | `docs/TRANSLATION_MANIFEST.md` |
 
-**Why Presidio Analyzer as a sidecar, not in-process:**
-
-1. **Memory isolation**: Presidio loads spaCy/Transformers NER models (~500MB–2GB loaded). Running them in the gateway process would double the gateway's memory footprint and couple GC pressure.
-2. **Independent scaling**: In high-throughput deployments, detection can be scaled horizontally (multiple Presidio containers) while the gateway remains stateless and lightweight.
-3. **Fail-secure isolation**: If Presidio's NER model crashes or OOMs, it doesn't take down the gateway. The gateway detects the failure via health probe and returns HTTP 503.
-4. **Language independence**: Presidio's HTTP server is Flask-based. Running it as a sidecar keeps the gateway's dependency tree lean.
-5. **Hot-reload independence**: Custom recognizer config reloads happen in Presidio without restarting the gateway.
-
-> **Key tradeoff**: Network round-trip to Presidio adds ~1-5ms per request. Acceptable given the 100ms P95 budget. If latency becomes critical, a future optimization tiers frequently-used regex recognizers into the gateway process and only sends text to Presidio for NER-based detection.
-
----
-
-### Data Flow — Request Lifecycle
-
-#### Non-Streaming Request
+### Data Flow: Trust Center Request
 
 ```
-Step  Phase               What Happens                           Fail Point
-────  ─────               ────────────                           ──────────
- 1    REQUEST RECEIVE     Client → FastAPI route handler           HTTP 400 if invalid JSON
-                          POST /v1/chat/completions                  
-                          Body validated against Pydantic schema   
-
- 2    TEXT EXTRACT        Flatten all message blocks into          HTTP 500 if extract fails
-                          a list of (field_path, text) pairs       
-                          Detect stream:true/false                  
-
- 3    CONTEXT BUILD       Generate Session_ID (UUID4),             HTTP 500 if gen fails
-                          parse X-AnonReq-Locale header            
-                          select compliance preset                 
-
- 4    DETECT              Send full text to Presidio Analyzer    ⚠ HTTP 500 if Presidio down
-                          POST /analyze with language, entities    HTTP 504 if timeout
-                          Receive list of RecognizerResult spans   
-                          Apply confidence threshold filtering     
-
- 5    TOKENIZE            Sort spans by position (reverse order)   HTTP 500 if conflict
-                          Replace each span with [TYPE_N]          
-                          Deduplicate identical values             
-                          Build Mapping: {token → original_value}  
-                          Randomize token indices per session      
-
- 6    CACHE WRITE         Store Mapping in Valkey:               ⚠ HTTP 500 if Valkey down
-                          HSET anonreq:{session_id} mapping        
-                          EXPIRE with configured TTL                
-
- 7    PROVIDER CALL       Translate to provider schema             HTTP 500 if translate fails
-                          Forward via httpx.AsyncClient           HTTP 502/504 if provider down
-                          Receive full JSON response              
-
- 8    RESTORE             Pre-fetch Mapping from Valkey          ⚠ HTTP 500 if Valkey down
-                          Scan response for [TYPE_N] patterns      
-                          Replace each token with original value   
-                          Case-insensitive + bracket-optional      
-
- 9    VERIFY              Scan response body for residual         Log warning (never block)
-                          token patterns \[[A-Z]+_\d+\]             
-
- 10   AUDIT & CLEANUP     Emit structured audit log to stdout      Log discard on failure
-                          DEL anonreq:{session_id} from Valkey     TTL fallback on DEL fail
-                          Return response to client               
+Client
+  │
+  ▼
+GET /v1/trust/status
+  │
+  ▼
+Rate Limiter (60 RPM per IP — new dependency)
+  │
+  ▼
+Config Gate (trust_center.enabled == false → 404)
+  │
+  ▼
+License Gate (license missing/expired → 402)
+  │
+  ▼
+trust_center/router.py
+  │
+  ▼
+trust_center/service.py
+  ├── app.state.slo_engine.get_all_compliance("*")
+  │     └── Reads from Valkey (slo:* keys, metadata-only aggregates)
+  ├── app.state.preset_engine.list_presets()
+  │     └── Returns framework metadata from config/compliance/*.yaml
+  └── prometheus_client.REGISTRY.get_sample_value(...)
+        └── In-process metric counters (no external call)
+  │
+  ▼
+Return: aggregated metadata → JSON response
+  │
+  ▼
+Rate Limiter updates counter
 ```
 
-#### Streaming Request
+### Data Flow: License Gate
 
 ```
-Step  Phase               What Happens                           
-────  ─────               ────────────                           
- 1-6  (Same as non-streaming up to cache write)                  
-
- 7    STREAM SETUP        Start httpx.AsyncClient streaming request
-                          Pre-fetch Mapping via HGETALL (single call)
-                          Return StreamingResponse(media_type="text/event-stream")
-                          Set headers: Cache-Control: no-cache
-                                       X-Accel-Buffering: no
-                                       Connection: keep-alive
-
- 8    STREAM LOOP         For each SSE chunk from provider:
-      ┌──────────┐           Parse SSE event type (data:, event:, [DONE])
-      │ Tail     │           Append to Tail_Buffer (max 512 chars)
-      │ Buffer   │           Scan Tail_Buffer for complete [TYPE_N] tokens
-      │ State    │           If token split across chunks:
-      │ Machine  │             Buffer prefix, wait for suffix in next chunk
-      │          │           If buffered >50 chunks or >500ms:
-      │          │             Flush buffered content as-is, log warning
-      └──────────┘           Replace found tokens using local Mapping
-                             Yield modified SSE event to client
-                             On [DONE] or connection close:
-                               Flush Tail_Buffer remainder
-                               Perform post-stream verification
-                               Emit audit log
-                               DEL mapping from Valkey
-
- 9    POST-STREAM          Scan assembled stream for residual tokens
-                           Log warning if found, increment counter
-                           Close response stream
+Startup
+  │
+  ▼
+LicenseValidator.load_key()
+  └── Reads ANONREQ_LICENSE_SECRET from env
+  └── No phone-home, validates at startup
+  └── Caches in-process for lifetime of app (no Redis needed)
+  │
+  ▼
+Per-request: Depends(check_license("feature_x"))
+  │
+  ▼
+LicenseValidator.check_feature("feature_x")
+  ├── HMAC-SHA256 verify license payload signature
+  ├── Check expiry
+  └── Check feature in allowed set
+  │
+  ▼
+Return True → route handler executes
+Return False → HTTP 402 Payment Required
 ```
 
 ---
 
-### SSE Streaming Architecture — Tail_Buffer Pattern
+## Component Architecture: Trust Center
 
-#### The Token-Split Problem
-
-LLM streaming sends tokens character-by-character or subword-by-subword. A token like `[NAME_1]` can arrive split across two SSE chunks:
+### Package Layout
 
 ```
-Chunk N:     data: {"content": "Hello [NAME_"}
-Chunk N+1:   data: {"content": "1], how are you?"}
+src/anonreq/trust_center/
+├── __init__.py
+│   └── from anonreq.trust_center.router import router as trust_center_router
+│
+├── config.py
+│   class TrustCenterSettings(BaseSettings):
+│       enabled: bool = False
+│       model_config = SettingsConfigDict(env_prefix="ANONREQ_TRUST_")
+│   trust_center_settings = TrustCenterSettings()
+│   # Also loads YAML for display_name, contact_email, logo_url,
+│   # supported_frameworks, feature_summary
+│
+├── schemas.py
+│   class TrustStatusResponse(BaseModel):
+│       status: str  # "operational" | "degraded" | "maintenance"
+│       last_checked: datetime
+│       slo_compliance: list[SLOComplianceSummary]
+│
+│   class ComplianceFrameworkSummary(BaseModel):
+│       id: str
+│       name: str
+│       jurisdictions: list[str]
+│       mandatory_entity_types: list[str]
+│
+├── service.py
+│   class TrustCenterService:
+│       def __init__(self, slo_engine, preset_engine, trust_config):
+│       async def get_status_summary(self) -> TrustStatusResponse
+│       async def get_compliance_frameworks(self) -> list[ComplianceFrameworkSummary]
+│       async def get_metrics_summary(self) -> dict
+│       async def get_security_posture(self) -> dict
+│
+├── deps.py
+│   async def trust_center_enabled(request: Request) -> None:
+│       """Gate: returns 404 if Trust Center disabled."""
+│       if not trust_center_settings.enabled:
+│           raise HTTPException(404)
+│
+│   async def trust_center_rate_limit(request: Request) -> None:
+│       """Rate limit: 60 RPM per IP."""
+│       # Uses Valkey with IP-based key, TTL 60s, count per minute
+│
+├── router.py
+│   router = APIRouter(prefix="/v1/trust",
+│       dependencies=[Depends(trust_center_enabled),
+│                     Depends(trust_center_rate_limit)])
+│
+│   @router.get("/status", response_model=TrustStatusResponse)
+│   @router.get("/compliance", response_model=list[ComplianceFrameworkSummary])
+│   @router.get("/metrics")
+│   @router.get("/security")
+│
+└── config/trust_center.yaml
+    enabled: false
+    display_name: "AnonReq Trust Center"
+    contact_email: "security@example.com"
+    supported_frameworks: [soc2, iso27001, gdpr, hipaa]
+    feature_summary:
+      anonymization: true
+      dlp: false
+      firewall: false
 ```
 
-Naive per-chunk scanning would fail to match the partial `[NAME_` in chunk N.
+### Integration in `main.py`
 
-#### Tail_Buffer State Machine
-
-```
-State Machine States:
-
-  SCAN ──────────────► PENDING ──────────────► FLUSH
-   │                      │                      │
-   │ partial match         │ token complete       │ timeout/exceeded
-   │ found                 │ found                │ chunks
-   ▼                      ▼                      ▼
-  (buffer text)         (replace +              (emit buffered
-                         emit)                   content as-is)
-
-Implementation:
-
-class TailBuffer:
-    buffer: str          # Rolling suffix of last 512 chars
-    partial: str         # Current incomplete token prefix (e.g., "[NAME_")
-    chunks_since_partial: int
-    created_at: float
-
-    def push(self, chunk_text: str) -> list[str]:
-        """Return list of (restored) text events from this chunk."""
-        self.buffer = (self.buffer + chunk_text)[-512:]
-        results = []
-        
-        if self.partial:
-            # Try to complete the partial token
-            remainder = self._extract_token_after_prefix(chunk_text)
-            if remainder is not None:
-                full_token = self.partial + remainder
-                restored = self.mapping.get(full_token, fallback=full_token)
-                results.append(restored)
-                self.partial = ""
-                self.chunks_since_partial = 0
-            else:
-                self.chunks_since_partial += 1
-                if self._should_flush():
-                    results.append(self.partial)
-                    self.partial = ""
-                    self.chunks_since_partial = 0
-        
-        # Scan for new partial tokens
-        for token in self._scan_tokens(chunk_text):
-            if token.complete:
-                results.append(token.restored)
-            else:
-                self.partial = token.prefix
-                self.chunks_since_partial = 0
-                self.created_at = time.monotonic()
-        
-        # Emit non-token text
-        results.append(self._non_token_text(chunk_text))
-        return results
-
-    def _should_flush(self) -> bool:
-        return (self.chunks_since_partial >= 50 or 
-                time.monotonic() - self.created_at >= 0.5)
-```
-
-**Key design decisions:**
-
-1. **Pre-fetch Mapping once**: One `HGETALL` at stream start avoids per-chunk round-trips to Valkey. The entire Mapping is held in memory for the stream's duration.
-2. **Tail_Buffer size limit of 512 chars**: Large enough to hold any realistic token prefix (`[TYPE_` is at most 22 chars), small enough to not obscure memory pressure.
-3. **50-chunk / 500ms flush heuristic**: Prevents indefinite buffering if the stream never completes the token. 50 chunks at typical LLM speeds (~20ms/chunk) ≈ 1 second. 500ms is the absolute cap.
-4. **Case-insensitive + bracket-optional matching**: LLMs may mutate tokens to `[name_1]` or `NAME_1`. The Restoration Engine normalizes all tokens to `[TYPE_N]` before lookup.
-5. **No back-pressure on the provider stream**: The gateway yields events to the client as they arrive; restoration is a transformation on the forward path, not a buffering step.
-
-#### Streaming Proxy Core Pattern (FastAPI)
+Add near line 688 (after discovery_admin_router registration, before PAC router):
 
 ```python
-from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
-from fastapi.sse import EventSourceResponse
-import httpx
-import json
+# Phase 2: Trust Center — public compliance evidence portal
+# Config-gated: enabled=false returns 404 on all endpoints
+# No auth — public endpoints with IP-based rate limiting
+if trust_center_settings.enabled:
+    from anonreq.trust_center import trust_center_router
+    from anonreq.trust_center.deps import trust_center_rate_limit
+    # Public routes, no auth dependency
+    app.include_router(trust_center_router)
+    logger.info("Trust Center enabled", component="router")
+```
 
-router = APIRouter()
+**Important:** Do NOT add `Depends(auth_context)` to the Trust Center router. It's explicitly public. The rate limiter and config gate are the only protections.
 
-@router.post("/v1/chat/completions")
-async def chat_completions(request: Request, body: ChatRequest):
-    session_id = generate_session_id()
+---
+
+## Component Architecture: License Module
+
+### Package Layout
+
+```
+src/anonreq/license/
+├── __init__.py
+│
+├── models.py
+│   @dataclass
+│   class FeatureGate:
+│       name: str
+│       tier: str  # "core" | "appliance"
+│
+│   @dataclass
+│   class LicensePayload:
+│       org: str
+│       tier: str
+│       features: list[str]
+│       issued_at: datetime
+│       expires_at: datetime
+│
+│   class LicenseStatus(BaseModel):
+│       valid: bool
+│       tier: str
+│       features: list[str]
+│       expires_at: datetime | None
+│       expired: bool
+│
+├── config.py
+│   class LicenseSettings(BaseSettings):
+│       LICENSE_SECRET: str | None = None
+│       LICENSE_KEY: str | None = None
+│       model_config = SettingsConfigDict(env_prefix="ANONREQ_")
+│
+├── validator.py
+│   class LicenseValidator:
+│       @classmethod
+│       async def initialize(cls, settings: LicenseSettings) -> None
+│           # Decode and verify LICENSE_KEY using HMAC-SHA256
+│           # with LICENSE_SECRET as key
+│           # Cache parsed LicensePayload in-memory
+│           pass
+│
+│       @classmethod
+│       async def get_status(cls) -> LicenseStatus:
+│           pass
+│
+│       @classmethod
+│       def has_feature(cls, gate: str) -> bool:
+│           pass
+│
+├── deps.py
+│   def check_license(gate: str):
+│       async def _check(request: Request) -> None:
+│           status = await LicenseValidator.get_status()
+│           if not status.valid or status.expired:
+│               raise HTTPException(402, "License required")
+│           if gate not in status.features:
+│               raise HTTPException(402, f"Feature '{gate}' not licensed")
+│       return _check
+│
+└── router.py  (admin endpoint)
+    router = APIRouter(prefix="/v1/admin")
+    @router.get("/license")
+    async def get_license_status(...) -> LicenseStatus
+```
+
+### Feature Gate Mapping
+
+| Gate | Tier | Blocks | Used On |
+|------|------|--------|---------|
+| `trust_center` | Core | Trust Center routes | Free tier |
+| `ai_firewall` | Appliance | AI Firewall routes | Appliance |
+| `soc_integration` | Appliance | SOC/SIEM sinks | Appliance |
+| `advanced_detection` | Appliance | Custom recognizers (4.1) | Appliance |
+| `compliance_monitoring` | Appliance | Evidence endpoint (4.2) | Appliance |
+
+**Design decision:** Trust Center routes are gated to "Core" tier (free), meaning every installation gets them. The license gate is still enforced, but the `trust_center` feature is included in all tier licenses. This provides a uniform enforcement surface and future-proofs for enterprise-only Trust Center enhancements.
+
+---
+
+## Component Architecture: Custom Presidio Recognizers
+
+### Current State
+
+The detection pipeline already supports hot-reloaded custom **regex** patterns via `AtomicConfigRegistry` → `get_custom_recognizer_patterns()` in the `DetectionStage`. These compile into `re.Pattern` objects and run through `RegexDetector.detect()` — they do NOT go through the Presidio sidecar.
+
+### For v1.5 Advanced Secret Detection
+
+**Decision: Register custom recognizers through `RegexDetector`, NOT through Presidio sidecar.**
+
+Rationale:
+1. Presidio Analyzer HTTP API (`POST /analyze`) does not accept custom regex recognizers — it only filters by built-in NER entity types. True custom recognizers in Presidio require `presidio-analyzer` Python library and modifying the sidecar container.
+2. The AnonReq container does not run `presidio-analyzer` in-process — it's a sidecar. Adding the library would require architectural changes.
+3. The existing `DetectionStage` + `RegexDetector` pattern already supports compiled regex with confidence thresholds, entity type labels, and is fully integrated with arbitration, exclusion lists, and checksum validation.
+4. MNPI recognizers already use this exact pattern (`MNPIRecognizer.analyze()` returns pipeline-compatible dicts).
+
+### Integration Pattern
+
+```
+config/recognizers.yaml
+  │
+  ▼
+load_custom_recognizers()  ← new function in anonreq/detection/recognizers/
+  │
+  ▼
+List[Dict{entity_type, patterns, confidence, enabled}]
+  │
+  ▼
+DetectionStage.__init__()
+  └── Accepts list of custom recognizer dicts (alongside mnpi_recognizers)
+  └── Each recognizer compiled to regex during execute()
+  └── Matches added to regex_patterns dict before RegexDetector runs
+```
+
+### New Recognizer Modules
+
+Each recognizer in `src/anonreq/detection/recognizers/`:
+
+| Module | Class | Pattern | Confidence | Config |
+|--------|-------|---------|------------|--------|
+| `api_key.py` | `APIKeyRecognizer` | `sk-...`, `pk-...`, `sk-proj-...`, `sk-ant-...` | 0.85 | `api_key.enabled` |
+| `aws_access_key.py` | `AWSAccessKeyRecognizer` | `AKIA[0-9A-Z]{16}`, `ASIA...` | 0.90 | `aws_access_key.enabled` |
+| `github_token.py` | `GitHubTokenRecognizer` | `ghp_[a-zA-Z0-9]{36}`, `ghs_...` | 0.90 | `github_token.enabled` |
+| `hostname.py` | `InternalHostnameRecognizer` | FQDNs matching internal domains | 0.80 | `hostname.internal_domains` |
+
+Each recognizer follows the `MNPIRecognizer` pattern:
+```python
+class APIKeyRecognizer:
+    def __init__(self, config: dict):
+        self._patterns = [re.compile(p) for p in config["patterns"]]
+        self._confidence = config.get("confidence", 0.85)
     
-    # --- Request Pipeline (steps 2-6) ---
-    text_blocks = extract_text(body.messages)
-    context = build_context(body, session_id)
-    detections = await detect_pii(text_blocks, context)
-    tokenized, mapping = tokenize(body, detections)
-    await cache_write(session_id, mapping)
-    
-    # --- Provider Call ---
-    provider = select_provider(body.model)
-    adapted_request = provider.translate(tokenized)
-    
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        if not body.stream:
-            # Non-streaming
-            response = await client.post(
-                provider.url,
-                json=adapted_request,
-                headers=provider.headers
+    def analyze(self, text: str, node_index: int = 0) -> list[dict]:
+        """Return pipeline-compatible detection dicts."""
+```
+
+### License Gate for Custom Recognizers
+
+Registration of advanced custom recognizers checks the `advanced_detection` feature gate:
+
+```python
+def load_advanced_custom_recognizers(config_path: str) -> list:
+    if not LicenseValidator.has_feature("advanced_detection"):
+        return []  # Graceful degradation — no custom recognizers without license
+    # ... load from config/recognizers.yaml ...
+```
+
+---
+
+## Component Architecture: Documentation Translation
+
+### Directory Structure
+
+```
+docs/
+├── TRANSLATION_MANIFEST.md          ← NEW: tracks translation state
+├── architecture.mmd
+├── architecture/
+│   └── multimodal.md
+├── compliance/
+├── operations/
+│   ├── policy-runbook.md
+│   └── slo-runbook.md
+├── security/
+│   └── incident-response.md
+├── en/                              ← Source language (canonical)
+│   ├── getting-started.md
+│   ├── installation.md
+│   ├── deployment.md
+│   ├── api-reference.md
+│   ├── compliance.md
+│   └── faq.md
+├── de/                              ← Already exists (Phase 2)
+│   └── (same 6 files)
+├── fr/                              ← NEW
+│   └── (same 6 files)
+├── es/                              ← NEW
+├── pt/                              ← NEW
+├── it/                              ← NEW
+├── ar/                              ← NEW (RTL)
+├── nl/                              ← NEW
+└── glossary.md                      ← NEW: shared technical term translations
+```
+
+### TRANSLATION_MANIFEST.md Format
+
+```markdown
+# Translation Manifest
+
+| Source File | fr | es | pt | it | ar | nl |
+|---|---|---|---|---|---|---|
+| docs/en/getting-started.md | reviewed | draft | draft | draft | draft | draft |
+| docs/en/installation.md | draft | draft | draft | — | — | draft |
+| docs/en/deployment.md | — | — | — | — | — | — |
+| docs/en/api-reference.md | draft | draft | — | — | — | — |
+| docs/en/compliance.md | — | — | — | — | — | — |
+| docs/en/faq.md | — | — | — | — | — | — |
+
+Status: draft / reviewed / published / —
+```
+
+### Processing
+
+Translation is content work, not code work. The architecture consideration is:
+1. Each language is a complete mirror of `docs/en/` — same filenames, same structure
+2. `docs/glossary.md` defines invariant technical terms per language (e.g., "fail-secure", "tokenization", "Presidio")
+3. Arabic (`ar/`) needs a note in README about RTL rendering
+4. Architecture diagrams (`architecture.mmd`) rendered as PNG per language in `docs/{lang}/architecture/`
+
+---
+
+## Patterns to Follow
+
+### Pattern 1: Config-Gated Router Registration
+
+**What:** Register a router only when its configuration toggle is enabled.
+
+**When:** Any new feature that should be disableable without code changes.
+
+**Why:** Follows existing convention (see `requires_detection(active_mode)` in lifespan), provides operational control.
+
+**Implementation:**
+```python
+# In create_app(), after other routers:
+if trust_center_settings.enabled:
+    from anonreq.trust_center import trust_center_router
+    app.include_router(trust_center_router)
+    logger.info("Trust Center router registered", component="router")
+else:
+    logger.info("Trust Center disabled — routes not registered", component="router")
+```
+
+**Why not a middleware-based gate?** If routes aren't registered at all, FastAPI returns 404 more efficiently. A middleware falls through to a 404 anyway, but costs middleware overhead on every request.
+
+### Pattern 2: License Gate as FastAPI Dependency
+
+**What:** A factory function returning a `Depends`-compatible callable that checks license for a specific feature.
+
+**When:** Any route that should be license-gated.
+
+**Why:** Composable with existing dependency chain. Can be combined with `auth_context` for protected routes, or standalone for public routes.
+
+**Implementation:**
+```python
+# In license/deps.py:
+from fastapi import HTTPException, Request
+from anonreq.license.validator import LicenseValidator
+
+def require_license(feature: str):
+    """FastAPI dependency factory for license-gated features."""
+    async def _check(request: Request) -> None:
+        status = await LicenseValidator.get_status()
+        if not status.valid:
+            raise HTTPException(
+                status_code=402,
+                detail={"error": "license_required", "message": "Valid license required"}
             )
-            restored = restore_non_stream(response.json(), mapping)
-            verify(restored)
-            await cache_delete(session_id)
-            return restored
-        else:
-            # Streaming
-            local_mapping = mapping  # already in memory
-            async def stream_restorer():
-                tail = TailBuffer(local_mapping)
-                async with client.stream(
-                    "POST", provider.url,
-                    json=adapted_request,
-                    headers=provider.headers
-                ) as stream:
-                    async for chunk in stream.aiter_bytes():
-                        events = tail.push(chunk.decode("utf-8"))
-                        for event in events:
-                            yield f"data: {json.dumps(event)}\n\n"
-                    # Flush any remaining partial tokens
-                    flush = tail.flush()
-                    if flush:
-                        yield flush
-                    # Post-stream verification
-                    verify(tail.assembled_text)
-                    await cache_delete(session_id)
-            
-            return EventSourceResponse(stream_restorer())
-```
-
----
-
-### FastAPI Middleware Pattern for Request Interception
-
-#### Recommended: ASGI Middleware Class
-
-Abstract `BaseHTTPMiddleware` is deprecated in newer FastAPI versions. The recommended pattern is raw ASGI middleware (function-based or class-based). However, for AnonReq's use case, we actually do NOT want a middleware-based interception — we want a **route handler** pattern. Here's why:
-
-**The "Route Handler" over "Middleware" argument:**
-
-| Concern | Middleware | Route Handler |
-|---------|-----------|---------------|
-| Request body modification | Requires hacking ASGI `receive` to replay body | Natural — FastAPI/Pydantic parses body, you modify and pass it |
-| Response modification (non-stream) | Works via `StreamingResponse` wrapper | Works via normal return |
-| Response modification (SSE stream) | Very complex — need to wrap generator | Natural — generator yields modified events |
-| Error handling + fail-secure | Must wrap `call_next` in try/except | Natural — standard Python exception handler |
-| Testing | Requires TestClient with full middleware stack | Test route function directly |
-| Pydantic schema access | Must re-parse body | Schema already validated |
-
-**Therefore: The `/v1/chat/completions` route handler IS the pipeline orchestrator.** The handler function:
-
-1. Receives validated `ChatRequest` Pydantic model
-2. Calls Detection Engine
-3. Calls Tokenization Engine
-4. Caches mapping
-5. Routes to provider
-6. Restores response
-7. Returns
-
-**The middleware stack is reserved for cross-cutting concerns:**
-
-| Middleware | Purpose | Order (outermost first) |
-|-----------|---------|------------------------|
-| `ProcessTimeMiddleware` | Add `X-Process-Time` header | 1 (first to see request) |
-| `RequestIDMiddleware` | Inject `X-Request-ID` | 2 |
-| `FailSecureMiddleware` | Catch unhandled exceptions → HTTP 500 (NEVER forward) | 3 |
-| `AuthMiddleware` | Validate API keys / JWT / mTLS | 4 |
-| `SSEMiddleware` | Set streaming response headers | Built into route |
-| (Route Handler) | Core pipeline logic | Last |
-
-**Fail-Secure Middleware:**
-
-```python
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
-
-class FailSecureMiddleware(BaseHTTPMiddleware):
-    """
-    Catches any unhandled exception in the pipeline and returns HTTP 500.
-    Ensures no content is forwarded to provider during exception handling.
-    """
-    async def dispatch(self, request, call_next):
-        try:
-            response = await call_next(request)
-            return response
-        except Exception:
-            # Log metadata only (no PII)
-            logger.error("fail_secure_event", 
-                         session_id=getattr(request.state, "session_id", None))
-            return Response(
-                status_code=500,
-                content=ERROR_RESPONSE_500
+        if feature not in status.features:
+            raise HTTPException(
+                status_code=402,
+                detail={
+                    "error": "feature_not_licensed",
+                    "message": f"Feature '{feature}' not included in current license tier"
+                }
             )
-```
+    return _check
 
----
-
-### Configuration Management Approach
-
-#### Layered Configuration Model
-
-```
-Layer 1: Defaults (hardcoded in code)
-  ├── Confidence_Threshold: 0.7
-  ├── TTL: 300s
-  ├── Presidio URL: http://presidio:3000
-  ├── Valkey URL: redis://valkey:6379
-  └── ...
-
-Layer 2: Environment variables (override defaults)
-  ├── ANONREQ_CONFIDENCE_THRESHOLD
-  ├── ANONREQ_TTL_SECONDS
-  ├── ANONREQ_PRESIDIO_URL
-  ├── ANONREQ_VALKEY_URL
-  ├── ANONREQ_OPENAI_API_KEY
-  ├── ANONREQ_ANTHROPIC_API_KEY
-  ├── ANONREQ_GEMINI_API_KEY
-  ├── ANONREQ_LOG_LEVEL
-  └── ...
-
-Layer 3: Config file (YAML, hot-reloadable)
-  ├── custom_recognizers.yaml
-  │   └── List of name, entity_type, patterns, context_words, score
-  ├── exclusion_list.txt
-  │   └── One term per line, supports wildcard (*)
-  ├── compliance_presets.yaml
-  │   └── gdpr, lgpd, pdpa, popia, etc.
-  ├── provider_routes.yaml
-  │   └── model aliases → provider mapping
-  └── ...
-
-Layer 4: Request headers (per-request override)
-  ├── X-AnonReq-Locale: de-DE
-  ├── X-AnonReq-Classification: Restricted
-  └── X-AnonReq-Tenant-ID: acme-corp
-```
-
-#### Implementation Pattern
-
-```python
-from pydantic_settings import BaseSettings
-from typing import Optional
-
-class Settings(BaseSettings):
-    """Pydantic-based settings with env var support."""
-    model_config = SettingsConfigDict(env_prefix="ANONREQ_")
-    
-    # Core
-    confidence_threshold: float = 0.7
-    ttl_seconds: int = 300
-    
-    # Dependencies
-    presidio_url: str = "http://presidio:3000"
-    valkey_url: str = "redis://valkey:6379"
-    
-    # Providers
-    openai_api_key: Optional[str] = None
-    anthropic_api_key: Optional[str] = None
-    gemini_api_key: Optional[str] = None
-    
-    # Observability
-    log_level: str = "INFO"
-    metrics_enabled: bool = True
-    
-    # Startup
-    startup_timeout_seconds: int = 60
-
-settings = Settings()
-
-@app.on_event("startup")
-async def validate_settings():
-    """Reject startup if required config is missing."""
-    if not settings.openai_api_key:
-        raise ValueError("ANONREQ_OPENAI_API_KEY is required")
-```
-
-#### Hot-Reload Mechanism
-
-```python
-import yaml
-from pathlib import Path
-from watchfiles import awatch
-
-class ConfigWatcher:
-    """
-    Watches config files for changes and swaps them atomically.
-    Uses a read-copy-update (RCU) pattern: new config is built
-    in full, then swapped via a single pointer assignment.
-    """
-    
-    def __init__(self, config_dir: Path):
-        self._recognizers: list[dict] = []
-        self._exclusion_list: set[str] = set()
-        self._lock = asyncio.Lock()
-        self._config_dir = config_dir
-    
-    async def start_watching(self):
-        async for changes in awatch(self._config_dir):
-            async with self._lock:
-                new_recognizers = self._load_recognizers()
-                new_exclusions = self._load_exclusions()
-                # Atomic swap
-                self._recognizers = new_recognizers
-                self._exclusion_list = new_exclusions
-```
-
----
-
-### Build Order — Component Dependencies
-
-```
-Phase 1: Foundation
-  ├── Project scaffold (pyproject.toml, Dockerfile, docker-compose.yml)
-  ├── Settings / Configuration module
-  ├── Logging setup (structured JSON to stdout)
-  └── Health endpoint + startup validation
-  
-Phase 2: Core Pipeline (Non-Streaming)
-  ├── Text Extractor (pure function, no deps)
-  ├── Pydantic request/response schemas
-  ├── Detection Engine Client (HTTPX → Presidio)
-  ├── Tokenization Engine (spans → tokens, reverse-order replacement)
-  ├── Cache Manager (Valkey async client)
-  ├── Restoration Engine (token → value replacement)
-  ├── Provider Adapter: OpenAI passthrough (native format, simplest path)
-  └── Orchestrator: POST /v1/chat/completions handler
-  
-Phase 3: Fail-Secure (must follow Phase 2)
-  ├── Error boundary middleware
-  ├── Health probe integration (detection + cache checks)
-  ├── Pre-flight startup probes
-  └── Timeout handling on detection
-
-Phase 4: Multi-Provider
-  ├── Provider Adapter: Anthropic (OpenAI → Anthropic Messages API)
-  ├── Provider Adapter: Gemini (OpenAI → contents[])
-  ├── Provider Adapter: Ollama (OpenAI passthrough with custom base_url)
-  ├── Model routing logic (model name → provider)
-  └── GET /v1/models endpoint
-
-Phase 5: SSE Streaming
-  ├── Tail_Buffer implementation
-  ├── State machine (SCAN → PENDING → FLUSH)
-  ├── Streaming route path (separate from non-streaming)
-  ├── Pre-fetch Mapping at stream start
-  ├── TTL extension during long streams
-  └── Post-stream verification
-
-Phase 6: Multi-Locale Detection
-  ├── Locale-specific recognizer bundles (8 locales)
-  ├── Checksum validation per locale
-  ├── X-AnonReq-Locale header parsing
-  ├── Multi-locale merging logic
-  └── Presidio recognizer config injection
-
-Phase 7: Configuration & Observability
-  ├── Hot-reload config watcher
-  ├── Custom recognizer/exclusion list support
-  ├── Prometheus /metrics endpoint
-  ├── Compliance presets
-  ├── Response-side token verification
-  └── Append-only audit trail
-```
-
-**Dependency graph:**
-
-```
-Phase 1 (no deps)
-    │
-    ▼
-Phase 2 (needs Phase 1)
-    │
-    ├──────────────┐
-    ▼              ▼
-Phase 3        Phase 4
-(needs Ph2)    (needs Ph2)
-    │              │
-    └──────┬───────┘
-           ▼
-       Phase 5
-    (needs Ph3 + Ph4)
-           │
-           ▼
-       Phase 6
-    (needs Ph2)
-           │
-           ▼
-       Phase 7
-    (needs all)
-```
-
----
-
-### Testing Architecture
-
-#### Test Pyramid for AnonReq
-
-```
-                ┌──────────┐
-                │Property- │  8 tests (Req 16) — Hypothesis
-                │Based     │  round-trip correctness
-                │Tests     │  token uniqueness/dedup
-                │          │  fail-secure invariants
-                │          │  locale checksum
-                │          │  no-PII-in-logs
-                └────┬─────┘  streaming round-trip
-                     │         cross-request randomization
-                ┌────┴─────┐
-                │Integration│  20-30 tests
-                │Tests     │  Full pipeline: request→detect→tokenize→cache→restore
-                │          │  Valkey container via testcontainers
-                │          │  Fake Presidio (responses mock)
-                │          │  SSE streaming end-to-end
-                └────┬─────┘
-                     │
-                ┌────┴─────┐
-                │Unit Tests│  50-80 tests
-                │          │  Tokenization engine (pure logic)
-                │          │  Restoration engine (pure logic)
-                │          │  Tail_Buffer (state machine)
-                │          │  Text extractor (flattening logic)
-                │          │  Provider adapters (schema translation)
-                │          │  Configuration validation
-                │          │  Case-insensitive/bracket-optional matching
-                └──────────┘
-```
-
-#### Test Configuration
-
-```python
-# conftest.py
-import pytest
-from hypothesis import strategies as st
-
-# Hypothesis strategies for property tests
-text_with_pii = st.text(
-    alphabet=st.characters(whitelist_categories=('L', 'N', 'P', 'Z')),
-    min_size=10, max_size=1000
-)
-
-@pytest.fixture
-def fake_presidio():
-    """Mock Presidio Analyzer via responses / respx."""
-    ...
-
-@pytest.fixture
-async def valkey_container():
-    """Testcontainers Redis for integration tests."""
-    ...
-
-@pytest.fixture
-def test_client():
-    """FastAPI TestClient."""
-    ...
-```
-
-#### Property-Based Tests (Hypothesis)
-
-```python
-# tests/property/test_roundtrip.py
-from hypothesis import given, assume
-from hypothesis.strategies import ...
-
-@given(text_with_pii)
-def test_roundtrip_correctness(text: str):
-    """Round-trip: anonymize → restore → byte-for-byte match."""
-    mapping = {}
-    tokenized = tokenize(text, detect(text), mapping)
-    restored = restore(tokenized, mapping)
-    assert restored == text
-
-@given(text_with_pii)
-def test_token_uniqueness(text: str):
-    """N distinct values → N distinct tokens."""
-    mapping = {}
-    tokenized = tokenize(text, detect(text), mapping)
-    entity_values = extract_entity_values(detect(text))
-    tokens_used = re.findall(r'\[([A-Z]+_\d+)\]', tokenized)
-    assert len(set(tokens_used)) == len(set(entity_values))
-
-@given(text_with_pii, text_with_pii)
-def test_cross_request_randomization(t1: str, t2: str):
-    """Same entity in two sessions → different tokens (P > 1 - 2^-32)."""
-    ...
-```
-
-#### Testing Rules
-
-| Test Type | Dependencies | Speed | Fail on | When to Run |
-|-----------|-------------|-------|---------|-------------|
-| Unit | None | <1ms | Logic errors | Every commit |
-| Integration | Mock Presidio + testcontainers Valkey | <5s | Pipeline errors | Every commit |
-| Property-based | None (pure functions) | <60s | Invariant violations | Every commit |
-| E2E | Full Docker Compose stack | <30s | Deployment errors | CI only |
-| Bias/Fairness | Test datasets | <120s | Recall disparity >5% | CI only (weekly) |
-
----
-
-### Patterns to Follow
-
-#### Pattern 1: Pipeline as Composable Steps
-
-```python
-# Each step is a standalone async function with clear input/output types.
-# Steps are composed by the route handler; no step calls another step directly.
-
-class PipelineStep(Protocol):
-    async def __call__(self, ctx: RequestContext) -> RequestContext: ...
-
-class RequestContext:
-    session_id: str
-    original_body: ChatRequest
-    text_blocks: list[tuple[str, str]]  # (field_path, text)
-    detections: list[RecognizerResult]
-    tokenized_body: dict
-    mapping: dict[str, str]
-    provider_response: dict
-    restored_body: dict
-    errors: list[Exception]
-
-async def pipeline(request: Request, body: ChatRequest) -> Response:
-    ctx = RequestContext(session_id=uuid4(), original_body=body)
-    steps = [
-        extract_text_step,
-        detect_pii_step,
-        tokenize_step,
-        cache_write_step,
-        provider_call_step,
-        restore_step,
-        verify_step,
-        audit_step,
+# Usage on Trust Center routes (combined with config gate + rate limit):
+router = APIRouter(
+    prefix="/v1/trust",
+    dependencies=[
+        Depends(trust_center_enabled),
+        Depends(trust_center_rate_limit),
+        Depends(require_license("trust_center")),
     ]
-    for step in steps:
-        ctx = await step(ctx)
-        if ctx.errors:
-            return fail_secure(ctx)  # HTTP 500
-    return JSONResponse(ctx.restored_body)
+)
 ```
 
-#### Pattern 2: Provider Adapter Strategy
+### Pattern 3: Custom Recognizer via RegexDetector Extension
 
+**What:** Adding secret detection patterns to the existing regex-based detection engine rather than Presidio sidecar.
+
+**When:** Pattern-based detection (API keys, tokens, internal hostnames) where regex is sufficient.
+
+**Why:** Presidio sidecar HTTP API does not support custom regex recognizers. Running patterns through the existing `RegexDetector` avoids architectural changes to the Presidio container.
+
+**Implementation:**
 ```python
-# Provider adapters implement a common protocol.
-# Registration-based provider selection — no if/elif chain.
+# In DetectionStage.execute(), after hot-reload custom patterns:
+if self._custom_recognizers:
+    for recognizer in self._custom_recognizers:
+        if recognizer.enabled:
+            patterns = recognizer.compile_patterns()
+            extra_patterns.update(patterns)
 
-class ProviderAdapter(ABC):
-    @abstractmethod
-    def translate_request(self, openai_body: dict) -> dict: ...
-    @abstractmethod
-    def parse_response(self, raw: dict) -> dict: ...
-    @abstractmethod
-    def parse_stream_event(self, sse_line: str) -> dict: ...
-
-class OpenAIAdapter(ProviderAdapter): ...
-class AnthropicAdapter(ProviderAdapter): ...
-class GeminiAdapter(ProviderAdapter): ...
-class OllamaAdapter(ProviderAdapter): ...
-
-ADAPTER_REGISTRY: dict[str, type[ProviderAdapter]] = {
-    "gpt-4": OpenAIAdapter,
-    "gpt-4o": OpenAIAdapter,
-    "claude-3-opus": AnthropicAdapter,
-    "claude-3-sonnet": AnthropicAdapter,
-    "gemini-1.5-pro": GeminiAdapter,
-    "ollama/*": OllamaAdapter,  # wildcard match
-}
-
-def get_adapter(model: str) -> ProviderAdapter:
-    for key, adapter_cls in ADAPTER_REGISTRY.items():
-        if key.endswith("/*"):
-            prefix = key[:-2]
-            if model.startswith(prefix):
-                return adapter_cls()
-        elif model == key:
-            return adapter_cls()
-    raise UnsupportedModelError(model)
+# Then pass to RegexDetector.detect():
+regex_results = self._regex_detector.detect(
+    node_value,
+    extra_patterns=extra_patterns,
+)
 ```
 
-#### Pattern 3: Async HTTP Client Lifecycle (HTTPX)
+### Pattern 4: Translation Mirror with Manifest
 
+**What:** Mirror directory structure per language with a manifest file tracking review state.
+
+**When:** Multi-language documentation projects.
+
+**Why:** Prevents drift between languages. Clear ownership for review.
+
+**Implementation:**
+```
+docs/{lang}/           → exact mirror of docs/en/
+docs/TRANSLATION.md    → status table
+docs/glossary.md       → shared technical terms per language
+```
+
+### Pattern 5: Structured Service Module for Aggregate Endpoints
+
+**What:** A service class that abstracts reading from multiple sources (SLO engine, compliance registry, metrics) behind a clean interface.
+
+**When:** Any endpoint that aggregates data from multiple subsystems.
+
+**Why:** Keeps route handlers thin, testable in isolation, and allows mocking.
+
+**Implementation:**
 ```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initialize shared HTTPX clients at app startup."""
-    async with httpx.AsyncClient(timeout=5.0) as presidio_client:
-        async with httpx.AsyncClient(timeout=60.0) as llm_client:
-            app.state.presidio_client = presidio_client
-            app.state.llm_client = llm_client
-            yield
+# In trust_center/service.py:
+class TrustCenterService:
+    def __init__(
+        self,
+        slo_engine: SLOEngine,
+        preset_engine: PresetEngine,
+        trust_config: dict,
+    ):
+        self._slo = slo_engine
+        self._presets = preset_engine
+        self._config = trust_config
 
-app = FastAPI(lifespan=lifespan)
+    async def get_status_summary(self) -> dict:
+        compliance = await self._slo.get_all_compliance("*")
+        # Aggregate across tenants (aggregate metrics only, no raw data)
+        return {
+            "status": self._aggregate_status(compliance),
+            "last_checked": datetime.now(timezone.utc),
+            "slo_compliance": [
+                {
+                    "slo": name,
+                    "windows": [
+                        {"window": c.window_type, "current": c.current,
+                         "target": c.target, "compliant": c.compliant}
+                        for c in entries
+                    ]
+                }
+                for name, entries in compliance.items()
+            ],
+        }
+
+    def get_compliance_frameworks(self) -> list[dict]:
+        presets = self._presets.list_presets()
+        # Filter to frameworks listed in trust_center config
+        supported = set(self._config.get("supported_frameworks", []))
+        return [
+            {
+                "id": pid,
+                "name": p.name,
+                "jurisdictions": p.jurisdictions,
+                "mandatory_entity_types": p.mandatory_entity_types,
+            }
+            for pid, p in presets.items()
+            if pid in supported
+        ]
 ```
 
 ---
 
-### Anti-Patterns to Avoid
+## Anti-Patterns to Avoid
 
-#### Anti-Pattern 1: Middleware-Based Request Body Modification
+### Anti-Pattern 1: Registering Trust Center Behind the Auth Middleware
 
-**What:** Modifying the request body in `@app.middleware("http")` by hacking `request._receive`.
-**Why bad:** Fragile, breaks if FastAPI/Starlette internals change, impossible to handle SSE streaming bodies, dual-read issues.
-**Instead:** Use a route handler that receives the parsed Pydantic model and passes it through the pipeline.
+**What:** Adding `Depends(auth_context)` to Trust Center routes or mounting the router in the same group as auth-protected routers.
 
-#### Anti-Pattern 2: Loading spaCy/Presidio In-Process
+**Why bad:** Trust Center is explicitly a **public** portal. Auth would defeat the purpose — customers need to see compliance evidence without logging in.
 
-**What:** `from presidio_analyzer import AnalyzerEngine` inside the gateway process.
-**Why bad:** ~1-2GB memory per worker, NER model loading on startup (30-60s), model crash takes down gateway.
-**Instead:** Run Presidio as a sidecar container. Gateway calls it via HTTP.
+**Instead:** Register Trust Center router **after** all auth-protected routers in `main.py`, with **no** auth dependency. Rate limiting is acceptable but auth is not.
 
-#### Anti-Pattern 3: Per-Chunk Cache Lookups During SSE Streaming
+### Anti-Pattern 2: Trust Center Reading Raw Tenant or Request Data
 
-**What:** Calling `HGET anonreq:{session_id}` for every SSE chunk.
-**Why bad:** ~1ms per round-trip × 500 chunks = 500ms overhead added to stream. Under memory pressure, Valkey eviction could delete mapping mid-stream.
-**Instead:** `HGETALL` once at stream start, hold entire mapping in memory.
+**What:** Trust Center service queries tenant-level SLO data or request payloads.
 
-#### Anti-Pattern 4: Using `BaseHTTPMiddleware` for SSE Streaming Responses
+**Why bad:** Violates the "no PII in Trust Center" constraint. Aggregated metadata only.
 
-**What:** Trying to wrap a `StreamingResponse` in `BaseHTTPMiddleware.dispatch`.
-**Why bad:** `BaseHTTPMiddleware` buffers the entire response body before running post-processing — defeats streaming. This is a known Starlette limitation (issue #1070).
-**Instead:** Handle streaming entirely within the route handler/async generator.
+**Instead:** SLO engine's `get_all_compliance("*")` with tenant ID wildcard returns aggregated metrics across all tenants. Use `prometheus_client` `REGISTRY` for request-level aggregates (counters, histograms) — not individual requests.
 
-#### Anti-Pattern 5: Thread Pool for Presidio Calls
+### Anti-Pattern 3: Custom Presidio Recognizers via Sidecar Modification
 
-**What:** Using `run_in_threadpool` or `ThreadPoolExecutor` to call Presidio synchronously.
-**Why bad:** Thread pool context switching overhead, GIL contention, harder to timeout properly.
-**Instead:** Use `httpx.AsyncClient` for fully asynchronous communication with Presidio's HTTP endpoint.
+**What:** Fork the Presidio Analyzer Docker image to add custom Python recognizers.
 
----
+**Why bad:** Introduces maintenance burden whenever Presidio updates. Requires rebuilding the sidecar image. The detection pipeline has a pattern-based alternative that's simpler and already works.
 
-### Scalability Considerations
+**Instead:** Add custom recognizers through the existing `RegexDetector` → `DetectionStage` pipeline. If true NER-based custom detection is needed later, it should be in-process (not sidecar HTTP).
 
-| Concern | Single Gateway | Multi-Replica | Notes |
-|---------|---------------|---------------|-------|
-| **Session state** | In-memory + Valkey | Valkey shared across replicas | Session mapping must be in Valkey so any replica can restore any session |
-| **Presidio scaling** | Single sidecar | Multiple Presidio replicas behind round-robin | Presidio is stateless; scale horizontally for throughput |
-| **Valkey scaling** | Single instance | Valkey Cluster or Redis Sentinel | `allkeys-lru` eviction handles memory pressure |
-| **Streaming affinity** | Not required | Not required | Because mapping is in Valkey, any replica can handle any stream |
-| **Connection limit** | OS file descriptors | Per-replica limits | SSE streams hold long-lived connections; plan connection limits per instance |
+### Anti-Pattern 4: License Check as Method on Every Route Handler
 
-At 10K users: 1 gateway replica, 2 Presidio replicas, 1 Valkey. At 1M users: 10+ gateway replicas, 20+ Presidio replicas, Valkey Cluster (3 shards, 3 replicas).
+**What:** Calling `LicenseValidator` inside each route handler explicitly.
+
+**Why bad:** Duplication. Easy to forget on new routes. Violates DRY.
+
+**Instead:** Use FastAPI's dependency injection. Define `require_license("feature")` as a dependency factory, add it to the router-level `dependencies` list. Every route on that router inherits the gate.
+
+### Anti-Pattern 5: Phone-Home License Validation
+
+**What:** License validator pings an external API to validate the key.
+
+**Why bad:** Requires internet access. Breaks air-gapped deployments. Adds latency. Creates a single point of failure.
+
+**Instead:** HMAC-SHA256 symmetric signing with local key. Zero external calls. Verified at startup. In-memory cached for the app lifetime.
 
 ---
 
-### Sources
+## Scalability Considerations
 
-- **FastAPI Server-Sent Events documentation** (fastapi.tiangolo.com/tutorial/server-sent-events) — SSE streaming with EventSourceResponse, high confidence
-- **Microsoft Presidio Analyzer documentation** (microsoft.github.io/presidio/analyzer/) — AnalyzerEngine API, Docker deployment, sidecar pattern, high confidence
-- **FastAPI SSE + StreamingResponse lifecycle analysis** (readoss.com/en/fastapi/fastapi/sse-jsonl-streaming-fastapi-response-lifecycles) — ASGI streaming internals, producer/consumer architecture, high confidence
-- **Hypothesis property-based testing documentation** (hypothesis.readthedocs.io) — strategies, stateful testing, shrinking, high confidence
-- **Starlette middleware / BaseHTTPMiddleware limitations** — GitHub issues #1070, community knowledge, medium confidence
-- **HTTPX AsyncClient best practices** (python-httpx.org) — async HTTP for FastAPI, connection pooling, lifespan management, high confidence
+| Concern | At 100 users | At 10K users | At 1M users |
+|---------|--------------|--------------|-------------|
+| **Trust Center rate limiting** | In-process IP rate map (dict + timestamps) | Valkey-backed rate counter per IP | Valkey-backed with sharding, 120 RPM per IP |
+| **SLO engine read load** | Direct Valkey reads per request | Snapshot SLO compliance to a cache key every 60s | Dedicated read replica of Valkey for Trust Center queries |
+| **License validation** | In-memory cache, startup-only decode | In-memory cache, startup-only decode | Same — no scaling concern (O(1) check) |
+| **Custom recognizer patterns** | Loaded per request from config | Loaded per request, LRU cache of compiled patterns | Pre-compiled at startup, versioned |
+| **Prometheus metrics scrape** | Direct `REGISTRY.get_sample_value()` | Aggregated counters rolled up per hour | Dedicated metrics pipeline (push to thanos/cortex) |
+
+---
+
+## Integration Points Summary
+
+| New Component | Integrates With | How |
+|---------------|----------------|-----|
+| Trust Center router | `main.py` `create_app()` | Registered conditionally behind `trust_center_settings.enabled` |
+| Trust Center service | `app.state.slo_engine` | Calls `get_all_compliance("*")` for aggregated SLO data |
+| Trust Center service | `app.state.preset_engine` | Calls `list_presets()` for compliance framework metadata |
+| Trust Center service | `prometheus_client.REGISTRY` | Reads aggregate metric values directly |
+| License validator | `os.environ` / `pydantic-settings` | Reads `ANONREQ_LICENSE_SECRET` + `ANONREQ_LICENSE_KEY` |
+| License gate | FastAPI dependency system | `Depends(require_license("feature"))` on routers |
+| Custom recognizers | `DetectionStage` in pipeline | Loaded as extra `re.Pattern` dicts into `RegexDetector` |
+| Custom recognizers | License gate | `advanced_detection` feature gate blocks loading without license |
+| Translation manifest | docs/ directory | Manually maintained per-language doc structure |
+
+---
+
+## New vs Modified Files
+
+### New Files
+
+```
+src/anonreq/trust_center/__init__.py
+src/anonreq/trust_center/config.py
+src/anonreq/trust_center/schemas.py
+src/anonreq/trust_center/service.py
+src/anonreq/trust_center/deps.py
+src/anonreq/trust_center/router.py
+src/anonreq/license/__init__.py
+src/anonreq/license/models.py
+src/anonreq/license/config.py
+src/anonreq/license/validator.py
+src/anonreq/license/deps.py
+src/anonreq/license/router.py
+src/anonreq/detection/recognizers/api_key.py
+src/anonreq/detection/recognizers/aws_access_key.py
+src/anonreq/detection/recognizers/github_token.py
+src/anonreq/detection/recognizers/hostname.py
+config/trust_center.yaml
+config/recognizers.yaml
+docs/fr/ (6 files + manifest entries)
+docs/es/ (6 files + manifest entries)
+docs/pt/ (6 files + manifest entries)
+docs/it/ (6 files + manifest entries)
+docs/ar/ (6 files + manifest entries)
+docs/nl/ (6 files + manifest entries)
+docs/glossary.md
+docs/TRANSLATION_MANIFEST.md
+```
+
+### Modified Files
+
+| File | Change |
+|------|--------|
+| `src/anonreq/main.py` | Add Trust Center router registration, Trust Center service init in lifespan, custom recognizer loader call |
+| `src/anonreq/config/__init__.py` | Add `TRUST_CENTER_ENABLED` setting, `LICENSE_SECRET`, `LICENSE_KEY` settings |
+| `src/anonreq/detection/recognizers/__init__.py` | Export new recognizers |
+| `src/anonreq/pipeline/detection.py` | Accept `custom_recognizers` parameter, integrate into regex_patterns |
+| `src/anonreq/detection/pipeline.py` | Add `load_advanced_custom_recognizers()` function |
+| `src/anonreq/pipeline/manager.py` | Pass custom recognizers through to DetectionStage |
+| `src/anonreq/monitoring/metrics.py` | Optionally add Trust Center-specific metric counters |
+| `src/anonreq/admin/router.py` | Optionally add license admin route to admin router |
+| `docker-compose.yml` | Add `ANONREQ_LICENSE_SECRET` and `ANONREQ_LICENSE_KEY` env vars to gateway service |
+| `docs/TRANSLATION_MANIFEST.md` | Initially created, then updated per language |
+
+---
+
+## Build Order
+
+Phase order per the v1.5 spec:
+
+```
+Phase 1 (Hygiene) → Phase 2 (Trust Center) → Phase 4 (Guardrails)
+                ↘ Phase 3 (Docs) — independent fork
+```
+
+**Phase 1 first** because CI/code quality fixes are a prerequisite for confident changes in all subsequent phases. Phase 2 and 3 are independent. Phase 4 depends on Phase 2 (licensing gates the Trust Center).
+
+### Dependency Map
+
+```
+Phase 1 (Hygiene)
+  ├── No dependencies
+  └── Prerequisite for: Phase 2, 4
+
+Phase 2 (Trust Center)
+  ├── Depends on: Phase 1 (CI)
+  ├── No license module dependency (trust_center is Core tier)
+  └── Implementation order:
+      1. trust_center/config.py + YAML
+      2. trust_center/schemas.py
+      3. trust_center/service.py
+      4. trust_center/deps.py (config gate + rate limit)
+      5. trust_center/router.py
+      6. Integration in main.py
+
+Phase 3 (Docs)
+  ├── Depends on: nothing (pure content)
+  └── Implementation order:
+      1. Create TRANSLATION_MANIFEST.md
+      2. Create glossary.md
+      3. Mirror docs/en/ to fr/, es/, pt/, it/, ar/, nl/
+      4. Translate one language at a time
+      5. Validate links per language
+
+Phase 4 (Guardrails)
+  ├── Depends on: Phase 1, Phase 2
+  └── Implementation order:
+      1. license/models.py + config.py
+      2. license/validator.py
+      3. license/deps.py + router.py
+      4. Integration in main.py
+      5. config/recognizers.yaml
+      6. Detection recognizer modules
+      7. DetectionStage integration
+      8. License gate on recognizer loading
+      9. Evidence endpoint (4.2)
+```
+
+---
+
+## Sources
+
+- `src/anonreq/main.py` — App factory pattern, router registration, middleware stack, lifespan context manager
+- `src/anonreq/config/__init__.py` — Pydantic Settings pattern, env prefix `ANONREQ_`
+- `src/anonreq/dependencies.py` — `auth_context` dependency pattern, `Depends` composition
+- `src/anonreq/pipeline/detection.py` — DetectionStage with AtomicConfigRegistry integration, MNPI recognizer pattern
+- `src/anonreq/detection/pipeline.py` — `load_mnpi_recognizers()` pattern for custom recognizer loading
+- `src/anonreq/locale/merger.py` — RecognizerMerger pattern for locale-based entity config merging
+- `src/anonreq/compliance/engine.py` — PresetEngine, YAML-based compliance preset loading
+- `src/anonreq/services/slo_engine.py` — SLOEngine interface, `compute_compliance()`, `get_all_compliance()`
+- `src/anonreq/admin/router.py` — Router aggregation pattern (sub-routers on admin_router)
+- `src/anonreq/admin/config.py` — AtomicConfigRegistry pattern for hot-reloadable config
+- `src/anonreq/middleware/rbac.py` — RBAC require_role dependency factory pattern
+- `config/compliance/gdpr.yaml` — Compliance preset YAML format
+- `config/slo.yaml` — SLO target configuration format
+- `.planning/v1.5-SPEC.md` — Milestone specification for Trust Center, docs, guardrails
+- `.planning/PROJECT.md` — Project context, current milestone, constraints
