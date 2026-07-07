@@ -98,7 +98,11 @@
   3. Commercial licensing enforces HMAC-SHA256 validation with router-level feature gating for Appliance-tier capabilities
   4. License validation works entirely offline (no phone-home) with in-memory caching for application lifetime
   5. Router-level `require_license("feature")` dependency prevents access to gated endpoints without a valid license key
-**Plans**: TBD
+**Plans**: 3 plans
+**Plan list:**
+- [ ] 26-01-PLAN.md — Custom recognizers (API keys, AWS tokens, GitHub tokens, internal hostnames)
+- [ ] 26-02-PLAN.md — Compliance evidence endpoint + HMAC-SHA256 commercial licensing
+- [ ] 26-03-PLAN.md — Tests for all enterprise guardrails components
 
 ## Progress
 
@@ -130,7 +134,7 @@
 | 23. Engineering Hygiene | v1.5 | 0/3 | In progress | - |
 | 24. Trust Center | v1.5 | 0/2 | Not started | - |
 | 25. Documentation Parity | v1.5 | 0/0 | Not started | - |
-| 26. Enterprise Guardrails | v1.5 | 0/0 | Not started | - |
+| 26. Enterprise Guardrails | v1.5 | 0/3 | Planning | - |
 
 ## Summary
 
@@ -139,7 +143,7 @@
 | 1. Prove the Problem | 7 (1–7) | 26/26 | Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44/44 | Complete |
 | 3. Build the Moat | 6 (17–22) | 31/31 | Complete |
-| 4. Enterprise Hardening | 4 (23–26) | 0/3 | In progress |
-| **Total** | **26** | **101/104** | **In progress** |
+| 4. Enterprise Hardening | 4 (23–26) | 0/10 | In progress |
+| **Total** | **26** | **101/111** | **In progress** |
 
 *Archived from consolidated roadmaps. See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.*
