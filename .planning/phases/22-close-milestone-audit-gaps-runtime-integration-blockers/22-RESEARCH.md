@@ -326,19 +326,22 @@ except Exception as exc:
 | A2 | Wave order should close low-risk app registrations before DLP/tool/proxy behavior. | Plan Breakdown | Planner may reorder if dependency analysis finds hidden coupling. |
 | A3 | Agent/tool governance should reuse current governance modules rather than recreate missing stale-test APIs. | Plan Wave 4 | If product explicitly needs the stale API surface, a compatibility layer may be required. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `proxy_only` deployment mode remain intentionally non-anonymizing?**  
+   **RESOLVED:** Plan 22-03 scopes proxy anonymization to reverse/transparent/full modes; PROXY_ONLY mode preserved as non-anonymizing by design.  
    What we know: `ProxyMode.PROXY_ONLY` is documented and tested as skipping detection/anonymization. [VERIFIED: `tests/test_proxy_modes.py`, codebase grep]  
    What's unclear: Phase 22 audit targets reverse/transparent appliance paths, not necessarily `PROXY_ONLY`. [VERIFIED: milestone audit]  
    Recommendation: Scope proxy anonymization closure to reverse/transparent/full modes and preserve explicit `PROXY_ONLY` semantics unless requirements are updated. [ASSUMED]
 
 2. **What should approval-required tool governance return on the chat route?**  
+   **RESOLVED:** Plan 22-02 Task 3 defines the behavior: integrate with ApprovalManager when available, fail closed if required but unavailable, emit metadata-only audit events.  
    What we know: `PDPToolEvaluator` sets `context.requires_approval = True`; `ApprovalManager` exists on app state. [VERIFIED: `src/anonreq/governance/pdp_tool_evaluator.py`, `src/anonreq/main.py`]  
    What's unclear: The runtime chat response shape for suspended tool execution is not defined in the inspected route. [VERIFIED: `src/anonreq/routing/chat.py`]  
    Recommendation: Planner should add a small design checkpoint before implementing APPL-AGENT-05 response semantics. [ASSUMED]
 
 3. **Should discovery inventory be seeded from live `FlowAnalyzer`/allowlist state at startup?**  
+   **RESOLVED:** Plan 22-01 Task 2 initializes `AssetInventory` during lifespan; seed/merge deferred as follow-up if audit requires non-empty inventory.  
    What we know: Admin router expects `app.state.inventory_service`; lifespan currently initializes flow analyzer/allowlist but not inventory service. [VERIFIED: codebase grep]  
    What's unclear: Whether empty inventory with manual POST support is acceptable for APPL-DISC-04 closure. [ASSUMED]  
    Recommendation: Initialize `InventoryService` and add route registration tests first; seed/merge behavior can be a follow-up if audit requires non-empty inventory. [ASSUMED]
