@@ -65,11 +65,14 @@
 **Depends on**: Phase 23
 **Requirements**: TRUST-01, TRUST-02
 **Success Criteria** (what must be TRUE):
-  1. Public `/v1/trust/status`, `/v1/trust/compliance`, `/v1/trust/metrics`, `/v1/trust/security` endpoints return aggregate metadata without authentication
-  2. Trust Center can be enabled/disabled via YAML configuration toggle (returns 404 when disabled)
-  3. Trust Center endpoints are rate-limited (60 RPM) and return no PII, tenant-level data, or raw metrics
-  4. SLO and compliance data is publicly accessible as aggregate metadata for enterprise evaluations
-**Plans**: TBD
+   1. Public `/v1/trust/status`, `/v1/trust/compliance`, `/v1/trust/metrics`, `/v1/trust/security` endpoints return aggregate metadata without authentication
+   2. Trust Center can be enabled/disabled via YAML configuration toggle (returns 404 when disabled)
+   3. Trust Center endpoints are rate-limited (60 RPM) and return no PII, tenant-level data, or raw metrics
+   4. SLO and compliance data is publicly accessible as aggregate metadata for enterprise evaluations
+**Plans**: 2 plans
+**Plan list:**
+- [ ] 24-01-PLAN.md — Trust Center package scaffold (config, schemas, service, rate limiter, router, main.py wiring)
+- [ ] 24-02-PLAN.md — Unit and integration tests (config, schemas, rate limiter, fail-closed, TestClient)
 
 ### Phase 25: Documentation Parity
 **Goal**: Global enterprises can evaluate and deploy AnonReq in their preferred language
@@ -122,7 +125,7 @@
 | 21. Endpoint Visibility & Sovereign Control | v1.0 | 7/7 | Complete | 2026-07-06 |
 | 22. Close Milestone Audit Gaps | v1.0 | 4/4 | Complete | 2026-07-07 |
 | 23. Engineering Hygiene | v1.5 | 0/3 | In progress | - |
-| 24. Trust Center | v1.5 | 0/0 | Not started | - |
+| 24. Trust Center | v1.5 | 0/2 | Not started | - |
 | 25. Documentation Parity | v1.5 | 0/0 | Not started | - |
 | 26. Enterprise Guardrails | v1.5 | 0/0 | Not started | - |
 
