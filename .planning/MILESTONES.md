@@ -1,0 +1,93 @@
+# Milestones
+
+## v1.0 MVP (Shipped: 2026-07-07)
+
+**Phases completed:** 24 phases, 112 plans, 179 tasks
+
+**Key accomplishments:**
+
+- RED phase
+- 1. [Rule 1 - Bug] Runtime stage COPY path correction
+- 1. [Rule 1 - Bug] httpx ASGITransport exception handling in test fixtures
+- 12 tests
+- TextExtractor
+- Package
+- PipelineStage
+- `tests/hypothesis_strategies.py`
+- 1. [Rule 1 - Bug] Non-async error normalization in stream_events
+- 1. [Rule 2 - Missing critical functionality] Generic provider stream errors
+- SSE streaming with TailBuffer FSM, real-time token restoration, multi-provider adapters (Anthropic, Gemini, Ollama) via TDD, model alias routing, and streaming correctness proven by Hypothesis
+- YAML-discovered locale bundles with checksum-validated national ID detection for eight MVP locales
+- Deterministic `X-AnonReq-Locale` negotiation and universal-plus-locale recognizer merging before detection
+- Compliance presets with non-weakening merge semantics, startup validation, and preset listing API
+- 64 tests across 3 tiers covering all 04-TEST-PLAN specifications — all passing
+- 8 Prometheus metrics (counters, histograms, gauge) with FastAPI middleware for request timing, pipeline instrumentation for detection/restoration overhead, GET /metrics endpoint returning Prometheus text format, and k6 load test script for P95 overhead validation
+- 1. [Rule 1 - Bug] Fixed span assertion in hot-reload integration test
+- Hypothesis property-based tests proving fail-secure and no-PII-in-logs invariants under systematic fault injection. Creates shared test infrastructure (strategies.py + conftest.py), 6 fail-secure property tests covering all 5 failure modes, and 22 no-PII-in-logs tests covering 7 entity types × 3 pipeline scenarios. All 50 property tests in tests/property/ pass.
+- 10 Hypothesis property tests verify same entity value across 1000+ sessions produces zero token collisions with P(collision) ≤ 2⁻³², plus a production code fix to use full 32-bit seed masking.
+- 6.5 — Production Readiness Review
+- 07-01-INTEGRATION-QUICKSTART
+- 07-02-SDK-EXAMPLES
+- 07-03-LEGAL-CI-DE
+- RBAC-secured Policy CRUD and tenant usage query endpoints with validated OpenAPI 3.1.0 schema specification
+- Structured DecisionAuditPublisher, bounded Prometheus policy metrics counters, and cryptographic compliance EvidenceStore
+- Hypothesis property tests, API integration matrices, load latency profiles, PII leakage verification, and operational runbook
+- Complete verification that 210 policy engine tests across 17 test files satisfy all 6 categories of the 08-TEST-PLAN.md specification — all tests passing
+- Content-Type Dispatcher middleware routing text/plain, application/json, and multipart/form-data to correct analyzers with JSON recursive tree walk, multipart per-part routing, and payload limit validation
+- Tool call argument extraction and PII detection for OpenAI tool_calls, Anthropic tool_use blocks, and MCP tool call/result payloads — all three provider formats handled with auto-detect dispatch via the `ToolCallExtractor`.
+- Status
+- Firewall rule engine foundation: Pydantic models, YAML rule loader with 7-category default rules, priority-ordered evaluation engine, and ONNX ML model integration with NoopMLModel fallback
+- 28 passed
+- 26 passed
+- 10 — AI Security Firewall
+- Verified all 21 test items from 10-TEST-PLAN.md are covered by 218 existing tests across 15 test files — 217 passed, 1 skipped (ONNX model file not present in test env).
+- Complete
+- SLOEngine, BreachDetector with exponential retry + DLQ, and admin-authenticated governance endpoints
+- AuditExporter archiving to MinIO WORM, config history streaming API, and automated release SBOMs
+- Prometheus alerting rules, Grafana SLO/Audit dashboards, and incident response playbooks
+- ✅ Complete
+- Classification engine with 5-level IntEnum, deterministic max algorithm, 28-entity mapping table, and YAML override support
+- Pipeline integration for auto-classification, PDP policy enforcement stage, client-asserted classification middleware, and integration tests
+- Conditional response headers, structured audit classification fields, blocked error response formats, and property tests
+- Verification results for Phase 12 including unit, integration, property-based, and security tests
+- 8-core-category DLP engine with DLPCategory/DLPAction enums, regex-based detection for PII/Financial/Health/Source Code/Credentials/Legal/Export Controlled/Intellectual Property, dlp.yaml configuration, and tenant-extensible custom categories
+- ✅ Complete
+- Metadata-only quarantine action (HTTP 451, no payload stored) and hybrid exfiltration encoding detection (regex + Shannon entropy) wired into DLPEngine
+- MITRE ATT&CK mapping (v15.1), structured DLP audit events, Prometheus counters, and property-based DLP invariant tests (Hypothesis)
+- Governance foundation — record model with 4 officer roles, 90-day review cycle with overdue detection, 6-dimension risk assessment with config-change reassessment triggering
+- Audit of 14-TEST-PLAN.md test coverage against existing Phase 14 test suites.
+- MNPI Presidio recognizer (tickers, deal codenames, restricted names) + hot-reloadable tenant restricted-names list + MinIO WORM bucket for SEC 17a-4 MNPI audit compliance
+- Complete (TDD: RED + GREEN)
+- Context-word boosting (+0.15 within 50 chars of financial crime keywords), AML webhook with configurable tenant thresholds (metadata-only payload), and DORA incident auto-escalation per criticality tier (CRITICAL→create+notify, IMPORTANT→log, STANDARD→none).
+- Compliance reporting endpoint for 9 regulatory frameworks (DORA, NIS2, GDPR, ISO 27001/42001, EBA, FCA, SEC, FINRA) with 60 integration tests covering MNPI detection, context boosting, AML webhook, DORA escalation, and provider suspension, plus 16 property-based tests proving invariants.
+- 2026-07-02
+- Immutable per-session data lineage in PostgreSQL + MinIO JSONL archive, 4-tier retention management with legal hold exclusions, tenant/record-level legal hold enforcement, and third-party AI supplier governance with configurable risk re-evaluation triggers
+- DSAR request workflow (submit/verify/fulfill), subject data erasure via Valkey, processing restriction management, and breach notification automation with multi-framework templates (GDPR, UK DPA, DORA).
+- 1. [Rule 1 - Bug] `change_history_to_json` fails on datetime serialization
+- 1. [Rule 1 - Bug] `mock_db_session` in test_data_lineage.py returns non-iterable coroutine from execute()
+- TLS termination with tenant-managed CA certificates, dual-path CA management via API upload and filesystem file watch with hot-reload, certificate pinning detection, and MITM FastAPI middleware integration
+- Built 3-layer AI traffic detection (PAC → allowlist → flow heuristics), 20+ provider signature database, MCP JSON-RPC 2.0 parser/inspector, and wired it all into the gateway.
+- Deliver proxy-only mode for low-overhead routing, performance optimization to meet latency targets, and VM appliance packaging for enterprise deployment.
+- Tool governance foundation: YAML policy parser (glob/prefix/exact matching), 3-format tool call extractor (OpenAI/Anthropic/MCP), and PDP #2 permission evaluator with cross-domain and credential isolation
+- `src/anonreq/governance/approval.py`
+- `src/anonreq/governance/audit.py`
+- Complete (specification document — no executable tasks)
+- 1. [Rule 1 - Forward compat] Fixed syslog timestamp parsing deprecation warning
+- 1. [Rule 2 - Missing functionality] ALLOW events not recorded in activity log
+- 1. [Rule 2 - Missing method] Added `calculate()` method for simple dimension scoring
+- SOC package skeleton, NormalizedEvent event model, SOCConfig, MITREMapper with config/mitre-mapping.yaml, and SOCNormalizer with content stripping and metadata enrichment — all implemented and tested. 26 Plan 20-01 unit tests pass (11 MITRE + 15 normalizer). 151 total SOC integration tests pass.
+- SinkBase protocol, SinkRouter fan-out, Splunk HEC envelope formatter with HTTP POST delivery, and QRadar CEF formatter with TCP/UDP syslog delivery — 17 tests passing
+- Implemented Azure Sentinel (DCR API), Elastic Security (Bulk API), and Datadog (Logs API) SIEM sinks — all implementing the SinkBase protocol with OAuth2 token handling, NDJSON formatting, and JSON array batching — 34 tests passing.
+- Implemented per-sink SinkBuffer with LRU eviction and exponential backoff retry, plus a generic WebhookSink with Jinja2-subset template rendering — 26 tests passing.
+- Sink configuration loader with `$env:`/`$file:` secret resolution, periodic SinkHealthMonitor with Prometheus metrics, status API endpoint, SinkFactory for config-driven instantiation, and full wiring into the FastAPI lifecycle.
+- 151 unit tests across 13 test files — all passing. Coverage verified against 20-TEST-PLAN.md specification. Unit test coverage is comprehensive (90/100 checkpoints covered). Integration tests (pipeline-level), property-based tests, security-specific tests, and load tests have partial or deferred coverage — documented as gaps.
+- Dynamic enterprise-CA TLS interception with AI traffic classification, fail-closed transparent proxy policy, reverse proxy tunneling, and appliance deployment mode selection
+- Voice ingestion connectors with local-only Whisper-compatible transcription and in-memory transcript buffering
+- Sliding-window voice PII detection with millisecond audio-frame mapping, mute/beep masking, text tokenization, and latency-tracked VoicePipeline orchestration
+- MCP parsing, outbound tool-call injection/schema governance, inbound tool-result sanitization, error redaction, dispatcher routing, and agent metrics
+- Self-hosted AI Firewall with local classification, jailbreak pattern matching, semantic injection scoring, system override detection, MITRE ATLAS audit metadata, and fail-closed inline proxy enforcement
+- Prometheus metric coverage, fail-closed integration tests, and Hypothesis invariants for the Phase 21 proxy, firewall, voice, and agent governance surfaces
+- 21 new tests added covering Content-Type Dispatcher backward compatibility, TLS downgrade prevention, and audio spectral analysis — closing the test gaps identified in the 21-TEST-PLAN.md specification
+- a) ContentTypeMiddleware
+
+---

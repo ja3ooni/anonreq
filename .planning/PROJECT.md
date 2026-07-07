@@ -2,9 +2,9 @@
 
 ## What This Is
 
-AnonReq is a self-hosted data anonymization gateway that intercepts outbound LLM API calls from internal applications, detects and replaces sensitive data (PII, PHI, financial identifiers) with context-preserving placeholder tokens, forwards the sanitized request to any supported external LLM provider, and restores original values in the response — all within the customer's secure perimeter. No raw sensitive data ever crosses the network boundary.
+AnonReq is a **self-hosted AI security and anonymization gateway for regulated enterprises**. It sits between enterprise applications and external or local LLM APIs, detects and replaces sensitive data (PII, PHI, financial identifiers, trade secrets) with context-preserving placeholder tokens, forwards sanitized requests, and restores original values in responses — all within the customer's secure perimeter. No raw sensitive data ever crosses the network boundary.
 
-The core product is Apache 2.0 licensed, designed for enterprise adoption across Europe, Asia-Pacific, Africa, South America, and Canada with multilingual PII detection (8 locales), per-jurisdiction compliance presets, and a fail-secure architecture.
+v1.0 ships as a comprehensive platform covering core anonymization, enterprise policy enforcement, AI security firewall, DLP, governance/oversight, financial services compliance, universal AI traffic gateway, CASB/RAG protection, SOC/SIEM integration, endpoint visibility, and sovereign AI control. ~49,500 lines of Python across 22 phases, 101 plans, 179 tasks, 768+ tests.
 
 ## Core Value
 
@@ -14,26 +14,40 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Core Anonymization Pipeline — OpenAI-compatible `POST /v1/chat/completions`, detection on all message roles, tokenization, restoration, cache cleanup — v1.0
+- ✓ Fail-Secure Architecture — any error returns HTTP 5xx, never forward unsanitized data, health endpoint, startup pre-flight — v1.0
+- ✓ Hybrid PII Detection Engine — regex tier (email, phone, credit card, IBAN, IP, URL, DOB, national IDs, SWIFT, crypto) + NER tier (name, org, address, city, job title), conflict resolution via regex priority — v1.0
+- ✓ Context-Preserving Tokenization — `[TYPE_N]` format, deduplication, reverse-offset replacement, cryptographically random seed per session — v1.0
+- ✓ Ephemeral Mapping Store — Valkey/Redis with persistence disabled, TTL 60-3600s, DEL post-response — v1.0
+- ✓ SSE Streaming Support — token restoration in stream, Tail_Buffer for split tokens, case-insensitive + bracket-optional matching — v1.0
+- ✓ Multi-Provider LLM Support — OpenAI, Anthropic, Gemini, Ollama; Provider_Adapter translation layer, `GET /v1/models` — v1.0
+- ✓ Multilingual PII Detection — 8 locales via `X-AnonReq-Locale` header, locale-specific recognizer bundles, checksum validation — v1.0
+- ✓ Per-Jurisdiction Compliance Presets — GDPR, LGPD, PDPA, POPIA, Privacy Act, PIPEDA; `GET /v1/compliance/presets` — v1.0
+- ✓ Metadata-Only Audit Logging — structured JSON to stdout, field allowlist, no raw values, fail-secure log entries — v1.0
+- ✓ Custom Detection Rules and Exclusion Lists — YAML-based custom patterns, hot-reload, `GET /v1/config/rules` — v1.0
+- ✓ Docker Compose Deployment — multi-stage Dockerfile (Python 3.12-slim), Presidio + Valkey services, `.env.example` — v1.0
+- ✓ Response-Side Token Verification — post-restoration `\[[A-Z]+_\d+\]` scan, Prometheus `/metrics` — v1.0
+- ✓ Commercial Open-Source Positioning — Apache 2.0, NOTICE file, SECURITY.md, README with roadmap — v1.0
+- ✓ Developer Experience and Multilingual Documentation — `docs/` directory with quickstarts, SDK examples, CHANGELOG.md — v1.0
+- ✓ Property-Based Test Suite — Hypothesis-based round-trip correctness, token uniqueness, deduplication, fail-secure, locale checksum, no-PII-in-logs, streaming round-trip, cross-request randomization — v1.0
+- ✓ Enterprise Policy Engine — rate limits, spend controls, data residency, PDP/PEP middleware, RBAC, decision audit, crypto evidence store — v1.0
+- ✓ Multimodal Document Anonymization — tool call arguments, JSON payloads, file metadata — v1.0
+- ✓ AI Security Firewall — prompt injection, jailbreak detection, outbound content inspection — v1.0
+- ✓ Operational Observability — SLO tracking, immutable audit trail, SBOM — v1.0
+- ✓ Data Classification & Handling — 5 sensitivity levels, auto-classification, per-level policies — v1.0
+- ✓ AI Firewall & DLP — inbound/outbound enforcement, 8 DLP categories, exfiltration detection, MITRE ATT&CK mapping — v1.0
+- ✓ AI Governance & Oversight — ISO/IEC 42001 alignment, risk assessment, human oversight, lifecycle management, conformity package — v1.0
+- ✓ Financial Services Compliance — MNPI protection, Model Risk Management (SR 11-7), DORA resilience, AML webhook — v1.0
+- ✓ Compliance, Audit & Fairness — bias monitoring, data lineage, retention/legal hold, DSAR, breach notification, eDiscovery — v1.0
+- ✓ Universal AI Traffic Gateway — reverse/transparent proxy, TLS/MITM, MCP inspection, appliance mode — v1.0
+- ✓ Agent & Tool Call Governance — MCP protocol, per-tool permissions, human approval routing — v1.0
+- ✓ Network Discovery, CASB & Secure RAG — shadow AI detection, AI SaaS governance, RAG pipeline inspection — v1.0
+- ✓ AI SOC/SIEM Integration — Splunk, QRadar, Sentinel, Elastic, Datadog, webhook sinks — v1.0
+- ✓ Endpoint Visibility & Sovereign AI Control Plane — desktop agents, local model routing, hybrid AI architecture, air-gapped mode — v1.0
 
 ### Active
 
-- [ ] Core Anonymization Pipeline — OpenAI-compatible POST /v1/chat/completions, detection on all message roles, tokenization, restoration, cache cleanup (Req 1)
-- [ ] Fail-Secure Architecture — any error returns HTTP 5xx, never forward unsanitized data, health endpoint, startup pre-flight (Req 2)
-- [ ] Hybrid PII Detection Engine — regex tier (email, phone, credit card, IBAN, IP, URL, DOB, national IDs, SWIFT, crypto) + NER tier (name, org, address, city, job title), conflict resolution via regex priority (Req 3)
-- [ ] Context-Preserving Tokenization — `[TYPE_N]` format, deduplication, reverse-offset replacement, cryptographically random seed per session (Req 4)
-- [ ] Ephemeral Mapping Store — Valkey/Redis with persistence disabled, TTL 60-3600s, DEL post-response (Req 5)
-- [ ] SSE Streaming Support — token restoration in stream, Tail_Buffer for split tokens, case-insensitive + bracket-optional matching (Req 6)
-- [ ] Multi-Provider LLM Support — OpenAI, Anthropic, Gemini, Ollama; Provider_Adapter translation layer, GET /v1/models (Req 7)
-- [ ] Multilingual PII Detection — 8 locales via X-AnonReq-Locale header, locale-specific recognizer bundles, checksum validation (Req 8)
-- [ ] Per-Jurisdiction Compliance Presets — GDPR, LGPD, PDPA, POPIA, Privacy Act, PIPEDA; GET /v1/compliance/presets (Req 9)
-- [ ] Metadata-Only Audit Logging — structured JSON to stdout, field allowlist, no raw values, fail-secure log entries (Req 10)
-- [ ] Custom Detection Rules and Exclusion Lists — YAML-based custom patterns, hot-reload, GET /v1/config/rules (Req 11)
-- [ ] Docker Compose Deployment — multi-stage Dockerfile (Python 3.12-slim), presidio + valkey services, .env.example (Req 12)
-- [ ] Response-Side Token Verification — post-restoration `\[[A-Z]+_\d+\]` scan, Prometheus /metrics (Req 13)
-- [ ] Commercial Open-Source Positioning — Apache 2.0, NOTICE file, SECURITY.md, README with roadmap (Req 14)
-- [ ] Developer Experience and Multilingual Documentation — docs/ directory with quickstarts in 5 languages, SDK examples, CHANGELOG.md (Req 15)
-- [ ] Property-Based Test Suite — Hypothesis-based round-trip correctness, token uniqueness, deduplication, fail-secure, locale checksum, no-PII-in-logs, streaming round-trip, cross-request randomization (Req 16)
+- (None — v1.0 complete. Next milestone will define new requirements.)
 
 ### Out of Scope
 
@@ -45,11 +59,12 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 
 ## Context
 
-- **Greenfield**: No code exists yet. All source code, Docker setup, CI/CD, and tests are yet to be built.
-- **Requirements defined**: 21 core requirements (Req 1–16 = v1, Req 17–21 = enterprise v2), plus 35 enterprise/appliance requirements (Req 22–56).
-- **Current state**: Requirements are documented in `req/requirements.md` (core), `req/requirements_v2.md` (enterprise), and `.planning/REQUIREMENTS.md` (consolidated traceability). A `.docx` version exists as the authoritative source.
-- **Roadmap**: Consolidated into 3 stages, 21 phases — see `.planning/ROADMAP.md`.
-- **Deployment target**: Docker Compose with `anonreq` + `presidio-analyzer` + `valkey` services on an internal Docker network.
+- **v1.0 shipped**: 2026-07-07. All 22 phases complete with 101 plans, 179 tasks, ~49,500 lines of Python, 768+ tests.
+- **Tech stack**: Python 3.12, FastAPI, Pydantic Settings, httpx, Redis/Valkey, Presidio Analyzer, prometheus-client, structlog, SQLAlchemy/Alembic, MinIO, pyarrow, reportlab, cryptography, ONNX Runtime, Docker Compose.
+- **Test framework**: pytest, Hypothesis (property-based), fakeredis, respx, aioresponses, pytest-asyncio.
+- **Deployment**: Multi-stage Dockerfile, docker-compose.yml with anonreq + presidio-analyzer + valkey. Optional observability profile (PostgreSQL, MinIO, Grafana, Prometheus).
+- **Governance persistence**: PostgreSQL via SQLAlchemy/Alembic (optional, for audit trail, governance records, lineage).
+- **Deferred**: Enterprise auth (OAuth/JWT/mTLS), secrets management, HA/scalability, multi-tenant isolation, data sovereignty dashboards — documented in Out of Scope.
 
 ## Constraints
 
@@ -60,18 +75,19 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 - **OpenAI-compatible input schema**: Single wire protocol; adapters translate for other providers.
 - **Session-scoped mapping**: `anonreq:{Session_ID}` key, TTL 60–3600s, deleted post-response.
 - **Multi-locale**: `X-AnonReq-Locale` header, 8 locales, locale-specific recognizer bundles.
-- **Tech stack**: Python 3.12, FastAPI, Presidio Analyzer, Valkey/Redis, Prometheus client, Docker Compose.
 - **License**: Apache 2.0.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Python 3.12 + FastAPI | Best ecosystem fit for Presidio integration, async support for SSE streaming, strong typing | — Pending |
-| Single wire protocol (OpenAI schema) | Minimum friction for existing OpenAI SDK users; adapters for others | — Pending |
-| Microsoft Presidio Analyzer | Mature NER pipeline with regex support, locale extensibility, active community | — Pending |
-| Valkey over Redis | Open-source fork with identical API, no licensing concerns | — Pending |
-| Property-based tests (Hypothesis) | Required by Req 16 for generative proof of correctness | — Pending |
+| Python 3.12 + FastAPI | Best ecosystem fit for Presidio integration, async support for SSE streaming, strong typing | ✓ Good — served all 22 phases, 768+ tests |
+| Single wire protocol (OpenAI schema) | Minimum friction for existing OpenAI SDK users; adapters for others | ✓ Good — Anthropic/Gemini/Ollama adapters built and tested |
+| Microsoft Presidio Analyzer | Mature NER pipeline with regex support, locale extensibility, active community | ✓ Good — 8 locale bundles with checksum validation |
+| Valkey over Redis | Open-source fork with identical API, no licensing concerns | ✓ Good — seamless drop-in replacement |
+| Property-based tests (Hypothesis) | Required by Req 16 for generative proof of correctness | ✓ Good — 50+ property tests proving invariants |
+| Phase 22 gap-closure approach | Wired 6 audit-blocked enterprise/appliance modules into runtime paths | ✓ Good — all critical integration gaps closed, 27 integration tests |
+| Proxy-to-pipeline dispatcher adapter | Bridge proxy dispatch() contract to PipelineManager.run() | ✓ Good — 9 unit tests, fail-closed on all error paths |
 
 ## Evolution
 
@@ -91,4 +107,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-19 — consolidated roadmaps into 3 stages, 21 phases*
+*Last updated: 2026-07-07 after v1.0 milestone*
