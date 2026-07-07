@@ -51,6 +51,8 @@ dev = [
     "hypothesis>=6.155.0",
     "respx>=0.21.0",
     "fakeredis>=2.0",
+    "ruff>=0.9.0",
+    "mypy>=1.15.0",
 ]
 voice = [
     "openai-whisper>=20231117",
@@ -70,3 +72,24 @@ markers = [
 
 [tool.coverage.run]
 source = ["anonreq"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "ARG", "PT", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = ["fastapi.*", "pydantic.*", "sqlalchemy.*", "cryptography.*", "httpx.*", "structlog.*", "prometheus_client.*", "yaml.*", "jinja2.*", "reportlab.*", "minio.*", "pyarrow.*", "watchdog.*", "onnxruntime.*", "soundfile.*", "presidio_analyzer.*"]
+ignore_missing_imports = true
