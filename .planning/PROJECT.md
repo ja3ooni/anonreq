@@ -6,6 +6,20 @@ AnonReq is a **self-hosted AI security and anonymization gateway for regulated e
 
 v1.0 ships as a comprehensive platform covering core anonymization, enterprise policy enforcement, AI security firewall, DLP, governance/oversight, financial services compliance, universal AI traffic gateway, CASB/RAG protection, SOC/SIEM integration, endpoint visibility, and sovereign AI control. ~49,500 lines of Python across 22 phases, 101 plans, 179 tasks, 768+ tests.
 
+v1.5 shifts focus to enterprise hardening: engineering hygiene (CI/CD, code quality, secure defaults), public Trust Center portal, documentation parity across 8 languages, and enterprise guardrails with commercial licensing.
+
+## Current Milestone: v1.5 Enterprise Hardening & Trust Center
+
+**Goal:** Transform the codebase review feedback (the "MOTE") into production-ready enterprise
+practices — fix foundational engineering gaps, ship the Trust Center, achieve documentation
+parity, and build commercial licensing with enterprise detection capabilities.
+
+**Target features:**
+- Engineering Hygiene — CI/CD test workflow, ruff/mypy enforcement, secure Docker defaults
+- Trust Center — public compliance evidence portal per Vanta baseline
+- Documentation Parity — docs in FR, ES, PT, IT, AR, NL (8 total languages)
+- Enterprise Guardrails — secret detection, continuous compliance monitoring, commercial licensing
+
 ## Core Value
 
 Raw PII never crosses the network boundary. Every other concern is secondary to that guarantee.
@@ -47,19 +61,29 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 
 ### Active
 
-- (None — v1.0 complete. Next milestone will define new requirements.)
+- [ ] **HYG-01**: CI/CD test workflow runs pytest suite on every PR
+- [ ] **HYG-02**: ruff + mypy enforce code quality in CI
+- [ ] **HYG-03**: Docker Compose exposes only gateway port 8080 by default; Grafana auth required
+- [ ] **TRUST-01**: Public `/v1/trust/*` endpoints for SLO, compliance, metrics, security posture
+- [ ] **TRUST-02**: Trust Center config-gated with YAML configuration
+- [ ] **DOCS-01**: Documentation available in FR, ES, PT, IT, AR, NL
+- [ ] **DOCS-02**: Translation manifest tracks review status
+- [ ] **GUARD-01**: Advanced secret detection with custom Presidio recognizers
+- [ ] **GUARD-02**: Continuous compliance monitoring with automated evidence collection
+- [ ] **GUARD-03**: Commercial licensing enforcement with feature gating
 
 ### Out of Scope
 
-- Enterprise Authentication & Auth (Req 17) — OAuth/JWT/mTLS, RBAC, OIDC/SAML — deferred post-Stage 3
-- Secrets Management & Network Security (Req 18) — HashiCorp Vault, AWS/Azure/GCP secret stores, mTLS between internal components — deferred post-Stage 3
-- Multi-Tenant Isolation (Req 19) — tenant namespacing, per-tenant config, tenant provisioning API — deferred post-Stage 3
-- High Availability / Scalability / DR (Req 20) — Valkey Sentinel/Cluster, Kubernetes Helm chart, HA deployment — deferred post-Stage 3
-- Data Sovereignty & Compliance Assurance (Req 21) — geographic routing, detection quality benchmarks, SLO dashboards — deferred post-Stage 3
+- Enterprise Authentication & Auth (Req 17) — OAuth/JWT/mTLS, RBAC, OIDC/SAML — deferred post-v1.5
+- Secrets Management & Network Security (Req 18) — HashiCorp Vault, AWS/Azure/GCP secret stores, mTLS between internal components — deferred post-v1.5
+- Multi-Tenant Isolation (Req 19) — tenant namespacing, per-tenant config, tenant provisioning API — deferred post-v1.5
+- High Availability / Scalability / DR (Req 20) — Valkey Sentinel/Cluster, Kubernetes Helm chart, HA deployment — deferred post-v1.5
+- Data Sovereignty & Compliance Assurance (Req 21) — geographic routing, detection quality benchmarks, SLO dashboards — deferred post-v1.5
 
 ## Context
 
 - **v1.0 shipped**: 2026-07-07. All 22 phases complete with 101 plans, 179 tasks, ~49,500 lines of Python, 768+ tests.
+- **v1.5 started**: 2026-07-07. Enterprise hardening — CI/CD, Trust Center, docs parity, guardrails.
 - **Tech stack**: Python 3.12, FastAPI, Pydantic Settings, httpx, Redis/Valkey, Presidio Analyzer, prometheus-client, structlog, SQLAlchemy/Alembic, MinIO, pyarrow, reportlab, cryptography, ONNX Runtime, Docker Compose.
 - **Test framework**: pytest, Hypothesis (property-based), fakeredis, respx, aioresponses, pytest-asyncio.
 - **Deployment**: Multi-stage Dockerfile, docker-compose.yml with anonreq + presidio-analyzer + valkey. Optional observability profile (PostgreSQL, MinIO, Grafana, Prometheus).
@@ -107,4 +131,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-07 after v1.0 milestone*
+*Last updated: 2026-07-07 after v1.5 milestone start*

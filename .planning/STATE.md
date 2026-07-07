@@ -1,20 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-current_phase: 0
-status: Awaiting next milestone
-stopped_at: Phase 22 added from v1.0 milestone audit. Next step is planning the runtime integration blocker closure phase.
-last_updated: "2026-07-07T11:09:23.307Z"
+milestone: v1.5
+milestone_name: Enterprise Hardening & Trust Center
+status: planning
+last_updated: "2026-07-07T11:22:16.134Z"
 last_activity: 2026-07-07
-last_activity_desc: Milestone v1.0 completed and archived
 progress:
-  total_phases: 23
-  completed_phases: 21
-  total_plans: 106
-  completed_plans: 104
-  percent: 91
-current_phase_name: close-milestone-audit-gaps-runtime-integration-blockers
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -29,10 +25,10 @@ See: .planning/ROADMAP.md (v2 — 3 stages, 22 phases incl. 6.5 checkpoint)
 
 ## Current Position
 
-Phase: Milestone v1.0 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-07 — Milestone v1.0 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-07 — Milestone v1.5 started
 
 ## Performance Metrics
 
