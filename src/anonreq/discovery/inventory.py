@@ -379,8 +379,11 @@ class AssetInventory:
         records = [r.to_dict() for r in self._records.values()]
         return json.dumps(records, indent=indent, default=str)
 
-    def export_csv(self) -> str:
+    async def export_csv(self, filters: InventoryFilter | None = None) -> str:
         """Export inventory as CSV string.
+
+        Args:
+            filters: Optional filter criteria to limit exported records.
 
         Returns:
             CSV string with header.
@@ -388,7 +391,8 @@ class AssetInventory:
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(InventoryRecord.csv_header())
-        for record in self._records.values():
+        records = self.list_records(filters=filters)
+        for record in records:
             writer.writerow(record.to_csv_row())
         return output.getvalue()
 

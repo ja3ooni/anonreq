@@ -36,6 +36,7 @@ from anonreq.services.chain_anchor import ChainAnchorService, AnchorConfig
 from sqlalchemy.ext.asyncio import create_async_engine
 from anonreq.admin.routes import admin_router
 from anonreq.proxy.ca_manager import CAManager
+from anonreq.proxy.pipeline_dispatcher import PipelineContentDispatcher
 from anonreq.proxy.mitm_handler import MITMHandler, mitm_middleware
 from anonreq.proxy.modes import (
     ProxyMode,
@@ -92,6 +93,12 @@ from anonreq.proxy.reverse_proxy import ReverseProxy
 from anonreq.proxy.tls_interceptor import TLSInterceptor as DynamicTLSInterceptor
 from anonreq.proxy.transparent_proxy import TransparentProxy
 from anonreq.firewall.pipeline import FirewallPipeline
+from anonreq.middleware.content_type import ContentTypeMiddleware
+from anonreq.multimodal.dispatcher import ContentTypeDispatcher
+from anonreq.multimodal.json_analyzer import JsonAnalyzer
+from anonreq.multimodal.multipart_analyzer import MultipartAnalyzer
+from anonreq.discovery.admin_router import router as discovery_admin_router
+from anonreq.discovery.inventory import AssetInventory
 
 log = get_logger()
 
@@ -177,6 +184,15 @@ def create_app() -> FastAPI:
         mode=active_mode.value,
         mode_description=proxy_mode_description(active_mode),
         pipeline_stages=get_pipeline_for_mode(active_mode),
+    )
+
+    # Phase 22: ContentTypeDispatcher for multimodal enforcement (created
+    # before middleware registration, accessible to lifespan via closure).
+    _json_analyzer = JsonAnalyzer()
+    _multipart_analyzer = MultipartAnalyzer(json_analyzer=_json_analyzer)
+    _content_type_dispatcher = ContentTypeDispatcher(
+        json_analyzer=_json_analyzer,
+        multipart_analyzer=_multipart_analyzer,
     )
 
     # Create lifespan context manager
@@ -289,6 +305,12 @@ def create_app() -> FastAPI:
                 "Skipping detection/anonymization setup — proxy-only mode",
                 component="lifespan",
             )
+
+        # Phase 22: Discovery inventory service
+        app.state.inventory_service = AssetInventory()
+
+        # Phase 22: ContentTypeDispatcher reference on app state
+        app.state.content_type_dispatcher = _content_type_dispatcher
 
         # Phase 8: Enterprise Policy Engine
         try:
@@ -515,10 +537,25 @@ def create_app() -> FastAPI:
                 error=str(exc),
             )
 
-        # Phase 21: Endpoint visibility deployment topology.
+        # Phase 22: Register SOC normalizer fan-out to sink router
+        if hasattr(app.state, 'soc_normalizer') and hasattr(app.state, 'soc_sink_router'):
+            app.state.soc_normalizer.register_sink_callback(
+                "sink_router",
+                app.state.soc_sink_router.fan_out,
+            )
+            log.info(
+                "SOC normalizer fan-out registered to sink router",
+                component="lifespan",
+            )
+
+        # Phase 21/22: Endpoint visibility deployment topology with PipelineContentDispatcher.
         try:
-            dispatcher = app.state.pipeline
-            if dispatcher is None:
+            if app.state.pipeline is not None:
+                dispatcher = PipelineContentDispatcher(
+                    app.state.pipeline,
+                    app_state=app.state,
+                )
+            else:
                 dispatcher = lambda request: b""
             app.state.deployment_proxy = create_deployment_proxy(
                 app.state.deployment_config,
@@ -605,6 +642,13 @@ def create_app() -> FastAPI:
     # ClassificationResponseMiddleware — conditionally returns classification result headers
     app.add_middleware(ClassificationResponseMiddleware)
 
+    # Phase 22: Content-Type enforcement middleware — rejects unsupported
+    # content types before any route processing.
+    app.add_middleware(
+        ContentTypeMiddleware,
+        dispatcher=_content_type_dispatcher,
+    )
+
     # Add /metrics endpoint for Prometheus scraping (no auth — scrapers
     # connect on internal networks; secured at network level)
     @app.get("/metrics")
@@ -639,6 +683,9 @@ def create_app() -> FastAPI:
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
+
+    # Phase 22: Discovery inventory admin routes
+    app.include_router(discovery_admin_router, dependencies=[Depends(auth_context)])
 
     # PAC file endpoint — public (no auth, used by browsers/proxies)
     app.include_router(pac_router)

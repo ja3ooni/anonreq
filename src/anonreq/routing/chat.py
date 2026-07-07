@@ -42,6 +42,7 @@ from anonreq.providers.registry import ProviderNotFoundError, ProviderRegistry
 from anonreq.pipeline.classification import ClassificationStage
 from anonreq.pipeline.cleanup import CleanupStage
 from anonreq.pipeline.detection import DetectionStage
+from anonreq.pipeline.dlp import InboundDLPStage, OutboundDLPStage
 from anonreq.pipeline.extraction import TextExtractor
 from anonreq.pipeline.forwarding_guard import ForwardingGuard
 from anonreq.pipeline.manager import PipelineManager
@@ -53,6 +54,7 @@ from anonreq.pipeline.stages import (
     PolicyEnforcementStage,
 )
 from anonreq.pipeline.tokenization import TokenizationStage
+from anonreq.pipeline.tool_governance import ToolGovernanceStage
 from anonreq.routing.alias_registry import AliasNotFoundError, AliasRegistry
 from anonreq.streaming.cleanup import SessionCleanup
 from anonreq.streaming.emitter import SSEEmitter
@@ -117,6 +119,8 @@ def build_pre_provider_pipeline(
         ),
         SensitivityClassificationStage(),
         PolicyEnforcementStage(app_state=app_state),
+        InboundDLPStage(app_state=app_state),
+        ToolGovernanceStage(app_state=app_state),
         TokenizationStage(
             tokenizer=Tokenizer(),
             cache_manager=cache_manager,
@@ -161,6 +165,7 @@ def build_pipeline(
             timeout=provider_timeout,
             alias_registry=alias_registry,
         ),
+        OutboundDLPStage(app_state=app_state),
         RestorationStage(),
         CleanupStage(cache_manager=cache_manager),
     ]

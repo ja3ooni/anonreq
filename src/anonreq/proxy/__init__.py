@@ -1,4 +1,5 @@
 from anonreq.proxy.detection import AITrafficDetector, CertPinningDetector
+from anonreq.proxy.pipeline_dispatcher import PipelineContentDispatcher
 from anonreq.proxy.reverse_proxy import ReverseProxy
 from anonreq.proxy.tls_interceptor import TLSInterceptor, generate_dynamic_cert
 from anonreq.proxy.transparent_proxy import TransparentProxy
@@ -11,6 +12,7 @@ __all__ = [
     "generate_dynamic_cert",
     "AITrafficDetector",
     "CertPinningDetector",
+    "PipelineContentDispatcher",
     "TransparentProxy",
     "ReverseProxy",
     "create_tls_context",

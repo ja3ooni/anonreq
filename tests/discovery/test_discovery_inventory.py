@@ -200,13 +200,13 @@ class TestAssetInventory:
         assert "api.openai.com" in json_str
         assert "openai" in json_str
 
-    def test_export_csv(self):
+    async def test_export_csv(self):
         """Export inventory as CSV."""
         self.inventory.add_record(InventoryRecord(
             service_name="api.openai.com", provider="openai",
             user_count=5, last_seen=self.now,
         ))
-        csv_str = self.inventory.export_csv()
+        csv_str = await self.inventory.export_csv()
         assert "api.openai.com" in csv_str
         assert "openai" in csv_str
         assert "5" in csv_str
