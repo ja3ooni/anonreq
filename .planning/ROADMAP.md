@@ -3,6 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-22 (shipped 2026-07-07)
+- 🚧 **v1.5 Enterprise Hardening & Trust Center** — Phases 23-26 (in progress)
 
 ## Phases
 
@@ -35,6 +36,60 @@
 
 </details>
 
+### v1.5 (Enterprise Hardening & Trust Center)
+
+- [ ] **Phase 23: Engineering Hygiene** - CI/CD, code quality enforcement, secure Docker defaults
+- [ ] **Phase 24: Trust Center** - Public compliance evidence portal
+- [ ] **Phase 25: Documentation Parity** - Multi-language documentation (8 languages)
+- [ ] **Phase 26: Enterprise Guardrails** - Secret detection, compliance monitoring, commercial licensing
+
+## Phase Details
+
+### Phase 23: Engineering Hygiene
+**Goal**: Development workflow enforces code quality and secure defaults automatically on every change
+**Depends on**: Nothing (foundation phase)
+**Requirements**: HYG-01, HYG-02, HYG-03
+**Success Criteria** (what must be TRUE):
+  1. Every push/PR to main triggers GitHub Actions running the full pytest suite and reporting pass/fail
+  2. Ruff and mypy violations cause CI failure (staged rollout with pre-existing violations baseline)
+  3. Docker Compose exposes only gateway port 8080 by default; Grafana anonymous auth is disabled
+  4. Developers can run the same lint/type-check commands locally via `uv run` with identical configuration
+**Plans**: TBD
+
+### Phase 24: Trust Center
+**Goal**: Enterprises can publicly demonstrate security posture, compliance, and operational health
+**Depends on**: Phase 23
+**Requirements**: TRUST-01, TRUST-02
+**Success Criteria** (what must be TRUE):
+  1. Public `/v1/trust/status`, `/v1/trust/compliance`, `/v1/trust/metrics`, `/v1/trust/security` endpoints return aggregate metadata without authentication
+  2. Trust Center can be enabled/disabled via YAML configuration toggle (returns 404 when disabled)
+  3. Trust Center endpoints are rate-limited (60 RPM) and return no PII, tenant-level data, or raw metrics
+  4. SLO and compliance data is publicly accessible as aggregate metadata for enterprise evaluations
+**Plans**: TBD
+
+### Phase 25: Documentation Parity
+**Goal**: Global enterprises can evaluate and deploy AnonReq in their preferred language
+**Depends on**: Phase 23
+**Requirements**: DOCS-01, DOCS-02
+**Success Criteria** (what must be TRUE):
+  1. Documentation available in FR, ES, PT, IT, AR, NL (8 total languages including existing EN/DE)
+  2. Translation manifest (`docs/TRANSLATION_MANIFEST.md`) tracks every source→target mapping with per-file review status
+  3. Glossary of technical terms maintained with translations across all 8 languages
+  4. Arabic documentation includes RTL rendering guidance note
+**Plans**: TBD
+
+### Phase 26: Enterprise Guardrails
+**Goal**: Enterprise-grade secret detection, compliance automation, and commercial licensing are operational
+**Depends on**: Phase 23, Phase 24
+**Requirements**: GUARD-01, GUARD-02, GUARD-03
+**Success Criteria** (what must be TRUE):
+  1. Custom Presidio recognizers detect API keys, AWS tokens, GitHub tokens, and internal hostnames through the existing RegexDetector pipeline (not Presidio sidecar)
+  2. Continuous compliance monitoring endpoint collects and serves automated evidence snapshots from SLO engine and governance records
+  3. Commercial licensing enforces HMAC-SHA256 validation with router-level feature gating for Appliance-tier capabilities
+  4. License validation works entirely offline (no phone-home) with in-memory caching for application lifetime
+  5. Router-level `require_license("feature")` dependency prevents access to gated endpoints without a valid license key
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -62,6 +117,10 @@
 | 20. AI SOC/SIEM Integration | v1.0 | 6/6 | Complete | 2026-07-05 |
 | 21. Endpoint Visibility & Sovereign Control | v1.0 | 7/7 | Complete | 2026-07-06 |
 | 22. Close Milestone Audit Gaps | v1.0 | 4/4 | Complete | 2026-07-07 |
+| 23. Engineering Hygiene | v1.5 | 0/0 | Not started | - |
+| 24. Trust Center | v1.5 | 0/0 | Not started | - |
+| 25. Documentation Parity | v1.5 | 0/0 | Not started | - |
+| 26. Enterprise Guardrails | v1.5 | 0/0 | Not started | - |
 
 ## Summary
 
@@ -70,6 +129,7 @@
 | 1. Prove the Problem | 7 (1–7) | 26/26 | Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44/44 | Complete |
 | 3. Build the Moat | 6 (17–22) | 31/31 | Complete |
-| **Total** | **22** | **101/101** | **Complete** |
+| 4. Enterprise Hardening | 4 (23–26) | 0/0 | In progress |
+| **Total** | **26** | **101/101** | **In progress** |
 
 *Archived from consolidated roadmaps. See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.*
