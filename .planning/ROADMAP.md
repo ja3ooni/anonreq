@@ -40,7 +40,7 @@
 
 - [x] **Phase 23: Engineering Hygiene** - CI/CD, code quality enforcement, secure Docker defaults (completed 2026-07-08)
 - [x] **Phase 24: Trust Center** - Public compliance evidence portal (completed 2026-07-08)
-- [ ] **Phase 25: Documentation Parity** - Multi-language documentation (8 languages)
+- [x] **Phase 25: Documentation Parity** - Multi-language documentation (8 languages) (completed 2026-07-08)
 - [ ] **Phase 26: Enterprise Guardrails** - Secret detection, compliance monitoring, commercial licensing
 
 ## Phase Details
@@ -97,8 +97,8 @@
 **Plans**: 2 plans
 **Plan list:**
 
-- [ ] 25-01-PLAN.md — Translation infrastructure (glossary, manifest, English source docs, language directories)
-- [ ] 25-02-PLAN.md — Translation content (translate 9 docs to 6 languages, update manifest, validate links)
+- [x] 25-01-PLAN.md — Translation infrastructure (glossary, manifest, English source docs, language directories)
+- [x] 25-02-PLAN.md — Translation content (translate 9 docs to 6 languages, update manifest, validate links)
 
 ### Phase 26: Enterprise Guardrails
 
@@ -149,7 +149,7 @@
 | 22. Close Milestone Audit Gaps | v1.0 | 4/4 | Complete | 2026-07-07 |
 | 23. Engineering Hygiene | v1.5 | 3/3 | Complete    | 2026-07-08 |
 | 24. Trust Center | v1.5 | 2/2 | Complete    | 2026-07-08 |
-| 25. Documentation Parity | v1.5 | 0/0 | Not started | - |
+| 25. Documentation Parity | v1.5 | 2/2 | Complete    | 2026-07-08 |
 | 26. Enterprise Guardrails | v1.5 | 0/3 | Planning | - |
 
 ## Summary

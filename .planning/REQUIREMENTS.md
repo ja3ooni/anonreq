@@ -18,8 +18,8 @@
 
 ### Documentation Parity
 
-- [ ] **DOCS-01**: Documentation translated into FR, ES, PT, IT, AR, NL (8 total languages including existing EN/DE)
-- [ ] **DOCS-02**: Translation manifest tracks source→target mapping and review status
+- [x] **DOCS-01**: Documentation translated into FR, ES, PT, IT, AR, NL (8 total languages including existing EN/DE)
+- [x] **DOCS-02**: Translation manifest tracks source→target mapping and review status
 
 ### Enterprise Guardrails
 
@@ -54,8 +54,8 @@
 | HYG-03 | Phase 23 | Complete |
 | TRUST-01 | Phase 24 | Complete |
 | TRUST-02 | Phase 24 | Complete |
-| DOCS-01 | Phase 25 | Pending |
-| DOCS-02 | Phase 25 | Pending |
+| DOCS-01 | Phase 25 | Complete |
+| DOCS-02 | Phase 25 | Complete |
 | GUARD-01 | Phase 26 | Pending |
 | GUARD-02 | Phase 26 | Pending |
 | GUARD-03 | Phase 26 | Pending |
