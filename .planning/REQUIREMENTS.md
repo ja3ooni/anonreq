@@ -7,14 +7,14 @@
 
 ### Engineering Hygiene
 
-- [ ] **HYG-01**: CI/CD test workflow runs the full pytest suite on every push/PR to main
-- [ ] **HYG-02**: ruff and mypy enforce code quality in CI with staged rollout
-- [ ] **HYG-03**: Docker Compose exposes only the gateway port (8080) by default; Grafana anonymous auth disabled
+- [x] **HYG-01**: CI/CD test workflow runs the full pytest suite on every push/PR to main
+- [x] **HYG-02**: ruff and mypy enforce code quality in CI with staged rollout
+- [x] **HYG-03**: Docker Compose exposes only the gateway port (8080) by default; Grafana anonymous auth disabled
 
 ### Trust Center
 
-- [ ] **TRUST-01**: Public `/v1/trust/status`, `/v1/trust/compliance`, `/v1/trust/metrics`, `/v1/trust/security` endpoints
-- [ ] **TRUST-02**: Trust Center is config-gated (YAML toggle), rate-limited, returns aggregate metadata only
+- [x] **TRUST-01**: Public `/v1/trust/status`, `/v1/trust/compliance`, `/v1/trust/metrics`, `/v1/trust/security` endpoints
+- [x] **TRUST-02**: Trust Center is config-gated (YAML toggle), rate-limited, returns aggregate metadata only
 
 ### Documentation Parity
 
@@ -49,11 +49,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HYG-01 | Phase 23 | Pending |
-| HYG-02 | Phase 23 | Pending |
-| HYG-03 | Phase 23 | Pending |
-| TRUST-01 | Phase 24 | Pending |
-| TRUST-02 | Phase 24 | Pending |
+| HYG-01 | Phase 23 | Complete |
+| HYG-02 | Phase 23 | Complete |
+| HYG-03 | Phase 23 | Complete |
+| TRUST-01 | Phase 24 | Complete |
+| TRUST-02 | Phase 24 | Complete |
 | DOCS-01 | Phase 25 | Pending |
 | DOCS-02 | Phase 25 | Pending |
 | GUARD-01 | Phase 26 | Pending |
@@ -61,6 +61,7 @@
 | GUARD-03 | Phase 26 | Pending |
 
 **Coverage:**
+
 - v1.5 requirements: 10 total
 - Mapped to phases: 10
 - Unmapped: 0 ✓
