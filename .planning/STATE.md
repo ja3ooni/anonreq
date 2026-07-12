@@ -4,16 +4,16 @@ milestone: v1.5
 milestone_name: Tech Debt Cleanup
 current_phase: 27
 current_phase_name: v1.5 Tech Debt Cleanup
-status: executing
-last_updated: "2026-07-12T11:03:21.586Z"
+status: complete
+last_updated: "2026-07-12T13:07:00.000Z"
 last_activity: 2026-07-12
-last_activity_desc: Phase 27 context gathered, resume at .planning/phases/27-v1-5-tech-debt-cleanup/27-CONTEXT.md
+last_activity_desc: Phase 27 complete (v1.5 Tech Debt Cleanup)
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 80
+  completed_phases: 5
+  total_plans: 11
+  completed_plans: 11
+  percent: 100
 ---
 
 # Project State
@@ -24,14 +24,14 @@ See: .planning/PROJECT.md (updated 2026-07-07 for v1.5)
 See: .planning/ROADMAP.md (v1.0 complete — Phases 1-22; v1.5 planned — Phases 23-26)
 
 **Core value:** Raw PII never crosses the network boundary.
-**Current focus:** Phase 23 — engineering-hygiene
+**Current focus:** Phase 27 — v1.5 Tech Debt Cleanup
 
 ## Current Position
 
 Phase: 27 — v1.5 Tech Debt Cleanup
-Plan: — (context gathered, not yet planned)
-Status: Ready to execute
-Last activity: 2026-07-12 — Phase 27 context gathered, resume at .planning/phases/27-v1-5-tech-debt-cleanup/27-CONTEXT.md
+Plan: 01 (complete)
+Status: Complete
+Last activity: 2026-07-12 — Phase 27 completed; all technical debt cleaned up.
 
 ## Performance Metrics
 
@@ -42,14 +42,15 @@ Last activity: 2026-07-12 — Phase 27 context gathered, resume at .planning/pha
 - **Tests:** 768+ (unit, integration, property-based, security)
 - **Lines of Python:** ~49,500
 
-### v1.5 (In Progress)
+### v1.5 (Complete)
 
 | Phase | Plans | Total | Status |
 |-------|-------|-------|--------|
-| 23. Engineering Hygiene | 0 | 0 | Not started |
-| 24. Trust Center | 0 | 0 | Not started |
-| 25. Documentation Parity | 0 | 0 | Not started |
-| 26. Enterprise Guardrails | 0 | 0 | Not started |
+| 23. Engineering Hygiene | 3 | 3 | Complete |
+| 24. Trust Center | 2 | 2 | Complete |
+| 25. Documentation Parity | 2 | 2 | Complete |
+| 26. Enterprise Guardrails | 3 | 3 | Complete |
+| 27. v1.5 Tech Debt Cleanup | 1 | 1 | Complete |
 
 ## Dependency Map
 
@@ -58,6 +59,7 @@ Phase 23: Engineering Hygiene (foundation — no deps)
   ├──→ Phase 24: Trust Center (depends on Phase 23)
   ├──→ Phase 25: Documentation Parity (depends on Phase 23)
   └──→ Phase 26: Enterprise Guardrails (depends on Phase 23 + Phase 24)
+        └──→ Phase 27: v1.5 Tech Debt Cleanup (depends on Phase 26)
 ```
 
 ## Accumulated Context
@@ -88,13 +90,13 @@ Phase 23: Engineering Hygiene (foundation — no deps)
 | Phase 24 and 25 parallelizable | Trust Center (code) and Docs (content) have no shared dependencies |
 | Phase 26 last | Depends on license module (Phase 24) for feature gating |
 | Zero new pip packages | All features build on existing stack + Python stdlib (hmac, hashlib, re) |
+| Delete non-functional test files (D-01/D-02) | Restores CI collection cleanliness without cluttering workspace |
+| Default-enable Trust Center config (D-04/D-05) | Exposing Trust Center public endpoints by default aligns with its no-auth design |
+| Correct hygiene summary doc (D-07) | Reflects the global ruff rules and mypy override model in project reality |
 
 ### Pending Todos
 
-- [ ] Plan & execute Phase 23 — Engineering Hygiene
-- [ ] Plan & execute Phase 24 — Trust Center
-- [ ] Plan & execute Phase 25 — Documentation Parity
-- [ ] Plan & execute Phase 26 — Enterprise Guardrails
+- None currently
 
 ### Blockers
 
@@ -109,10 +111,11 @@ Phase 23: Engineering Hygiene (foundation — no deps)
 - **2026-07-12:** All outstanding Phase 26 work (and Phase 24/25 remainder) committed and pushed to origin/main
 - **2026-07-12:** Milestone v1.5 audit run — tech_debt status, see `.planning/v1.5-MILESTONE-AUDIT.md`
 - **2026-07-12:** Phase 27 (v1.5 Tech Debt Cleanup) inserted to close audit gaps; context gathered
-- **Next step:** /gsd-plan-phase 27, then /gsd-execute-phase 27; after that, /gsd-complete-milestone to finish archiving v1.5
+- **2026-07-12:** Phase 27 executed and completed successfully; all technical debt cleaned up
+- **Next step:** Run /gsd-complete-milestone to properly archive v1.5
 
 ## Operator Next Steps
 
-- Plan and execute Phase 27 (HYG-01 broken test deletion, Trust Center default flip, HYG-02 doc correction)
-- After Phase 27 ships, run /gsd-complete-milestone to properly archive v1.5 (collapse ROADMAP.md, delete REQUIREMENTS.md, update PROJECT.md, tag v1.5) — this was never fully completed despite STATE.md previously claiming so
+- Run /gsd-complete-milestone to properly archive v1.5 (collapse ROADMAP.md, delete REQUIREMENTS.md, update PROJECT.md, tag v1.5)
 - Then start the next milestone with /gsd-new-milestone
+
