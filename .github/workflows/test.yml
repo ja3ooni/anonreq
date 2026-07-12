@@ -1,0 +1,57 @@
+name: Test & Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Python 3.12
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Lint with ruff
+        run: uv run ruff check src/ tests/
+
+      - name: Type check with mypy
+        run: uv run mypy src/
+
+      - name: Test with pytest
+        run: uv run pytest tests/ -x -v --ignore=tests/load -m "not load" --junitxml=junit.xml
+
+      - name: Coverage report
+        run: uv run pytest tests/ --cov=anonreq --cov-report=term-missing --cov-report=xml --ignore=tests/load -m "not load"
+
+      - name: Upload coverage to CI summary
+        if: always()
+        run: |
+          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          uv run python -c "
+          import xml.etree.ElementTree as ET
+          try:
+              tree = ET.parse('coverage.xml')
+              root = tree.getroot()
+              line_rate = float(root.attrib['line-rate']) * 100
+              print(f'Line coverage: {line_rate:.1f}%')
+              if line_rate < 70:
+                  print(f'⚠ Warning: Coverage {line_rate:.1f}% is below 70% threshold')
+              if line_rate < 60:
+                  print(f'❌ Error: Coverage {line_rate:.1f}% is below 60% hard minimum')
+                  exit(1)
+          except Exception as e:
+              print(f'Error reading coverage.xml: {e}')
+              exit(1)
+          " >> $GITHUB_STEP_SUMMARY
