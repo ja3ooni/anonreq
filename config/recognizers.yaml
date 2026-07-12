@@ -1,0 +1,27 @@
+# Enterprise Recognizer Configuration (Phase 26, GUARD-01, D-01, D-02)
+# Custom Presidio-compatible recognizers for secret detection.
+# Each recognizer can be individually enabled/disabled.
+# Hot-reload via existing watchdog pattern.
+enterprise_recognizers:
+  api_key:
+    enabled: true
+    confidence: 0.85
+    pattern: '\b(sk-[a-zA-Z0-9]{20,}|pk-[a-zA-Z0-9]{20,}|sk-proj-[a-zA-Z0-9]{20,})\b'
+  aws_access_key:
+    enabled: true
+    confidence: 0.90
+    pattern: '\b(AKIA[0-9A-Z]{16})\b'
+  github_token:
+    enabled: true
+    confidence: 0.90
+    pattern: '\b(ghp_[a-zA-Z0-9]{36}|ghs_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|ghu_[a-zA-Z0-9]{36}|ghr_[a-zA-Z0-9]{36}|ghb_[a-zA-Z0-9]{36})\b'
+  internal_hostname:
+    enabled: true
+    confidence: 0.80
+    pattern: null  # built dynamically from internal_domains list
+    internal_domains:
+      - "internal"
+      - "corp"
+      - "local"
+      - "company.com"
+      - "example.com"
