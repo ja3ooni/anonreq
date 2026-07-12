@@ -1,0 +1,31 @@
+# AnonReq Technical Glossary
+
+This glossary defines technical terms used throughout the AnonReq documentation. It is the canonical reference to ensure translation consistency across all 8 supported languages.
+
+Note: Code-level variables, API endpoints, JSON/YAML keys, command-line snippets, and proper nouns (like `Presidio`, `AnonReq`) remain in English in all languages.
+
+| Term (English) | DE | FR | ES | PT | IT | AR | NL | Notes |
+|---|---|---|---|---|---|---|---|---|
+| AnonReq | AnonReq | AnonReq | AnonReq | AnonReq | AnonReq | AnonReq | AnonReq | Proper noun (gateway name) |
+| fail-secure / fail-closed | ausfallsicher / fail-closed | fail-secure / fail-closed | fail-secure / fail-closed | fail-secure / fail-closed | fail-secure / fail-closed | الفشل الآمن | fail-secure / fail-closed | Core security principle |
+| tokenization / de-tokenization | Tokenisierung / De-Tokenisierung | tokenisation / dé-tokenisation | tokenización / des-tokenización | tokenização / de-tokenização | tokenizzazione / de-tokenizzazione | الترميز / إلغاء الترميز | tokenisatie / de-tokenisatie | Process of replacing PII with tokens and restoring |
+| Presidio | Presidio | Presidio | Presidio | Presidio | Presidio | Presidio | Presidio | Proper noun (Microsoft PII detection library) |
+| PII (Personally Identifiable Information) | PII (personenbezogene Daten) | PII (informations personnelles identifiables) | PII (información de identificación personal) | PII (informações de identificação pessoal) | PII (informazioni personali identificabili) | معلومات الهوية الشخصية (PII) | PII (persoonlijk identificeerbare informatie) | Sensitive personal data |
+| PHI (Protected Health Information) | PHI (geschützte Gesundheitsdaten) | PHI (informations de santé protégées) | PHI (información de salud protegida) | PHI (informações de saúde protegidas) | PHI (informazioni sanitarie protette) | معلومات صحية محمية (PHI) | PHI (beschermde gezondheidsinformatie) | Sensitive health data |
+| PCI (Payment Card Industry) | PCI (Kreditkartendaten) | PCI (secteur des cartes de paiement) | PCI (sector de tarjetas de pago) | PCI (indústria de cartões de pagamento) | PCI (settore delle carte di pagamento) | صناعة بطاقات الدفع (PCI) | PCI (betalingskaartindustrie) | Payment card security standards |
+| anonymization pipeline | Anonymisierungs-Pipeline | pipeline d'anonymisation | canal de anonymización | pipeline de tokenização | pipeline di anonimizzazione | مسار التطهير | anonymiseringspijplijn | The processing stages for request data |
+| detection engine | Erkennungs-Engine | moteur de détection | motor de detección | motor de detecção | motore di rilevamento | محرك الكشف | detectie-engine | Subsystem that finds sensitive entities |
+| classification engine | Klassifizierungs-Engine | moteur de classification | motor de clasificación | motor de classificação | motore di classificazione | محرك التصنيف | classificatie-engine | Subsystem evaluating request classification levels |
+| entity / entity type | Entität / Entitätstyp | entité / type d'entité | entidad / tipo de entidad | entidade / tipo de entidade | entità / tipo di entità | كيان / نوع الكيان | entiteit / entiteitstype | A piece of sensitive data (e.g. Email) |
+| recognizer | Erkennungsprogramm | analyseur / recognizer | reconocedor | reconhecedor | rilevatore / recognizer | معرّف الكشف | recognizer | Custom regex or Presidio recognizer pattern |
+| locale / locale bundle | Lokale / Lokale-Paket | locale / pack de locales | configuración regional | configuração regional | locale / pacchetto locale | إعداد إقليمي | locale / locale-bundel | Regional settings and recognizers |
+| compliance preset | Compliance-Preset | preset de conformité | preset de cumplimiento | preset de conformidade | preset di conformità | إعداد مسبق للامتثال | compliance preset | Predefined rules for specific regulations |
+| SSE streaming / Server-Sent Events | SSE-Streaming / Server-Sent Events | diffusion SSE / Server-Sent Events | transmisión SSE / Server-Sent Events | streaming SSE / Server-Sent Events | streaming SSE / Server-Sent Events | بث SSE | SSE-streaming / Server-Sent Events | Streaming response chunk delivery |
+| provider adapter | Provider-Adapter | adaptateur de fournisseur | adaptador de proveedor | adaptador de provedor | adattatore del provider | مهايئ موفر الخدمة | provider-adapter | Translation layer for LLM providers |
+| governance / AI governance | Governance / KI-Governance | gouvernance / gouvernance de l'IA | gobernanza / gobernanza de IA | governança / governança de IA | governance / governance dell'IA | الحوكمة / حوكمة الذكاء الاصطناعي | governance / AI-governance | System monitoring and oversight policy rules |
+| RBAC (Role-Based Access Control) | RBAC (rollenbasierte Zugriffskontrolle) | RBAC (contrôle d'accès basé sur les rôles) | RBAC (control de acceso basado en roles) | RBAC (controle de acesso baseado em funções) | RBAC (controllo dell'accesso basato sui ruoli) | التحكم في الوصول القائم على الأدوار (RBAC) | RBAC (rolgebaseerde toegangscontrole) | Access control based on user roles |
+| DLP (Data Loss Prevention) | DLP (Datenverlust-Prävention) | DLP (prévention des pertes de données) | DLP (prevención de pérdida de datos) | DLP (prevenção de perda de dados) | DLP (prevenzione della perdita di dati) | منع فقدان البيانات (DLP) | DLP (preventie van gegevensverlies) | Safeguards protecting outbound data exfiltration |
+| SOC / SIEM | SOC / SIEM | SOC / SIEM | SOC / SIEM | SOC / SIEM | SOC / SIEM | SOC / SIEM | SOC / SIEM | Security Operations Center integration |
+| SLO (Service Level Objective) | SLO (Service-Level-Ziel) | SLO (objectif de niveau de service) | SLO (objetivo de nivel de servicio) | SLO (objetivo de nível de serviço) | SLO (obiettivo del livello di servizio) | هدف مستوى الخدمة (SLO) | SLO (service-level-doel) | Metrics measuring operational standards |
+| tenant / multi-tenant | Mandant / mandantenfähig | tenant / multi-tenant | inquilino / multi-inquilino | inquilino / multi-inquilino | tenant / multi-tenant | مستأجر / متعدد المستأجرين | tenant / multi-tenant | Client isolation boundary |
+| session scope | Sitzungsbereich | portée de la session | alcance de la sesión | escopo da sessão | ambito della sessione | نطاق الجلسة | sessiebereik | Ephemeral mapping context lifecycle |
