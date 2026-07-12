@@ -291,12 +291,10 @@ No new threat surface is introduced by this phase; it either removes dead code p
 
 **If this table is empty:** N/A — one low-risk assumption logged above; it does not affect any of the three locked decisions or their planning.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the corrected `23-01-SUMMARY.md` wording go in the existing "Accomplishments" bullets, or a new subsection?**
-   - What we know: D-07 only requires the text to become accurate; Claude's Discretion covers exact phrasing.
-   - What's unclear: Whether the planner prefers editing the top-line summary sentence (line 40) vs. adding to "Accomplishments" (lines 50-53) vs. both.
-   - Recommendation: Planner should treat this as a single small-diff task — edit the summary line and/or add one Accomplishments bullet describing the actual mypy override mechanism (see verbatim `pyproject.toml` facts in Item 3 above) — either location satisfies D-07's intent.
+   - RESOLVED: Add it directly as a bullet under the "Accomplishments" section in `23-01-SUMMARY.md`. This satisfies D-07 cleanly with minimal prose impact.
 
 ## Metadata
 
@@ -307,3 +305,4 @@ No new threat surface is introduced by this phase; it either removes dead code p
 
 **Research date:** 2026-07-12
 **Valid until:** Effectively indefinite for this phase's scope (file deletions/config flip/doc edit do not go stale) — but should be re-verified if any of the three target files change again before this phase executes.
+
