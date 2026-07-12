@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Enterprise Hardening & Trust Center
-status: Awaiting next milestone
-last_updated: "2026-07-12T06:53:50.883Z"
-last_activity: 2026-07-09 — Milestone v1.5 completed and archived
+status: In progress
+last_updated: "2026-07-12T10:48:40.894Z"
+last_activity: 2026-07-12 — Phase 27 context gathered
 progress:
   total_phases: 5
   completed_phases: 4
@@ -25,10 +25,10 @@ See: .planning/ROADMAP.md (v1.0 complete — Phases 1-22; v1.5 planned — Phase
 
 ## Current Position
 
-Phase: Milestone v1.5 complete
-Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-09 — Milestone v1.5 completed and archived
+Phase: 27 — v1.5 Tech Debt Cleanup
+Plan: — (context gathered, not yet planned)
+Status: In progress
+Last activity: 2026-07-12 — Phase 27 context gathered, resume at .planning/phases/27-v1-5-tech-debt-cleanup/27-CONTEXT.md
 
 ## Performance Metrics
 
@@ -103,9 +103,13 @@ Phase 23: Engineering Hygiene (foundation — no deps)
 - **2026-07-07:** v1.5 milestone started
 - **2026-07-07:** v1.5 roadmap created — Phases 23-26 defined
 - **2026-07-12:** Milestone v1.5 summary generated — see `.planning/reports/MILESTONE_SUMMARY-v1.5.md`
-- **Next step:** Commit outstanding Phase 26 work, then start next milestone with /gsd-new-milestone
+- **2026-07-12:** All outstanding Phase 26 work (and Phase 24/25 remainder) committed and pushed to origin/main
+- **2026-07-12:** Milestone v1.5 audit run — tech_debt status, see `.planning/v1.5-MILESTONE-AUDIT.md`
+- **2026-07-12:** Phase 27 (v1.5 Tech Debt Cleanup) inserted to close audit gaps; context gathered
+- **Next step:** /gsd-plan-phase 27, then /gsd-execute-phase 27; after that, /gsd-complete-milestone to finish archiving v1.5
 
 ## Operator Next Steps
 
-- **Commit outstanding work first:** 484 modified files and 29 untracked paths are uncommitted, including all of Phase 26 (`src/anonreq/license/`, `src/anonreq/trust_center/`, enterprise recognizers, all 6 translated-doc language directories, `.github/workflows/test.yml`). `git log` HEAD stops at "Complete Phase 25" — Phase 26 has no commits. See the Tech Debt section of `.planning/reports/MILESTONE_SUMMARY-v1.5.md` for details.
-- Start the next milestone with /gsd-new-milestone
+- Plan and execute Phase 27 (HYG-01 broken test deletion, Trust Center default flip, HYG-02 doc correction)
+- After Phase 27 ships, run /gsd-complete-milestone to properly archive v1.5 (collapse ROADMAP.md, delete REQUIREMENTS.md, update PROJECT.md, tag v1.5) — this was never fully completed despite STATE.md previously claiming so
+- Then start the next milestone with /gsd-new-milestone
