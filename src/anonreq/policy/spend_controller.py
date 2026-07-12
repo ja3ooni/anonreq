@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 from anonreq.cache.manager import CacheManager
@@ -19,13 +19,13 @@ class SpendController:
         return f"anonreq:spend:{tenant_id}:monthly"
 
     def _daily_ttl(self) -> int:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0)
         tomorrow = tomorrow.replace(day=tomorrow.day + 1)
         return int((tomorrow - now).total_seconds())
 
     def _monthly_ttl(self) -> int:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if now.month == 12:
             next_month = now.replace(year=now.year + 1, month=1, day=1)
         else:
@@ -35,7 +35,7 @@ class SpendController:
 
     async def check_spend(self, tenant_id: str) -> PolicyDecision:
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             budget = self._budgets.get(tenant_id)
             if budget is None or not budget.enabled:
                 return PolicyDecision(
@@ -66,7 +66,7 @@ class SpendController:
                 monthly_spend = Decimal(str(monthly_raw))
                 if monthly_spend >= budget.monthly_usd:
                     reasons.append(
-                        f"Monthly spend limit exceeded: ${monthly_spend:.2f}/${budget.monthly_usd:.2f}"
+                        f"Monthly spend limit exceeded: ${monthly_spend:.2f}/${budget.monthly_usd:.2f}"  # noqa: E501
                     )
 
             if reasons:
@@ -85,7 +85,7 @@ class SpendController:
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["spend_limit_error"],
-                decision_ts=datetime.now(timezone.utc),
+                decision_ts=datetime.now(UTC),
                 reason="Spend check failed: cache unavailable",
                 enforcement="503",
             )
@@ -109,7 +109,7 @@ class SpendController:
             pass
 
     async def get_usage(self, tenant_id: str) -> UsageRecord:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         try:
             daily_key = self._daily_key(tenant_id)
             monthly_key = self._monthly_key(tenant_id)

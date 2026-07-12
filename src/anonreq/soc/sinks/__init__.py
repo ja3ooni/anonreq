@@ -8,13 +8,13 @@ Provides:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field  # noqa: F401
 from datetime import datetime
-from enum import Enum
+from enum import Enum, StrEnum  # noqa: F401
 from typing import Any, Protocol, runtime_checkable
 
 
-class SinkHealth(str, Enum):
+class SinkHealth(StrEnum):
     """Sink health state."""
     HEALTHY = "healthy"
     DEGRADED = "degraded"

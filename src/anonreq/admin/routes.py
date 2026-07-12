@@ -95,7 +95,7 @@ async def update_rules(payload: RulesConfigPayload):
             thresholds=payload.thresholds,
         )
     except Exception as e:
-        raise HTTPException(
+        raise HTTPException(  # noqa: B904
             status_code=422,
             detail=f"Invalid config structure: {e}",
         )

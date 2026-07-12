@@ -4,8 +4,7 @@ from typing import Any
 
 from anonreq.multimodal.limits import PayloadLimits, validate_payload_limits
 from anonreq.multimodal.models import AnalyzerResult, ContentType, UnifiedDetectionResult
-from anonreq.multimodal.router import LocalRouter, RouteDecisionType
-
+from anonreq.multimodal.router import LocalRouter
 
 _MIME_MAP: dict[str, ContentType] = {
     "text/plain": ContentType.TEXT_PLAIN,
@@ -48,7 +47,7 @@ class ContentTypeDispatcher:
         self,
         content_type: str,
         body: bytes,
-        ctx: Any,
+        _ctx: Any,
     ) -> AnalyzerResult:
         ct, raw_type = self._parse_content_type(content_type)
 

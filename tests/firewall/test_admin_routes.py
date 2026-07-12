@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.firewall.admin import router as firewall_admin_router
-from anonreq.firewall.rules import FirewallRuleLoader
 
 
 @pytest.fixture

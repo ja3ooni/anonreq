@@ -9,7 +9,6 @@ import pytest
 
 from anonreq.services.notifications import (
     NotificationChannel,
-    NotificationConfig,
     NotificationEventType,
     NotificationService,
 )
@@ -20,7 +19,7 @@ async def notification_service(cache_manager):
     svc = NotificationService(cache_manager)
     # Clean slate
     await svc._redis.delete("anonreq:notifications:configs")
-    yield svc
+    return svc
 
 
 class TestNotificationConfig:
@@ -47,12 +46,12 @@ class TestNotificationConfig:
         assert config.config.get("to") == ["gov-team@acme.com"]
 
     async def test_list_configs(self, notification_service):
-        c1 = await notification_service.create_config(
+        await notification_service.create_config(
             "acme-corp", NotificationChannel.WEBHOOK,
             {"url": "https://hooks.example.com/1"},
             [NotificationEventType.REVIEW_OVERDUE],
         )
-        c2 = await notification_service.create_config(
+        await notification_service.create_config(
             "acme-corp", NotificationChannel.WEBHOOK,
             {"url": "https://hooks.example.com/2"},
             [NotificationEventType.RISK_THRESHOLD_BREACHED],
@@ -106,9 +105,8 @@ class TestNotificationConfig:
 class TestNotificationDispatch:
     async def test_dispatch_webhook(self, notification_service):
         """Webhook dispatch sends POST to configured URL."""
-        import httpx
 
-        config = await notification_service.create_config(
+        await notification_service.create_config(
             tenant_id="acme-corp",
             channel=NotificationChannel.WEBHOOK,
             config={"url": "http://localhost:99999/nonexistent"},
@@ -139,7 +137,7 @@ class TestNotificationDispatch:
         # Should not attempt dispatch
 
     async def test_dispatch_wrong_event_skipped(self, notification_service):
-        config = await notification_service.create_config(
+        await notification_service.create_config(
             tenant_id="acme-corp",
             channel=NotificationChannel.WEBHOOK,
             config={"url": "https://hooks.example.com"},

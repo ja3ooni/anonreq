@@ -25,7 +25,7 @@ def _tier_rank(tier: RecognizerTier) -> int:
     return {RecognizerTier.REGEX: 1, RecognizerTier.NER: 1, RecognizerTier.BOTH: 2}[tier]
 
 
-def _normalize_base(base_config: dict) -> tuple[dict[str, RecognizerTier], dict[str, float], dict[str, list[RecognizerTier]]]:
+def _normalize_base(base_config: dict) -> tuple[dict[str, RecognizerTier], dict[str, float], dict[str, list[RecognizerTier]]]:  # noqa: E501
     entity_types: dict[str, RecognizerTier] = {}
     thresholds: dict[str, float] = {}
     minimum_tiers: dict[str, list[RecognizerTier]] = {}
@@ -38,7 +38,7 @@ def _normalize_base(base_config: dict) -> tuple[dict[str, RecognizerTier], dict[
     return entity_types, thresholds, minimum_tiers
 
 
-def _merge_tiers(existing: list[RecognizerTier], incoming: list[RecognizerTier]) -> list[RecognizerTier]:
+def _merge_tiers(existing: list[RecognizerTier], incoming: list[RecognizerTier]) -> list[RecognizerTier]:  # noqa: E501
     tiers = {*(existing or []), *(incoming or [])}
     if RecognizerTier.BOTH in tiers or {RecognizerTier.REGEX, RecognizerTier.NER}.issubset(tiers):
         return [RecognizerTier.REGEX, RecognizerTier.NER]

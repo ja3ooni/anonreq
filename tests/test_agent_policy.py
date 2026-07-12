@@ -10,7 +10,13 @@ Tests 18-01: Tool Permission Policies
 from __future__ import annotations
 
 import pytest
-from anonreq.agent.policy import ToolPermitRegistry, ToolPolicyEvaluator, ToolPolicyDecision, ToolPermission, ToolPermissionLevel
+from anonreq.agent.policy import (
+    ToolPermission,
+    ToolPermissionLevel,
+    ToolPermitRegistry,
+    ToolPolicyDecision,
+    ToolPolicyEvaluator,
+)
 from anonreq.agent.registry import ToolPermit
 
 
@@ -35,7 +41,7 @@ class TestToolPermitRegistry:
         registry.add_permit(p1)
         registry.add_permit(p2)
         assert len(registry.list_permits()) == 1
-        assert registry.evaluate("send_email", "default") == ToolPermission(ToolPermissionLevel.ALLOW, "send_email")
+        assert registry.evaluate("send_email", "default") == ToolPermission(ToolPermissionLevel.ALLOW, "send_email")  # noqa: E501
 
     def test_remove_permit(self):
         registry = ToolPermitRegistry()
@@ -50,15 +56,15 @@ class TestToolPermitRegistry:
 
     def test_glob_pattern_matching(self):
         registry = ToolPermitRegistry()
-        registry.add_permit(ToolPermit(tool_name="db_*", permission_level=ToolPermissionLevel.ALLOW_WITH_AUDIT))
+        registry.add_permit(ToolPermit(tool_name="db_*", permission_level=ToolPermissionLevel.ALLOW_WITH_AUDIT))  # noqa: E501
         decision = registry.evaluate("db_query", "default")
         assert decision is not None
         assert decision.level == ToolPermissionLevel.ALLOW_WITH_AUDIT
 
     def test_exact_match_overrides_glob(self):
         registry = ToolPermitRegistry()
-        registry.add_permit(ToolPermit(tool_name="db_*", permission_level=ToolPermissionLevel.BLOCK))
-        registry.add_permit(ToolPermit(tool_name="db_query", permission_level=ToolPermissionLevel.ALLOW))
+        registry.add_permit(ToolPermit(tool_name="db_*", permission_level=ToolPermissionLevel.BLOCK))  # noqa: E501
+        registry.add_permit(ToolPermit(tool_name="db_query", permission_level=ToolPermissionLevel.ALLOW))  # noqa: E501
         decision = registry.evaluate("db_query", "default")
         assert decision is not None
         assert decision.level == ToolPermissionLevel.ALLOW
@@ -155,7 +161,7 @@ class TestToolPolicyEvaluator:
 
     def test_evaluate_multiple_tool_calls(self, evaluator):
         tool_calls = [
-            {"id": "c1", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}},
+            {"id": "c1", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}},  # noqa: E501
             {"id": "c2", "type": "function", "function": {"name": "send_email", "arguments": "{}"}},
         ]
         decisions = evaluator.evaluate_tool_calls(tool_calls, "default")
@@ -187,7 +193,7 @@ class TestToolPolicyEvaluator:
 
     def test_unknown_tool_default_block(self, evaluator):
         tool_calls = [
-            {"id": "c1", "type": "function", "function": {"name": "unknown_tool", "arguments": "{}"}},
+            {"id": "c1", "type": "function", "function": {"name": "unknown_tool", "arguments": "{}"}},  # noqa: E501
         ]
         decisions = evaluator.evaluate_tool_calls(tool_calls, "default")
         assert len(decisions) == 1
@@ -267,7 +273,7 @@ class TestAgentMiddleware:
                     "role": "assistant",
                     "content": None,
                     "tool_calls": [
-                        {"id": "call_1", "type": "function", "function": {"name": "get_weather", "arguments": '{"city": "London"}'}}
+                        {"id": "call_1", "type": "function", "function": {"name": "get_weather", "arguments": '{"city": "London"}'}}  # noqa: E501
                     ],
                 }
             ],
@@ -295,7 +301,7 @@ class TestAgentMiddleware:
                     "role": "assistant",
                     "content": None,
                     "tool_calls": [
-                        {"id": "call_1", "type": "function", "function": {"name": "delete_all", "arguments": "{}"}}
+                        {"id": "call_1", "type": "function", "function": {"name": "delete_all", "arguments": "{}"}}  # noqa: E501
                     ],
                 }
             ],
@@ -325,7 +331,7 @@ class TestAgentMiddleware:
                     "role": "assistant",
                     "content": None,
                     "tool_calls": [
-                        {"id": "call_1", "type": "function", "function": {"name": "send_email", "arguments": '{"to": "test@example.com"}'}}
+                        {"id": "call_1", "type": "function", "function": {"name": "send_email", "arguments": '{"to": "test@example.com"}'}}  # noqa: E501
                     ],
                 }
             ],

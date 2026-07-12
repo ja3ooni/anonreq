@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from anonreq.exceptions import PipelineAbortError
-from anonreq.locale.negotiator import LocaleNegotiationError, LocaleNegotiator
 from anonreq.locale.merger import RecognizerMerger
+from anonreq.locale.negotiator import LocaleNegotiationError, LocaleNegotiator
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.base import PipelineStage
 
@@ -109,7 +109,7 @@ class PolicyEnforcementStage(PipelineStage):
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=result.status_code or 403,
-                    message=result.body.get("reason", "Request blocked by policy") if result.body else "Request blocked by policy",
+                    message=result.body.get("reason", "Request blocked by policy") if result.body else "Request blocked by policy",  # noqa: E501
                     request_id=ctx.request_id,
                 )
             )

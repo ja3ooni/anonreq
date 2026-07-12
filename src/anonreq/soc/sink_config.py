@@ -93,9 +93,9 @@ class SinkConfigLoader:
             with open(self._config_path) as f:
                 raw: dict[str, Any] = yaml.safe_load(f)
         except FileNotFoundError:
-            raise ConfigError(f"Config file not found: {self._config_path}")
+            raise ConfigError(f"Config file not found: {self._config_path}")  # noqa: B904
         except yaml.YAMLError as e:
-            raise ConfigError(f"YAML parse error in {self._config_path}: {e}")
+            raise ConfigError(f"YAML parse error in {self._config_path}: {e}")  # noqa: B904
 
         if raw is None or "sinks" not in raw:
             raise ConfigError("No 'sinks' key found in config")
@@ -211,11 +211,11 @@ class SinkConfigLoader:
                 with open(file_path) as f:
                     return f.read().strip()
             except FileNotFoundError:
-                raise ConfigError(
+                raise ConfigError(  # noqa: B904
                     f"Secret file not found: {file_path}"
                 )
             except PermissionError:
-                raise ConfigError(
+                raise ConfigError(  # noqa: B904
                     f"Permission denied reading secret file: {file_path}"
                 )
 
@@ -235,7 +235,7 @@ class SinkConfigLoader:
         """
         errors: list[str] = []
         required = _REQUIRED_FIELDS.get(sink_type, [])
-        for field in required:
-            if field not in config or config[field] is None or config[field] == "":
-                errors.append(f"Missing required field '{field}' for sink type '{sink_type}'")
+        for f in required:
+            if f not in config or config[f] is None or config[f] == "":
+                errors.append(f"Missing required field '{f}' for sink type '{sink_type}'")
         return errors

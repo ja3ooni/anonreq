@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
@@ -77,7 +77,7 @@ class TestPolicyRule:
 
 class TestPolicyDecision:
     def test_valid_minimal(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         decision = PolicyDecision(
             action=PolicyAction.BLOCK,
             matched_rule_ids=["rule-1"],
@@ -88,7 +88,7 @@ class TestPolicyDecision:
         assert decision.ttl_seconds == 60
 
     def test_default_ttl_is_60(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         decision = PolicyDecision(
             action=PolicyAction.ALLOW,
             matched_rule_ids=[],
@@ -97,7 +97,7 @@ class TestPolicyDecision:
         assert decision.ttl_seconds == 60
 
     def test_custom_ttl(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         decision = PolicyDecision(
             action=PolicyAction.ALLOW,
             matched_rule_ids=[],
@@ -107,7 +107,7 @@ class TestPolicyDecision:
         assert decision.ttl_seconds == 120
 
     def test_rejects_negative_ttl(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with pytest.raises(ValidationError):
             PolicyDecision(
                 action=PolicyAction.ALLOW,
@@ -117,7 +117,7 @@ class TestPolicyDecision:
             )
 
     def test_rejects_extra_fields(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with pytest.raises(ValidationError):
             PolicyDecision(
                 action=PolicyAction.ALLOW,
@@ -127,7 +127,7 @@ class TestPolicyDecision:
             )
 
     def test_with_reason_and_enforcement(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         decision = PolicyDecision(
             action=PolicyAction.BLOCK,
             matched_rule_ids=["rate-limit-1"],
@@ -140,7 +140,7 @@ class TestPolicyDecision:
 
 
 class TestRateLimitConfig:
-    @pytest.mark.parametrize("field,value", [("rpm", 100), ("tpm", 5000), ("concurrent", 10)])
+    @pytest.mark.parametrize(("field", "value"), [("rpm", 100), ("tpm", 5000), ("concurrent", 10)])
     def test_valid_values(self, field, value):
         config = RateLimitConfig(**{field: value})
         assert getattr(config, field) == value
@@ -204,7 +204,7 @@ class TestSpendBudget:
 
 class TestUsageRecord:
     def test_valid_full(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = UsageRecord(
             tenant_id="tenant_acme",
             rpm_current=50,
@@ -219,7 +219,7 @@ class TestUsageRecord:
         assert record.daily_spend == Decimal("25.50")
 
     def test_zero_counts(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = UsageRecord(
             tenant_id="tenant_test",
             rpm_current=0,
@@ -232,7 +232,7 @@ class TestUsageRecord:
         assert record.rpm_current == 0
 
     def test_rejects_negative_counts(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with pytest.raises(ValidationError):
             UsageRecord(
                 tenant_id="tenant_test",
@@ -245,7 +245,7 @@ class TestUsageRecord:
             )
 
     def test_rejects_empty_tenant_id(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with pytest.raises(ValidationError):
             UsageRecord(
                 tenant_id="",
@@ -258,7 +258,7 @@ class TestUsageRecord:
             )
 
     def test_rejects_extra_fields(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         with pytest.raises(ValidationError):
             UsageRecord(
                 tenant_id="t1",

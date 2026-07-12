@@ -15,6 +15,6 @@ from anonreq.tokenization.tokenizer import TOKEN_PATTERN, Tokenizer
 
 __all__ = [
     "TOKEN_PATTERN",
-    "Tokenizer",
     "Restorer",
+    "Tokenizer",
 ]

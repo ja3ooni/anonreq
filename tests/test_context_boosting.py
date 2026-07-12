@@ -14,7 +14,6 @@ import pytest
 from anonreq.detection.boost import ContextBooster
 from anonreq.models.detection import DetectionResult
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

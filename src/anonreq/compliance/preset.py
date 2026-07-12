@@ -23,7 +23,7 @@ class CompliancePreset:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CompliancePreset":
+    def from_dict(cls, data: dict[str, Any]) -> CompliancePreset:
         return cls(
             id=str(data["id"]),
             name=str(data["name"]),

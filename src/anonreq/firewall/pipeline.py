@@ -19,7 +19,6 @@ from anonreq.firewall.metrics import (
 )
 from anonreq.firewall.override_detector import OverrideDetector
 
-
 EVENT_BY_DETECTION_TYPE = {
     "prompt_injection": "prompt_injection_blocked",
     "semantic_injection": "prompt_injection_blocked",
@@ -88,7 +87,7 @@ class FirewallPipeline:
         self.classifier = classifier
         self.structural_classifier = structural_classifier or StructuralClassifier()
         self.mitre_map = mitre_map or load_mitre_atlas_map(self.config.mitre_atlas_path)
-        self.metrics = metrics or FirewallMetricsRecorder(latency_budget_ms=self.config.latency_budget_ms)
+        self.metrics = metrics or FirewallMetricsRecorder(latency_budget_ms=self.config.latency_budget_ms)  # noqa: E501
         self.audit_sink = audit_sink
 
     async def evaluate(self, request_text: str) -> FirewallDecision:
@@ -164,7 +163,7 @@ class FirewallPipeline:
             },
         )
 
-    def handle_error(self, error: Exception) -> Response:
+    def handle_error(self, _error: Exception) -> Response:
         return JSONResponse(
             status_code=500,
             content={

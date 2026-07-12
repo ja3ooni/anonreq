@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from anonreq.fairness.datasets import FairnessDatasetManager
@@ -120,7 +121,7 @@ class FairnessEvaluator:
             )
 
         actual_detect = detect_fn or (
-            lambda text: self._detection_pipeline.analyze(text)  # type: ignore[union-attr]
+            lambda text: self._detection_pipeline.analyze(text)
         )
 
         if self._dataset_manager is None:
@@ -214,7 +215,7 @@ class FairnessEvaluator:
                 "version": version,
                 "overall_passed": evaluation.overall_passed,
                 "result_count": len(results),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             })
 
         return evaluation

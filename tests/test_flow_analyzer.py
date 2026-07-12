@@ -12,8 +12,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 
 class TestFlowAnalyzer:
     """Test suite for FlowAnalyzer."""
@@ -24,7 +22,6 @@ class TestFlowAnalyzer:
 
     def test_path_detection_chat_completions(self):
         """Detect chat completion endpoint by path pattern."""
-        from anonreq.discovery.flow_analyzer import FlowResult
 
         request = _make_request(method="POST", path="/v1/chat/completions")
         result = self.analyzer.analyze_request(request)
@@ -66,7 +63,7 @@ class TestFlowAnalyzer:
         """Detect chat completion request from request body patterns."""
         body = json.dumps({
             "model": "gpt-4",
-            "messages": [{"role": "user", "content": "Hello, world! This is a longer message to exceed the 100-byte minimum threshold for body analysis."}],
+            "messages": [{"role": "user", "content": "Hello, world! This is a longer message to exceed the 100-byte minimum threshold for body analysis."}],  # noqa: E501
             "max_tokens": 100,
             "temperature": 0.7,
             "top_p": 0.9,

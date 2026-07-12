@@ -115,14 +115,14 @@ class BreachTemplateManager:
     stored in the database per framework/region.
     """
 
-    def __init__(self, db=None) -> None:
+    def __init__(self, db: Any = None) -> None:
         """Initialize the template manager.
 
         Args:
             db: Optional database session for custom template storage.
         """
         self._db = db
-        self._custom_templates: dict[str, dict[str, BreachTemplate]] = {}
+        self._custom_templates: dict[str, BreachTemplate] = {}
 
     def get_template(
         self,
@@ -163,7 +163,7 @@ class BreachTemplateManager:
                 language=language,
             )
         except KeyError:
-            raise ValueError(
+            raise ValueError(  # noqa: B904
                 f"No template found for framework={framework}, "
                 f"region={region}, language={language}"
             )

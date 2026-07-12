@@ -6,9 +6,8 @@ and emits metadata-only audit events (no raw traffic content).
 
 from __future__ import annotations
 
-import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -112,7 +111,7 @@ class TrafficCapture:
             provider=provider,
             process_name=process_name,
             pid=pid,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
     def _emit_audit(self, event_type: str, **fields: Any) -> None:
@@ -128,5 +127,5 @@ class TrafficCapture:
         self._audit_logger.info(
             event_type,
             **fields,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )

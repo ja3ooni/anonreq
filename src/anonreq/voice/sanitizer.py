@@ -1,7 +1,7 @@
-from dataclasses import dataclass
 import math
 import re
-from typing import Any, List
+from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import structlog
@@ -31,7 +31,7 @@ class AudioSanitizer:
         self.sample_rate = sample_rate or self.config.audio_sample_rate
         self.mode = mode
         self._beep_frequency = 1000.0
-        
+
     def _generate_beep(self, length_samples: int) -> np.ndarray:
         """Generate a 1kHz sine wave beep."""
         t = np.arange(length_samples) / self.sample_rate
@@ -45,8 +45,8 @@ class AudioSanitizer:
             envelope[-fade_samples:] = fade[::-1]
             beep = beep * envelope
         return beep.astype(np.float32)
-        
-    async def mute_frame(self, audio_data: bytes, sample_rate: int, start_ms: int, end_ms: int) -> bytes:
+
+    async def mute_frame(self, audio_data: bytes, sample_rate: int, start_ms: int, end_ms: int) -> bytes:  # noqa: E501
         """Replace PCM samples in the requested range with silence."""
 
         start_byte, end_byte = self._range_to_bytes(audio_data, sample_rate, start_ms, end_ms)
@@ -74,7 +74,7 @@ class AudioSanitizer:
         sample_count = (end_byte - start_byte) // self.bytes_per_sample
         amplitude = min(max(amplitude, 0.0), 1.0)
         for sample_index in range(sample_count):
-            sample = int(32767 * amplitude * math.sin(2 * math.pi * frequency * sample_index / sample_rate))
+            sample = int(32767 * amplitude * math.sin(2 * math.pi * frequency * sample_index / sample_rate))  # noqa: E501
             offset = start_byte + sample_index * self.bytes_per_sample
             sanitized[offset : offset + self.bytes_per_sample] = sample.to_bytes(
                 self.bytes_per_sample,
@@ -101,55 +101,55 @@ class AudioSanitizer:
         return sanitized
 
     def sanitize_chunk(
-        self, 
-        audio_chunk: np.ndarray, 
+        self,
+        audio_chunk: np.ndarray,
         chunk_start_ms: int,
-        detections: List[DetectionTimestamp]
+        detections: list[DetectionTimestamp]
     ) -> np.ndarray:
         """Sanitize an audio chunk based on detection timestamps.
-        
+
         Args:
             audio_chunk: Numpy array of audio data.
             chunk_start_ms: Start time of this chunk in milliseconds.
             detections: List of sensitive entities detected.
-            
+
         Returns:
             Sanitized audio chunk.
         """
         sanitized = audio_chunk.copy()
         chunk_duration_ms = (len(audio_chunk) / self.sample_rate) * 1000
         chunk_end_ms = chunk_start_ms + chunk_duration_ms
-        
+
         for det in detections:
             # Check for overlap
             if det.end_ms <= chunk_start_ms or det.start_ms >= chunk_end_ms:
                 continue
-                
+
             # Calculate overlapping segment in ms relative to chunk
             overlap_start_ms = max(0, det.start_ms - chunk_start_ms)
             overlap_end_ms = min(chunk_duration_ms, det.end_ms - chunk_start_ms)
-            
+
             # Convert to sample indices
             start_idx = int((overlap_start_ms / 1000.0) * self.sample_rate)
             end_idx = int((overlap_end_ms / 1000.0) * self.sample_rate)
-            
+
             if start_idx >= end_idx:
                 continue
-                
+
             length_samples = end_idx - start_idx
-            
+
             if self.mode == "beep":
                 sanitized[start_idx:end_idx] = self._generate_beep(length_samples)
             else:
                 # Mute
                 sanitized[start_idx:end_idx] = 0.0
-                
+
             logger.debug(
                 f"Sanitized audio interval {overlap_start_ms}ms to {overlap_end_ms}ms",
                 entity=det.entity_type,
                 mode=self.mode
             )
-            
+
         return sanitized
 
     def _range_to_bytes(

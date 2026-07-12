@@ -12,9 +12,8 @@ from __future__ import annotations
 
 import pytest
 
-from anonreq.restore.path_tracker import PathTracker
 from anonreq.restore.engine import RestoreEngine
-
+from anonreq.restore.path_tracker import PathTracker
 
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
@@ -74,7 +73,7 @@ class TestRestoreEngineInit:
 class TestRestoreWithPaths:
     """Tests for restore_with_paths method."""
 
-    def test_basic_text_restoration(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_basic_text_restoration(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Basic text restoration replaces tokens in plain text."""
         text = "Contact [EMAIL_0] or [PHONE_0]"
         result = engine.restore_with_paths(text, sample_mapping)
@@ -100,13 +99,13 @@ class TestRestoreWithPaths:
         result = engine.restore_with_paths(text, sample_mapping)
         assert result == "Just a regular message"
 
-    def test_case_insensitive_matching(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_case_insensitive_matching(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Token matching is case-insensitive per SSE-04."""
         text = "Contact [email_0]"
         result = engine.restore_with_paths(text, sample_mapping)
         assert result == "Contact user@example.com"
 
-    def test_bracket_optional_matching(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_bracket_optional_matching(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Tokens without brackets are also matched."""
         text = "Contact EMAIL_0"
         result = engine.restore_with_paths(text, sample_mapping)
@@ -122,25 +121,25 @@ class TestRestoreWithPaths:
         result = engine.restore_with_paths(text, mapping)
         assert result == "Ten and One"
 
-    def test_multiple_occurrences(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_multiple_occurrences(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Same token appearing multiple times is all replaced."""
         text = "[EMAIL_0] and [EMAIL_0] again"
         result = engine.restore_with_paths(text, sample_mapping)
         assert result == "user@example.com and user@example.com again"
 
-    def test_path_tracker_not_modified(self, engine: RestoreEngine, path_tracker: PathTracker, sample_mapping: dict[str, str]) -> None:
+    def test_path_tracker_not_modified(self, engine: RestoreEngine, path_tracker: PathTracker, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """restore_with_paths does not modify the path tracker."""
         before = path_tracker.get_all()
         engine.restore_with_paths("Hello [EMAIL_0]", sample_mapping)
         assert path_tracker.get_all() == before
 
-    def test_partial_token_not_replaced(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_partial_token_not_replaced(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Partial tokens are not replaced."""
         text = "Contact [EM"
         result = engine.restore_with_paths(text, sample_mapping)
         assert result == "Contact [EM"
 
-    def test_mixed_tokens_and_text(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_mixed_tokens_and_text(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Mix of tokens and regular text is handled correctly."""
         text = "Name: [NAME_0], Email: [EMAIL_0]"
         result = engine.restore_with_paths(text, sample_mapping)
@@ -150,7 +149,7 @@ class TestRestoreWithPaths:
 class TestRestoreResponseWithPaths:
     """Tests for restore_response_with_paths method."""
 
-    def test_restore_simple_response(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_restore_simple_response(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Restore tokens in a simple response dict."""
         response = {
             "id": "chatcmpl-123",
@@ -169,7 +168,7 @@ class TestRestoreResponseWithPaths:
         assert "user@example.com" in content
         assert "[EMAIL_0]" not in content
 
-    def test_restore_tool_call_arguments(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_restore_tool_call_arguments(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Restore tokens in tool call arguments using path tracking."""
         response = {
             "choices": [
@@ -194,7 +193,7 @@ class TestRestoreResponseWithPaths:
         assert "123-45-6789" in args
         assert "[SSN_0]" not in args
 
-    def test_restore_nested_content(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_restore_nested_content(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Restore tokens in nested content structures."""
         response = {
             "data": {
@@ -218,7 +217,7 @@ class TestRestoreResponseWithPaths:
         result = engine.restore_response_with_paths(response, {})
         assert result == {"content": "[EMAIL_0]"}
 
-    def test_response_with_numeric_values(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_response_with_numeric_values(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Numeric values are preserved."""
         response = {"count": 42, "active": True, "content": "[EMAIL_0]"}
         result = engine.restore_response_with_paths(response, sample_mapping)
@@ -226,7 +225,7 @@ class TestRestoreResponseWithPaths:
         assert result["active"] is True
         assert result["content"] == "user@example.com"
 
-    def test_response_with_list_messages(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_response_with_list_messages(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Restore in a list of messages with path info."""
         response = {
             "choices": [
@@ -238,7 +237,7 @@ class TestRestoreResponseWithPaths:
         assert result["choices"][0]["message"]["content"] == "user@example.com"
         assert result["choices"][1]["message"]["content"] == "+1-555-0123"
 
-    def test_deeply_nested_restoration(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_deeply_nested_restoration(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Deeply nested structures are handled."""
         response = {
             "level1": {
@@ -256,20 +255,20 @@ class TestRestoreResponseWithPaths:
 class TestStreamingIntegration:
     """Tests for streaming-related restoration features."""
 
-    def test_restore_streaming_chunk(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_restore_streaming_chunk(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Restore tokens in a streaming text chunk."""
         chunk = "Hello [EMAIL_0], your"
         result = engine.restore_with_paths(chunk, sample_mapping)
         assert "user@example.com" in result
 
-    def test_restore_chunk_with_partial_token(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_restore_chunk_with_partial_token(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Partial token at chunk boundary is preserved for TailBuffer."""
         chunk = "Contact [EM"
         result = engine.restore_with_paths(chunk, sample_mapping)
         # Partial token should not be replaced
         assert result == "Contact [EM"
 
-    def test_restore_completed_token_across_chunks(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_restore_completed_token_across_chunks(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """When a token is completed across chunks, it restores correctly."""
         chunk1 = "Contact [EM"
         chunk2 = "AIL_0] for details"
@@ -282,7 +281,7 @@ class TestStreamingIntegration:
         result2 = engine.restore_with_paths(combined, sample_mapping)
         assert "user@example.com" in result2
 
-    def test_streaming_tool_call_chunk(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_streaming_tool_call_chunk(self, engine: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Tool call arguments in streaming chunks are restored."""
         chunk = '{"ssn": "[SSN_0]"}'
         result = engine.restore_with_paths(chunk, sample_mapping)
@@ -292,12 +291,12 @@ class TestStreamingIntegration:
 class TestEngineWithoutTracker:
     """Tests when no explicit PathTracker is provided."""
 
-    def test_works_without_explicit_tracker(self, engine_no_tracker: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_works_without_explicit_tracker(self, engine_no_tracker: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Engine works with auto-created empty path tracker."""
         result = engine_no_tracker.restore_with_paths("Hello [EMAIL_0]", sample_mapping)
         assert result == "Hello user@example.com"
 
-    def test_response_restore_without_tracker(self, engine_no_tracker: RestoreEngine, sample_mapping: dict[str, str]) -> None:
+    def test_response_restore_without_tracker(self, engine_no_tracker: RestoreEngine, sample_mapping: dict[str, str]) -> None:  # noqa: E501
         """Response restoration works without explicit path tracker."""
         response = {"content": "[EMAIL_0]"}
         result = engine_no_tracker.restore_response_with_paths(response, sample_mapping)

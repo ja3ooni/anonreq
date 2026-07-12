@@ -8,18 +8,16 @@ Provides:
 - ``MITREMapper``: MITRE ATT&CK/ATLAS technique ID resolver
 """
 
-"""SOC Integration Service — AI Security Event Pipeline."""
-
-from anonreq.soc.event import NormalizedEvent, SeverityLevel, RawSecurityEvent
-from anonreq.soc.mitre import MITREMapper, MappingEntry, load_mitre_mapping
+from anonreq.soc.event import NormalizedEvent, RawSecurityEvent, SeverityLevel
+from anonreq.soc.mitre import MappingEntry, MITREMapper, load_mitre_mapping
 from anonreq.soc.normalizer import SOCNormalizer
 
 __all__ = [
-    "NormalizedEvent",
-    "SeverityLevel",
-    "RawSecurityEvent",
     "MITREMapper",
     "MappingEntry",
-    "load_mitre_mapping",
+    "NormalizedEvent",
+    "RawSecurityEvent",
     "SOCNormalizer",
+    "SeverityLevel",
+    "load_mitre_mapping",
 ]

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from anonreq.firewall.engine import FirewallRuleEngine
+from anonreq.firewall.ml_model import FirewallMLModel, NoopMLModel
 from anonreq.firewall.models import (
     DetectionCategory,
     DetectionResult,
@@ -11,7 +12,6 @@ from anonreq.firewall.models import (
     RuleCategoryConfig,
     SeverityLevel,
 )
-from anonreq.firewall.ml_model import FirewallMLModel, NoopMLModel
 
 
 class TestNoopMLModel:
@@ -140,7 +140,7 @@ class TestRuleEngineMLIntegration:
     @pytest.mark.asyncio
     async def test_ml_model_confidence_range(self):
         class MockMLModel:
-            async def predict(self, text: str) -> list[DetectionResult]:
+            async def predict(self, _text: str) -> list[DetectionResult]:
                 return [
                     DetectionResult(
                         category=DetectionCategory.PROMPT_INJECTION,

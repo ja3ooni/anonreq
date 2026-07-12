@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
 
 from anonreq.cache.manager import CacheManager
 from anonreq.policy.config import PolicyConfig
-from anonreq.policy.models import PolicyAction, PolicyRule
+from anonreq.policy.models import PolicyRule
 
 
 def _rule_to_dict(rule: PolicyRule) -> dict:

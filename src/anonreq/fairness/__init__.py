@@ -7,12 +7,12 @@ Per D-001 through D-008:
 """
 
 from anonreq.fairness.datasets import FairnessDatasetManager
-from anonreq.fairness.evaluation import FairnessEvaluator, RECALL_DISPARITY_THRESHOLD
+from anonreq.fairness.evaluation import RECALL_DISPARITY_THRESHOLD, FairnessEvaluator
 from anonreq.fairness.monitoring import FairnessMonitor
 
 __all__ = [
+    "RECALL_DISPARITY_THRESHOLD",
     "FairnessDatasetManager",
     "FairnessEvaluator",
     "FairnessMonitor",
-    "RECALL_DISPARITY_THRESHOLD",
 ]

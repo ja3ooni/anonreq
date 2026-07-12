@@ -11,7 +11,7 @@ import hashlib
 import hmac
 import io
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from sqlalchemy import text
@@ -136,23 +136,22 @@ class ChainAnchorService:
         Args:
             anchor: The DailyAnchor to store.
         """
-        async with self._session_factory() as session:
-            async with session.begin():
-                await session.execute(
-                    text(
-                        "INSERT INTO audit_anchor "
-                        "(anchor_date, daily_root_hash, signature, event_count, created_at) "
-                        "VALUES (:anchor_date, :daily_root_hash, :signature, "
-                        ":event_count, :created_at)"
-                    ),
-                    {
-                        "anchor_date": anchor.anchor_date.isoformat(),
-                        "daily_root_hash": anchor.daily_root_hash,
-                        "signature": anchor.signature,
-                        "event_count": anchor.event_count,
-                        "created_at": anchor.created_at,
-                    },
-                )
+        async with self._session_factory() as session, session.begin():
+            await session.execute(
+                text(
+                    "INSERT INTO audit_anchor "
+                    "(anchor_date, daily_root_hash, signature, event_count, created_at) "
+                    "VALUES (:anchor_date, :daily_root_hash, :signature, "
+                    ":event_count, :created_at)"
+                ),
+                {
+                    "anchor_date": anchor.anchor_date.isoformat(),
+                    "daily_root_hash": anchor.daily_root_hash,
+                    "signature": anchor.signature,
+                    "event_count": anchor.event_count,
+                    "created_at": anchor.created_at,
+                },
+            )
 
         if self._config.minio_endpoint:
             await self._archive_to_minio(anchor)
@@ -283,7 +282,7 @@ class ChainAnchorService:
 
             is_verified = await self.verify_anchor(anchor_date)
             return {
-                "latest_anchor_date": anchor_date.isoformat() if hasattr(anchor_date, "isoformat") else anchor_date,
+                "latest_anchor_date": anchor_date.isoformat() if hasattr(anchor_date, "isoformat") else anchor_date,  # noqa: E501
                 "event_count": row["event_count"],
                 "is_verified": is_verified,
             }

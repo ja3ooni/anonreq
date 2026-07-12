@@ -10,14 +10,15 @@ Per REQ-44, REQ-47, TEST-04:
 
 from __future__ import annotations
 
-from hypothesis import assume, given, strategies as st
+from hypothesis import assume, given
+from hypothesis import strategies as st
+
+from anonreq.fairness.evaluation import FairnessEvaluator
 from anonreq.models.fairness import (
     DemographicResult,
     FairnessEvaluation,
     FairnessResult,
 )
-from anonreq.fairness.evaluation import FairnessEvaluator
-
 
 # ── Strategy helpers ──────────────────────────────────────────────
 

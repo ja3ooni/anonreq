@@ -1,8 +1,9 @@
-"""ClassificationResponseMiddleware — conditionally returns classification result headers (Plan 12-03)."""
+"""ClassificationResponseMiddleware — conditionally returns classification result headers (Plan 12-03)."""  # noqa: E501
 
 from __future__ import annotations
 
 import json
+
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response

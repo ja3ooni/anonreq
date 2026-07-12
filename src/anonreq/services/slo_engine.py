@@ -8,11 +8,12 @@ Provides:
 
 from __future__ import annotations
 
-import json
+import contextlib
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import yaml
 
 from anonreq.cache.manager import CacheManager
@@ -43,7 +44,7 @@ class SLOEngine:
         self._redis = cache_manager._redis
         self._targets = {}
         self._cooldown = 300
-        
+
         try:
             with open(config_path) as f:
                 data = yaml.safe_load(f) or {}
@@ -84,7 +85,7 @@ class SLOEngine:
 
     async def record_success(self, tenant_id: str, slo_name: str, latency_ms: int = 0) -> None:
         """Increment success and total counters for all configured windows."""
-        await self._record_event(tenant_id, slo_name, success=True, latency_ms=latency_ms)
+        await self._record_event(tenant_id, slo_name, success=True, _latency_ms=latency_ms)
 
     async def record_failure(self, tenant_id: str, slo_name: str) -> None:
         """Increment failure/total counters for all configured windows."""
@@ -96,13 +97,13 @@ class SLOEngine:
         # but the metric itself is calculated on the raw latency values.
         # So we record latency values to the latency sorted sets.
         now = time.time()
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
         daily_key = dt.strftime("%Y-%m-%d")
         monthly_key = dt.strftime("%Y-%m")
         unique_member = f"{latency_ms}:{uuid.uuid4()}"
 
         cfg = self._targets.get("p95_latency_ms", {})
-        
+
         # Fixed Daily
         if "daily" in cfg.get("window_fixed", []):
             key = f"slo:{tenant_id}:p95_latency_ms:daily:{daily_key}:latencies"
@@ -123,13 +124,13 @@ class SLOEngine:
             cutoff = now - self._get_window_seconds(window_type)
             await self._redis.zremrangebyscore(key, "-inf", cutoff)
 
-    async def _record_event(self, tenant_id: str, slo_name: str, success: bool, latency_ms: int = 0) -> None:
+    async def _record_event(self, tenant_id: str, slo_name: str, success: bool, _latency_ms: int = 0) -> None:  # noqa: E501
         cfg = self._targets.get(slo_name)
         if not cfg:
             return
 
         now = time.time()
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
         daily_key = dt.strftime("%Y-%m-%d")
         monthly_key = dt.strftime("%Y-%m")
         unique_member = str(uuid.uuid4())
@@ -170,12 +171,12 @@ class SLOEngine:
             await self._redis.zremrangebyscore(den_key, "-inf", cutoff)
             await self._redis.zremrangebyscore(num_key, "-inf", cutoff)
 
-    async def compute_compliance(self, tenant_id: str, slo_name: str | None = None) -> list[SLOCompliance]:
+    async def compute_compliance(self, tenant_id: str, slo_name: str | None = None) -> list[SLOCompliance]:  # noqa: E501
         """Compute SLO compliance for all windows."""
         slos_to_check = [slo_name] if slo_name else list(self._targets.keys())
         results = []
         now = time.time()
-        dt = datetime.now(timezone.utc)
+        dt = datetime.now(UTC)
         daily_key = dt.strftime("%Y-%m-%d")
         monthly_key = dt.strftime("%Y-%m")
 
@@ -188,18 +189,18 @@ class SLOEngine:
 
             # Helper to check compliance Boolean
             def is_compliant(current_val: float) -> bool:
-                if sname == "success_rate" or sname == "audit_write_rate":
-                    return current_val >= target
+                if sname == "success_rate" or sname == "audit_write_rate":  # noqa: B023
+                    return current_val >= target  # noqa: B023
                 else:  # fail_secure_rate or p95_latency_ms
-                    return current_val <= target
+                    return current_val <= target  # noqa: B023
 
             # Helper to fetch last breach timestamp
             async def get_last_breach(wtype: str) -> datetime | None:
-                lb_key = f"slo:{tenant_id}:{sname}:{wtype}:last_breach"
+                lb_key = f"slo:{tenant_id}:{sname}:{wtype}:last_breach"  # noqa: B023
                 raw = await self._redis.get(lb_key)
                 if raw:
                     try:
-                        return datetime.fromisoformat(raw.decode() if isinstance(raw, bytes) else raw)
+                        return datetime.fromisoformat(raw.decode() if isinstance(raw, bytes) else raw)  # noqa: E501
                     except Exception:
                         return None
                 return None
@@ -213,7 +214,7 @@ class SLOEngine:
                     p95 = self._calculate_p95(latencies)
                     results.append(SLOCompliance(
                         slo_name=sname, target=target, current=p95, compliant=is_compliant(p95),
-                        window_type="daily", window_key=daily_key, last_breach=await get_last_breach("daily")
+                        window_type="daily", window_key=daily_key, last_breach=await get_last_breach("daily")  # noqa: E501
                     ))
 
                 # Fixed Monthly
@@ -223,7 +224,7 @@ class SLOEngine:
                     p95 = self._calculate_p95(latencies)
                     results.append(SLOCompliance(
                         slo_name=sname, target=target, current=p95, compliant=is_compliant(p95),
-                        window_type="monthly", window_key=monthly_key, last_breach=await get_last_breach("monthly")
+                        window_type="monthly", window_key=monthly_key, last_breach=await get_last_breach("monthly")  # noqa: E501
                     ))
 
                 # Rolling Windows
@@ -236,7 +237,7 @@ class SLOEngine:
                     p95 = self._calculate_p95(latencies)
                     results.append(SLOCompliance(
                         slo_name=sname, target=target, current=p95, compliant=is_compliant(p95),
-                        window_type=wtype, window_key="rolling", last_breach=await get_last_breach(wtype)
+                        window_type=wtype, window_key="rolling", last_breach=await get_last_breach(wtype)  # noqa: E501
                     ))
                 continue
 
@@ -247,10 +248,10 @@ class SLOEngine:
                 num_key = f"slo:{tenant_id}:{sname}:daily:{daily_key}:num"
                 den = int(await self._redis.get(den_key) or 0)
                 num = int(await self._redis.get(num_key) or 0)
-                current = (num / den * 100.0) if den > 0 else (0.0 if sname == "fail_secure_rate" else 100.0)
+                current = (num / den * 100.0) if den > 0 else (0.0 if sname == "fail_secure_rate" else 100.0)  # noqa: E501
                 results.append(SLOCompliance(
                     slo_name=sname, target=target, current=current, compliant=is_compliant(current),
-                    window_type="daily", window_key=daily_key, last_breach=await get_last_breach("daily")
+                    window_type="daily", window_key=daily_key, last_breach=await get_last_breach("daily")  # noqa: E501
                 ))
 
             # Fixed Monthly
@@ -259,10 +260,10 @@ class SLOEngine:
                 num_key = f"slo:{tenant_id}:{sname}:monthly:{monthly_key}:num"
                 den = int(await self._redis.get(den_key) or 0)
                 num = int(await self._redis.get(num_key) or 0)
-                current = (num / den * 100.0) if den > 0 else (0.0 if sname == "fail_secure_rate" else 100.0)
+                current = (num / den * 100.0) if den > 0 else (0.0 if sname == "fail_secure_rate" else 100.0)  # noqa: E501
                 results.append(SLOCompliance(
                     slo_name=sname, target=target, current=current, compliant=is_compliant(current),
-                    window_type="monthly", window_key=monthly_key, last_breach=await get_last_breach("monthly")
+                    window_type="monthly", window_key=monthly_key, last_breach=await get_last_breach("monthly")  # noqa: E501
                 ))
 
             # Rolling Windows
@@ -277,10 +278,10 @@ class SLOEngine:
 
                 den = await self._redis.zcard(den_key) or 0
                 num = await self._redis.zcard(num_key) or 0
-                current = (num / den * 100.0) if den > 0 else (0.0 if sname == "fail_secure_rate" else 100.0)
+                current = (num / den * 100.0) if den > 0 else (0.0 if sname == "fail_secure_rate" else 100.0)  # noqa: E501
                 results.append(SLOCompliance(
                     slo_name=sname, target=target, current=current, compliant=is_compliant(current),
-                    window_type=wtype, window_key="rolling", last_breach=await get_last_breach(wtype)
+                    window_type=wtype, window_key="rolling", last_breach=await get_last_breach(wtype)  # noqa: E501
                 ))
 
         return results
@@ -298,10 +299,8 @@ class SLOEngine:
         latencies = []
         for m in members:
             m_str = m.decode() if isinstance(m, bytes) else m
-            try:
+            with contextlib.suppress(ValueError, IndexError):
                 latencies.append(float(m_str.split(":")[0]))
-            except (ValueError, IndexError):
-                pass
         return latencies
 
     def _calculate_p95(self, latencies: list[float]) -> float:

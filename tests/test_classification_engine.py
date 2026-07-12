@@ -8,15 +8,11 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from anonreq.models.classification import (
-    ClassificationLevel,
-    ClassificationResult,
     ENTITY_CLASSIFICATION_MAP,
+    ClassificationLevel,
 )
 from anonreq.services.classification_engine import ClassificationEngine
-
 
 # ---------------------------------------------------------------------------
 # ClassificationLevel enum tests
@@ -42,8 +38,8 @@ class TestClassificationLevel:
         ]
 
     def test_max_operator(self):
-        assert max([ClassificationLevel.INTERNAL, ClassificationLevel.CONFIDENTIAL]) == ClassificationLevel.CONFIDENTIAL
-        assert max([ClassificationLevel.HIGHLY_RESTRICTED, ClassificationLevel.PUBLIC]) == ClassificationLevel.HIGHLY_RESTRICTED
+        assert max([ClassificationLevel.INTERNAL, ClassificationLevel.CONFIDENTIAL]) == ClassificationLevel.CONFIDENTIAL  # noqa: E501
+        assert max([ClassificationLevel.HIGHLY_RESTRICTED, ClassificationLevel.PUBLIC]) == ClassificationLevel.HIGHLY_RESTRICTED  # noqa: E501
 
 
 # ---------------------------------------------------------------------------
@@ -250,12 +246,12 @@ class TestEntityMapOverride:
 
 
 class TestClassificationService:
-    """ClassificationService wraps engine with client header parsing and per-level handling policy."""
+    """ClassificationService wraps engine with client header parsing and per-level handling policy."""  # noqa: E501
 
     async def test_parse_client_header_returns_level(self):
         from anonreq.services.classification import ClassificationService
-        assert ClassificationService.parse_client_header("CONFIDENTIAL") == ClassificationLevel.CONFIDENTIAL
-        assert ClassificationService.parse_client_header("HIGHLY_RESTRICTED") == ClassificationLevel.HIGHLY_RESTRICTED
+        assert ClassificationService.parse_client_header("CONFIDENTIAL") == ClassificationLevel.CONFIDENTIAL  # noqa: E501
+        assert ClassificationService.parse_client_header("HIGHLY_RESTRICTED") == ClassificationLevel.HIGHLY_RESTRICTED  # noqa: E501
         assert ClassificationService.parse_client_header("internal") == ClassificationLevel.INTERNAL
 
     async def test_parse_client_header_none_on_empty(self):

@@ -23,7 +23,6 @@ import pytest
 from anonreq.governance.webhooks.aml import AmlWebhookManager
 from anonreq.models.governance import AmlWebhookConfig
 
-
 _TENANT_ID = "test-tenant"
 
 
@@ -139,7 +138,7 @@ class TestWebhookPayload:
         """Webhook payload must not contain raw entity values."""
         captured_body = {}
 
-        async def capture(url, *, headers=None, json=None, **kwargs):
+        async def capture(_url, *, _headers=None, json=None, **_kwargs):
             captured_body.update(json or {})
             return MagicMock(spec=httpx.Response, status_code=200)
 
@@ -166,7 +165,7 @@ class TestWebhookPayload:
         """Webhook request has X-AML-Signature header."""
         captured_headers = {}
 
-        async def capture(url, *, headers=None, json=None, **kwargs):
+        async def capture(_url, *, headers=None, _json=None, **_kwargs):
             captured_headers.update(headers or {})
             return MagicMock(spec=httpx.Response, status_code=200)
 
@@ -191,7 +190,7 @@ class TestWebhookPayload:
         captured_headers = {}
         captured_body = {}
 
-        async def capture(url, *, headers=None, json=None, **kwargs):
+        async def capture(_url, *, headers=None, json=None, **_kwargs):
             captured_headers.update(headers or {})
             captured_body.update(json or {})
             return MagicMock(spec=httpx.Response, status_code=200)

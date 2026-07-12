@@ -6,7 +6,6 @@ principal has sufficient role for the requested operation.
 
 from __future__ import annotations
 
-import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 

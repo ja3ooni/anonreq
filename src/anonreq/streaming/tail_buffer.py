@@ -17,11 +17,11 @@ completing chunk arrives, and only then flushed.
 
 from __future__ import annotations
 
+import asyncio
 import re
 import time
-import asyncio
 from collections.abc import AsyncIterator
-from enum import Enum
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ PARTIAL_PATTERN = re.compile(r"\[[A-Za-z][A-Za-z_]{0,19}_?\d*$")
 """Regex matching a partial ``[TYPE_N`` at the end of the buffer (no closing bracket)."""
 
 
-class BufferState(str, Enum):
+class BufferState(StrEnum):
     """TailBuffer FSM states per D-59."""
 
     COLLECTING = "COLLECTING"
@@ -101,7 +101,7 @@ class TailBuffer:
             if self.state == BufferState.TERMINATED:
                 return
 
-            event_type = event.event_type.value if hasattr(event.event_type, "value") else event.event_type
+            event_type = event.event_type.value if hasattr(event.event_type, "value") else event.event_type  # noqa: E501
 
             if event_type != "TEXT_DELTA":
                 text = self._format_non_text_delta(event)
@@ -164,7 +164,7 @@ class TailBuffer:
             return
 
         # Scan for token patterns near the buffer tail
-        tail_region = self.active_buffer[-self.TAIL_WINDOW_CHARS:] if len(self.active_buffer) > self.TAIL_WINDOW_CHARS else self.active_buffer
+        tail_region = self.active_buffer[-self.TAIL_WINDOW_CHARS:] if len(self.active_buffer) > self.TAIL_WINDOW_CHARS else self.active_buffer  # noqa: E501
 
         # Check for complete token at or near boundary
         if TOKEN_PATTERN.search(tail_region):
@@ -224,19 +224,22 @@ class TailBuffer:
         Returns:
             A string representation, or empty string if no content.
         """
-        event_type = event.event_type.value if hasattr(event.event_type, "value") else event.event_type
+        event_type = event.event_type.value if hasattr(event.event_type, "value") else event.event_type  # noqa: E501
 
         if event_type == "REASONING_DELTA" and event.reasoning:
             return event.reasoning
         elif event_type == "TOOL_CALL_DELTA":
             return event.tool_call.model_dump_json() if event.tool_call else "{}"
         elif event_type == "FINISH":
-            finish_val = event.finish_reason.value if hasattr(event.finish_reason, "value") else str(event.finish_reason) if event.finish_reason else "STOP"
+            if event.finish_reason is not None and hasattr(event.finish_reason, "value"):
+                finish_val = event.finish_reason.value
+            elif event.finish_reason is not None:
+                finish_val = str(event.finish_reason)
+            else:
+                finish_val = "STOP"
             return finish_val
         elif event_type == "ERROR":
-            return event.metadata.get("error", "Unknown error") if event.metadata else "Unknown error"
-        elif event_type == "START":
-            return ""
-        elif event_type == "HEARTBEAT":
+            return event.metadata.get("error", "Unknown error") if event.metadata else "Unknown error"  # noqa: E501
+        elif event_type == "START" or event_type == "HEARTBEAT":
             return ""
         return ""

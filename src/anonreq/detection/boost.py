@@ -136,7 +136,7 @@ class ContextBooster:
     def apply_boost(
         self,
         entity: DetectionResult,
-        text: str,
+        _text: str,
         word_positions: list[tuple[int, int]],
     ) -> DetectionResult:
         """Apply confidence boost to an entity if it qualifies.

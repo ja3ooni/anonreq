@@ -15,11 +15,10 @@ ToolPermission, ToolRiskLevel, ToolCall, and ProcessingContext fixtures.
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import pytest
-from hypothesis import HealthCheck, given, assume, settings
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from anonreq.governance.audit import (
@@ -41,7 +40,6 @@ from anonreq.governance.tool_policy_parser import (
     ToolRiskLevel,
 )
 from anonreq.models.processing_context import ProcessingContext
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -150,10 +148,10 @@ permission_st = st.sampled_from(_PERMISSIONS)
 risk_level_st = st.sampled_from(_RISK_LEVELS)
 
 # Strategy for delegation contexts (None = no credential context)
-delegation_st = st.one_of(st.none(), st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)))
+delegation_st = st.one_of(st.none(), st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)))  # noqa: E501
 
 # Strategy for unknown tool names (to test default behaviour)
-unknown_tool_name_st = st.text(min_size=5, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)).filter(
+unknown_tool_name_st = st.text(min_size=5, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)).filter(  # noqa: E501
     lambda n: n not in _KNOWN_TOOLS and not n.startswith("test_")
 )
 
@@ -263,7 +261,8 @@ class TestPermissionDeterminism:
         assert decision.provider == provider
         assert decision.domain == domain
         assert decision.permission in ToolPermission
-        assert decision.reason is not None and len(decision.reason) > 0
+        assert decision.reason is not None
+        assert len(decision.reason) > 0
         assert isinstance(decision.audit, dict)
         assert "tool" in decision.audit
         assert "provider" in decision.audit
@@ -342,10 +341,7 @@ class TestCrossDomainIsolationProperty:
         """model domain → host_mcp provider → BLOCK.
         host domain → openai/anthropic/gemini → BLOCK."""
         # Determine the mismatched domain pair
-        if tool_domain == "model":
-            provider = "host_mcp"
-        else:
-            provider = "openai"
+        provider = "host_mcp" if tool_domain == "model" else "openai"
 
         context = _make_context()
         tool_call = _make_tool_call(
@@ -402,8 +398,8 @@ class TestCredentialIsolationProperty:
 
     @given(
         name=tool_name_st,
-        tool_ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),
-        session_ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),
+        tool_ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),  # noqa: E501
+        session_ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),  # noqa: E501
     )
     @pytest.mark.asyncio
     async def test_cross_delegation_blocked(
@@ -433,7 +429,7 @@ class TestCredentialIsolationProperty:
 
     @given(
         name=tool_name_st,
-        ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),
+        ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),  # noqa: E501
     )
     @pytest.mark.asyncio
     async def test_same_delegation_allowed(
@@ -476,7 +472,7 @@ class TestCredentialIsolationProperty:
 
     @given(
         name=tool_name_st,
-        tool_ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),
+        tool_ctx=st.text(min_size=1, max_size=20, alphabet=st.characters(min_codepoint=97, max_codepoint=122)),  # noqa: E501
     )
     @pytest.mark.asyncio
     async def test_credential_context_no_session(
@@ -485,7 +481,7 @@ class TestCredentialIsolationProperty:
         name: str,
         tool_ctx: str,
     ) -> None:
-        """Credential context set but session has no delegation → not blocked by credential isolation."""
+        """Credential context set but session has no delegation → not blocked by credential isolation."""  # noqa: E501
         context = _make_context()
         context.audit_metadata.pop("delegation_id", None)
         tool_call = _make_tool_call(name=name, credential_context=tool_ctx)
@@ -663,7 +659,6 @@ class TestUnlistedLowRiskDefaultAllow:
     @pytest.mark.asyncio
     async def test_unlisted_low_risk_default_allow(
         self,
-        parser: ToolPolicyParser,
         name: str,
     ) -> None:
         """Unlisted tool with no risk classification → ALLOW."""
@@ -688,13 +683,9 @@ class TestUnlistedLowRiskDefaultAllow:
             f"Unlisted tool '{name}' got {decision.permission}, expected ALLOW"
         )
 
-    @given(
-        name=unknown_tool_name_st,
-    )
     @pytest.mark.asyncio
     async def test_unlisted_critical_risk_needs_approval(
         self,
-        name: str,
     ) -> None:
         """Tool classified as CRITICAL but not in tools list → REQUIRE_HUMAN_APPROVAL."""
         mini_parser = ToolPolicyParser()

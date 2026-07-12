@@ -11,11 +11,10 @@ Tests for:
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from anonreq.soc.sinks import SinkStatus
 
@@ -63,7 +62,7 @@ def empty_monitor():
     return monitor
 
 
-from anonreq.soc.api import create_soc_status_response
+from anonreq.soc.api import create_soc_status_response  # noqa: E402
 
 
 def _make_test_app(monitor) -> AsyncClient:
@@ -114,7 +113,7 @@ class TestSocStatusApi:
         async with _make_test_app(healthy_monitor) as client:
             resp = await client.get("/v1/admin/soc/integration/status")
             body = resp.json()
-            for name, entry in body["sinks"].items():
+            for _name, entry in body["sinks"].items():
                 assert "reachable" in entry
                 assert isinstance(entry["reachable"], bool)
 

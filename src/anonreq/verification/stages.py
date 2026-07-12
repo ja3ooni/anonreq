@@ -13,6 +13,7 @@ Both stages are warn-only per AG-17:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from anonreq.monitoring.metrics import unrestored_tokens
 from anonreq.verification.scanner import ResponseScanner
@@ -30,7 +31,7 @@ class ScanStage:
     per AG-17.
     """
 
-    async def execute(self, context) -> None:
+    async def execute(self, context: Any) -> None:
         """Execute the scan on the restored response.
 
         Args:
@@ -64,7 +65,7 @@ class StreamScanStage:
     warning if residual tokens are found.  Never blocks emission per AG-17.
     """
 
-    async def execute(self, context) -> None:
+    async def execute(self, context: Any) -> None:
         """Execute the scan on the assembled stream response.
 
         Args:

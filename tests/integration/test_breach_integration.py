@@ -10,7 +10,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import text
@@ -20,10 +20,9 @@ from sqlalchemy.orm import sessionmaker
 from anonreq.ediscovery.export import EDiscoveryExporter
 from anonreq.models.ediscovery import ExportFormat
 
-
 _TENANT = "tenant-breach-int"
-_T0 = datetime(2025, 11, 1, 12, 0, 0, tzinfo=timezone.utc)
-_T1 = datetime(2025, 11, 15, 12, 0, 0, tzinfo=timezone.utc)
+_T0 = datetime(2025, 11, 1, 12, 0, 0, tzinfo=UTC)
+_T1 = datetime(2025, 11, 15, 12, 0, 0, tzinfo=UTC)
 _BREACH_ID = "br-int-001"
 
 
@@ -145,7 +144,7 @@ class TestBreachEDiscovery:
             export_format=ExportFormat.JSONL,
         )
         data_lines = [
-            l for l in result.content.strip().split("\n")
+            l for l in result.content.strip().split("\n")  # noqa: E741
             if l.strip() and not l.startswith("#")
         ]
         found_breach = False

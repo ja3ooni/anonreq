@@ -15,12 +15,11 @@ Tests 18-02 Task 1 coverage:
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
 import pytest
 
-from anonreq.governance.approval import ApprovalManager, ApprovalStatus
+from anonreq.governance.approval import ApprovalManager
 from anonreq.governance.tool_extractor import ToolCall
 from anonreq.models.processing_context import ProcessingContext
 
@@ -58,7 +57,7 @@ async def approval_manager(cache_manager) -> ApprovalManager:
         oversight_service=oversight,
         ttl=300,
     )
-    yield mgr
+    return mgr
 
 
 @pytest.mark.asyncio
@@ -182,7 +181,7 @@ async def test_approve_approval_resolves_token(
     result = await approval_manager.create_approval(tool_call, context)
     token = result["approval_token"]
 
-    decision = await approval_manager.approve_approval(token, decided_by="admin_1", note="Looks good")
+    decision = await approval_manager.approve_approval(token, decided_by="admin_1", note="Looks good")  # noqa: E501
     assert decision["status"] == "approved"
     assert decision["decided_by"] == "admin_1"
     assert decision["approval_note"] == "Looks good"
@@ -199,7 +198,7 @@ async def test_deny_approval_resolves_token(
     result = await approval_manager.create_approval(tool_call, context)
     token = result["approval_token"]
 
-    decision = await approval_manager.deny_approval(token, decided_by="admin_1", note="Not authorized")
+    decision = await approval_manager.deny_approval(token, decided_by="admin_1", note="Not authorized")  # noqa: E501
     assert decision["status"] == "denied"
     assert decision["decided_by"] == "admin_1"
     assert decision["approval_note"] == "Not authorized"
@@ -252,17 +251,16 @@ async def test_second_approve_returns_409(
     await approval_manager.approve_approval(token, decided_by="admin_1")
 
     # Second approval should fail
-    import json
 
     from fastapi import HTTPException
     try:
         await approval_manager.approve_approval(token, decided_by="admin_2")
-        assert False, "Should have raised an exception"
+        raise AssertionError("Should have raised an exception")
     except HTTPException as exc:
-        assert exc.status_code == 409
+        assert exc.status_code == 409  # noqa: PT017
     except ValueError as exc:
         # Also acceptable — some implementations raise ValueError
-        assert "already" in str(exc).lower() or "not pending" in str(exc).lower()
+        assert "already" in str(exc).lower() or "not pending" in str(exc).lower()  # noqa: PT017
 
 
 @pytest.mark.asyncio

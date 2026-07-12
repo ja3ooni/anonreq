@@ -18,7 +18,7 @@ import io
 import logging
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import fakeredis.aioredis
 import pytest
@@ -35,10 +35,9 @@ from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.registry import LocaleRegistry
 from anonreq.monitoring.metrics import fail_secure_events, requests_total
-from anonreq.routing.chat import router as chat_router, build_pipeline
-
+from anonreq.routing.chat import build_pipeline
+from anonreq.routing.chat import router as chat_router
 from tests.property.strategies import FailureMode, PipelinePath
-
 
 # ── Configure structlog for tests ───────────────────────────────────────────
 # Use stdlib LoggerFactory so log output can be captured via stdlib handlers
@@ -117,12 +116,11 @@ async def test_app() -> AsyncGenerator[FastAPI, None]:
     stream_adapter = MagicMock()
     stream_adapter.capabilities.streaming = True
     # translate_request returns the processed request dict
-    stream_adapter.translate_request = MagicMock(return_value={"model": "gpt-4o", "messages": [], "stream": True})
+    stream_adapter.translate_request = MagicMock(return_value={"model": "gpt-4o", "messages": [], "stream": True})  # noqa: E501
 
-    async def _mock_stream_events(req: object) -> AsyncGenerator[object, None]:
+    async def _mock_stream_events(_req: object) -> AsyncGenerator[object, None]:
         """Yield a single TEXT_DELTA event then FINISH."""
-        from anonreq.streaming.stream_event import (EventType, FinishReason,
-                                                     StreamEvent)
+        from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
 
         yield StreamEvent(
             event_type=EventType.TEXT_DELTA,
@@ -361,7 +359,7 @@ _FAILURE_INJECTORS: dict[FailureMode, Any] = {
 @contextlib.asynccontextmanager
 async def inject_failure(
     failure_mode: FailureMode,
-    pipeline_path: PipelinePath,
+    _pipeline_path: PipelinePath,
     app: FastAPI,
 ) -> AsyncIterator[None]:
     """Inject a failure at the specified pipeline point.
@@ -510,7 +508,7 @@ async def property_cache_manager(test_app: FastAPI) -> CacheManager:
 
 
 @pytest_asyncio.fixture
-async def app_cleanup(property_client: AsyncClient) -> AsyncGenerator[None, None]:
+async def app_cleanup(_property_client: AsyncClient) -> AsyncGenerator[None, None]:
     """Fixture that cleans up after each property test.
 
     Removes any session mappings left in the fake cache.

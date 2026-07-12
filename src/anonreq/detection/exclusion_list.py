@@ -9,6 +9,7 @@ Per DET-05:
 
 from __future__ import annotations
 
+import re
 from fnmatch import translate
 from pathlib import Path
 from re import compile as re_compile
@@ -29,7 +30,7 @@ class ExclusionList:
 
     def __init__(self, exclusions: list[str] | None = None) -> None:
         self._exact: set[str] = set()
-        self._wildcard_patterns: list["re.Pattern"] = []
+        self._wildcard_patterns: list[re.Pattern] = []
 
         if exclusions:
             for pattern in exclusions:
@@ -41,7 +42,7 @@ class ExclusionList:
                     self._exact.add(pattern)
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "ExclusionList":
+    def from_yaml(cls, path: str | Path) -> ExclusionList:
         """Load exclusion patterns from a YAML file.
 
         Expected format::
@@ -89,11 +90,7 @@ class ExclusionList:
             return True
 
         # Check wildcard patterns
-        for pattern in self._wildcard_patterns:
-            if pattern.fullmatch(value):
-                return True
-
-        return False
+        return any(pattern.fullmatch(value) for pattern in self._wildcard_patterns)
 
     def filter_detections(
         self,

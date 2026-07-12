@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
@@ -100,7 +100,7 @@ class RetentionService:
             tenant_id=tenant_id,
             hold_ref=hold_ref,
             imposed_by=imposed_by,
-            imposed_at=datetime.now(timezone.utc),
+            imposed_at=datetime.now(UTC),
             filters=filters,
         )
         await self._redis.set(
@@ -119,7 +119,7 @@ class RetentionService:
         if raw is None:
             raise ValueError(f"Hold not found: {hold_id}")
         hold = LegalHold(**json.loads(raw))
-        hold.released_at = datetime.now(timezone.utc)
+        hold.released_at = datetime.now(UTC)
         hold.released_by = released_by
         await self._redis.set(
             f"{HOLD_KEY_PREFIX}:{hold_id}",

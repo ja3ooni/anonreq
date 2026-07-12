@@ -5,7 +5,7 @@ Uses fakeredis-backed cache matching conftest patterns.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -18,7 +18,7 @@ async def supplier_service(cache_manager):
     keys = await svc._redis.keys("anonreq:supplier:*")
     for k in keys:
         await svc._redis.delete(k)
-    yield svc
+    return svc
 
 
 def sample_provider(name="openai") -> SupplierRecord:
@@ -29,7 +29,7 @@ def sample_provider(name="openai") -> SupplierRecord:
         data_residency_regions=["us-east-1", "eu-west-1"],
         risk_classification="High",
         contract_status="Active",
-        last_risk_review_date=datetime.now(timezone.utc) - timedelta(days=30),
+        last_risk_review_date=datetime.now(UTC) - timedelta(days=30),
         review_cycle_days=365,
     )
 
@@ -120,7 +120,7 @@ class TestSupplierSuspend:
 class TestSupplierOverdue:
     async def test_overdue_provider_review(self, supplier_service):
         p = sample_provider()
-        p.last_risk_review_date = datetime.now(timezone.utc) - timedelta(days=400)
+        p.last_risk_review_date = datetime.now(UTC) - timedelta(days=400)
         await supplier_service.register_provider(p)
         overdue = await supplier_service.get_overdue_providers()
         assert len(overdue) == 1
@@ -128,7 +128,7 @@ class TestSupplierOverdue:
 
     async def test_no_overdue_when_review_recent(self, supplier_service):
         p = sample_provider()
-        p.last_risk_review_date = datetime.now(timezone.utc) - timedelta(days=30)
+        p.last_risk_review_date = datetime.now(UTC) - timedelta(days=30)
         await supplier_service.register_provider(p)
         overdue = await supplier_service.get_overdue_providers()
         assert len(overdue) == 0

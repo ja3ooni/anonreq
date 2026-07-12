@@ -15,13 +15,13 @@ from __future__ import annotations
 
 import re
 
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from anonreq.classification.engine import ClassificationEngine, ClassificationRule
 from anonreq.tokenization import Restorer
 from anonreq.tokenization.tokenizer import TOKEN_PATTERN, Tokenizer
 from tests.hypothesis_strategies import detection_list
-
 
 # =========================================================================
 # TEST-01: Round-trip correctness
@@ -144,9 +144,9 @@ def test_token_uniqueness(distinct_values: list[str]) -> None:
     # Verify round-trip: restore should give back original text
     restored = Restorer.restore_text(tokenized, mapping)
     # Build expected text (original without trailing space)
-    expected_text = " ".join(distinct_values) + " "
-    if m := re.search(r"\s*$", text):
-        expected_text = text
+    " ".join(distinct_values) + " "
+    if m := re.search(r"\s*$", text):  # noqa: F841
+        pass
     assert restored == text, (
         f"Round-trip failed for distinct values:\n"
         f"  original: {text!r}\n"
@@ -206,7 +206,7 @@ def test_token_deduplication(value: str, repeat_count: int) -> None:
     )
 
     # The token should map back to the original value
-    token = list(mapping.keys())[0]
+    token = next(iter(mapping.keys()))
     assert mapping[token] == value, (
         f"Expected token to map to '{value}', got '{mapping[token]}'"
     )
@@ -286,8 +286,8 @@ def test_session_isolation(text: str) -> None:
 
     # Tokens should be different across sessions (different seed)
     # With secrets.randbits(32), probability of collision is ~2^-32
-    token1 = list(m1.keys())[0] if m1 else "<none>"
-    token2 = list(m2.keys())[0] if m2 else "<none>"
+    token1 = next(iter(m1.keys())) if m1 else "<none>"
+    token2 = next(iter(m2.keys())) if m2 else "<none>"
 
     # We assert they differ because the probability is negligible
     # (broken by 1/2^32 chance, but statistically certain to pass)
@@ -339,7 +339,7 @@ def test_block_classification_invariant(text: str) -> None:
             f"got {result['action']}. Text: {text!r}"
         )
         assert len(result["matched_rule_ids"]) > 0, (
-            f"Expected matched_rule_ids to be non-empty for BLOCK"
+            "Expected matched_rule_ids to be non-empty for BLOCK"
         )
     else:
         assert result["action"] == "PASS", (

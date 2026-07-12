@@ -6,7 +6,7 @@ reviews, and completing review cycles.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,8 +17,6 @@ from anonreq.models.governance import (
     GovernanceRecordModel,
     ReviewCycle,
     ReviewCycleModel,
-    json_to_officers,
-    officers_to_json,
 )
 
 
@@ -45,7 +43,7 @@ async def schedule_review(
     result = await db.execute(stmt)
     existing = result.scalars().one_or_none()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     next_review = (now + timedelta(days=interval_days)).replace(microsecond=0)
 
     if existing:
@@ -86,7 +84,7 @@ async def get_overdue_reviews(
     Returns:
         List of GovernanceRecords with overdue reviews.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     stmt = (
         select(GovernanceRecordModel)
         .options(joinedload(GovernanceRecordModel.review_cycle))
@@ -113,7 +111,7 @@ async def get_upcoming_reviews(
     Returns:
         List of GovernanceRecords with upcoming reviews.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     horizon = (now + timedelta(days=days)).replace(microsecond=0)
     stmt = (
         select(GovernanceRecordModel)
@@ -155,7 +153,7 @@ async def complete_review(
     if model is None:
         raise ValueError(f"No review cycle for tenant: {tenant_id}")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     model.last_review_date = now
     model.next_review_date = (now + timedelta(days=model.interval_days)).replace(
         microsecond=0
@@ -229,7 +227,7 @@ def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
     )
 
 
-def _ensure_tz(dt):
+def _ensure_tz(dt: datetime | None) -> datetime | None:
     if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt

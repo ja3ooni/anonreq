@@ -10,7 +10,7 @@ returns True without error.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -85,7 +85,7 @@ class DataErasureService:
         # 2. Record erasure in PostgreSQL
         if db is not None:
             try:
-                now = datetime.now(timezone.utc)
+                now = datetime.now(UTC)
                 stmt = text("""
                     INSERT INTO subject_erasure (
                         id, subject_id, erased_at

@@ -10,17 +10,15 @@ Verifies:
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from anonreq.multimodal.dispatcher import ContentTypeDispatcher
 from anonreq.multimodal.limits import PayloadLimits
-from anonreq.multimodal.models import AnalyzerResult, ContentType, UnifiedDetectionResult
+from anonreq.multimodal.models import ContentType, UnifiedDetectionResult
 from anonreq.multimodal.router import LocalRouter, RouteDecisionType
-
 
 # ---------------------------------------------------------------------------
 # Test data
@@ -84,7 +82,7 @@ def mock_multipart_analyzer():
         content_type=ContentType.MULTIPART_FORM_DATA,
         entities=[
             {"entity_type": "PERSON", "start": 0, "end": 8, "score": 0.95, "part_name": "user"},
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 17, "score": 0.98, "part_name": "user"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 17, "score": 0.98, "part_name": "user"},  # noqa: E501
         ],
         risk_score=0.6,
         classification="Sensitive",
@@ -154,7 +152,7 @@ class AuditCapture:
     def __init__(self) -> None:
         self.records: list[dict[str, Any]] = []
 
-    def __call__(self, logger: Any, method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:
+    def __call__(self, _logger: Any, _method_name: str, event_dict: dict[str, Any]) -> dict[str, Any]:  # noqa: E501
         self.records.append(event_dict)
         return event_dict
 
@@ -166,7 +164,7 @@ def audit_capture():
 
     capture = AuditCapture()
     # Remove existing processors and add our capture
-    processors = structlog.get_config().get("processors", [])
+    structlog.get_config().get("processors", [])
     # Just use the capture as a simple wrapper
     # Since structlog is already configured globally, we'll check afterwards
     return capture
@@ -198,7 +196,7 @@ def _has_pii(text: str) -> bool:
 class TestUnknownContentType:
     """Unknown content types must never be forwarded to providers."""
 
-    @pytest.mark.parametrize("content_type,expected_action", [
+    @pytest.mark.parametrize(("content_type", "expected_action"), [
         ("application/xml", "ROUTE_LOCAL"),
         ("application/octet-stream", "ROUTE_LOCAL"),
         ("image/png", "ROUTE_LOCAL"),
@@ -234,7 +232,7 @@ class TestUnknownContentType:
         )
 
     @pytest.mark.asyncio
-    async def test_empty_content_type_not_forwarded(self, dispatcher: ContentTypeDispatcher) -> None:
+    async def test_empty_content_type_not_forwarded(self, dispatcher: ContentTypeDispatcher) -> None:  # noqa: E501
         """Empty content type defaults to text/plain and should be processable."""
         result = await dispatcher.dispatch("", b"hello", None)
         # Empty content type defaults to text/plain
@@ -242,14 +240,14 @@ class TestUnknownContentType:
         assert result.should_process is True
 
     @pytest.mark.asyncio
-    async def test_malformed_content_type_not_forwarded(self, dispatcher: ContentTypeDispatcher) -> None:
+    async def test_malformed_content_type_not_forwarded(self, dispatcher: ContentTypeDispatcher) -> None:  # noqa: E501
         """Malformed content type header routes to ROUTE_LOCAL or similar."""
         result = await dispatcher.dispatch("!!!invalid!!!", b"data", None)
         assert result.content_type == ContentType.UNKNOWN
         assert result.should_process is False
 
     @pytest.mark.asyncio
-    async def test_binary_octet_stream_never_forwarded(self, dispatcher: ContentTypeDispatcher) -> None:
+    async def test_binary_octet_stream_never_forwarded(self, dispatcher: ContentTypeDispatcher) -> None:  # noqa: E501
         """application/octet-stream must never be forwarded."""
         result = await dispatcher.dispatch("application/octet-stream", b"binary\x00data", None)
         assert result.content_type == ContentType.UNKNOWN, (
@@ -391,7 +389,7 @@ class TestNoPiiInAudit:
         result_json = result.model_dump_json()
         # Entity types and counts are OK, raw values are not
         # Fast check: raw PII substrings should not appear
-        assert not _has_pii(result_json), f"PII found in AnalyzerResult JSON"
+        assert not _has_pii(result_json), "PII found in AnalyzerResult JSON"
 
     @pytest.mark.asyncio
     async def test_no_pii_in_audit_multipart(self, dispatcher: ContentTypeDispatcher) -> None:
@@ -400,7 +398,7 @@ class TestNoPiiInAudit:
             "multipart/form-data", SYNTHETIC_MULTIPART_BODY, None
         )
         result_json = result.model_dump_json()
-        assert not _has_pii(result_json), f"PII found in multipart analyzer result"
+        assert not _has_pii(result_json), "PII found in multipart analyzer result"
 
     @pytest.mark.asyncio
     async def test_no_pii_in_audit_tool_call(self) -> None:
@@ -408,7 +406,7 @@ class TestNoPiiInAudit:
         from anonreq.multimodal.tool_call import extract_tool_calls_openai
 
         engine = AsyncMock()
-        async def analyze_side(json_data, path="$"):
+        async def analyze_side(json_data, _path="$"):
             result = UnifiedDetectionResult(content_type=ContentType.APPLICATION_JSON)
             if isinstance(json_data, dict):
                 for k, v in json_data.items():
@@ -502,7 +500,7 @@ class TestMetadataOnlyAudit:
             assert not _has_pii(meta_str), f"PII in multipart metadata: {meta_str}"
 
     @pytest.mark.asyncio
-    async def test_metadata_only_audit_unknown_type(self, dispatcher: ContentTypeDispatcher) -> None:
+    async def test_metadata_only_audit_unknown_type(self, dispatcher: ContentTypeDispatcher) -> None:  # noqa: E501
         """Unknown content type audit has metadata only (raw_type, route info)."""
         result = await dispatcher.dispatch("application/xml", b"<root/>", None)
         metadata = result.detection_result.analyzer_metadata
@@ -519,7 +517,7 @@ class TestMetadataOnlyAudit:
         from anonreq.multimodal.tool_call import extract_tool_calls_anthropic
 
         engine = AsyncMock()
-        async def analyze_side(json_data, path="$"):
+        async def analyze_side(json_data, _path="$"):
             result = UnifiedDetectionResult(content_type=ContentType.APPLICATION_JSON)
             if isinstance(json_data, dict):
                 for k, v in json_data.items():
@@ -563,7 +561,7 @@ class TestMetadataOnlyAudit:
             ],
         }
         audit_str = json.dumps(audit_info)
-        assert not _has_pii(audit_str), f"PII found in tool call audit info"
+        assert not _has_pii(audit_str), "PII found in tool call audit info"
 
 
 # ===================================================================

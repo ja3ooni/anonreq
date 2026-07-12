@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from anonreq.models.governance import (
     IncidentRecord,
@@ -81,7 +82,7 @@ class IncidentManager:
             severity=severity,
             title=title,
             description=description,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         _incident_store.append(incident)
         logger.info(
@@ -114,7 +115,7 @@ class IncidentManager:
         """
         if incident.criticality == ServiceCriticality.CRITICAL:
             incident.escalated = True
-            incident.escalated_at = datetime.now(timezone.utc)
+            incident.escalated_at = datetime.now(UTC)
 
             if self._notification_service is not None:
                 crit_value = (
@@ -130,7 +131,7 @@ class IncidentManager:
                     severity=incident.severity,
                 )
                 incident.notified = True
-                incident.notified_at = datetime.now(timezone.utc)
+                incident.notified_at = datetime.now(UTC)
 
             self._emit_audit(
                 event_type="dora_incident_created",
@@ -260,7 +261,7 @@ class IncidentManager:
         for incident in _incident_store:
             if incident.id == incident_id:
                 incident.status = "resolved"
-                incident.resolved_at = datetime.now(timezone.utc)
+                incident.resolved_at = datetime.now(UTC)
                 logger.info(
                     "Incident resolved",
                     extra={

@@ -2,8 +2,10 @@
 
 Per D-001, D-003:
 - Squid format: timestamp, elapsed, client, status, size, method, url, user, hierarchy, type
-- Zscaler format: CSV with device, datetime, user, department, url, action, reason, status, bytes, content_type
-- Palo Alto format: timestamp, serial, type, subtype, src_ip, dest_ip, dest_port, url, user, action, bytes
+- Zscaler format: CSV with device, datetime, user, department, url,
+  action, reason, status, bytes, content_type
+- Palo Alto format: timestamp, serial, type, subtype, src_ip, dest_ip,
+  dest_port, url, user, action, bytes
 - Invalid lines return None (skip, no error)
 - Parser is read-only: no mutations from parsed content
 """
@@ -12,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +49,15 @@ class ProxyEntry:
     """
 
     __slots__ = (
-        "source_ip", "timestamp", "method", "url", "status",
-        "bytes", "user_id", "content_type", "user_agent",
+        "bytes",
+        "content_type",
+        "method",
+        "source_ip",
+        "status",
+        "timestamp",
+        "url",
+        "user_agent",
+        "user_id",
     )
 
     def __init__(
@@ -164,9 +173,9 @@ class ProxyParser:
         content_type = match.group(11)
 
         try:
-            timestamp = datetime.fromtimestamp(float(timestamp_str), tz=timezone.utc)
+            timestamp = datetime.fromtimestamp(float(timestamp_str), tz=UTC)
         except (ValueError, OSError):
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         try:
             status = int(status_code_str)
@@ -231,9 +240,9 @@ class ProxyParser:
 
     def _parse_zscaler_timestamp(self, ts_str: str) -> datetime:
         try:
-            return datetime.strptime(ts_str, "%m/%d/%Y %H:%M:%S").replace(tzinfo=timezone.utc)
+            return datetime.strptime(ts_str, "%m/%d/%Y %H:%M:%S").replace(tzinfo=UTC)
         except (ValueError, TypeError):
-            return datetime.now(timezone.utc)
+            return datetime.now(UTC)
 
     def _parse_palo_alto(self, line: str) -> ProxyEntry | None:
         match = _PALO_ALTO_RE.match(line)
@@ -248,9 +257,9 @@ class ProxyParser:
         bytes_str = match.group(11)
 
         try:
-            timestamp = datetime.strptime(ts_str, "%Y/%m/%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            timestamp = datetime.strptime(ts_str, "%Y/%m/%d %H:%M:%S").replace(tzinfo=UTC)
         except (ValueError, TypeError):
-            timestamp = datetime.now(timezone.utc)
+            timestamp = datetime.now(UTC)
 
         try:
             size = int(bytes_str)

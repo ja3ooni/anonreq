@@ -12,12 +12,10 @@ Tests verify:
 from __future__ import annotations
 
 import logging
-from unittest.mock import patch
 
 import pytest
 
 from anonreq.monitoring.metrics import unrestored_tokens
-from anonreq.verification.scanner import ResponseScanner
 from anonreq.verification.stages import ScanStage, StreamScanStage
 
 
@@ -39,7 +37,7 @@ class TestNonStreamingScanStage:
     """ScanStage for non-streaming responses."""
 
     async def test_detects_unrestored_tokens_and_increments_counter(self, processing_context):
-        processing_context.restored_response = {"content": "Hello [NAME_1], your email [EMAIL_0] was found"}
+        processing_context.restored_response = {"content": "Hello [NAME_1], your email [EMAIL_0] was found"}  # noqa: E501
         stage = ScanStage()
         await stage.execute(processing_context)
         # Counter should have been incremented for 2 tokens

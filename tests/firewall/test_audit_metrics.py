@@ -62,7 +62,7 @@ class TestFirewallAuditPublisher:
     @pytest.mark.asyncio
     async def test_publish_rule_reloaded(self):
         publisher = FirewallAuditPublisher()
-        event_data = await publisher.publish_rule_reloaded(old_count=10, new_count=15, version="2.0")
+        event_data = await publisher.publish_rule_reloaded(old_count=10, new_count=15, version="2.0")  # noqa: E501
         assert event_data["event_type"] == "firewall_rule_reloaded"
         assert event_data["old_rule_count"] == 10
         assert event_data["new_rule_count"] == 15
@@ -120,7 +120,7 @@ class TestFirewallMetrics:
     def test_record_outbound_violation_increments_counter(self):
         FirewallMetrics.reset()
         metrics = FirewallMetrics.get_instance()
-        metrics.record_outbound_violation(tenant_id="test_tenant", category="system_prompt_extraction")
+        metrics.record_outbound_violation(tenant_id="test_tenant", category="system_prompt_extraction")  # noqa: E501
         sample = metrics.prompt_security_events.labels(
             event_type="outbound_violation",
             tenant_id="test_tenant",

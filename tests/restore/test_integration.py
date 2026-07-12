@@ -19,7 +19,6 @@ from anonreq.multimodal.router import LocalRouter, RouteDecisionType
 from anonreq.restore.engine import RestoreEngine
 from anonreq.restore.path_tracker import PathTracker
 
-
 # ── PathTracker + Detection Integration ─────────────────────────────────────
 
 
@@ -306,7 +305,7 @@ class TestFullPipeline:
     def test_analyzer_result_contains_route_info(self) -> None:
         """AnalyzerResult metadata includes routing info for unknown types."""
         router = LocalRouter()
-        dispatcher = ContentTypeDispatcher(
+        ContentTypeDispatcher(
             json_analyzer=AsyncMock(),
             multipart_analyzer=AsyncMock(),
             local_router=router,

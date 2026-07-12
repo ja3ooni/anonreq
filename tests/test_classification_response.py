@@ -1,22 +1,21 @@
-"""Unit and integration tests for classification response headers and error response bodies (Plan 12-03)."""
+"""Unit and integration tests for classification response headers and error response bodies (Plan 12-03)."""  # noqa: E501
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.config import settings
-from anonreq.routing.chat import router as chat_router
 from anonreq.exceptions import global_exception_handler, http_exception_handler
-from anonreq.models.classification import ClassificationLevel
-from anonreq.models.request_context import RequestContext
-from anonreq.routing.chat import build_pipeline
 from anonreq.middleware.classification import ClassificationMiddleware
 from anonreq.middleware.response_headers import ClassificationResponseMiddleware
+from anonreq.models.request_context import RequestContext
+from anonreq.routing.chat import build_pipeline
+from anonreq.routing.chat import router as chat_router
 
 
 @pytest.fixture
@@ -94,7 +93,7 @@ async def test_classification_result_header_present_when_requested(mock_app):
     pdp.evaluate_all.return_value = PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["allow_all"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.ALLOW,
@@ -165,7 +164,7 @@ async def test_classification_result_header_absent_by_default(mock_app):
     pdp.evaluate_all.return_value = PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["allow_all"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.ALLOW,
@@ -228,7 +227,7 @@ async def test_classification_result_header_absent_when_false(mock_app):
     pdp.evaluate_all.return_value = PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["allow_all"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.ALLOW,
@@ -292,7 +291,7 @@ async def test_classification_result_header_absent_for_debug_only(mock_app):
     pdp.evaluate_all.return_value = PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["allow_all"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.ALLOW,
@@ -363,7 +362,7 @@ async def test_blocked_response_includes_classification_details(mock_app):
         action=PolicyAction.BLOCK,
         matched_rule_ids=["classification_block"],
         reason="Blocked by classification policy",
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.BLOCK,

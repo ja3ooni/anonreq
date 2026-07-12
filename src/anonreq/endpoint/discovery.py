@@ -7,11 +7,8 @@ Emits audit-safe events with metadata only (no process paths).
 
 from __future__ import annotations
 
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
-
-from anonreq.discovery.hostname_matcher import HostnameMatcher
 
 # Known AI application signatures.
 # Each entry defines how to identify the app from process info.
@@ -106,7 +103,7 @@ class AppDiscovery:
                 "pid": proc.get("pid"),
                 "bundle_id": known.get("bundle_id", ""),
                 "version": proc.get("version", ""),
-                "detected_at": datetime.now(timezone.utc).isoformat(),
+                "detected_at": datetime.now(UTC).isoformat(),
             }
 
         return None

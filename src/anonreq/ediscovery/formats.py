@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -37,7 +37,7 @@ def to_jsonl(
     if metadata:
         lines.append(
             f"# Export: {metadata.case_name} | {metadata.request_name} "
-            f"| {datetime.now(timezone.utc).isoformat()}"
+            f"| {datetime.now(UTC).isoformat()}"
         )
 
     for record in records:
@@ -64,12 +64,15 @@ def to_pdf_summary(
     """
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import inch
     from reportlab.platypus import (
-        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
     )
-    from reportlab.platypus.doctemplate import PageBreak
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -89,7 +92,7 @@ def to_pdf_summary(
         "SummaryInfo", parent=styles["Normal"], fontSize=8,
     )
     elements.append(Paragraph(
-        f"Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} "
+        f"Generated: {datetime.now(UTC).strftime('%Y-%m-%d %H:%M UTC')} "
         f"| Records: {len(records)}",
         summary_style,
     ))

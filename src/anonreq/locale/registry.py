@@ -44,7 +44,7 @@ class LocaleRegistry:
                     data: dict[str, Any] = yaml.safe_load(f) or {}
                 bundle = LocaleBundle.from_dict(data)
                 if bundle.code != path.stem:
-                    raise ValueError(f"bundle code {bundle.code!r} does not match filename {path.stem!r}")
+                    raise ValueError(f"bundle code {bundle.code!r} does not match filename {path.stem!r}")  # noqa: E501
                 key = bundle.code.casefold()
                 if key in self._canonical_codes:
                     raise ValueError(f"duplicate locale code {bundle.code}")
@@ -66,7 +66,7 @@ class LocaleRegistry:
     def list_locales(self) -> list[str]:
         return sorted(self._bundles)
 
-    def get_recognizers(self, locale_code: str):
+    def get_recognizers(self, locale_code: str) -> list[str]:
         bundle = self.get(locale_code)
         return [] if bundle is None else list(bundle.entity_types)
 

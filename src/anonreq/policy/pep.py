@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from anonreq.models.processing_context import ProcessingContext
@@ -23,7 +23,7 @@ class PolicyEnforcementPoint:
         self, decision: PolicyDecision, ctx: ProcessingContext,
     ) -> PolicyEnforcementResult:
         decision_id = uuid4().hex[:16]
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         if decision.action == PolicyAction.ALLOW:
             entity_count = str(len(ctx.detections)) if ctx.detections else "0"
@@ -106,7 +106,7 @@ class PolicyEnforcementPoint:
 
     def _handle_block(
         self, decision: PolicyDecision, decision_id: str, now: str,
-        ctx: ProcessingContext,
+        _ctx: ProcessingContext,
     ) -> PolicyEnforcementResult:
         status_code, block_type, extra_headers = self._determine_block_type(decision)
 

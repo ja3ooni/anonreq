@@ -34,8 +34,8 @@ DEFAULT_ROUTES: list[dict[str, Any]] = [
     {"hostname": "*.openai.com", "provider": "openai", "target_url": "https://api.openai.com"},
     {"hostname": "api.anthropic.com", "provider": "anthropic", "target_url": "https://api.anthropic.com"},
     {"hostname": "generativelanguage.googleapis.com", "provider": "gemini", "target_url": "https://generativelanguage.googleapis.com"},
-    {"hostname": "localhost", "provider": "ollama", "target_url": "http://localhost:11434", "port": 11434},
-    {"hostname": "127.0.0.1", "provider": "ollama", "target_url": "http://127.0.0.1:11434", "port": 11434},
+    {"hostname": "localhost", "provider": "ollama", "target_url": "http://localhost:11434", "port": 11434},  # noqa: E501
+    {"hostname": "127.0.0.1", "provider": "ollama", "target_url": "http://127.0.0.1:11434", "port": 11434},  # noqa: E501
     {"hostname": "api.deepseek.com", "provider": "deepseek", "target_url": "https://api.deepseek.com"},
     {"hostname": "api.mistral.ai", "provider": "mistral", "target_url": "https://api.mistral.ai"},
     {"hostname": "api.cohere.ai", "provider": "cohere", "target_url": "https://api.cohere.ai"},

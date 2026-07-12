@@ -8,19 +8,18 @@ Per D-001, D-002:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
-from anonreq.discovery.dns_parser import DNSParser, DNSEntry, DNSParseError
+from anonreq.discovery.dns_parser import DNSEntry, DNSParseError, DNSParser
 from anonreq.discovery.hostname_signatures import (
     AI_SIGNATURES,
     ProviderSignature,
+    add_custom_signature,
     get_signature_by_hostname,
     get_signature_by_ip,
-    add_custom_signature,
 )
-
 
 # ---------------------------------------------------------------------------
 # DNSEntry construction
@@ -32,7 +31,7 @@ class TestDNSEntry:
 
     def test_dns_entry_has_required_fields(self):
         """DNSEntry contains hostname, source_ip, timestamp, query_type."""
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         entry = DNSEntry(
             hostname="api.openai.com",
             source_ip="10.0.0.1",
@@ -46,7 +45,7 @@ class TestDNSEntry:
 
     def test_dns_entry_with_optional_fields(self):
         """DNSEntry accepts optional response_ip and raw fields."""
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         entry = DNSEntry(
             hostname="api.openai.com",
             source_ip="10.0.0.1",
@@ -79,7 +78,7 @@ class TestDNSParserParseLine:
 
     def test_parse_json_format(self):
         """Parse JSON-format DNS log entry."""
-        line = '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A"}'
+        line = '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A"}'  # noqa: E501
         parser = DNSParser()
         entry = parser.parse_line(line, format="json")
         assert entry.hostname == "api.openai.com"
@@ -89,7 +88,7 @@ class TestDNSParserParseLine:
 
     def test_parse_json_with_response_ip(self):
         """Parse JSON with optional response_ip field."""
-        line = '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A", "response_ip": "1.2.3.4"}'
+        line = '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A", "response_ip": "1.2.3.4"}'  # noqa: E501
         parser = DNSParser()
         entry = parser.parse_line(line, format="json")
         assert entry.response_ip == "1.2.3.4"
@@ -114,7 +113,7 @@ class TestDNSParserParseLine:
 
     def test_auto_detect_json(self):
         """Auto-detect JSON format by leading brace."""
-        line = '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A"}'
+        line = '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A"}'  # noqa: E501
         parser = DNSParser()
         entry = parser.parse_line(line)
         assert entry.hostname == "api.openai.com"
@@ -202,7 +201,7 @@ class TestDNSParserParseBatch:
         """Batch parsing handles mixed formats (auto-detect per line)."""
         lines = [
             "Jun 20 10:00:00 dns1 named[123]: 10.0.0.1 query: api.openai.com IN A",
-            '{"timestamp": "2026-06-20T10:00:01Z", "src_ip": "10.0.0.2", "query": "api.anthropic.com", "qtype": "A"}',
+            '{"timestamp": "2026-06-20T10:00:01Z", "src_ip": "10.0.0.2", "query": "api.anthropic.com", "qtype": "A"}',  # noqa: E501
             "api.deepseek.com",
         ]
         parser = DNSParser()
@@ -225,8 +224,8 @@ class TestDNSParserParseBatch:
     def test_batch_with_format_override_json(self):
         """Batch parsing respects explicit json format override."""
         lines = [
-            '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A"}',
-            '{"timestamp": "2026-06-20T10:00:01Z", "src_ip": "10.0.0.2", "query": "api.anthropic.com", "qtype": "A"}',
+            '{"timestamp": "2026-06-20T10:00:00Z", "src_ip": "10.0.0.1", "query": "api.openai.com", "qtype": "A"}',  # noqa: E501
+            '{"timestamp": "2026-06-20T10:00:01Z", "src_ip": "10.0.0.2", "query": "api.anthropic.com", "qtype": "A"}',  # noqa: E501
         ]
         parser = DNSParser()
         entries = parser.parse_batch(lines, format="json")

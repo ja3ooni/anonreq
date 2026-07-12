@@ -13,11 +13,13 @@ Tests for:
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
+import contextlib
+from unittest.mock import AsyncMock, MagicMock
 
-from anonreq.soc.event import NormalizedEvent, SeverityLevel, RawSecurityEvent
-from anonreq.soc.normalizer import SOCNormalizer, STRIP_FIELDS
+import pytest
+
+from anonreq.soc.event import NormalizedEvent, RawSecurityEvent, SeverityLevel
+from anonreq.soc.normalizer import STRIP_FIELDS, SOCNormalizer
 
 
 @pytest.fixture
@@ -44,14 +46,12 @@ def mock_audit_logger():
 
 @pytest.fixture
 def mock_metrics():
-    from prometheus_client import Counter, REGISTRY
+    from prometheus_client import REGISTRY
     # Clean up any existing counter
     for name in list(REGISTRY._names_to_collector.keys()):
         if "soc_events_normalized" in name:
-            try:
+            with contextlib.suppress(KeyError):
                 REGISTRY.unregister(REGISTRY._names_to_collector[name])
-            except KeyError:
-                pass
     return MagicMock()
 
 
@@ -82,7 +82,7 @@ class TestSOCNormalizerNormalize:
     """Tests for the _normalize method."""
 
     @pytest.mark.asyncio
-    async def test_normalized_event_has_all_required_fields(self, mock_mitre_mapper, mock_soc_config):
+    async def test_normalized_event_has_all_required_fields(self, mock_mitre_mapper, mock_soc_config):  # noqa: E501
         """Test 2: Normalized event contains all 8 required fields."""
         mock_mitre_mapper.resolve.return_value = "T1048"
         normalizer = SOCNormalizer(
@@ -104,7 +104,8 @@ class TestSOCNormalizerNormalize:
         assert ev.event_type == "firewall_violation"
         assert ev.tenant_id == "tenant-abc"
         assert ev.session_id == "sess-123"
-        assert ev.timestamp is not None and len(ev.timestamp) > 0
+        assert ev.timestamp is not None
+        assert len(ev.timestamp) > 0
         assert ev.gateway_version == "1.5.0"
         assert ev.appliance_instance_id == "test-appliance-01"
         assert ev.mitre_technique_id == "T1048"
@@ -135,7 +136,7 @@ class TestSOCNormalizerNormalize:
         assert ev is None
 
     @pytest.mark.asyncio
-    async def test_content_field_detected_drops_event_with_audit(self, mock_mitre_mapper, mock_soc_config):
+    async def test_content_field_detected_drops_event_with_audit(self, mock_mitre_mapper, mock_soc_config):  # noqa: E501
         """Test 4: Event with content field detected → event dropped, audit event emitted."""
         mock_audit = AsyncMock()
         normalizer = SOCNormalizer(
@@ -227,7 +228,7 @@ class TestSOCNormalizerNormalize:
         assert ev.mitre_technique_id == "TEMP:UNMAPPED"
 
     @pytest.mark.asyncio
-    async def test_gateway_version_and_appliance_instance_populated(self, mock_mitre_mapper, mock_soc_config):
+    async def test_gateway_version_and_appliance_instance_populated(self, mock_mitre_mapper, mock_soc_config):  # noqa: E501
         """Test 7: gateway_version and appliance_instance_id populated from config."""
         normalizer = SOCNormalizer(
             mitre_mapper=mock_mitre_mapper,
@@ -343,7 +344,7 @@ class TestSOCNormalizerAsync:
         assert args[0].event_type == "test_event"
 
 
-class TestSTRIP_FIELDS:
+class TestSTRIP_FIELDS:  # noqa: N801
     """Test the STRIP_FIELDS constant."""
 
     def test_content_in_strip_fields(self):

@@ -34,7 +34,7 @@ class TestVoiceConfig:
         assert cfg.supported_audio_formats == ("pcm", "wav", "opus")
 
     def test_invalid_overlap_rejected(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError):  # noqa: PT011
             VoiceConfig(sliding_window_ms=500, window_overlap_ms=500)
 
 

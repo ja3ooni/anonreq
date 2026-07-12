@@ -9,7 +9,7 @@ Provides:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import ValidationError
@@ -20,7 +20,7 @@ from anonreq.policy.models import PolicyAction, PolicyRule
 router = APIRouter(dependencies=[Depends(require_role(Role.OPERATOR))])
 
 
-async def _get_policy_store(request: Request):
+async def _get_policy_store(request: Request) -> Any:
     """Retrieve the PolicyStore from application state."""
     store = getattr(request.app.state, "policy_store", None)
     if store is None:
@@ -47,17 +47,7 @@ async def list_policies(
     enabled: bool | None = None,
     store=Depends(_get_policy_store),
     _=Depends(require_role(Role.OPERATOR)),
-):
-    """List all policies for the authenticated tenant.
-
-    Args:
-        request: FastAPI request (used for tenant scoping).
-        enabled: Optional filter — only return enabled/disabled policies.
-        store: The PolicyStore instance.
-
-    Returns:
-        Dict with policies list, total count, and config version.
-    """
+) -> Any:
     tenant_id = _principal_tenant(request) or "default"
 
     all_rules = await store.load_policies(tenant_id)
@@ -85,7 +75,7 @@ async def update_policy(
     policy_id: str,
     store=Depends(_get_policy_store),
     _=Depends(require_role(Role.ADMINISTRATOR)),
-):
+) -> Any:
     """Create or update a policy rule (upsert).
 
     Args:
@@ -104,7 +94,7 @@ async def update_policy(
     try:
         raw = await request.json()
     except Exception:
-        raise HTTPException(
+        raise HTTPException(  # noqa: B904
             status_code=422,
             detail={"error": "validation_error", "message": "Invalid JSON body"},
         )
@@ -126,7 +116,7 @@ async def update_policy(
     try:
         PolicyAction(raw["action"])
     except ValueError:
-        raise HTTPException(
+        raise HTTPException(  # noqa: B904
             status_code=422,
             detail={
                 "error": "validation_error",
@@ -157,7 +147,7 @@ async def update_policy(
     try:
         rule = PolicyRule.model_validate(raw)
     except ValidationError as exc:
-        raise HTTPException(
+        raise HTTPException(  # noqa: B904
             status_code=422,
             detail={
                 "error": "validation_error",

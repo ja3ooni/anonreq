@@ -9,12 +9,12 @@ Provides:
 
 from anonreq.endpoint.agent import EndpointAgent
 from anonreq.endpoint.config import EndpointConfig, load_config
-from anonreq.endpoint.discovery import AppDiscovery, KNOWN_AI_APPS
+from anonreq.endpoint.discovery import KNOWN_AI_APPS, AppDiscovery
 
 __all__ = [
+    "KNOWN_AI_APPS",
+    "AppDiscovery",
     "EndpointAgent",
     "EndpointConfig",
     "load_config",
-    "AppDiscovery",
-    "KNOWN_AI_APPS",
 ]

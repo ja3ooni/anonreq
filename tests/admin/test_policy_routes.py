@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 from unittest.mock import AsyncMock
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 

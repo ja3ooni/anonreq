@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class DetectionCategory(str, Enum):
+class DetectionCategory(StrEnum):
     PROMPT_INJECTION = "prompt_injection"
     JAILBREAK = "jailbreak"
     SYSTEM_PROMPT_EXTRACTION = "system_prompt_extraction"
@@ -16,13 +16,13 @@ class DetectionCategory(str, Enum):
     SECRET_EXFILTRATION = "secret_exfiltration"
 
 
-class SeverityLevel(str, Enum):
+class SeverityLevel(StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
 
 
-class FirewallAction(str, Enum):
+class FirewallAction(StrEnum):
     BLOCK = "BLOCK"
     FLAG_AND_FORWARD = "FLAG_AND_FORWARD"
     MONITOR = "MONITOR"

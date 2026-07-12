@@ -11,10 +11,10 @@ Tests cover:
 from __future__ import annotations
 
 import os
+from datetime import UTC
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -40,7 +40,7 @@ def _make_usage_test_app(role: str = "administrator", counters: dict | None = No
     Returns:
         A configured FastAPI app ready for TestClient.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     app = FastAPI()
 
@@ -48,7 +48,7 @@ def _make_usage_test_app(role: str = "administrator", counters: dict | None = No
 
     # Mock SpendController
     mock_spend = AsyncMock()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     async def mock_get_usage(t_id: str) -> UsageRecord:
         if t_id == "test_tenant":
             return UsageRecord(

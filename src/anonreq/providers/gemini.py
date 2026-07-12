@@ -11,7 +11,8 @@ Per PROV-04 (Google Gemini support):
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 import structlog
@@ -180,19 +181,34 @@ class GeminiAdapter(ProviderAdapter):
             )
 
         except httpx.TimeoutException:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=504,
                 message="Gemini API timeout",
             )
         except httpx.ConnectError:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=503,
                 message="Gemini API unavailable",
             )
         except PipelineAbortError:
             raise
+        except httpx.HTTPStatusError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Gemini API HTTP {exc.response.status_code}",
+            )
+        except httpx.RequestError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Gemini API request error: {type(exc).__name__}",
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Gemini API response parse error: {type(exc).__name__}: {exc}",
+            )
         except Exception as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=502,
                 message=f"Gemini API error: {type(exc).__name__}",
             )
@@ -241,7 +257,7 @@ class GeminiAdapter(ProviderAdapter):
                         yield stream_event
 
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=503,
                 message=f"Gemini API stream error: {type(exc).__name__}",
             )
@@ -362,7 +378,7 @@ class GeminiAdapter(ProviderAdapter):
         return mapping.get(reason, FinishReason.UNKNOWN)
 
     @staticmethod
-    def _map_http_status(status_code: int) -> int:
+    def _map_http_status(_status_code: int) -> int:
         """Map provider HTTP status to appropriate gateway status.
 
         Always 502 (fail-secure) — never leak upstream auth/provider info.
@@ -376,7 +392,7 @@ class GeminiAdapter(ProviderAdapter):
             error_info = error_data.get("error", {})
             error_status = error_info.get("status", "UNKNOWN")
             return f"Gemini API error: {error_status}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"Gemini API returned HTTP {response.status_code}"
 
     async def _normalize_error_async(self, response: httpx.Response) -> str:
@@ -386,5 +402,5 @@ class GeminiAdapter(ProviderAdapter):
             error_info = error_data.get("error", {})
             error_status = error_info.get("status", "UNKNOWN")
             return f"Gemini API error: {error_status}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"Gemini API returned HTTP {response.status_code}"

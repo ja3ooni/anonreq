@@ -9,25 +9,22 @@ Uses Hypothesis to verify:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from hypothesis import HealthCheck, assume, given, settings, strategies as st
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.models.governance import (
     ChangeEntry,
     GovernanceOfficer,
     GovernanceOfficerRole,
-    GovernanceRecord,
-    ReviewCycle,
 )
-from anonreq.services.lifecycle import LifecycleService, LifecycleStage
+from anonreq.services.lifecycle import LifecycleStage
 from anonreq.services.notifications import (
     NotificationChannel,
     NotificationEventType,
-    NotificationService,
 )
-from anonreq.services.oversight import ApprovalRequest, ApprovalRequestCreate, OversightService
-from anonreq.services.transparency import TransparencyService
+from anonreq.services.oversight import ApprovalRequest, OversightService
 
 # ── Strategies ──────────────────────────────────────────────────────────
 
@@ -51,7 +48,7 @@ gov_officer_role_strategy = st.sampled_from(list(GovernanceOfficerRole))
 )
 @settings(max_examples=200, deadline=None)
 async def test_approval_request_risk_score_range(tenant, score):
-    """Invariant: approval request risk scores are always 0.0–1.0."""
+    """Invariant: approval request risk scores are always 0.0–1.0."""  # noqa: RUF002
     req = ApprovalRequest(
         id="test_id",
         tenant_id=tenant,
@@ -59,7 +56,7 @@ async def test_approval_request_risk_score_range(tenant, score):
         description="Property test",
         status="pending",
         risk_score=score,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     assert 0.0 <= req.risk_score <= 1.0
 
@@ -78,7 +75,7 @@ async def test_approval_request_status_invariant(tenant, status):
         description="Property test",
         status=status,
         risk_score=0.5,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     assert req.status in ("pending", "approved", "rejected")
 
@@ -97,24 +94,23 @@ async def test_approval_request_has_id(tenant, description):
         description=description,
         status="pending",
         risk_score=0.5,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     assert req.id is not None
     assert len(req.id) > 0
 
 
 @given(
-    tenant=tenant_strategy,
     version=st.integers(min_value=1, max_value=1000),
     changed_by=operator_strategy,
     description=st.text(max_size=200),
 )
 @settings(max_examples=200, deadline=None)
-async def test_change_entry_invariants(tenant, version, changed_by, description):
+async def test_change_entry_invariants(version, changed_by, description):
     """Invariant: change entry always has version >= 1 and non-empty changed_by."""
     entry = ChangeEntry(
         version=version,
-        changed_at=datetime.now(timezone.utc),
+        changed_at=datetime.now(UTC),
         changed_by=changed_by,
         description=description,
     )
@@ -189,7 +185,7 @@ async def test_transparency_record_invariants(session_id, entity_count):
         tenant_id="test-tenant",
         entity_count=entity_count,
         entity_types=["EMAIL"],
-        processed_at=datetime.now(timezone.utc),
+        processed_at=datetime.now(UTC),
         anonymized=True,
     )
     assert len(record.session_id) > 0
@@ -209,7 +205,7 @@ async def test_change_entry_with_changes(version, changes):
     """Invariant: change entries can store arbitrary metadata."""
     entry = ChangeEntry(
         version=version,
-        changed_at=datetime.now(timezone.utc),
+        changed_at=datetime.now(UTC),
         changed_by="tester",
         description="Prop test",
         changes=changes,
@@ -221,7 +217,7 @@ async def test_change_entry_with_changes(version, changes):
 @given(
     n=st.integers(min_value=0, max_value=5),
 )
-@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(max_examples=50, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])  # noqa: E501
 async def test_oversight_service_create_batch(cache_manager, n):
     """Invariant: batch creating approvals preserves count."""
     svc = OversightService(cache_manager)
@@ -240,12 +236,11 @@ async def test_oversight_service_create_batch(cache_manager, n):
 
 
 @given(
-    tenant=tenant_strategy,
     score1=risk_score_strategy,
     score2=risk_score_strategy,
 )
-@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
-async def test_kill_switch_blocks_after_activate(cache_manager, tenant, score1, score2):
+@settings(max_examples=100, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])  # noqa: E501
+async def test_kill_switch_blocks_after_activate(cache_manager, score1, score2):
     """Invariant: after kill-switch activation, is_kill_switch_active returns True."""
     assume(score1 != score2)
     svc = OversightService(cache_manager)

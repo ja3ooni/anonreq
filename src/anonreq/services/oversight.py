@@ -9,7 +9,7 @@ Provides:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -84,7 +84,7 @@ class OversightService:
             description=description,
             status="pending",
             risk_score=risk_score,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             metadata=metadata or {},
         )
         await self._redis.hset(
@@ -132,7 +132,7 @@ class OversightService:
             )
         req.status = "approved"
         req.decided_by = operator_id
-        req.decided_at = datetime.now(timezone.utc)
+        req.decided_at = datetime.now(UTC)
         await self._redis.hset(
             APPROVALS_KEY,
             approval_id,
@@ -155,7 +155,7 @@ class OversightService:
             )
         req.status = "rejected"
         req.decided_by = operator_id
-        req.decided_at = datetime.now(timezone.utc)
+        req.decided_at = datetime.now(UTC)
         await self._redis.hset(
             APPROVALS_KEY,
             approval_id,
@@ -172,7 +172,7 @@ class OversightService:
             active=True,
             operator_id=operator_id,
             reason=reason,
-            activated_at=datetime.now(timezone.utc),
+            activated_at=datetime.now(UTC),
         )
         await self._redis.set(KILL_SWITCH_KEY, status.model_dump_json())
 

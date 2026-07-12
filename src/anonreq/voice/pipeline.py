@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import structlog
@@ -20,7 +20,6 @@ from anonreq.voice.metrics import (
 )
 from anonreq.voice.sanitizer import AudioSanitizer, TextSanitizer
 from anonreq.voice.stt_engine import STTEngine
-
 
 log = structlog.get_logger(__name__)
 
@@ -158,7 +157,7 @@ class VoicePipeline:
         return str(getattr(connector, "connector_name", connector.__class__.__name__)).lower()
 
     async def _emit_audit(self, event_type: str, **fields: Any) -> None:
-        safe_fields = {key: value for key, value in fields.items() if key not in {"text", "audio", "content"}}
+        safe_fields = {key: value for key, value in fields.items() if key not in {"text", "audio", "content"}}  # noqa: E501
         if self.audit_logger is None:
             log.info(event_type, **safe_fields)
             return
@@ -171,8 +170,7 @@ class VoicePipeline:
         if hasattr(result, "__await__"):
             await result
 
-
-class _suppress_exceptions:
+class _suppress_exceptions:  # noqa: N801
     def __enter__(self) -> None:
         return None
 

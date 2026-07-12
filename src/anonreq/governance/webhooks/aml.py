@@ -13,8 +13,9 @@ import hmac
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -130,7 +131,7 @@ class AmlWebhookManager:
         Args:
             tenant_id: The tenant identifier.
             entity_type: The detected entity type label.
-            confidence: The confidence score (0.0–1.0).
+            confidence: The confidence score (0.0-1.0).
             session_metadata: Session metadata dict (no raw values).
 
         Returns:
@@ -155,7 +156,7 @@ class AmlWebhookManager:
             entity_type=entity_type,
             confidence_score=confidence,
             threshold=config.threshold,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             session_metadata=session_metadata,
             alert_id=f"aml_{uuid.uuid4().hex[:12]}",
         )

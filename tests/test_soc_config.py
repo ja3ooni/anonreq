@@ -113,7 +113,7 @@ class TestSinkValidation:
     def test_valid_splunk_hec_config(self):
         """Valid Splunk HEC config passes validation."""
         loader = SinkConfigLoader()
-        errors = loader._validate_sink("splunk_hec", {"endpoint": "https://splunk:8088", "token": "abc"})
+        errors = loader._validate_sink("splunk_hec", {"endpoint": "https://splunk:8088", "token": "abc"})  # noqa: E501
         assert errors == []
 
     def test_missing_required_field(self):

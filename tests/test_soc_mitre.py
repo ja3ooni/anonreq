@@ -14,9 +14,8 @@ import os
 import tempfile
 
 import pytest
-import yaml
 
-from anonreq.soc.mitre import MITREMapper, MappingEntry
+from anonreq.soc.mitre import MITREMapper
 
 
 def _write_temp_yaml(content: str) -> str:
@@ -147,7 +146,7 @@ class TestMITREMapperErrors:
         """Test 5: Invalid YAML raises ConfigurationError."""
         path = _write_temp_yaml("invalid: yaml: [bad\n  broken")
         try:
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017, PT011
                 MITREMapper(path)
         finally:
             os.unlink(path)

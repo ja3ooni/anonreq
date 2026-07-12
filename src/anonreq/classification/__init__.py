@@ -6,11 +6,11 @@ Per D-22 through D-28:
 - Default action for unmatched requests: PASS
 """
 
-from anonreq.classification.engine import ClassificationRule, ClassificationEngine
+from anonreq.classification.engine import ClassificationEngine, ClassificationRule
 from anonreq.classification.loader import ClassificationRuleLoader
 
 __all__ = [
-    "ClassificationRule",
     "ClassificationEngine",
+    "ClassificationRule",
     "ClassificationRuleLoader",
 ]

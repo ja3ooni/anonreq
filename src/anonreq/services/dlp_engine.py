@@ -7,16 +7,15 @@ Plan 13-03 additions:
 
 from __future__ import annotations
 
-import math
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from anonreq.models.dlp import DLPCategory, DLPAction, DLPDetection, DLPResult
-from anonreq.models.processing_context import ProcessingContext
 from anonreq.models.classification import ClassificationLevel
+from anonreq.models.dlp import DLPAction, DLPCategory, DLPDetection, DLPResult
+from anonreq.models.processing_context import ProcessingContext
 from anonreq.services.exfiltration_detector import ExfiltrationDetector
 
 
@@ -84,7 +83,7 @@ class DLPEngine:
         self,
         text: str,
         tenant_id: str = "default",
-        classification_level: ClassificationLevel | None = None,
+        _classification_level: ClassificationLevel | None = None,
     ) -> DLPResult:
         """Inspect text content for DLP violations across core and custom categories."""
         detections: list[DLPDetection] = []
@@ -146,7 +145,7 @@ class DLPEngine:
         )
 
     def _compute_max_action(self, detections: list[DLPDetection]) -> DLPAction:
-        """Return most restrictive action based on rank: BLOCK > QUARANTINE > REDACT > ANONYMIZE > ALLOW."""
+        """Return most restrictive action based on rank: BLOCK > QUARANTINE > REDACT > ANONYMIZE > ALLOW."""  # noqa: E501
         action_rank = {
             DLPAction.ALLOW: 0,
             DLPAction.ANONYMIZE: 1,
@@ -217,7 +216,7 @@ class DLPEngine:
             "action": "quarantine",
             "detection_count": len(dlp_result.detections),
             "max_action": dlp_result.max_action.value,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             # NO: match_text, NO: raw request body, NO: provider response
         }
 

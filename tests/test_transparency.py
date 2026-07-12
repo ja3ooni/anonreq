@@ -5,12 +5,9 @@ Uses fakeredis-backed cache matching conftest patterns.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
 
 from anonreq.services.transparency import (
-    TransparencyRecord,
     TransparencyService,
     add_transparency_headers,
 )
@@ -20,7 +17,7 @@ from anonreq.services.transparency import (
 async def transparency_service(cache_manager):
     svc = TransparencyService(cache_manager)
     await svc._redis.delete("anonreq:transparency:sessions:acme-corp")
-    yield svc
+    return svc
 
 
 class TestTransparencyRecords:
@@ -105,8 +102,8 @@ class TestConformityPackage:
         assert zip_bytes[:4] == b"PK\x03\x04"
 
     async def test_conformity_package_contains_expected_sections(self, transparency_service):
-        import zipfile
         import io
+        import zipfile
 
         zip_bytes = await transparency_service.generate_conformity_package("acme-corp")
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
@@ -119,8 +116,8 @@ class TestConformityPackage:
     async def test_conformity_package_includes_tenant_data(self, transparency_service):
         await transparency_service.record_session("acme-corp", "s1", 5, ["EMAIL"], True)
 
-        import zipfile
         import io
+        import zipfile
 
         zip_bytes = await transparency_service.generate_conformity_package("acme-corp")
         with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:

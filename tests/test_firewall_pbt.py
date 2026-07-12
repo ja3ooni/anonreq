@@ -14,18 +14,18 @@ class CountingDispatcher:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def dispatch(self, content_type: str, body: bytes, ctx: object):
+    async def dispatch(self, _content_type: str, _body: bytes, _ctx: object):
         self.calls += 1
         return b"forwarded"
 
 
 class NoopTLS:
-    async def generate_cert(self, domain: str):
+    async def generate_cert(self, _domain: str):
         return None
 
 
 class ExplodingJailbreakDB:
-    def match(self, text: str):
+    def match(self, _text: str):
         raise RuntimeError("classifier unavailable")
 
 

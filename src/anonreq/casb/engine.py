@@ -7,9 +7,10 @@ Provides:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from anonreq.casb.classifier import (
     AppPolicy,
@@ -38,7 +39,7 @@ class CASBEvent:
     tenant_id: str = "default"
     groups: list[str] = field(default_factory=list)
     action: ClassificationAction = ClassificationAction.BLOCK
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize event to dict (metadata only, no raw values)."""

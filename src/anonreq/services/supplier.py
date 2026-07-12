@@ -8,7 +8,7 @@ Provides:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
@@ -98,12 +98,12 @@ class SupplierService:
             provider_name,
             contract_status="Suspended",
             suspended_by=suspended_by,
-            suspended_at=datetime.now(timezone.utc),
+            suspended_at=datetime.now(UTC),
         )
 
     async def get_overdue_providers(self) -> list[SupplierRecord]:
         providers = await self.list_providers()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         overdue = []
         for p in providers:
             if p.last_risk_review_date is None:

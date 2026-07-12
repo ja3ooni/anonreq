@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import os
 import asyncio
-from datetime import datetime, timezone
+import os
+
 import httpx
 import pytest
 import respx
@@ -37,7 +37,7 @@ async def audit_chain(audit_engine):
 async def test_breach_detector_triggers_alert_and_audit(cache_manager, audit_chain):
     # Setup SLOEngine with a target success rate
     slo_engine = SLOEngine(cache_manager, config_path="nonexistent.yaml")
-    
+
     # Setup httpx client and respx mock for webhook
     webhook_url = "https://alerts.internal/slo"
     import os
@@ -61,10 +61,10 @@ async def test_breach_detector_triggers_alert_and_audit(cache_manager, audit_cha
 
         # Evaluate breaches
         breaches = await detector.evaluate(tenant_id)
-        
+
         # Verify breach detected
         assert len(breaches) == 4  # daily, monthly, 24h, 30d windows are all non-compliant!
-        
+
         # Wait a small moment for async task webhook calls to complete
         await asyncio.sleep(0.1)
 
@@ -104,7 +104,7 @@ async def test_breach_detector_cooldown_prevents_duplicates(cache_manager, audit
         # First evaluation: triggers webhook
         breaches_1 = await detector.evaluate(tenant_id)
         assert len(breaches_1) == 4
-        
+
         await asyncio.sleep(0.05)
         assert route.call_count == 4
 
@@ -120,7 +120,7 @@ async def test_breach_webhook_retries_and_dlq(cache_manager, audit_chain):
 
     webhook_url = "https://alerts.internal/slo"
     os.environ["ANONREQ_BREACH_WEBHOOK_URL"] = webhook_url
-    
+
     # Mock webhook to fail (500 Internal Server Error)
     route = respx.post(webhook_url).respond(status_code=500)
 
@@ -140,7 +140,7 @@ async def test_breach_webhook_retries_and_dlq(cache_manager, audit_chain):
 
         # Evaluate: triggers webhook, fails all retries, goes to DLQ
         await detector.evaluate(tenant_id)
-        
+
         # Wait for retries to finish (3 attempts * backoff)
         await asyncio.sleep(0.2)
 
@@ -150,15 +150,15 @@ async def test_breach_webhook_retries_and_dlq(cache_manager, audit_chain):
         # Verify entries in DLQ
         dlq_entries = await detector.get_dlq_entries(tenant_id)
         assert len(dlq_entries) == 4
-        
+
         # Test retry DLQ after recovery
         respx.clear()
         recovery_route = respx.post(webhook_url).respond(status_code=200)
-        
+
         success_count = await detector.retry_dlq(tenant_id)
         assert success_count == 4
         assert recovery_route.called
-        
+
         # Verify DLQ is empty now
         dlq_entries_after = await detector.get_dlq_entries(tenant_id)
         assert len(dlq_entries_after) == 0

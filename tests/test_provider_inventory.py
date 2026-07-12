@@ -6,14 +6,12 @@ and DORA ICT critical designation per D-009 through D-012.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from pydantic import ValidationError
 
 from anonreq.models.governance import ProviderRecord
-
 
 # ── ProviderRecord Validation ─────────────────────────────────────────────
 
@@ -37,7 +35,7 @@ class TestProviderRecordValidation:
 
     def test_provider_record_with_all_fields(self):
         """Test provider record with all fields populated."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = ProviderRecord(
             id="prov_001",
             name="Anthropic",
@@ -89,7 +87,7 @@ class TestProviderRecordValidation:
 
 def _make_mock_provider_orm(**overrides):
     """Create a MagicMock with ProviderAnonReqModel-like attributes."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     attrs = {
         "provider_id": "prov_001",
         "name": "OpenAI",
@@ -217,7 +215,7 @@ class TestProviderInventory:
 
     async def test_flag_concentration_risk_sets_flag(self, inventory, mock_db):
         """Test 5: flag_concentration_risk sets concentration_risk=True."""
-        now = datetime.now(timezone.utc)
+        datetime.now(UTC)
         mock_orm = _make_mock_provider_orm(
             provider_id="prov_001",
             concentration_risk=False,

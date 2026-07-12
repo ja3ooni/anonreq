@@ -1,19 +1,25 @@
 """Gateway package — AI traffic detection, routing, and passthrough modes."""
 
-from anonreq.gateway.detector import AIDetector, MCPInspector, MCPMessage, ProviderMatch, TrafficClassification
-from anonreq.gateway.router import RouteEntry, RouteMatch, RouteTable
+from anonreq.gateway.detector import (
+    AIDetector,
+    MCPInspector,
+    MCPMessage,
+    ProviderMatch,
+    TrafficClassification,
+)
 from anonreq.gateway.passthrough import GatewayStatus, ProxyMode, ProxyOnlyHandler
+from anonreq.gateway.router import RouteEntry, RouteMatch, RouteTable
 
 __all__ = [
     "AIDetector",
+    "GatewayStatus",
     "MCPInspector",
     "MCPMessage",
     "ProviderMatch",
-    "TrafficClassification",
+    "ProxyMode",
+    "ProxyOnlyHandler",
     "RouteEntry",
     "RouteMatch",
     "RouteTable",
-    "GatewayStatus",
-    "ProxyMode",
-    "ProxyOnlyHandler",
+    "TrafficClassification",
 ]

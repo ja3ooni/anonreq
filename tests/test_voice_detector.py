@@ -31,7 +31,7 @@ class FakeDetectionEngine:
 def test_timeline_mapper_converts_character_offsets_to_audio_offsets():
     mapper = TimelineMapper(sample_rate=16000)
 
-    assert mapper.char_offset_to_ms(5, text_start_ms=1000, text_duration_ms=1000, text_length=10) == 1500
+    assert mapper.char_offset_to_ms(5, text_start_ms=1000, text_duration_ms=1000, text_length=10) == 1500  # noqa: E501
 
     frame_range = mapper.entity_to_frame_range(
         {"start": 5, "end": 10, "entity_type": "EMAIL"},
@@ -94,7 +94,7 @@ async def test_entity_spanning_window_boundary_detected_with_context_carryover()
     )
 
     await detector.process_chunk("Reach john@", audio_start_ms=0, audio_duration_ms=250)
-    entities = await detector.process_chunk("example.com today", audio_start_ms=250, audio_duration_ms=250)
+    entities = await detector.process_chunk("example.com today", audio_start_ms=250, audio_duration_ms=250)  # noqa: E501
 
     assert [entity["entity_type"] for entity in entities] == ["EMAIL"]
     assert entities[0]["audio_start_ms"] < 250

@@ -58,13 +58,19 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     REQUEST_TIMEOUT_SECONDS: int = 30
     CACHE_TTL_SECONDS: int = 300
-    PROVIDER_BASE_URL: str = "https://api.openai.com"
-    PROVIDER_API_KEY: str | None = None
+    PROVIDER_BASE_URL: str = Field(
+        default="https://api.openai.com",
+        validation_alias="PROVIDER_BASE_URL",
+    )
+    PROVIDER_API_KEY: str | None = Field(
+        default=None,
+        validation_alias="PROVIDER_API_KEY",
+    )
     ACTIVE_PRESETS: str = ""
     POLICY_CONFIG_PATH: str = Field(
         default="config/enterprise-policy.yaml",
         validation_alias="ANONREQ_POLICY_CONFIG_PATH",
-        description="Enterprise PDP policy config path. Kept separate from Appliance PDP2 policy.yaml.",
+        description="Enterprise PDP policy config path. Kept separate from Appliance PDP2 policy.yaml.",  # noqa: E501
     )
     DATABASE_URL: str = Field(
         default="sqlite+aiosqlite:///./anonreq.db",
@@ -97,6 +103,17 @@ class Settings(BaseSettings):
         default="proxy-only",
         validation_alias="ANONREQ_PROXY_MODE",
         description="Proxy mode: proxy-only | transparent | full",
+    )
+    # Phase 26: Enterprise Guardrails — licensing
+    LICENSE_SECRET: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_LICENSE_SECRET",
+        description="HMAC-SHA256 signing key for license validation. Required for Appliance-tier features.",
+    )
+    LICENSE_KEY: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_LICENSE_KEY",
+        description="Signed license key payload. Base64-encoded HMAC-SHA256 signed JSON.",
     )
 
     @field_validator("API_KEY", mode="before")

@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
-
 AI_API_DOMAINS: Final[list[str]] = [
     "api.openai.com",
     "api.anthropic.com",
@@ -68,7 +67,7 @@ class AITrafficDetector:
         if self.is_ai_traffic(clean_host, path):
             return TrafficDecision("ai", clean_host, path, method, "known_ai_host_and_path")
         if self._host_matches(clean_host):
-            return TrafficDecision("unknown", clean_host, path, method, "known_ai_host_unknown_path")
+            return TrafficDecision("unknown", clean_host, path, method, "known_ai_host_unknown_path")  # noqa: E501
         return TrafficDecision("non_ai", clean_host, path, method, "host_not_in_ai_registry")
 
     def _host_matches(self, host: str) -> bool:
@@ -110,4 +109,4 @@ class CertPinningDetector:
         # Some pinned desktop SDKs omit SNI. Treat that as suspicious only for
         # known AI API domains, where transparent interception expects SNI.
         normalized_domain = (domain or "").lower()
-        return bool(normalized_domain and normalized_domain.encode("ascii", "ignore") not in lowered)
+        return bool(normalized_domain and normalized_domain.encode("ascii", "ignore") not in lowered)  # noqa: E501

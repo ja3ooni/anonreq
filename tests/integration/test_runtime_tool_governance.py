@@ -61,7 +61,7 @@ class TestRuntimeToolGovernance:
         from anonreq.pipeline.tool_governance import ToolGovernanceStage
 
         tool_evaluator = AsyncMock()
-        tool_evaluator.evaluate.side_effect = ToolBlockedError("Tool 'malicious_tool' is blocked by policy")
+        tool_evaluator.evaluate.side_effect = ToolBlockedError("Tool 'malicious_tool' is blocked by policy")  # noqa: E501
 
         app_state = MagicMock()
         app_state.tool_evaluator = tool_evaluator

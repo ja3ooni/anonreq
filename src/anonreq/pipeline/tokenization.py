@@ -14,7 +14,6 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-import structlog
 from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError
@@ -103,7 +102,7 @@ class TokenizationStage(PipelineStage):
             for i, node in enumerate(ctx.text_nodes):
                 # Extract message index and key from path
                 path = node.get("path", "")
-                # Path format: messages[{idx}].content or messages[{idx}].tool_calls[{tc_idx}].function.arguments
+                # Path format: messages[{idx}].content or messages[{idx}].tool_calls[{tc_idx}].function.arguments  # noqa: E501
                 parts = path.split(".")
                 if len(parts) >= 2 and parts[0].startswith("messages["):
                     msg_idx_str = parts[0][len("messages["):-1]
@@ -119,14 +118,13 @@ class TokenizationStage(PipelineStage):
                             # tool_calls[{tc_idx}].function.arguments
                             tc_part = parts[1] if len(parts) == 2 else ".".join(parts[1:])
                             # Parse tool_call index from the path part
-                            tc_idx_str = tc_part[len("tool_calls["):-len("].function.arguments")] if tc_part.startswith("tool_calls[") else None
+                            tc_idx_str = tc_part[len("tool_calls["):-len("].function.arguments")] if tc_part.startswith("tool_calls[") else None  # noqa: E501
                             if tc_idx_str:
                                 try:
                                     tc_idx = int(tc_idx_str)
                                     tool_calls = messages[msg_idx].get("tool_calls", [])
-                                    if tc_idx < len(tool_calls):
-                                        if "function" in tool_calls[tc_idx]:
-                                            tool_calls[tc_idx]["function"]["arguments"] = tokenized_texts[i]
+                                    if tc_idx < len(tool_calls) and "function" in tool_calls[tc_idx]:  # noqa
+                                            tool_calls[tc_idx]["function"]["arguments"] = tokenized_texts[i]  # noqa: E501
                                 except (ValueError, IndexError):
                                     continue
 
@@ -153,11 +151,19 @@ class TokenizationStage(PipelineStage):
 
         except PipelineAbortError:
             raise
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=500,
+                    message=f"Tokenization stage failed: {type(exc).__name__}: {exc}",
+                    request_id=ctx.request_id,
+                )
+            )
         except Exception as exc:
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message="Tokenization stage failed",
+                    message=f"Tokenization stage failed: {type(exc).__name__}",
                     request_id=ctx.request_id,
                 )
             )

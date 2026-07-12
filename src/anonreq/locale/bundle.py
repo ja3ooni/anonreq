@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class RecognizerTier(str, Enum):
+class RecognizerTier(StrEnum):
     """Recognizer execution tier for an entity type."""
 
     REGEX = "REGEX"
@@ -26,7 +26,7 @@ class EntityTypeConfig:
     presidio_entities: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EntityTypeConfig":
+    def from_dict(cls, data: dict[str, Any]) -> EntityTypeConfig:
         return cls(
             name=str(data["name"]),
             tier=RecognizerTier(str(data["tier"])),
@@ -53,7 +53,7 @@ class ChecksumConfig:
     validator_id: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ChecksumConfig":
+    def from_dict(cls, data: dict[str, Any]) -> ChecksumConfig:
         return cls(
             algorithm=str(data["algorithm"]),
             validator_id=str(data["validator_id"]),
@@ -69,7 +69,7 @@ class LocaleMetadata:
     maintainer: str
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "LocaleMetadata":
+    def from_dict(cls, data: dict[str, Any]) -> LocaleMetadata:
         return cls(
             name=str(data["name"]),
             version=int(data.get("version", 1)),
@@ -87,7 +87,7 @@ class LocaleBundle:
     metadata: LocaleMetadata | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "LocaleBundle":
+    def from_dict(cls, data: dict[str, Any]) -> LocaleBundle:
         checksum = data.get("checksum")
         metadata = data.get("metadata")
         return cls(

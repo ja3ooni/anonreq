@@ -38,7 +38,7 @@ def test_record_denial(metrics, test_registry):
     metrics.record_denial("tenant_1", "rate_limit_exceeded")
 
     output = generate_latest(test_registry).decode("utf-8")
-    assert 'anonreq_policy_denials_total{reason="rate_limit_exceeded",tenant_id="tenant_1"} 1.0' in output
+    assert 'anonreq_policy_denials_total{reason="rate_limit_exceeded",tenant_id="tenant_1"} 1.0' in output  # noqa: E501
 
 
 def test_record_rate_limit(metrics, test_registry):

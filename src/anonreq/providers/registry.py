@@ -109,7 +109,7 @@ class ProviderRegistry:
             self._adapter_cache[provider_name] = adapter_class
             return adapter_class
         except (ImportError, AttributeError) as exc:
-            raise ProviderNotFoundError(
+            raise ProviderNotFoundError(  # noqa: B904
                 f"Provider '{provider_name}' adapter not available: {exc}. "
                 f"The adapter module may not be implemented yet."
             )

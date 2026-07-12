@@ -18,7 +18,7 @@ from datetime import datetime
 from enum import IntEnum
 from typing import Any
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase
 
 

@@ -97,7 +97,7 @@ class TestQRadarCEFFormat:
 
     @pytest.mark.asyncio
     async def test_cef_header_has_exactly_seven_pipes(self):
-        """CEF header is a 7-pipe-delimited field: version, device vendor, product, version, sig id, name, sev."""
+        """CEF header is a 7-pipe-delimited field: version, device vendor, product, version, sig id, name, sev."""  # noqa: E501
         from anonreq.soc.sinks.qradar_cef import QRadarCEFSink
 
         sink = QRadarCEFSink(
@@ -249,8 +249,15 @@ class TestQRadarCEFHealth:
         """health_check connects to host:port to verify reachability."""
         from anonreq.soc.sinks.qradar_cef import QRadarCEFSink
 
+        async def close_handler(reader, writer):
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
         server = await asyncio.start_server(
-            lambda r, w: None, "127.0.0.1", 0
+            close_handler, "127.0.0.1", 0
         )
         addr = server.sockets[0].getsockname()
 

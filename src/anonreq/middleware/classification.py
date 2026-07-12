@@ -11,8 +11,6 @@ Per-level handling (Plan 12-02):
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request

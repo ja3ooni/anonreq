@@ -12,7 +12,7 @@ import csv
 import io
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from prometheus_client import Gauge
@@ -67,8 +67,8 @@ class InventoryRecord:
     approval_status: str = "not_reviewed"
     risk_score: float = 0.0
     risk_band: str = "low"
-    last_seen: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    first_seen: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_seen: datetime = field(default_factory=lambda: datetime.now(UTC))
+    first_seen: datetime = field(default_factory=lambda: datetime.now(UTC))
     owner: str | None = None
     business_unit: str | None = None
     sources: list[str] = field(default_factory=list)
@@ -190,10 +190,10 @@ class AssetInventory:
             existing.token_volume += record.token_volume
             existing.estimated_cost += record.estimated_cost
 
-            if record.last_seen and (not existing.last_seen or record.last_seen > existing.last_seen):
+            if record.last_seen and (not existing.last_seen or record.last_seen > existing.last_seen):  # noqa: E501
                 existing.last_seen = record.last_seen
                 existing.provider = record.provider or existing.provider
-                existing.data_classification = record.data_classification or existing.data_classification
+                existing.data_classification = record.data_classification or existing.data_classification  # noqa: E501
 
             # Merge lists
             existing.hostnames = list(set(existing.hostnames + record.hostnames))
@@ -276,7 +276,7 @@ class AssetInventory:
                 ]
 
         # Sort by last_seen descending
-        results.sort(key=lambda r: r.last_seen or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+        results.sort(key=lambda r: r.last_seen or datetime.min.replace(tzinfo=UTC), reverse=True)
         return results[offset:offset + limit]
 
     def merge_from_discovery(
@@ -292,7 +292,7 @@ class AssetInventory:
             proxy_entries: List of ProxyEntry objects.
             casb_classifications: Dict of app_id -> classification data.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         seen_services: dict[str, InventoryRecord] = {}
 
         # Process DNS entries
@@ -356,7 +356,7 @@ class AssetInventory:
 
         # Apply CASB classifications
         if casb_classifications:
-            for app_id, classification_data in casb_classifications.items():
+            for app_id, _classification_data in casb_classifications.items():
                 for service_name, record in seen_services.items():
                     if app_id in service_name or (record.provider and app_id in record.provider):
                         if "casb" not in record.sources:

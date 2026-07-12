@@ -4,8 +4,10 @@ Provides endpoints for audit chain status, verification, and
 retrieval via the AuditChainService and ChainAnchorService.
 """
 
+import contextlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from anonreq.middleware.rbac import Role, require_role
@@ -98,9 +100,9 @@ async def get_governance_status(
     slo_engine = getattr(request.app.state, "slo_engine", None)
     if slo_engine is None:
         raise HTTPException(status_code=503, detail="SLO engine not initialized")
-    
+
     compliance = await slo_engine.get_all_compliance(tenant_id)
-    
+
     # Format slos list or dict
     slos_data = {}
     for sname, comps in compliance.items():
@@ -118,7 +120,7 @@ async def get_governance_status(
 
     return {
         "tenant_id": tenant_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "slos": slos_data,
     }
 
@@ -134,23 +136,21 @@ async def list_governance_breaches(
     chain = getattr(request.app.state, "audit_chain", None)
     if chain is None:
         raise HTTPException(status_code=503, detail="Audit chain service not initialized")
-    
+
     events = await chain.get_events(
         tenant_id=tenant_id,
         limit=limit,
         offset=offset,
         event_type="slo_breach_detected",
     )
-    
+
     # Format response
     data = []
     for e in events:
         metadata = {}
         if e.metadata_json:
-            try:
+            with contextlib.suppress(Exception):
                 metadata = json.loads(e.metadata_json)
-            except Exception:
-                pass
         data.append({
             "event_id": e.event_id,
             "event_type": e.event_type,

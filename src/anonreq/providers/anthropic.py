@@ -11,7 +11,8 @@ Per PROV-02 (Anthropic Claude support):
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 import structlog
@@ -172,19 +173,34 @@ class AnthropicAdapter(ProviderAdapter):
             )
 
         except httpx.TimeoutException:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=504,
                 message="Anthropic API timeout",
             )
         except httpx.ConnectError:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=503,
                 message="Anthropic API unavailable",
             )
         except PipelineAbortError:
             raise
+        except httpx.HTTPStatusError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Anthropic API HTTP {exc.response.status_code}",
+            )
+        except httpx.RequestError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Anthropic API request error: {type(exc).__name__}",
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Anthropic API response parse error: {type(exc).__name__}: {exc}",
+            )
         except Exception as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=502,
                 message=f"Anthropic API error: {type(exc).__name__}",
             )
@@ -244,7 +260,7 @@ class AnthropicAdapter(ProviderAdapter):
                         yield stream_event
 
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=503,
                 message=f"Anthropic API stream error: {type(exc).__name__}",
             )
@@ -383,11 +399,7 @@ class AnthropicAdapter(ProviderAdapter):
     @staticmethod
     def _map_http_status(status_code: int) -> int:
         """Map provider HTTP status to appropriate gateway status."""
-        if status_code in (401, 403):
-            return 502
-        elif status_code == 429:
-            return 502
-        elif status_code >= 500:
+        if status_code in (401, 403) or status_code == 429 or status_code >= 500:
             return 502
         return 502
 
@@ -398,7 +410,7 @@ class AnthropicAdapter(ProviderAdapter):
             error_info = error_data.get("error", {})
             error_type = error_info.get("type", "unknown_error")
             return f"Anthropic API error: {error_type}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"Anthropic API returned HTTP {response.status_code}"
 
     async def _normalize_error_async(self, response: httpx.Response) -> str:
@@ -412,5 +424,5 @@ class AnthropicAdapter(ProviderAdapter):
             error_info = error_data.get("error", {})
             error_type = error_info.get("type", "unknown_error")
             return f"Anthropic API error: {error_type}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"Anthropic API returned HTTP {response.status_code}"

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-import os
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
@@ -21,9 +21,9 @@ from anonreq.config import settings
 from anonreq.models.chat import ChatRequest
 from anonreq.models.request_context import RequestContext
 from anonreq.providers.adapter import ProviderCapabilities, ProviderRequest
-from anonreq.routing.chat import _stream_chat_completions, router as chat_router
+from anonreq.routing.chat import _stream_chat_completions
+from anonreq.routing.chat import router as chat_router
 from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
-
 
 SESSION_ID = "stream_test_session"
 
@@ -52,7 +52,7 @@ class FakeProviderRegistry:
         self.adapter = adapter
         self.providers: list[str] = []
 
-    def get_adapter(self, provider: str) -> "FakeStreamingAdapter":
+    def get_adapter(self, provider: str) -> FakeStreamingAdapter:
         self.providers.append(provider)
         return self.adapter
 
@@ -107,7 +107,7 @@ class FakeStreamingAdapter:
             yield event
             self.events_completed += 1
             if self.mode == "raise_after_first" and self.events_started == 1:
-                raise RuntimeError("https://provider.example/v1 leaked user@example.com ANONREQ_OPENAI_API_KEY")
+                raise RuntimeError("https://provider.example/v1 leaked user@example.com ANONREQ_OPENAI_API_KEY")  # noqa: E501
 
     def _events(self) -> list[StreamEvent]:
         if self.mode == "error_event":
@@ -117,7 +117,7 @@ class FakeStreamingAdapter:
                     event_type=EventType.ERROR,
                     provider="openai",
                     metadata={
-                        "message": "https://provider.example/v1 user@example.com ANONREQ_OPENAI_API_KEY",
+                        "message": "https://provider.example/v1 user@example.com ANONREQ_OPENAI_API_KEY",  # noqa: E501
                         "type": "upstream_error",
                     },
                 ),
@@ -126,7 +126,7 @@ class FakeStreamingAdapter:
             StreamEvent(event_type=EventType.TEXT_DELTA, provider="openai", delta_text="Hello "),
             StreamEvent(event_type=EventType.TEXT_DELTA, provider="openai", delta_text="[EMA"),
             StreamEvent(event_type=EventType.TEXT_DELTA, provider="openai", delta_text="IL_0]"),
-            StreamEvent(event_type=EventType.FINISH, provider="openai", finish_reason=FinishReason.STOP),
+            StreamEvent(event_type=EventType.FINISH, provider="openai", finish_reason=FinishReason.STOP),  # noqa: E501
         ]
 
 
@@ -134,7 +134,7 @@ async def _make_cache() -> InMemoryCache:
     return InMemoryCache()
 
 
-def _install_streaming_state(app: FastAPI, cache: InMemoryCache, adapter: FakeStreamingAdapter) -> None:
+def _install_streaming_state(app: FastAPI, cache: InMemoryCache, adapter: FakeStreamingAdapter) -> None:  # noqa: E501
     app.state.cache_manager = cache
     app.state.presidio_client = AsyncMock()
     app.state.alias_registry = FakeAliasRegistry()
@@ -153,7 +153,7 @@ async def streaming_app(monkeypatch: pytest.MonkeyPatch):
     _install_streaming_state(app, cache, adapter)
     app.include_router(chat_router)
     monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
-    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *args, **kwargs: FakePreProviderPipeline())
+    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *_args, **_kwargs: FakePreProviderPipeline())  # noqa: E501
     monkeypatch.setattr(
         "anonreq.pipeline.provider.ProviderStage.execute",
         AsyncMock(side_effect=AssertionError("legacy ProviderStage POST path reached")),
@@ -163,7 +163,7 @@ async def streaming_app(monkeypatch: pytest.MonkeyPatch):
         AsyncMock(side_effect=AssertionError("legacy ProviderStage POST path reached")),
     )
     await cache.store_mapping("default", SESSION_ID, {"[EMAIL_0]": "user@example.com"})
-    yield app, cache, adapter
+    return app, cache, adapter
 
 
 @pytest.mark.asyncio
@@ -206,21 +206,21 @@ async def test_stream_true_returns_sse_restores_split_tokens_and_cleans_up(strea
 
 
 @pytest.mark.asyncio
-async def test_provider_error_event_emits_generic_error_and_cleans_up(monkeypatch: pytest.MonkeyPatch):
+async def test_provider_error_event_emits_generic_error_and_cleans_up(monkeypatch: pytest.MonkeyPatch):  # noqa: E501
     cache = await _make_cache()
     adapter = FakeStreamingAdapter(mode="error_event")
     app = FastAPI()
     _install_streaming_state(app, cache, adapter)
     app.include_router(chat_router)
     monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
-    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *args, **kwargs: FakePreProviderPipeline())
+    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *_args, **_kwargs: FakePreProviderPipeline())  # noqa: E501
     await cache.store_mapping("default", SESSION_ID, {"[EMAIL_0]": "user@example.com"})
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
             "/v1/chat/completions",
-            json={"model": "fast", "messages": [{"role": "user", "content": "Hello user@example.com"}], "stream": True},
+            json={"model": "fast", "messages": [{"role": "user", "content": "Hello user@example.com"}], "stream": True},  # noqa: E501
             headers={"Authorization": f"Bearer {settings.API_KEY}"},
         )
 
@@ -234,13 +234,13 @@ async def test_provider_error_event_emits_generic_error_and_cleans_up(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_provider_exception_emits_generic_error_and_cleans_up(monkeypatch: pytest.MonkeyPatch):
+async def test_provider_exception_emits_generic_error_and_cleans_up(monkeypatch: pytest.MonkeyPatch):  # noqa: E501
     cache = await _make_cache()
     adapter = FakeStreamingAdapter(mode="raise_after_first")
     app = FastAPI()
     _install_streaming_state(app, cache, adapter)
     monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
-    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *args, **kwargs: FakePreProviderPipeline())
+    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *_args, **_kwargs: FakePreProviderPipeline())  # noqa: E501
     monkeypatch.setattr(
         "anonreq.pipeline.provider.ProviderStage.execute",
         AsyncMock(side_effect=AssertionError("legacy ProviderStage POST path reached")),
@@ -254,7 +254,7 @@ async def test_provider_exception_emits_generic_error_and_cleans_up(monkeypatch:
         is_disconnected=AsyncMock(return_value=False),
     )
     response = await _stream_chat_completions(
-        ChatRequest(model="fast", messages=[{"role": "user", "content": "Hello user@example.com"}], stream=True),
+        ChatRequest(model="fast", messages=[{"role": "user", "content": "Hello user@example.com"}], stream=True),  # noqa: E501
         request,  # type: ignore[arg-type]
         RequestContext(request_id="req_stream_test", tenant_id="default"),
     )
@@ -268,13 +268,13 @@ async def test_provider_exception_emits_generic_error_and_cleans_up(monkeypatch:
 
 
 @pytest.mark.asyncio
-async def test_client_disconnect_stops_provider_iteration_and_cleans_up(monkeypatch: pytest.MonkeyPatch):
+async def test_client_disconnect_stops_provider_iteration_and_cleans_up(monkeypatch: pytest.MonkeyPatch):  # noqa: E501
     cache = await _make_cache()
     adapter = FakeStreamingAdapter()
     app = FastAPI()
     _install_streaming_state(app, cache, adapter)
     monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
-    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *args, **kwargs: FakePreProviderPipeline())
+    monkeypatch.setattr("anonreq.routing.chat.build_pre_provider_pipeline", lambda *_args, **_kwargs: FakePreProviderPipeline())  # noqa: E501
     monkeypatch.setattr(
         "anonreq.pipeline.provider.ProviderStage.execute",
         AsyncMock(side_effect=AssertionError("legacy ProviderStage POST path reached")),
@@ -282,7 +282,7 @@ async def test_client_disconnect_stops_provider_iteration_and_cleans_up(monkeypa
     cleanup_states: list[str] = []
 
     class SpySessionCleanup:
-        def __init__(self, cache_manager: Any, tenant_id: str, session_id: str, audit_logger: Any = None) -> None:
+        def __init__(self, cache_manager: Any, tenant_id: str, session_id: str, audit_logger: Any = None) -> None:  # noqa: E501
             self.cache_manager = cache_manager
             self.tenant_id = tenant_id
             self.session_id = session_id
@@ -308,7 +308,7 @@ async def test_client_disconnect_stops_provider_iteration_and_cleans_up(monkeypa
         is_disconnected=is_disconnected,
     )
     response = await _stream_chat_completions(
-        ChatRequest(model="fast", messages=[{"role": "user", "content": "Hello user@example.com"}], stream=True),
+        ChatRequest(model="fast", messages=[{"role": "user", "content": "Hello user@example.com"}], stream=True),  # noqa: E501
         request,  # type: ignore[arg-type]
         RequestContext(request_id="req_stream_test", tenant_id="default"),
     )

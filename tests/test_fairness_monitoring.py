@@ -5,21 +5,19 @@ Uses SQLite in-memory for metric storage and a mock incident classifier.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from anonreq.fairness.monitoring import FairnessMonitor
 from anonreq.models.fairness import (
     Base,
-    ProductionMetricModel,
+    DemographicResult,
     FairnessEvaluation,
     FairnessResult,
-    DemographicResult,
-    IncidentSeverity,
+    ProductionMetricModel,
 )
-from anonreq.fairness.monitoring import FairnessMonitor, DEFAULT_DRIFT_THRESHOLD
-from anonreq.incidents.classification import IncidentClassifier
 
 
 @pytest.fixture
@@ -37,7 +35,7 @@ def make_baseline() -> FairnessEvaluation:
     return FairnessEvaluation(
         id="baseline_001",
         version="1.0",
-        evaluated_at=datetime(2026, 6, 20, tzinfo=timezone.utc),
+        evaluated_at=datetime(2026, 6, 20, tzinfo=UTC),
         results=[
             FairnessResult(
                 entity_type="PERSON",
@@ -77,17 +75,16 @@ async def _insert_production_metrics(
 ) -> None:
     """Insert production metrics for testing."""
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    async with session_factory() as session:
-        async with session.begin():
-            for i in range(total_count):
-                metric = ProductionMetricModel(
-                    tenant_id=tenant_id,
-                    entity_type=entity_type,
-                    demographic_group=demographic_group,
-                    detected=(i < detected_count),
-                    recorded_at=datetime.now(timezone.utc),
-                )
-                session.add(metric)
+    async with session_factory() as session, session.begin():
+        for i in range(total_count):
+            metric = ProductionMetricModel(
+                tenant_id=tenant_id,
+                entity_type=entity_type,
+                demographic_group=demographic_group,
+                detected=(i < detected_count),
+                recorded_at=datetime.now(UTC),
+            )
+            session.add(metric)
 
 
 class TestProductionMetricRecording:
@@ -106,7 +103,7 @@ class TestProductionMetricRecording:
 
         session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with session_factory() as session:
-            from sqlalchemy import select, func
+            from sqlalchemy import func, select
             stmt = select(func.count(ProductionMetricModel.id))
             result = await session.execute(stmt)
             count = result.scalar_one()
@@ -126,7 +123,7 @@ class TestProductionMetricRecording:
 
         session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with session_factory() as session:
-            from sqlalchemy import select, func
+            from sqlalchemy import func, select
             stmt = select(func.count(ProductionMetricModel.id))
             result = await session.execute(stmt)
             assert result.scalar_one() == 10
@@ -208,7 +205,7 @@ class TestDriftDetection:
         assert "severity" in alerts[0]
         assert alerts[0]["severity"] in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
 
-    @pytest.mark.parametrize("drift_threshold,expected_alerts", [
+    @pytest.mark.parametrize(("drift_threshold", "expected_alerts"), [
         (0.01, True),
         (0.50, False),
     ])
@@ -285,7 +282,7 @@ class TestBaselineManagement:
         new_baseline = FairnessEvaluation(
             id="baseline_002",
             version="2.0",
-            evaluated_at=datetime(2026, 6, 21, tzinfo=timezone.utc),
+            evaluated_at=datetime(2026, 6, 21, tzinfo=UTC),
             results=[
                 FairnessResult(
                     entity_type="PERSON",

@@ -9,12 +9,11 @@ Per D-026 through D-029:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from anonreq.models.breach import BreachNotification, BreachTemplate, RegulatorQueueItem
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -32,16 +31,14 @@ def mock_db_session():
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
 
-    async def mock_execute(stmt, params=None):
+    async def mock_execute(stmt, _params=None):
         result = AsyncMock()
         result.rowcount = 1
         result.fetchone = AsyncMock(return_value=None)
         result.fetchall = AsyncMock(return_value=[])
-        stmt_str = str(stmt) if hasattr(stmt, "__str__") else str(stmt)
+        stmt_str = str(stmt) if hasattr(stmt, "__str__") else str(stmt)  # noqa: RUF034
 
-        if "SELECT * FROM regulator_notification_queue" in stmt_str:
-            result.fetchall = AsyncMock(return_value=[])
-        elif "SELECT * FROM breach_notifications" in stmt_str:
+        if "SELECT * FROM regulator_notification_queue" in stmt_str or "SELECT * FROM breach_notifications" in stmt_str:  # noqa: E501
             result.fetchall = AsyncMock(return_value=[])
         else:
             result.fetchone = AsyncMock(return_value=None)
@@ -131,7 +128,7 @@ class TestBreachTemplates:
             "affected_count": "50",
             "mitigation": "System patched",
         }
-        subject, body = template_manager.render_template(
+        _subject, body = template_manager.render_template(
             template, variables
         )
         assert "50" in body

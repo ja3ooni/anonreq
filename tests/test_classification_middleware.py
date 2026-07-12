@@ -11,7 +11,7 @@ Plan 12-03:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
@@ -20,7 +20,6 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 from anonreq.models.classification import ClassificationLevel
-
 
 _SKIP_PATHS = {"/health", "/health/ready", "/metrics", "/"}
 
@@ -128,7 +127,7 @@ class TestClassificationMiddleware:
         app.add_middleware(ClassificationMiddleware)
 
         @app.get("/v1/chat/completions")
-        async def chat(request: Request):
+        async def chat(_request: Request):
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -149,7 +148,7 @@ class TestClassificationMiddleware:
         app.add_middleware(ClassificationMiddleware)
 
         @app.get("/v1/chat/completions")
-        async def chat(request: Request):
+        async def chat(_request: Request):
             return {"ok": True}
 
         transport = ASGITransport(app=app)
@@ -217,7 +216,7 @@ class TestClassificationResponseHeaders:
         )
 
         @app.get("/v1/chat/completions")
-        async def chat(request: Request, response: "Response"):
+        async def chat(_request: Request, response: Response):
             response.headers["X-AnonReq-Classification"] = result.highest.name
             response.headers["X-AnonReq-Highest-Entity"] = result.highest_entity or ""
             return {"ok": True}
@@ -237,7 +236,7 @@ class TestClassificationResponseHeaders:
         result = await svc.classify(["PERSON"])
 
         @app.get("/v1/chat/completions")
-        async def chat(request: Request, response: "Response"):
+        async def chat(_request: Request, response: Response):
             response.headers["X-AnonReq-Classification"] = result.highest.name
             response.headers["X-AnonReq-Highest-Entity"] = result.highest_entity or ""
             return {"ok": True}

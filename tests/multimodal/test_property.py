@@ -19,18 +19,17 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from hypothesis import HealthCheck, assume, given, settings, strategies as st
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.multimodal.json_analyzer import JsonAnalyzer
 from anonreq.multimodal.models import ContentType, UnifiedDetectionResult
 from anonreq.multimodal.tool_call import (
-    ToolCallExtractor,
     extract_tool_calls_anthropic,
     extract_tool_calls_mcp,
     extract_tool_calls_openai,
 )
 from anonreq.restore.engine import RestoreEngine
-from anonreq.restore.path_tracker import PathTracker
 
 # ---------------------------------------------------------------------------
 # PII regex patterns — mirrors detection engine for no-raw-PII invariant
@@ -67,8 +66,8 @@ def pii_string_strategy(draw: st.DrawFn) -> str:
     generation = draw(st.integers(min_value=0, max_value=3))
     if generation == 0:
         # Email
-        local = draw(st.text(min_size=3, max_size=12, alphabet=st.characters(codec="ascii", whitelist_categories=("L", "N"), whitelist_characters="._-")))
-        domain = draw(st.text(min_size=2, max_size=8, alphabet=st.characters(codec="ascii", whitelist_categories=("L",))))
+        local = draw(st.text(min_size=3, max_size=12, alphabet=st.characters(codec="ascii", whitelist_categories=("L", "N"), whitelist_characters="._-")))  # noqa: E501
+        domain = draw(st.text(min_size=2, max_size=8, alphabet=st.characters(codec="ascii", whitelist_categories=("L",))))  # noqa: E501
         tld = draw(st.sampled_from(["com", "org", "net", "io", "co.uk"]))
         pii = f"{local}@{domain}.{tld}"
     elif generation == 1:
@@ -128,7 +127,7 @@ def json_value_strategy(draw: st.DrawFn, max_leaves: int = 5) -> Any:
         elif kind == 2:
             return draw(st.integers(min_value=-1000, max_value=1000))
         elif kind == 3:
-            return draw(st.floats(min_value=-1000.0, max_value=1000.0, allow_nan=False, allow_infinity=False))
+            return draw(st.floats(min_value=-1000.0, max_value=1000.0, allow_nan=False, allow_infinity=False))  # noqa: E501
         elif kind == 4:
             return draw(st.booleans())
         elif kind == 5:
@@ -139,11 +138,11 @@ def json_value_strategy(draw: st.DrawFn, max_leaves: int = 5) -> Any:
     def build_dict(depth: int, remaining: int) -> Any:
         if remaining <= 0 or depth > 4:
             return make_leaf(remaining)
-        key = draw(st.text(min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("L", "N"), blacklist_characters="@#")))
+        key = draw(st.text(min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("L", "N"), blacklist_characters="@#")))  # noqa: E501
         val = build_dict(depth + 1, remaining - 1)
         if remaining == 1:
             return {key: val}
-        key2 = draw(st.text(min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("L", "N"))))
+        key2 = draw(st.text(min_size=1, max_size=10, alphabet=st.characters(whitelist_categories=("L", "N"))))  # noqa: E501
         val2 = build_dict(depth + 1, remaining - 2)
         return {key: val, key2: val2}
 
@@ -156,7 +155,7 @@ def json_value_strategy(draw: st.DrawFn, max_leaves: int = 5) -> Any:
         return build_dict(0, leaf_count)
     elif shape == 1:
         # List
-        return [build_dict(0, max(1, leaf_count - 1)) for _ in range(draw(st.integers(min_value=1, max_value=3)))]
+        return [build_dict(0, max(1, leaf_count - 1)) for _ in range(draw(st.integers(min_value=1, max_value=3)))]  # noqa: E501
     else:
         # Mixed: dict with list
         items = [make_leaf(i) for i in range(min(leaf_count, 3))]
@@ -220,7 +219,7 @@ def regex_detection_engine():
     """Create a mock detection engine using regex-based PII detection."""
     m = AsyncMock()
 
-    async def analyze_text(value: str, **kwargs) -> list[dict]:
+    async def analyze_text(value: str, **_kwargs) -> list[dict]:
         return _regex_detect_pii(value)
 
     m.analyze_text = AsyncMock(side_effect=analyze_text)
@@ -532,7 +531,7 @@ class TestTokenCollisionsAcrossSessions:
         if total_comparisons > 0:
             collision_ratio = collision_count / total_comparisons
             assert collision_ratio < 0.05, (
-                f"Token collision rate {collision_ratio:.4f} ({collision_count}/{total_comparisons}) "
+                f"Token collision rate {collision_ratio:.4f} ({collision_count}/{total_comparisons}) "  # noqa: E501
                 f"exceeds 5% threshold"
             )
 
@@ -634,7 +633,7 @@ class TestToolCallRoundTrip:
         """OpenAI format: anonymize → restore → arguments match."""
         engine = AsyncMock()
 
-        async def analyze_side(json_data, path="$"):
+        async def analyze_side(json_data, _path="$"):
             result = UnifiedDetectionResult(content_type=ContentType.APPLICATION_JSON)
             if isinstance(json_data, dict):
                 for k, v in json_data.items():
@@ -651,7 +650,6 @@ class TestToolCallRoundTrip:
 
         engine.analyze = AsyncMock(side_effect=analyze_side)
 
-        from anonreq.multimodal.tool_call import extract_tool_calls_openai
 
         message = {
             "role": "assistant",
@@ -680,7 +678,7 @@ class TestToolCallRoundTrip:
         """Anthropic format: anonymize → restore → arguments match."""
         engine = AsyncMock()
 
-        async def analyze_side(json_data, path="$"):
+        async def analyze_side(json_data, _path="$"):
             result = UnifiedDetectionResult(content_type=ContentType.APPLICATION_JSON)
             if isinstance(json_data, dict):
                 for k, v in json_data.items():
@@ -719,7 +717,7 @@ class TestToolCallRoundTrip:
         """MCP format: anonymize → restore → arguments match."""
         engine = AsyncMock()
 
-        async def analyze_side(json_data, path="$"):
+        async def analyze_side(json_data, _path="$"):
             result = UnifiedDetectionResult(content_type=ContentType.APPLICATION_JSON)
             if isinstance(json_data, dict):
                 for k, v in json_data.items():
@@ -758,7 +756,7 @@ class TestJsonAnalyzerWithMock:
     @pytest.mark.asyncio
     @given(text=pii_string_strategy())
     @settings(max_examples=100, suppress_health_check=[HealthCheck.function_scoped_fixture])
-    async def test_json_analyzer_detects_pii_in_string(self, text: str, regex_detection_engine) -> None:
+    async def test_json_analyzer_detects_pii_in_string(self, text: str, regex_detection_engine) -> None:  # noqa: E501
         """JsonAnalyzer detects PII in string values using regex engine."""
         analyzer = JsonAnalyzer(detection_engine=regex_detection_engine)
         result = await analyzer.analyze({"value": text})
@@ -789,7 +787,7 @@ class TestJsonAnalyzerWithMock:
         # Build nested structure at depth+2
         nested: Any = {}
         current = nested
-        for i in range(depth + 2):
+        for _i in range(depth + 2):
             current["nested"] = {}
             current = current["nested"]
         current["value"] = "test@example.com"
@@ -812,7 +810,7 @@ class TestSensitiveKeyDetection:
 
     @pytest.mark.asyncio
     @given(
-        key=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L",), whitelist_characters="_.")),
+        key=st.text(min_size=1, max_size=20, alphabet=st.characters(whitelist_categories=("L",), whitelist_characters="_.")),  # noqa: E501
     )
     @settings(max_examples=50)
     async def test_sensitive_key_boost(self, key: str) -> None:
@@ -821,8 +819,8 @@ class TestSensitiveKeyDetection:
 
         engine = AsyncMock()
 
-        async def analyze_text(value, **kwargs):
-            return [{"entity_type": "PERSON", "start": 0, "end": len(value), "score": 0.5, "value": value}]
+        async def analyze_text(value, **_kwargs):
+            return [{"entity_type": "PERSON", "start": 0, "end": len(value), "score": 0.5, "value": value}]  # noqa: E501
 
         engine.analyze_text = AsyncMock(side_effect=analyze_text)
         analyzer = JsonAnalyzer(detection_engine=engine)

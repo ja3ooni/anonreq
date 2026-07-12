@@ -10,18 +10,9 @@ Per D-007, D-009:
 
 from __future__ import annotations
 
-import time
-from typing import Any
-from unittest.mock import MagicMock, patch
-
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from pydantic import BaseModel
-
-from anonreq.discovery.hostname_matcher import HostnameMatcher
-from anonreq.discovery.hostname_signatures import AI_SIGNATURES, ProviderSignature
-
 
 # ---------------------------------------------------------------------------
 # PACGenerator unit tests

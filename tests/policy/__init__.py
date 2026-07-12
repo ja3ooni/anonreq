@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone  # noqa: F401
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -55,7 +55,7 @@ def sample_usage_record(tenant_id: str = "test_tenant") -> UsageRecord:
         concurrent_current=0,
         daily_spend=Decimal("0"),
         monthly_spend=Decimal("0"),
-        reset_at=datetime.now(timezone.utc),
+        reset_at=datetime.now(UTC),
     )
 
 

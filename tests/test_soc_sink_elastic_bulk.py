@@ -65,7 +65,7 @@ class TestElasticBulkFormat:
             assert "create" in action_meta
             assert "_index" in action_meta["create"]
             assert "_id" in action_meta["create"]
-            assert "tenant-abc_sess-123_dlp_violation" == action_meta["create"]["_id"]
+            assert action_meta["create"]["_id"] == "tenant-abc_sess-123_dlp_violation"
 
             # Second line: event body
             event_body = json.loads(lines[1])
@@ -111,7 +111,7 @@ class TestElasticBulkFormat:
     @pytest.mark.asyncio
     async def test_default_index_pattern(self):
         """Test 3: Default index pattern: 'anonreq-ai-security-%Y.%m.%d' resolves correctly."""
-        from anonreq.soc.sinks.elastic_bulk import ElasticBulkSink, DEFAULT_INDEX_PATTERN
+        from anonreq.soc.sinks.elastic_bulk import DEFAULT_INDEX_PATTERN, ElasticBulkSink
 
         assert DEFAULT_INDEX_PATTERN == "anonreq-ai-security-%Y.%m.%d"
 
@@ -192,7 +192,7 @@ class TestElasticBulkSend:
 
         url = "https://elastic.local:9200/_bulk"
         respx.post(url).mock(
-            return_value=Response(200, json={"errors": False, "items": [{"create": {"status": 201}}]})
+            return_value=Response(200, json={"errors": False, "items": [{"create": {"status": 201}}]})  # noqa: E501
         )
 
         sink = ElasticBulkSink(
@@ -286,7 +286,7 @@ class TestElasticBulkSend:
             result = await sink.send_batch(events)
             assert result is True
 
-            # Verify NDJSON has 6 lines (2 per event × 3 events)
+            # Verify NDJSON has 6 lines (2 per event × 3 events)  # noqa: RUF003
             request_body = respx.calls.last.request.content.decode("utf-8")
             lines = request_body.strip().split("\n")
             assert len(lines) == 6

@@ -9,17 +9,16 @@ Uses Hypothesis to verify:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import UTC, datetime
 
-import pytest
-from hypothesis import HealthCheck, assume, given, settings, strategies as st
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 
+from anonreq.services.breach import BreachService
+from anonreq.services.dsar import DSARService
 from anonreq.services.lineage import LineageRecord, LineageService
 from anonreq.services.retention import RetentionService
 from anonreq.services.supplier import SupplierRecord, SupplierService
-from anonreq.services.dsar import DSARService
-from anonreq.services.breach import BreachService
 
 # ── Strategies ──────────────────────────────────────────────────────────
 
@@ -72,7 +71,7 @@ class TestLineageProperty:
         record = LineageRecord(
             session_id=session_id,
             tenant_id=tenant_id,
-            timestamp_request_received=datetime.now(timezone.utc),
+            timestamp_request_received=datetime.now(UTC),
             entities_anonymized_count=entity_counts,
             policy_actions_applied=policy_actions,
         )
@@ -103,7 +102,7 @@ class TestLineageProperty:
         record = LineageRecord(
             session_id=session_id,
             tenant_id=tenant_id,
-            timestamp_request_received=datetime.now(timezone.utc),
+            timestamp_request_received=datetime.now(UTC),
             entities_anonymized_count={},
             policy_actions_applied=[],
         )
@@ -152,7 +151,7 @@ class TestRetentionProperty:
         days=st.integers(min_value=1, max_value=7300),
     )
     @settings(max_examples=50, deadline=None,
-              suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.filter_too_much])
+              suppress_health_check=[HealthCheck.function_scoped_fixture, HealthCheck.filter_too_much])  # noqa: E501
     async def test_hold_blocks_deletion(
         self, cache_manager, record_type, days
     ):

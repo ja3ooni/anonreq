@@ -13,8 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -32,22 +31,22 @@ from anonreq.policy.usage_limiter import UsageLimiter
 def mock_pdp_dependencies():
     store = AsyncMock(spec=PolicyStore)
     store.enabled_rules.return_value = []
-    
+
     limiter = AsyncMock(spec=UsageLimiter)
     limiter.check_rate_limit.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
-    
+
     spend = AsyncMock(spec=SpendController)
     spend.check_spend.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
-    
+
     residency = AsyncMock(spec=ResidencyRouter)
     residency.resolve_region.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
-    
+
     return store, limiter, spend, residency
 
 
@@ -100,7 +99,7 @@ async def test_baseline_load_profile(mock_pdp_dependencies):
         "concurrency": 10,
         "total_requests": 50,
         "p95_ms": p95,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
     with open("tests/policy/load-results.json", "w") as f:
         json.dump(results, f, indent=2)
@@ -145,6 +144,6 @@ async def test_failover_recovery_latency(mock_pdp_dependencies):
     # Simulating recovery (store works again)
     store.enabled_rules.side_effect = None
     store.enabled_rules.return_value = []
-    ctx_recovery = ProcessingContext(request_id="rec_1", tenant_id="tenant_load", model="diff_model")
+    ctx_recovery = ProcessingContext(request_id="rec_1", tenant_id="tenant_load", model="diff_model")  # noqa: E501
     decision_recovery = await pdp.evaluate_all(ctx_recovery)
     assert decision_recovery.action == PolicyAction.ALLOW

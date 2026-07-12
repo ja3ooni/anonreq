@@ -5,7 +5,6 @@ import re
 from collections.abc import Callable
 from hashlib import blake2b
 
-
 EmbeddingProvider = Callable[[str], list[float]]
 
 

@@ -161,7 +161,7 @@ class TestSentinelDCRToken:
 
             # Token is expired or near-expiry, should re-acquire
             # We simulate by calling with a fresh mock
-            token2 = await sink._acquire_token()
+            await sink._acquire_token()
             assert len(respx.calls) >= 1  # May re-acquire if expired
         finally:
             await sink.stop()
@@ -189,7 +189,7 @@ class TestSentinelDCRToken:
 
         await sink.start()
         try:
-            with pytest.raises(Exception):
+            with pytest.raises(Exception):  # noqa: B017, PT011
                 await sink._acquire_token()
         finally:
             await sink.stop()

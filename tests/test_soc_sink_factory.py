@@ -14,7 +14,6 @@ from __future__ import annotations
 import pytest
 
 from anonreq.soc.sink_config import SinkDefinition
-from anonreq.soc.sinks import SinkBase
 
 
 @pytest.fixture

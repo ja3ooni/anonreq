@@ -11,7 +11,7 @@ from __future__ import annotations
 import io
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from minio import Minio
 from minio.error import S3Error
@@ -115,7 +115,7 @@ class LineageArchiver:
         Returns:
             The MinIO object path where the record was stored.
         """
-        now = record.request_timestamp or datetime.now(timezone.utc)
+        now = record.request_timestamp or datetime.now(UTC)
         year = now.strftime("%Y")
         month = now.strftime("%m")
         session_id = record.session_id
@@ -174,8 +174,8 @@ class LineageArchiver:
     async def query_archive(
         self,
         tenant_id: str,
-        date_from: datetime,
-        date_to: datetime,
+        _date_from: datetime,
+        _date_to: datetime,
     ) -> list[dict]:
         """Query archived lineage records by tenant and date range.
 

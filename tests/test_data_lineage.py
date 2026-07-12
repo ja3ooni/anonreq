@@ -8,13 +8,12 @@ Per D-009, D-010, D-011:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from anonreq.models.lineage import LineageRecord
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -31,7 +30,7 @@ def sample_record() -> LineageRecord:
         policies_applied=["anonymize"],
         classification_action="anonymize",
         processing_time_ms=150,
-        request_timestamp=datetime.now(timezone.utc),
+        request_timestamp=datetime.now(UTC),
     )
 
 
@@ -39,7 +38,7 @@ def sample_record() -> LineageRecord:
 def mock_db_session():
     session = AsyncMock()
 
-    async def mock_execute(stmt, params=None):
+    async def mock_execute(_stmt, _params=None):
         result = AsyncMock(spec=['fetchall', 'fetchone', 'rowcount'])
         result.rowcount = 0
         result.fetchall.return_value = []
@@ -82,7 +81,7 @@ async def tracker(mock_db_session, mock_archiver):
 
 class TestRecordLineage:
     async def test_record_lineage_writes_to_postgres(
-        self, tracker, mock_db_session, sample_record, mock_archiver
+        self, tracker, mock_db_session, sample_record
     ):
         """record_lineage inserts a record into PostgreSQL."""
         record_id = await tracker.record_lineage(sample_record)
@@ -99,14 +98,14 @@ class TestRecordLineage:
         mock_archiver.archive_lineage.assert_awaited_once()
 
     async def test_record_lineage_returns_record_id(
-        self, tracker, mock_db_session, sample_record, mock_archiver
+        self, tracker, sample_record
     ):
         """record_lineage returns a string record ID."""
         record_id = await tracker.record_lineage(sample_record)
         assert isinstance(record_id, str)
 
     async def test_record_lineage_stores_all_fields(
-        self, tracker, mock_db_session, sample_record, mock_archiver
+        self, tracker, sample_record
     ):
         """Lineage record retains all fields after storage."""
         record_id = await tracker.record_lineage(sample_record)
@@ -125,7 +124,7 @@ class TestLineageArchival:
         mock_archiver.archive_lineage.assert_awaited_once_with(sample_record)
 
     async def test_archive_preserves_session_id(
-        self, tracker, sample_record
+        self, sample_record
     ):
         """Archived record retains session_id."""
         from anonreq.lineage.archive import LineageArchiver
@@ -143,32 +142,32 @@ class TestLineageArchival:
 
 
 class TestQueryLineage:
-    async def test_query_by_session_id(self, tracker, mock_db_session):
+    async def test_query_by_session_id(self, tracker):
         records = await tracker.query_lineage(session_id="ses-001")
         assert isinstance(records, list)
 
-    async def test_query_by_tenant_id(self, tracker, mock_db_session):
+    async def test_query_by_tenant_id(self, tracker):
         records = await tracker.query_lineage(tenant_id="acme")
         assert isinstance(records, list)
 
-    async def test_query_by_provider(self, tracker, mock_db_session):
+    async def test_query_by_provider(self, tracker):
         records = await tracker.query_lineage(provider="openai")
         assert isinstance(records, list)
 
-    async def test_query_by_model(self, tracker, mock_db_session):
+    async def test_query_by_model(self, tracker):
         records = await tracker.query_lineage(model="gpt-4")
         assert isinstance(records, list)
 
-    async def test_query_by_date_range(self, tracker, mock_db_session):
-        date_from = datetime.now(timezone.utc) - timedelta(days=7)
-        date_to = datetime.now(timezone.utc)
+    async def test_query_by_date_range(self, tracker):
+        date_from = datetime.now(UTC) - timedelta(days=7)
+        date_to = datetime.now(UTC)
         records = await tracker.query_lineage(
             date_from=date_from, date_to=date_to
         )
         assert isinstance(records, list)
 
     async def test_query_returns_filtered_results(
-        self, tracker, mock_db_session
+        self, tracker
     ):
         records = await tracker.query_lineage(
             tenant_id="acme", provider="openai"
@@ -222,7 +221,7 @@ class TestLineageRecordSchema:
             entity_count=0,
             policies_applied=[],
             processing_time_ms=0,
-            request_timestamp=datetime.now(timezone.utc),
+            request_timestamp=datetime.now(UTC),
         )
         assert rec.provider is None
         assert rec.model is None
@@ -239,7 +238,7 @@ class TestLineageRecordSchema:
             entity_count=0,
             policies_applied=[],
             processing_time_ms=0,
-            request_timestamp=datetime.now(timezone.utc),
+            request_timestamp=datetime.now(UTC),
             success=False,
             error_type="provider_timeout",
         )
@@ -248,7 +247,7 @@ class TestLineageRecordSchema:
 
     def test_record_timestamps(self):
         """LineageRecord handles request and response timestamps."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         later = now + timedelta(seconds=5)
         rec = LineageRecord(
             session_id="s1",
@@ -273,7 +272,7 @@ class TestLineageRecordSchema:
             entity_count=0,
             policies_applied=[],
             processing_time_ms=5,
-            request_timestamp=datetime.now(timezone.utc),
+            request_timestamp=datetime.now(UTC),
             cache_hit=True,
         )
         assert rec.cache_hit is True
@@ -301,8 +300,9 @@ class TestArchivedLineageRetrieval:
 
     async def test_get_archived_lineage_not_found(self, mock_minio_client):
         """get_archived_lineage returns None for non-existent paths."""
-        from anonreq.lineage.archive import LineageArchiver
         from minio.error import S3Error
+
+        from anonreq.lineage.archive import LineageArchiver
 
         mock_minio_client.get_object.side_effect = S3Error(
             code="NoSuchKey",

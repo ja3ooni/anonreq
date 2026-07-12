@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 import structlog
@@ -143,19 +144,34 @@ class OllamaAdapter(ProviderAdapter):
             )
 
         except httpx.TimeoutException:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=504,
                 message="Ollama API timeout",
             )
         except httpx.ConnectError:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=503,
                 message="Ollama API unavailable — is the server running?",
             )
         except PipelineAbortError:
             raise
+        except httpx.HTTPStatusError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Ollama API HTTP {exc.response.status_code}",
+            )
+        except httpx.RequestError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Ollama API request error: {type(exc).__name__}",
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"Ollama API response parse error: {type(exc).__name__}: {exc}",
+            )
         except Exception as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=502,
                 message=f"Ollama API error: {type(exc).__name__}",
             )
@@ -201,7 +217,7 @@ class OllamaAdapter(ProviderAdapter):
                         yield stream_event
 
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=503,
                 message=f"Ollama API stream error: {type(exc).__name__}",
             )
@@ -306,7 +322,7 @@ class OllamaAdapter(ProviderAdapter):
         return mapping.get(reason, FinishReason.UNKNOWN)
 
     @staticmethod
-    def _map_http_status(status_code: int) -> int:
+    def _map_http_status(_status_code: int) -> int:
         """Map provider HTTP status to appropriate gateway status.
 
         Always 502 (fail-secure) — never leak upstream info.
@@ -321,7 +337,7 @@ class OllamaAdapter(ProviderAdapter):
             if isinstance(error_data, dict) and "error" in error_data:
                 return f"Ollama API error: {type(error_data['error']).__name__}"
             return f"Ollama API returned HTTP {response.status_code}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"Ollama API returned HTTP {response.status_code}"
 
     async def _normalize_error_async(self, response: httpx.Response) -> str:
@@ -331,5 +347,5 @@ class OllamaAdapter(ProviderAdapter):
             if isinstance(error_data, dict) and "error" in error_data:
                 return f"Ollama API error: {type(error_data['error']).__name__}"
             return f"Ollama API returned HTTP {response.status_code}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"Ollama API returned HTTP {response.status_code}"

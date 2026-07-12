@@ -8,6 +8,8 @@ Tests verify:
 
 from __future__ import annotations
 
+from datetime import UTC
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -70,7 +72,7 @@ class TestDiscoveryInventoryRouteRegistration:
     """Inventory route is registered in the app route table."""
 
     @pytest.mark.asyncio
-    async def test_inventory_route_responds_with_seeded_data(self, app, client: AsyncClient) -> None:
+    async def test_inventory_route_responds_with_seeded_data(self, app, client: AsyncClient) -> None:  # noqa: E501
         _seed_inventory(app)
         response = await client.get(
             "/v1/admin/discovery/inventory",
@@ -86,7 +88,7 @@ class TestDiscoveryInventoryEndpoint:
 
     @pytest.mark.asyncio
     async def test_inventory_json_with_records(self, app, client: AsyncClient) -> None:
-        inventory = _seed_inventory(app)
+        _seed_inventory(app)
         response = await client.get(
             "/v1/admin/discovery/inventory",
             headers={"Authorization": "Bearer " + "a" * 32},
@@ -127,7 +129,7 @@ class TestDiscoveryInventoryEndpoint:
 
 
 def _seed_inventory(app) -> AssetInventory:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     inventory = getattr(app.state, "inventory_service", None)
     if inventory is None:
@@ -144,7 +146,7 @@ def _seed_inventory(app) -> AssetInventory:
             estimated_cost=150.0,
             risk_score=15.0,
             risk_band="low",
-            last_seen=datetime.now(timezone.utc),
+            last_seen=datetime.now(UTC),
             business_unit="engineering",
         )
     )
@@ -159,7 +161,7 @@ def _seed_inventory(app) -> AssetInventory:
             estimated_cost=80.0,
             risk_score=25.0,
             risk_band="medium",
-            last_seen=datetime.now(timezone.utc),
+            last_seen=datetime.now(UTC),
             business_unit="research",
         )
     )

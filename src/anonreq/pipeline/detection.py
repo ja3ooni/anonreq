@@ -33,12 +33,13 @@ import inspect
 import time
 from typing import TYPE_CHECKING, Any
 
-import structlog
+import httpx
+
 from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError
-from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
 from anonreq.locale.bundle import RecognizerTier
+from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.monitoring.metrics import detection_latency, entities_detected, fail_secure_events
 from anonreq.pipeline.base import PipelineStage
@@ -72,6 +73,7 @@ class DetectionStage(PipelineStage):
         checksum_registry: ChecksumValidatorRegistry | None = None,
         config_registry: AtomicConfigRegistry | None = None,
         mnpi_recognizers: list[MNPIRecognizer] | None = None,
+        enterprise_recognizers: dict[str, Any] | None = None,
     ) -> None:
         """Initialise with detection dependencies.
 
@@ -85,6 +87,8 @@ class DetectionStage(PipelineStage):
                 custom recognizer patterns (D-152, D-154).
             mnpi_recognizers: Optional list of ``MNPIRecognizer`` instances
                 for MNPI detection (Phase 15, D-001).
+            enterprise_recognizers: Optional dict of enabled enterprise
+                recognizers (Phase 26, GUARD-01).
         """
         super().__init__("DetectionStage")
         self._regex_detector = regex_detector
@@ -94,6 +98,7 @@ class DetectionStage(PipelineStage):
         self._checksum_registry = checksum_registry or ChecksumValidatorRegistry()
         self._config_registry = config_registry
         self._mnpi_recognizers = mnpi_recognizers or []
+        self._enterprise_recognizers = enterprise_recognizers or {}
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Detect PII in request text nodes.
@@ -202,11 +207,40 @@ class DetectionStage(PipelineStage):
                 for i, node in enumerate(ctx.text_nodes):
                     node_value = node.get("value", "")
                     for recognizer in self._mnpi_recognizers:
-                        per_node = recognizer.analyze(node_value, node_index=i)
+                        per_node = recognizer.analyze(node_value)
                         for d in per_node:
                             d["node_index"] = i
                         mnpi_results.extend(per_node)
                 ctx.detections.extend(mnpi_results)
+
+            # Phase 26: Enterprise detection — runs after core and MNPI detection.
+            if self._enterprise_recognizers:
+                enterprise_results: list[dict[str, Any]] = []
+                for i, node in enumerate(ctx.text_nodes):
+                    node_value = node.get("value", "")
+                    for name, recognizer in self._enterprise_recognizers.items():
+                        try:
+                            per_node = recognizer.analyze(node_value)
+                            for d in per_node:
+                                d["node_index"] = i
+                            enterprise_results.extend(per_node)
+                        except (TypeError, ValueError, KeyError) as exc:
+                            logger.warning(
+                                "Enterprise recognizer failed",
+                                recognizer_name=name,
+                                node_index=i,
+                                error=str(exc),
+                                exc_info=True,
+                            )
+                        except Exception as exc:
+                            logger.warning(
+                                "Enterprise recognizer unhandled error",
+                                recognizer_name=name,
+                                node_index=i,
+                                error=f"{type(exc).__name__}: {exc}",
+                                exc_info=True,
+                            )
+                ctx.detections.extend(enterprise_results)
 
             # Phase 15, D-013: Apply context-word boosting to financial crime
             # entities using the bridge from the detection pipeline module.
@@ -263,12 +297,30 @@ class DetectionStage(PipelineStage):
             # Count fail-secure events from detection errors (D-161)
             fail_secure_events.labels(failure_type="detection_error").inc()
             raise
+        except (KeyError, TypeError, ValueError, IndexError) as exc:
+            fail_secure_events.labels(failure_type="detection_error").inc()
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=500,
+                    message=f"Detection stage failed: {type(exc).__name__}: {exc}",
+                    request_id=ctx.request_id,
+                )
+            )
+        except httpx.HTTPError as exc:
+            fail_secure_events.labels(failure_type="detection_error").inc()
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=500,
+                    message=f"Detection stage HTTP error: {type(exc).__name__}",
+                    request_id=ctx.request_id,
+                )
+            )
         except Exception as exc:
             fail_secure_events.labels(failure_type="detection_error").inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message="Detection stage failed",
+                    message=f"Detection stage failed: {type(exc).__name__}",
                     request_id=ctx.request_id,
                 )
             )

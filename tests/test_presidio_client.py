@@ -11,14 +11,12 @@ Per D-32, D-34, D-37, D-50:
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 import respx
 
-from anonreq.detection.presidio_client import PresidioClient, PresidioTimeoutError, PresidioError
-
+from anonreq.detection.presidio_client import PresidioClient, PresidioError, PresidioTimeoutError
 
 # Base URL for mock Presidio endpoint
 PRESIDIO_URL = "http://localhost:5001"
@@ -41,7 +39,7 @@ class TestPresidioClient:
             json=[{"entity_type": "PERSON", "start": 0, "end": 10, "score": 0.95}],
         )
 
-        results = await client.analyze("John Smith", language="en", entities=["PERSON"], score_threshold=0.7)
+        results = await client.analyze("John Smith", language="en", entities=["PERSON"], score_threshold=0.7)  # noqa: E501
 
         # Verify the request was made correctly
         assert route.called
@@ -135,9 +133,9 @@ class TestPresidioClient:
         # Create a barrier to track concurrent requests
         sem = asyncio.Semaphore(10)
 
-        async def delayed_handler(request):
+        async def delayed_handler(_request):
             async with sem:
-                return httpx.Response(200, json=[{"entity_type": "PERSON", "start": 0, "end": 4, "score": 0.9}])
+                return httpx.Response(200, json=[{"entity_type": "PERSON", "start": 0, "end": 4, "score": 0.9}])  # noqa: E501
 
         respx.post(f"{PRESIDIO_URL}/analyze").mock(side_effect=delayed_handler)
 
@@ -166,7 +164,7 @@ class TestPresidioClient:
     @respx.mock
     async def test_health_check_unreachable(self, client):
         """health_check returns reachable=False on error."""
-        respx.get(f"{PRESIDIO_URL}/health").mock(side_effect=httpx.ConnectError("Connection refused"))
+        respx.get(f"{PRESIDIO_URL}/health").mock(side_effect=httpx.ConnectError("Connection refused"))  # noqa: E501
 
         status = await client.health_check()
         assert status.get("reachable") is False

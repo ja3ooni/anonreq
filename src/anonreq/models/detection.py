@@ -17,7 +17,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-
 # MNPI (Material Non-Public Information) entity types (Phase 15, D-001, D-003)
 MNPI_ENTITY_TYPES: set[str] = {
     "MNPI_TICKER",
@@ -58,7 +57,7 @@ class DetectionResult:
             ``"PERSON"``).
         start: Character offset where the entity starts in the source text.
         end: Character offset where the entity ends in the source text.
-        score: Confidence score (0.0–1.0). Regex detections always have
+        score: Confidence score (0.0-1.0). Regex detections always have
             score 1.0; NER detections have the Presidio confidence score.
         source: Whether this detection came from a regex pattern or the
             NER (Presidio) engine (D-39).

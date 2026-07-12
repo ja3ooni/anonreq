@@ -16,7 +16,7 @@ def fake_cache():
     mgr = CacheManager.__new__(CacheManager)
     mgr._redis = fake
     mgr._ttl = 300
-    yield mgr
+    return mgr
 
 
 @pytest.fixture
@@ -46,10 +46,10 @@ class TestUsageLimiterCheck:
         assert "concurrent" in (decision.reason or "").lower()
 
     @pytest.mark.asyncio
-    async def test_check_rate_limit_returns_block_with_503_on_cache_error(self, fake_cache, limiter):
+    async def test_check_rate_limit_returns_block_with_503_on_cache_error(self, fake_cache, limiter):  # noqa: E501
         from unittest.mock import patch
 
-        with patch.object(fake_cache._redis, "pipeline", side_effect=Exception("Connection refused")):
+        with patch.object(fake_cache._redis, "pipeline", side_effect=Exception("Connection refused")):  # noqa: E501
             decision = await limiter.check_rate_limit("tenant_error")
         assert decision.action == PolicyAction.BLOCK
         assert decision.enforcement == "503"
@@ -110,12 +110,12 @@ class TestUsageLimiterFailClosed:
     async def test_increment_fail_closed_on_cache_error(self, fake_cache, limiter):
         from unittest.mock import patch
 
-        with patch.object(fake_cache._redis, "pipeline", side_effect=Exception("Connection refused")):
+        with patch.object(fake_cache._redis, "pipeline", side_effect=Exception("Connection refused")):  # noqa: E501
             await limiter.increment("tenant_fail")
 
     @pytest.mark.asyncio
     async def test_decrement_fail_safe_recovery(self, fake_cache, limiter):
         from unittest.mock import patch
 
-        with patch.object(fake_cache._redis, "pipeline", side_effect=Exception("Connection refused")):
+        with patch.object(fake_cache._redis, "pipeline", side_effect=Exception("Connection refused")):  # noqa: E501
             await limiter.decrement("tenant_fail_safe")

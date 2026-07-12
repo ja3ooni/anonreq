@@ -152,7 +152,7 @@ class FlowAnalyzer:
             indicators.append("header_key_match")
 
         # -- Body analysis --
-        if len(body) >= MIN_BODY_SIZE_FOR_ANALYSIS and headers.get("content-type", "").startswith("application/json"):
+        if len(body) >= MIN_BODY_SIZE_FOR_ANALYSIS and headers.get("content-type", "").startswith("application/json"):  # noqa: E501
             body_score = self._check_body_patterns(body)
             if body_score > 0:
                 score += body_score
@@ -205,7 +205,7 @@ class FlowAnalyzer:
         """Check request body for LLM API request patterns.
 
         Returns:
-            Score contribution (0.4–0.6 depending on signal strength).
+            Score contribution (0.4-0.6 depending on signal strength).
         """
         try:
             data = json.loads(body)
@@ -221,8 +221,8 @@ class FlowAnalyzer:
             return 0.0
 
         # Check for required AI fields
-        has_messages = "messages" in data and isinstance(data["messages"], list) and len(data["messages"]) > 0
-        has_prompt = "prompt" in data and isinstance(data["prompt"], str) and len(data["prompt"]) > 0
+        has_messages = "messages" in data and isinstance(data["messages"], list) and len(data["messages"]) > 0  # noqa: E501
+        has_prompt = "prompt" in data and isinstance(data["prompt"], str) and len(data["prompt"]) > 0  # noqa: E501
         has_model = "model" in data
 
         # Strong signal: has messages + model (chat completion structure)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
@@ -45,8 +46,6 @@ class FirewallRuleReloader:
     async def stop_watcher(self) -> None:
         if self._watcher_task is not None:
             self._watcher_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._watcher_task
-            except asyncio.CancelledError:
-                pass
             self._watcher_task = None

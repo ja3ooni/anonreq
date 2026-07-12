@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from anonreq.gateway.router import RouteEntry, RouteMatch, RouteTable
+from anonreq.gateway.router import RouteEntry, RouteTable
 
 
 class TestRouteEntry:

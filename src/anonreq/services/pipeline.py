@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from anonreq.exceptions import OutboundDLPError, PipelineBlockedError
-from anonreq.models.dlp import DLPAction
 from anonreq.models.processing_context import ProcessingContext
 
 

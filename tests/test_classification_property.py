@@ -10,9 +10,10 @@ Covers:
 
 from __future__ import annotations
 
-from hypothesis import assume, given, settings, strategies as st
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
-from anonreq.models.classification import ClassificationLevel, ENTITY_CLASSIFICATION_MAP
+from anonreq.models.classification import ENTITY_CLASSIFICATION_MAP, ClassificationLevel
 from anonreq.services.classification import ClassificationService
 
 KNOWN_ENTITY_TYPES = sorted(ENTITY_CLASSIFICATION_MAP.keys())
@@ -98,7 +99,7 @@ async def test_highest_entity_matches_highest_level(entity_types):
             )
 
 
-@given(st.lists(st.sampled_from(KNOWN_ENTITY_TYPES + ["UNKNOWN_TYPE"]), min_size=0, max_size=10, unique=True))
+@given(st.lists(st.sampled_from([*KNOWN_ENTITY_TYPES, "UNKNOWN_TYPE"]), min_size=0, max_size=10, unique=True))  # noqa: E501
 @settings(max_examples=500, deadline=None)
 async def test_unknown_entity_does_not_crash(entity_types):
     """Invariant: unknown entity types never cause crash."""

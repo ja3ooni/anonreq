@@ -3,9 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-import structlog
 from structlog import get_logger
 
 from anonreq.models.processing_context import ProcessingContext
@@ -78,14 +77,14 @@ class PolicyDecisionPoint:
                     return PolicyDecision(
                         action=rule.action,
                         matched_rule_ids=[rule.rule_id],
-                        decision_ts=datetime.now(timezone.utc),
+                        decision_ts=datetime.now(UTC),
                         ttl_seconds=self._cache_ttl,
-                        reason=f"Classification rule '{rule.rule_id}' matched level '{classification_level}'",
+                        reason=f"Classification rule '{rule.rule_id}' matched level '{classification_level}'",  # noqa: E501
                     )
             return PolicyDecision(
                 action=PolicyAction.ALLOW,
                 matched_rule_ids=[],
-                decision_ts=datetime.now(timezone.utc),
+                decision_ts=datetime.now(UTC),
                 ttl_seconds=self._cache_ttl,
             )
         except Exception as exc:
@@ -93,7 +92,7 @@ class PolicyDecisionPoint:
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["classification_error"],
-                decision_ts=datetime.now(timezone.utc),
+                decision_ts=datetime.now(UTC),
                 reason="Classification evaluation failed",
                 enforcement="503",
             )
@@ -106,7 +105,7 @@ class PolicyDecisionPoint:
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["rate_limit_error"],
-                decision_ts=datetime.now(timezone.utc),
+                decision_ts=datetime.now(UTC),
                 reason="Rate limit evaluation failed",
                 enforcement="503",
             )
@@ -119,7 +118,7 @@ class PolicyDecisionPoint:
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["spend_error"],
-                decision_ts=datetime.now(timezone.utc),
+                decision_ts=datetime.now(UTC),
                 reason="Spend evaluation failed",
                 enforcement="503",
             )
@@ -138,7 +137,7 @@ class PolicyDecisionPoint:
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["residency_error"],
-                decision_ts=datetime.now(timezone.utc),
+                decision_ts=datetime.now(UTC),
                 reason="Residency evaluation failed",
                 enforcement="503",
             )
@@ -177,7 +176,7 @@ class PolicyDecisionPoint:
         allow = PolicyDecision(
             action=PolicyAction.ALLOW,
             matched_rule_ids=["all_checks_passed"],
-            decision_ts=datetime.now(timezone.utc),
+            decision_ts=datetime.now(UTC),
             ttl_seconds=self._cache_ttl,
         )
         self._set_cache(ctx.tenant_id, request_hash, allow)

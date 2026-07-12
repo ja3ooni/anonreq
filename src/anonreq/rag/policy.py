@@ -10,7 +10,7 @@ Provides:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 _CLASSIFICATION_ORDER = [
@@ -20,7 +20,7 @@ _CLASSIFICATION_ORDER = [
 ]
 
 
-class ClassificationLevel(str, Enum):
+class ClassificationLevel(StrEnum):
     INTERNAL = "Internal"
     CONFIDENTIAL = "Confidential"
     HIGHLY_RESTRICTED = "Highly Restricted"

@@ -11,7 +11,7 @@ Per D-012 through D-016:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -91,7 +91,7 @@ class SupplierGovernance:
         Raises:
             RuntimeError: If database insert fails.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record_id = f"sup_{uuid4().hex[:16]}"
 
         # Create lifecycle object if manager is available
@@ -251,7 +251,7 @@ class SupplierGovernance:
             List of SupplierGovernanceRecord instances with
             overdue reviews.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stmt = text("""
             SELECT * FROM supplier_governance
             WHERE next_review_date < :now
@@ -304,7 +304,7 @@ class SupplierGovernance:
             raise ValueError(f"Supplier not found: {supplier_id}")
 
         # Update risk status and add trigger
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Read existing triggers and append new one
         existing_triggers = supplier.risk_re_evaluation_triggers or []
@@ -369,7 +369,7 @@ class SupplierGovernance:
         if supplier is None:
             raise ValueError(f"Supplier not found: {supplier_id}")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         next_review = now + timedelta(days=supplier.review_cycle_days)
 
         update_stmt = text("""

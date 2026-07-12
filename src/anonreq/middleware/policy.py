@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import structlog
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request

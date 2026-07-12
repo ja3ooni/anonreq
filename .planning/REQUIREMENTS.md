@@ -23,9 +23,9 @@
 
 ### Enterprise Guardrails
 
-- [ ] **GUARD-01**: Custom Presidio recognizers for API keys, AWS tokens, GitHub tokens, internal hostnames
-- [ ] **GUARD-02**: Continuous compliance monitoring with automated evidence collection endpoint
-- [ ] **GUARD-03**: HMAC-SHA256 commercial licensing with feature gating for Appliance-tier capabilities
+- [x] **GUARD-01**: Custom Presidio recognizers for API keys, AWS tokens, GitHub tokens, internal hostnames
+- [x] **GUARD-02**: Continuous compliance monitoring with automated evidence collection endpoint
+- [x] **GUARD-03**: HMAC-SHA256 commercial licensing with feature gating for Appliance-tier capabilities
 
 ## v2 Requirements (Deferred)
 
@@ -56,9 +56,9 @@
 | TRUST-02 | Phase 24 | Complete |
 | DOCS-01 | Phase 25 | Complete |
 | DOCS-02 | Phase 25 | Complete |
-| GUARD-01 | Phase 26 | Pending |
-| GUARD-02 | Phase 26 | Pending |
-| GUARD-03 | Phase 26 | Pending |
+| GUARD-01 | Phase 26 | Complete |
+| GUARD-02 | Phase 26 | Complete |
+| GUARD-03 | Phase 26 | Complete |
 
 **Coverage:**
 

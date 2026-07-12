@@ -12,15 +12,12 @@ Tests:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
 
 from anonreq.rag.policy import (
-    RetrievalPolicyEngine,
     ChunkContext,
+    RetrievalPolicyEngine,
     UserContext,
-    PolicyRuleResult,
 )
 from anonreq.rag.retrieval import RetrievalService
 

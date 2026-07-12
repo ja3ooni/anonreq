@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import array
-import struct
 
 import numpy as np
 import pytest
@@ -71,7 +70,7 @@ def test_voice_severity_ordering_is_strictly_monotonic():
         "critical": 4,
     }
 
-    assert severity["informational"] < severity["low"] < severity["medium"] < severity["high"] < severity["critical"]
+    assert severity["informational"] < severity["low"] < severity["medium"] < severity["high"] < severity["critical"]  # noqa: E501
 
 
 @settings(max_examples=50, deadline=None)

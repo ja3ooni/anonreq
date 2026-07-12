@@ -6,15 +6,15 @@ Provides:
   content type detection and policy enforcement.
 """
 
-from anonreq.mcp.parser import MCPParser, MCPMessage, MCPToolCall, MCPToolResult, MCPParseError
-from anonreq.mcp.inspector import MCPInspector, InspectionResult
+from anonreq.mcp.inspector import InspectionResult, MCPInspector
+from anonreq.mcp.parser import MCPMessage, MCPParseError, MCPParser, MCPToolCall, MCPToolResult
 
 __all__ = [
-    "MCPParser",
+    "InspectionResult",
+    "MCPInspector",
     "MCPMessage",
+    "MCPParseError",
+    "MCPParser",
     "MCPToolCall",
     "MCPToolResult",
-    "MCPParseError",
-    "MCPInspector",
-    "InspectionResult",
 ]

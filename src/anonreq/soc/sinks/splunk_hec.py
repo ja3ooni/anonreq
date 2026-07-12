@@ -10,13 +10,13 @@ Per D-005 and 20-ARCHITECTURE.md:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from prometheus_client import Counter
 
-from anonreq.soc.sinks import SinkBase, SinkStatus
+from anonreq.soc.sinks import SinkStatus
 
 logger = logging.getLogger("anonreq.soc.sinks.splunk_hec")
 
@@ -219,7 +219,7 @@ class SplunkHECSink:
         try:
             dt = datetime.fromisoformat(iso_timestamp)
             if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
+                dt = dt.replace(tzinfo=UTC)
             return dt.timestamp()
         except (ValueError, TypeError):
-            return datetime.now(timezone.utc).timestamp()
+            return datetime.now(UTC).timestamp()

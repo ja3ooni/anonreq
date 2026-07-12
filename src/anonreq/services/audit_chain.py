@@ -10,7 +10,7 @@ Provides:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -141,46 +141,45 @@ class AuditChainService:
         dialect = self._engine.dialect.name
         use_for_update = dialect == "postgresql"
 
-        async with self._session_factory() as session:
-            async with session.begin():
-                latest = await self._get_latest_event_in_session(
-                    session, event.tenant_id, for_update=use_for_update,
-                )
-                event.prev_hash = latest.hash if latest else None
-                event.hash = compute_event_hash(event)
+        async with self._session_factory() as session, session.begin():
+            latest = await self._get_latest_event_in_session(
+                session, event.tenant_id, for_update=use_for_update,
+            )
+            event.prev_hash = latest.hash if latest else None
+            event.hash = compute_event_hash(event)
 
-                await session.execute(
-                    text(
-                        "INSERT INTO audit_event "
-                        "(event_id, prev_hash, hash, timestamp, tenant_id, "
-                        "request_id, policy_id, decision, provider, latency_ms, "
-                        "event_type, operator_id, change_type, prev_value_hash, "
-                        "new_value_hash, metadata_json, retention_days) "
-                        "VALUES (:event_id, :prev_hash, :hash, :timestamp, :tenant_id, "
-                        ":request_id, :policy_id, :decision, :provider, :latency_ms, "
-                        ":event_type, :operator_id, :change_type, :prev_value_hash, "
-                        ":new_value_hash, :metadata_json, :retention_days)"
-                    ),
-                    {
-                        "event_id": event.event_id,
-                        "prev_hash": event.prev_hash,
-                        "hash": event.hash,
-                        "timestamp": event.timestamp,
-                        "tenant_id": event.tenant_id,
-                        "request_id": event.request_id,
-                        "policy_id": event.policy_id,
-                        "decision": event.decision,
-                        "provider": event.provider,
-                        "latency_ms": event.latency_ms,
-                        "event_type": event.event_type,
-                        "operator_id": event.operator_id,
-                        "change_type": event.change_type,
-                        "prev_value_hash": event.prev_value_hash,
-                        "new_value_hash": event.new_value_hash,
-                        "metadata_json": event.metadata_json,
-                        "retention_days": event.retention_days,
-                    },
-                )
+            await session.execute(
+                text(
+                    "INSERT INTO audit_event "
+                    "(event_id, prev_hash, hash, timestamp, tenant_id, "
+                    "request_id, policy_id, decision, provider, latency_ms, "
+                    "event_type, operator_id, change_type, prev_value_hash, "
+                    "new_value_hash, metadata_json, retention_days) "
+                    "VALUES (:event_id, :prev_hash, :hash, :timestamp, :tenant_id, "
+                    ":request_id, :policy_id, :decision, :provider, :latency_ms, "
+                    ":event_type, :operator_id, :change_type, :prev_value_hash, "
+                    ":new_value_hash, :metadata_json, :retention_days)"
+                ),
+                {
+                    "event_id": event.event_id,
+                    "prev_hash": event.prev_hash,
+                    "hash": event.hash,
+                    "timestamp": event.timestamp,
+                    "tenant_id": event.tenant_id,
+                    "request_id": event.request_id,
+                    "policy_id": event.policy_id,
+                    "decision": event.decision,
+                    "provider": event.provider,
+                    "latency_ms": event.latency_ms,
+                    "event_type": event.event_type,
+                    "operator_id": event.operator_id,
+                    "change_type": event.change_type,
+                    "prev_value_hash": event.prev_value_hash,
+                    "new_value_hash": event.new_value_hash,
+                    "metadata_json": event.metadata_json,
+                    "retention_days": event.retention_days,
+                },
+            )
         return event
 
     async def verify_chain(
@@ -240,7 +239,7 @@ class AuditChainService:
                         checked_count=checked,
                     )
 
-                if previous_expected_hash is not None and row_dict["prev_hash"] != previous_expected_hash:
+                if previous_expected_hash is not None and row_dict["prev_hash"] != previous_expected_hash:  # noqa: E501
                     return ChainVerificationResult(
                         is_intact=False,
                         broken_at=row_dict["id"],
@@ -265,29 +264,29 @@ class AuditChainService:
         """Paginated, filterable event query."""
         query = "SELECT * FROM audit_event WHERE 1=1"
         params = {"limit": limit, "offset": offset}
-        
+
         if tenant_id is not None:
             query += " AND tenant_id = :tenant_id"
             params["tenant_id"] = tenant_id
-            
+
         if event_type is not None:
             query += " AND event_type = :event_type"
             params["event_type"] = event_type
-            
+
         if operator_id is not None:
             query += " AND operator_id = :operator_id"
             params["operator_id"] = operator_id
-            
+
         if date_from is not None:
             query += " AND timestamp >= :date_from"
             params["date_from"] = date_from
-            
+
         if date_to is not None:
             query += " AND timestamp <= :date_to"
             params["date_to"] = date_to
-            
+
         query += " ORDER BY id DESC LIMIT :limit OFFSET :offset"
-        
+
         async with self._session_factory() as session:
             result = await session.execute(text(query), params)
             return [self._row_to_event(dict(row)) for row in result.mappings().all()]
@@ -303,27 +302,27 @@ class AuditChainService:
         """Count events matching the given filters."""
         query = "SELECT COUNT(*) FROM audit_event WHERE 1=1"
         params = {}
-        
+
         if tenant_id is not None:
             query += " AND tenant_id = :tenant_id"
             params["tenant_id"] = tenant_id
-            
+
         if event_type is not None:
             query += " AND event_type = :event_type"
             params["event_type"] = event_type
-            
+
         if operator_id is not None:
             query += " AND operator_id = :operator_id"
             params["operator_id"] = operator_id
-            
+
         if date_from is not None:
             query += " AND timestamp >= :date_from"
             params["date_from"] = date_from
-            
+
         if date_to is not None:
             query += " AND timestamp <= :date_to"
             params["date_to"] = date_to
-            
+
         async with self._session_factory() as session:
             result = await session.execute(text(query), params)
             return result.scalar() or 0
@@ -335,7 +334,7 @@ class AuditChainService:
         if isinstance(ts, str):
             ts = datetime.fromisoformat(ts)
             if ts.tzinfo is None:
-                ts = ts.replace(tzinfo=timezone.utc)
+                ts = ts.replace(tzinfo=UTC)
 
         return AuditEvent(
             event_id=row["event_id"],

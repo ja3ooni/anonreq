@@ -10,9 +10,7 @@ Per D-39 through D-41:
 
 from __future__ import annotations
 
-import pytest
-
-from anonreq.detection.span_arbiter import SpanArbiter, ENTITY_SPECIFICITY
+from anonreq.detection.span_arbiter import ENTITY_SPECIFICITY, SpanArbiter
 
 
 class TestSpanArbiter:
@@ -21,7 +19,7 @@ class TestSpanArbiter:
     def test_exact_overlap_regex_wins(self):
         """Exact span overlap: regex result replaces NER result."""
         regex_results = [
-            {"entity_type": "PHONE_NUMBER", "start": 10, "end": 25, "score": 1.0, "source": "regex"},
+            {"entity_type": "PHONE_NUMBER", "start": 10, "end": 25, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "PHONE_NUMBER", "start": 10, "end": 25, "score": 0.85, "source": "ner"},
@@ -34,7 +32,7 @@ class TestSpanArbiter:
     def test_exact_overlap_different_types_regex_wins(self):
         """Exact overlap with different types: regex wins regardless of type."""
         regex_results = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 5, "end": 20, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 5, "end": 20, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "PERSON", "start": 5, "end": 20, "score": 0.9, "source": "ner"},
@@ -47,7 +45,7 @@ class TestSpanArbiter:
     def test_nested_overlap_most_specific_wins(self):
         """Nested overlap: most specific entity type wins (EMAIL > PERSON)."""
         regex_results = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 10, "end": 25, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 10, "end": 25, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "PERSON", "start": 12, "end": 22, "score": 0.9, "source": "ner"},
@@ -60,7 +58,7 @@ class TestSpanArbiter:
     def test_nested_overlap_larger_span_wins_when_more_specific(self):
         """Nested overlap: larger span wins if it is more specific."""
         regex_results = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 10, "end": 25, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 10, "end": 25, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "LOCATION", "start": 15, "end": 25, "score": 0.8, "source": "ner"},
@@ -73,7 +71,7 @@ class TestSpanArbiter:
     def test_partial_overlap_most_specific_wins(self):
         """Partial overlap: most specific entity type wins."""
         regex_results = [
-            {"entity_type": "PHONE_NUMBER", "start": 10, "end": 20, "score": 1.0, "source": "regex"},
+            {"entity_type": "PHONE_NUMBER", "start": 10, "end": 20, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "LOCATION", "start": 15, "end": 25, "score": 0.7, "source": "ner"},
@@ -86,7 +84,7 @@ class TestSpanArbiter:
     def test_non_overlapping_spans_both_kept(self):
         """Non-overlapping spans: both kept."""
         regex_results = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "LOCATION", "start": 30, "end": 40, "score": 0.9, "source": "ner"},
@@ -104,7 +102,7 @@ class TestSpanArbiter:
     def test_only_regex_results_pass_through(self):
         """Only regex results pass through unchanged."""
         results = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         merged = SpanArbiter.merge(results, [])
         assert len(merged) == 1
@@ -124,8 +122,8 @@ class TestSpanArbiter:
     def test_multiple_non_overlapping_spans_all_kept(self):
         """Multiple non-overlapping spans of different types all kept."""
         regex_results = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},
-            {"entity_type": "PHONE_NUMBER", "start": 30, "end": 45, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},  # noqa: E501
+            {"entity_type": "PHONE_NUMBER", "start": 30, "end": 45, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "PERSON", "start": 50, "end": 60, "score": 0.9, "source": "ner"},
@@ -137,8 +135,8 @@ class TestSpanArbiter:
     def test_merged_results_sorted_by_start(self):
         """Merged results are sorted by start position ascending."""
         regex_results = [
-            {"entity_type": "PHONE_NUMBER", "start": 30, "end": 45, "score": 1.0, "source": "regex"},
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},
+            {"entity_type": "PHONE_NUMBER", "start": 30, "end": 45, "score": 1.0, "source": "regex"},  # noqa: E501
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 15, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         ner_results = [
             {"entity_type": "PERSON", "start": 50, "end": 60, "score": 0.9, "source": "ner"},

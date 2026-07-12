@@ -12,12 +12,11 @@ Uses Hypothesis to prove:
 
 from __future__ import annotations
 
-import itertools
 from unittest.mock import AsyncMock
 
 import pytest
-from hypothesis import assume, given, settings, strategies as st
-from pydantic import ValidationError
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.detection.boost import FINANCIAL_ENTITY_TYPES, ContextBooster
 from anonreq.models.detection import DetectionResult
@@ -50,7 +49,7 @@ score_strategy = st.floats(
 )
 
 # Generate text with a high-risk word and an entity at a given offset
-def _make_text_with_entity(word_offset: int, entity_type: str) -> str:
+def _make_text_with_entity(word_offset: int, _entity_type: str) -> str:
     """Create text with a high-risk word at a given offset from an entity."""
     word = "transfer"
     entity_placeholder = "DE89370400440532013000"  # 22 chars for IBAN
@@ -125,7 +124,7 @@ class TestBoostBoundedInvariant:
     @settings(max_examples=100, deadline=None)
     def test_near_one_score_capped(self, booster: ContextBooster, score: float):
         """Score already near 1.0 is capped at 1.0."""
-        
+
 
         entity = DetectionResult(
             entity_type="IBAN",
@@ -312,8 +311,8 @@ class TestAmlThresholdInvariant:
         self, confidence: float, threshold: float
     ):
         """Webhook fires iff confidence >= threshold."""
-        from anonreq.governance.webhooks.aml import AmlWebhookManager, AmlWebhookConfig
         import anonreq.governance.webhooks.aml as aml_mod
+        from anonreq.governance.webhooks.aml import AmlWebhookConfig, AmlWebhookManager
 
         # Clean store
         original = dict(aml_mod._aml_config_store)
@@ -360,8 +359,8 @@ class TestAmlThresholdInvariant:
         self, confidence: float, threshold: float
     ):
         """Disabled webhook never fires regardless of confidence."""
-        from anonreq.governance.webhooks.aml import AmlWebhookManager, AmlWebhookConfig
         import anonreq.governance.webhooks.aml as aml_mod
+        from anonreq.governance.webhooks.aml import AmlWebhookConfig, AmlWebhookManager
 
         original = dict(aml_mod._aml_config_store)
         aml_mod._aml_config_store.clear()
@@ -402,8 +401,8 @@ class TestAmlThresholdInvariant:
         self, threshold: float, confidence: float
     ):
         """Entity type not in configured list never fires."""
-        from anonreq.governance.webhooks.aml import AmlWebhookManager, AmlWebhookConfig
         import anonreq.governance.webhooks.aml as aml_mod
+        from anonreq.governance.webhooks.aml import AmlWebhookConfig, AmlWebhookManager
 
         original = dict(aml_mod._aml_config_store)
         aml_mod._aml_config_store.clear()

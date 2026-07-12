@@ -4,28 +4,30 @@ from __future__ import annotations
 
 import ssl
 import tempfile
+from datetime import UTC
 from pathlib import Path
 
 import pytest
 
 from anonreq.proxy.tls import (
-    TLSInterceptor,
     ConfigurationError,
+    TLSInterceptor,
     create_tls_context,
 )
 
 
 def _generate_test_cert_pair(tmpdir: str) -> tuple[Path, Path]:
     """Generate a self-signed cert+key pair for testing."""
+    from datetime import datetime
+
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.x509.oid import NameOID
-    from datetime import datetime, timezone
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test Cert")])
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)

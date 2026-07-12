@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -47,7 +47,7 @@ def create_test_app(pdp, pep) -> FastAPI:
     app.add_middleware(PolicyMiddleware)
 
     @app.post("/v1/chat/completions")
-    async def chat_route(request: Request):
+    async def chat_route(_request: Request):
         return {"choices": [{"message": {"content": "Hello"}}]}
 
     @app.get("/health")
@@ -74,7 +74,7 @@ def allow_decision():
     return PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["all_checks_passed"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
         ttl_seconds=60,
     )
 
@@ -84,14 +84,14 @@ def block_decision():
     return PolicyDecision(
         action=PolicyAction.BLOCK,
         matched_rule_ids=["block_hr"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
         reason="Blocked by HR policy",
     )
 
 
 class TestPolicyMiddlewareIntegration:
     @pytest.mark.asyncio
-    async def test_allow_request_passes_through(self, app, client, mock_pdp, mock_pep, allow_decision):
+    async def test_allow_request_passes_through(self, client, mock_pdp, mock_pep, allow_decision):
         from anonreq.policy.pep import PolicyEnforcementResult
         mock_pdp.evaluate_all.return_value = allow_decision
         mock_pep.enforce.return_value = PolicyEnforcementResult(
@@ -109,14 +109,14 @@ class TestPolicyMiddlewareIntegration:
         assert mock_pdp.evaluate_all.called
 
     @pytest.mark.asyncio
-    async def test_block_request_returns_early(self, app, client, mock_pdp, mock_pep, block_decision):
+    async def test_block_request_returns_early(self, client, mock_pdp, mock_pep, block_decision):
         from anonreq.policy.pep import PolicyEnforcementResult
         mock_pdp.evaluate_all.return_value = block_decision
         mock_pep.enforce.return_value = PolicyEnforcementResult(
             action=PolicyAction.BLOCK,
             status_code=403,
-            headers={"X-AnonReq-Blocked": "true", "X-AnonReq-Processed": "true", "X-AnonReq-Entity-Count": "0"},
-            body={"reason": "Blocked by policy", "decision_id": "did_001", "timestamp": "2024-01-01T00:00:00Z"},
+            headers={"X-AnonReq-Blocked": "true", "X-AnonReq-Processed": "true", "X-AnonReq-Entity-Count": "0"},  # noqa: E501
+            body={"reason": "Blocked by policy", "decision_id": "did_001", "timestamp": "2024-01-01T00:00:00Z"},  # noqa: E501
             should_forward=False,
             decision_id="did_001",
         )
@@ -128,14 +128,14 @@ class TestPolicyMiddlewareIntegration:
         assert "reason" in data
 
     @pytest.mark.asyncio
-    async def test_block_returns_x_anonreq_blocked_header(self, app, client, mock_pdp, mock_pep, block_decision):
+    async def test_block_returns_x_anonreq_blocked_header(self, client, mock_pdp, mock_pep, block_decision):
         from anonreq.policy.pep import PolicyEnforcementResult
         mock_pdp.evaluate_all.return_value = block_decision
         mock_pep.enforce.return_value = PolicyEnforcementResult(
             action=PolicyAction.BLOCK,
             status_code=403,
             headers={"X-AnonReq-Blocked": "true"},
-            body={"reason": "Blocked", "decision_id": "did_001", "timestamp": "2024-01-01T00:00:00Z"},
+            body={"reason": "Blocked", "decision_id": "did_001", "timestamp": "2024-01-01T00:00:00Z"},  # noqa: E501
             should_forward=False,
             decision_id="did_001",
         )
@@ -145,13 +145,13 @@ class TestPolicyMiddlewareIntegration:
         assert response.headers.get("X-AnonReq-Blocked") == "true"
 
     @pytest.mark.asyncio
-    async def test_health_route_skips_middleware(self, app, client, mock_pdp):
+    async def test_health_route_skips_middleware(self, client, mock_pdp):
         response = await client.get("/health")
         assert response.status_code == 200
         mock_pdp.evaluate_all.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_pdp_exception_returns_503(self, app, client, mock_pdp):
+    async def test_pdp_exception_returns_503(self, client, mock_pdp):
         mock_pdp.evaluate_all.side_effect = Exception("PDP crash")
         response = await client.post("/v1/chat/completions", json={
             "model": "gpt-4", "messages": [{"role": "user", "content": "hello"}],
@@ -159,7 +159,7 @@ class TestPolicyMiddlewareIntegration:
         assert response.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_pep_exception_returns_503(self, app, client, mock_pdp, mock_pep, allow_decision):
+    async def test_pep_exception_returns_503(self, client, mock_pdp, mock_pep, allow_decision):
         mock_pdp.evaluate_all.return_value = allow_decision
         mock_pep.enforce.side_effect = Exception("PEP crash")
         response = await client.post("/v1/chat/completions", json={
@@ -168,7 +168,7 @@ class TestPolicyMiddlewareIntegration:
         assert response.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_allow_response_has_transparency_headers(self, app, client, mock_pdp, mock_pep, allow_decision):
+    async def test_allow_response_has_transparency_headers(self, client, mock_pdp, mock_pep, allow_decision):
         from anonreq.policy.pep import PolicyEnforcementResult
         mock_pdp.evaluate_all.return_value = allow_decision
         mock_pep.enforce.return_value = PolicyEnforcementResult(
@@ -185,17 +185,17 @@ class TestPolicyMiddlewareIntegration:
         assert "X-AnonReq-Processed" in response.headers or response.status_code in (200,)
 
     @pytest.mark.asyncio
-    async def test_flag_and_forward_injects_flag_header(self, app, client, mock_pdp, mock_pep):
+    async def test_flag_and_forward_injects_flag_header(self, client, mock_pdp, mock_pep):
         from anonreq.policy.pep import PolicyEnforcementResult
         flag_decision = PolicyDecision(
             action=PolicyAction.FLAG_AND_FORWARD, matched_rule_ids=["flag_conf"],
-            decision_ts=datetime.now(timezone.utc), reason="Flagged content",
+            decision_ts=datetime.now(UTC), reason="Flagged content",
         )
         mock_pdp.evaluate_all.return_value = flag_decision
         mock_pep.enforce.return_value = PolicyEnforcementResult(
             action=PolicyAction.FLAG_AND_FORWARD,
             status_code=None,
-            headers={"X-AnonReq-Flagged": "true", "X-AnonReq-Processed": "true", "X-AnonReq-Entity-Count": "0"},
+            headers={"X-AnonReq-Flagged": "true", "X-AnonReq-Processed": "true", "X-AnonReq-Entity-Count": "0"},  # noqa: E501
             body=None,
             should_forward=True,
             decision_id="test_did_003",
@@ -210,8 +210,8 @@ class TestPolicyMiddlewareIntegration:
 class TestForwardingGuardIntegration:
     @pytest.mark.asyncio
     async def test_forwarding_guard_validates_as_dependency(self, mock_forwarding_guard):
-        from anonreq.policy.models import PolicyAction
         from anonreq.policy.forwarding_guard import ForwardingVerdict
+        from anonreq.policy.models import PolicyAction
 
         mock_forwarding_guard.validate.return_value = ForwardingVerdict(
             action=PolicyAction.ALLOW,
@@ -230,7 +230,7 @@ class TestForwardingGuardIntegration:
             ctx = ProcessingContext(request_id="test", tenant_id="test")
             ctx.policy_decision = PolicyDecision(
                 action=PolicyAction.ALLOW, matched_rule_ids=[],
-                decision_ts=datetime.now(timezone.utc), ttl_seconds=60,
+                decision_ts=datetime.now(UTC), ttl_seconds=60,
             )
             ctx.transformed_request = {"model": "gpt-4"}
             verdict = await guard.validate(ctx)
@@ -248,8 +248,8 @@ class TestForwardingGuardIntegration:
 
     @pytest.mark.asyncio
     async def test_forwarding_guard_blocks_missing_decision(self, mock_forwarding_guard):
-        from anonreq.policy.models import PolicyAction
         from anonreq.policy.forwarding_guard import ForwardingVerdict
+        from anonreq.policy.models import PolicyAction
 
         mock_forwarding_guard.validate.return_value = ForwardingVerdict(
             action=PolicyAction.BLOCK,
@@ -284,6 +284,7 @@ class TestPolicyAdminApiIntegration:
     @pytest.mark.asyncio
     async def test_list_policies_authenticated(self, admin_app):
         from httpx import ASGITransport, AsyncClient
+
         from anonreq.policy.models import PolicyAction, PolicyRule
 
         admin_app.state.policy_store.load_policies.return_value = [
@@ -362,7 +363,9 @@ class TestPolicyAdminApiIntegration:
     @pytest.mark.asyncio
     async def test_get_usage_authenticated(self, admin_app):
         from decimal import Decimal
+
         from httpx import ASGITransport, AsyncClient
+
         from anonreq.policy.models import UsageRecord
 
         admin_app.state.spend_controller.get_usage.return_value = UsageRecord(
@@ -372,7 +375,7 @@ class TestPolicyAdminApiIntegration:
             concurrent_current=1,
             daily_spend=Decimal("1.50"),
             monthly_spend=Decimal("10.00"),
-            reset_at=datetime.now(timezone.utc),
+            reset_at=datetime.now(UTC),
         )
         admin_app.state.usage_limiter.get_current.return_value = {
             "rpm": 5,
@@ -450,6 +453,7 @@ class TestPolicyAdminApiIntegration:
         # Proves that compliance evidence records only store cryptographic hashes,
         # rule counts, enabled counts, timestamps, and identifiers. No raw payloads.
         from unittest.mock import AsyncMock
+
         from anonreq.policy.evidence import EvidenceStore
         from anonreq.policy.models import PolicyAction, PolicyDecision, PolicyRule
 
@@ -462,7 +466,7 @@ class TestPolicyAdminApiIntegration:
         decision = PolicyDecision(
             action=PolicyAction.ALLOW,
             matched_rule_ids=["r1"],
-            decision_ts=datetime.now(timezone.utc),
+            decision_ts=datetime.now(UTC),
         )
         record = await ev_store.record_decision_evidence("tenant_abc", decision)
 

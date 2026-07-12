@@ -11,6 +11,7 @@ Per D-022 through D-024, 20-ARCHITECTURE.md:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from typing import Any
 
@@ -44,7 +45,7 @@ class SinkHealthMonitor:
         self,
         router: Any,
         interval: int = 60,
-        metrics_registry: Any | None = None,
+        _metrics_registry: Any | None = None,
     ) -> None:
         self._router = router
         self._interval = interval
@@ -69,12 +70,10 @@ class SinkHealthMonitor:
 
     async def stop(self) -> None:
         """Cancel all probe tasks."""
-        for sink_name, task in self._tasks.items():
+        for _sink_name, task in self._tasks.items():
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
         self._tasks.clear()
 
     async def _probe_loop(self, sink_name: str, sink: Any) -> None:

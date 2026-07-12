@@ -12,11 +12,13 @@ Covers:
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.admin.auth import verify_admin_api_key
-from anonreq.admin.config import AtomicConfigRegistry, CustomRecognizerRule, ExclusionEntry, RulesConfig
+from anonreq.admin.config import (
+    RulesConfig,
+)
 from anonreq.admin.routes import admin_router, registry
 
 
@@ -136,7 +138,7 @@ class TestAdminRulesE2E:
         response = await admin_client.post("/v1/admin/config/rules", json=_valid_payload())
         assert response.status_code == 401
 
-    async def test_get_rules_works_without_admin_key(self, admin_client, app):
+    async def test_get_rules_works_without_admin_key(self, admin_client):
         # GET /v1/config/rules doesn't require admin auth
         response = await admin_client.get("/v1/config/rules")
         assert response.status_code == 200

@@ -11,8 +11,8 @@ Provides:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from anonreq.cache.manager import CacheManager
 
 
-class NotificationEventType(str, Enum):
+class NotificationEventType(StrEnum):
     REVIEW_OVERDUE = "review_overdue"
     RISK_THRESHOLD_BREACHED = "risk_threshold_breached"
     KILL_SWITCH_ACTIVATED = "kill_switch_activated"
@@ -29,7 +29,7 @@ class NotificationEventType(str, Enum):
     RISK_ASSESSMENT_CREATED = "risk_assessment_created"
 
 
-class NotificationChannel(str, Enum):
+class NotificationChannel(StrEnum):
     WEBHOOK = "webhook"
     EMAIL = "email"
 
@@ -96,7 +96,7 @@ class NotificationService:
             config=config,
             events=events,
             enabled=True,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         await self._redis.hset(
             CONFIGS_KEY,
@@ -188,7 +188,7 @@ class NotificationService:
             "event": event_type.value,
             "tenant_id": config.tenant_id,
             "payload": payload,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -203,7 +203,7 @@ class NotificationService:
         payload: dict[str, Any],
     ) -> None:
         template_name = event_type.value
-        body = self.render_email_template(template_name, payload)
+        self.render_email_template(template_name, payload)
         to = config.config.get("to", [])
         if not to:
             return

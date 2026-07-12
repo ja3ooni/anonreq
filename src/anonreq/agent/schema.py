@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 
-class AgentContentType(str, Enum):
+class AgentContentType(StrEnum):
     AGENT_TOOL_CALL = "agent_tool_call"
     AGENT_TOOL_RESULT = "agent_tool_result"
     MCP_MESSAGE = "mcp_message"

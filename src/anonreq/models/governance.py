@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, field_validator, model_validator
@@ -22,7 +22,7 @@ from sqlalchemy.orm import relationship
 from anonreq.models.audit import Base as SQLAlchemyBase
 
 
-class GovernanceOfficerRole(str, Enum):
+class GovernanceOfficerRole(StrEnum):
     GOVERNANCE = "governance"
     RISK = "risk"
     COMPLIANCE = "compliance"
@@ -122,7 +122,7 @@ RISK_DIMENSIONS_CORE: list[str] = [
 # ── SR 11-7 Model Risk Management ────────────────────────────────────────
 
 
-class ModelRiskClassification(str, Enum):
+class ModelRiskClassification(StrEnum):
     """SR 11-7 risk classification for models.
 
     Per SR 11-7, models are classified by their potential impact:
@@ -185,7 +185,7 @@ class AmlWebhookConfig(BaseModel):
         webhook_url: Target URL for AML alert POST.
         secret: Optional HMAC-SHA256 signing secret.
         enabled: Whether the webhook is active.
-        threshold: Confidence threshold (0.0–1.0) to trigger alert.
+        threshold: Confidence threshold (0.0-1.0) to trigger alert.
         entity_types: List of entity types that trigger the webhook.
             None means all financial crime types.
     """
@@ -225,7 +225,7 @@ class AmlEventPayload(BaseModel):
     entity_type: str
     confidence_score: float
     threshold: float
-    timestamp: datetime = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    timestamp: datetime = datetime(1970, 1, 1, tzinfo=UTC)
     session_metadata: dict[str, str] = {}
     alert_id: str = ""
 
@@ -357,7 +357,7 @@ class ProviderAnonReqModel(SQLAlchemyBase):
 # ── DORA Incident models (D-016, D-017, D-018) ───────────────────────────
 
 
-class ServiceCriticality(str, Enum):
+class ServiceCriticality(StrEnum):
     """DORA ICT service criticality classification.
 
     Per D-017, services are classified into three tiers:
@@ -404,7 +404,7 @@ class IncidentRecord(BaseModel):
     title: str
     description: str
     status: str = "open"
-    created_at: datetime = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    created_at: datetime = datetime(1970, 1, 1, tzinfo=UTC)
     escalated: bool = False
     escalated_at: datetime | None = None
     notified: bool = False

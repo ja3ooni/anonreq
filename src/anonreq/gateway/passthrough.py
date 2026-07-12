@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-class ProxyMode(str, enum.Enum):
+class ProxyMode(enum.StrEnum):
     PROXY_ONLY = "proxy-only"
     FULL = "full"
     TRANSPARENT = "transparent"

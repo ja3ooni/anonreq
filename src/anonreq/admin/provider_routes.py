@@ -14,12 +14,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from anonreq.governance.provider_inventory import ProviderInventory
 from anonreq.middleware.rbac import Role, require_role
 
 router = APIRouter(dependencies=[Depends(require_role(Role.ADMINISTRATOR))])
 
 
-def _get_provider_inventory(request: Request):
+def _get_provider_inventory(request: Request) -> ProviderInventory:
     """Get ProviderInventory from app state."""
     inventory = getattr(request.app.state, "provider_inventory", None)
     if inventory is None:
@@ -96,11 +97,11 @@ async def suspend_provider(
     try:
         record = await inventory.suspend_provider(
             provider_id=provider_id,
-            reason=reason,
-            suspended_by=suspended_by,
+            _reason=reason,
+            _suspended_by=suspended_by,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
 
     return record.model_dump()
 
@@ -127,10 +128,10 @@ async def unsuspend_provider(
     try:
         record = await inventory.unsuspend_provider(
             provider_id=provider_id,
-            unsuspended_by=unsuspended_by,
+            _unsuspended_by=unsuspended_by,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
 
     return record.model_dump()
 
@@ -161,6 +162,6 @@ async def flag_concentration_risk(
             justification=justification,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
 
     return record.model_dump()

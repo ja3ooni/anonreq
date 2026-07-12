@@ -16,7 +16,7 @@ def locale_stack():
 
 
 def test_german_locale_detection_config(locale_stack) -> None:
-    registry, negotiator, merger, _ = locale_stack
+    _registry, negotiator, merger, _ = locale_stack
     bundles, _ = negotiator.negotiate("de-DE")
     merged = merger.merge(bundles)
     assert "TAX_ID_DE" in merged.entity_configs

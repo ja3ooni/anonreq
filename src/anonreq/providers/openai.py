@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
@@ -79,13 +80,28 @@ class OpenAIAdapter(ProviderAdapter):
                 headers=dict(response.headers),
             )
         except httpx.TimeoutException:
-            raise PipelineAbortError(status_code=504, message="OpenAI API timeout")
+            raise PipelineAbortError(status_code=504, message="OpenAI API timeout")  # noqa: B904
         except httpx.ConnectError:
-            raise PipelineAbortError(status_code=503, message="OpenAI API unavailable")
+            raise PipelineAbortError(status_code=503, message="OpenAI API unavailable")  # noqa: B904
         except PipelineAbortError:
             raise
+        except httpx.HTTPStatusError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"OpenAI API HTTP {exc.response.status_code}",
+            )
+        except httpx.RequestError as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"OpenAI API request error: {type(exc).__name__}",
+            )
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            raise PipelineAbortError(  # noqa: B904
+                status_code=502,
+                message=f"OpenAI API response parse error: {type(exc).__name__}: {exc}",
+            )
         except Exception as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=502,
                 message=f"OpenAI API error: {type(exc).__name__}",
             )
@@ -123,12 +139,12 @@ class OpenAIAdapter(ProviderAdapter):
                         yield event
 
         except (httpx.TimeoutException, httpx.ConnectError) as exc:
-            raise PipelineAbortError(
+            raise PipelineAbortError(  # noqa: B904
                 status_code=503,
                 message=f"OpenAI API stream error: {type(exc).__name__}",
             )
 
-    def translate_response(self, ctx: Any, response: ProviderResponse) -> RestoredResponse:
+    def translate_response(self, _ctx: Any, response: ProviderResponse) -> RestoredResponse:
         return RestoredResponse(body=response.body, headers=response.headers)
 
     def _parse_chunk(self, data: dict[str, Any]) -> list[StreamEvent]:
@@ -215,7 +231,7 @@ class OpenAIAdapter(ProviderAdapter):
             error = data.get("error", {})
             error_type = error.get("type", "unknown_error")
             return f"OpenAI API error: {error_type}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"OpenAI API returned HTTP {response.status_code}"
 
     async def _normalize_error_async(self, response: httpx.Response) -> str:
@@ -224,5 +240,5 @@ class OpenAIAdapter(ProviderAdapter):
             error = data.get("error", {})
             error_type = error.get("type", "unknown_error")
             return f"OpenAI API error: {error_type}"
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError):
             return f"OpenAI API returned HTTP {response.status_code}"

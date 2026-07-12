@@ -94,7 +94,7 @@ async def get_request_context(request: Request) -> RequestContext:
 
 
 async def auth_context(
-    credentials: str = Depends(verify_api_key),
+    _credentials: str = Depends(verify_api_key),
     ctx: RequestContext = Depends(get_request_context),
 ) -> RequestContext:
     """Composite dependency: validates auth AND populates request context.

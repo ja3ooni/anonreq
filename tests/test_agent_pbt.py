@@ -60,7 +60,7 @@ json_scalar = st.one_of(
     )
 )
 @pytest.mark.asyncio
-async def test_tool_result_round_trip_preserves_keys_and_non_sensitive_values(data: dict[str, object]):
+async def test_tool_result_round_trip_preserves_keys_and_non_sensitive_values(data: dict[str, object]):  # noqa: E501
     sanitizer = ToolResultSanitizer(EmailDetector(), None, ToolGovernanceConfig())
     result = ToolResult(tool_name="lookup", content=data, id="call_1", type="openai")
 
@@ -78,7 +78,7 @@ async def test_tool_result_round_trip_preserves_keys_and_non_sensitive_values(da
         min_size=1,
         max_size=16,
     ),
-    local=st.text(alphabet=st.characters(whitelist_categories=("Ll", "Lu", "Nd")), min_size=1, max_size=20),
+    local=st.text(alphabet=st.characters(whitelist_categories=("Ll", "Lu", "Nd")), min_size=1, max_size=20),  # noqa: E501
 )
 @pytest.mark.asyncio
 async def test_tool_result_value_tokenization_never_mutates_json_keys(key: str, local: str):

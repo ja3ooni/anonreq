@@ -12,7 +12,6 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from anonreq.locale.bundle import LocaleBundle
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.registry import LocaleRegistry
@@ -127,7 +126,7 @@ def test_adding_locale_preserves_entity_types(single_code: str) -> None:
     For any locale A, merge(A) ∪ merge(A, B) ⊆ merge(A, B).
     Every entity type present in the single-locale merge must also be
     present in the multi-locale merge when that locale is included.
-    """
+    """  # noqa: RUF002
     registry = _full_registry()
     universal = registry.get("en")
     assert universal is not None
@@ -168,7 +167,7 @@ def test_union_monotonicity(baseline: list[str], added: list[str]) -> None:
     """Union property: merged set with extra locales is a superset.
 
     For any locale sets A and B, entity_types(merge(A)) ⊆ entity_types(merge(A ∪ B)).
-    """
+    """  # noqa: RUF002
     combined = sorted(set(baseline + added))
     if not combined:
         return

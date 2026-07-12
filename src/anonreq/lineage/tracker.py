@@ -9,7 +9,7 @@ Per D-009, D-010, D-011:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -124,9 +124,9 @@ class LineageTracker:
             record.id = f"lin_{uuid4().hex[:16]}"
 
         if record.request_timestamp is None:
-            record.request_timestamp = datetime.now(timezone.utc)
+            record.request_timestamp = datetime.now(UTC)
 
-        now = record.request_timestamp.isoformat() if record.request_timestamp else datetime.now(timezone.utc).isoformat()
+        record.request_timestamp.isoformat() if record.request_timestamp else datetime.now(UTC).isoformat()  # noqa: E501
 
         # Insert into PostgreSQL using raw SQL (no ORM table defined for lineage)
         stmt = text("""
@@ -150,9 +150,9 @@ class LineageTracker:
             "tenant_id": record.tenant_id,
             "provider": record.provider,
             "model": record.model,
-            "entity_types": ",".join(record.entity_types) if record.entity_types is not None else None,
+            "entity_types": ",".join(record.entity_types) if record.entity_types is not None else None,  # noqa: E501
             "entity_count": record.entity_count,
-            "policies_applied": ",".join(record.policies_applied) if record.policies_applied is not None else None,
+            "policies_applied": ",".join(record.policies_applied) if record.policies_applied is not None else None,  # noqa: E501
             "classification_action": record.classification_action,
             "processing_time_ms": record.processing_time_ms,
             "request_timestamp": record.request_timestamp,

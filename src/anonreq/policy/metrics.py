@@ -9,8 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-import prometheus_client
-from prometheus_client import Counter, REGISTRY
+from prometheus_client import REGISTRY, Counter
 
 
 def validate_label_value(value: str) -> str:
@@ -39,7 +38,7 @@ class PolicyMetrics:
                 cls._instance = super().__new__(cls)
                 cls._instance._init_metrics(registry)
             return cls._instance
-        
+
         # Custom registry (usually for testing)
         inst = super().__new__(cls)
         inst._init_metrics(registry)
@@ -76,7 +75,7 @@ class PolicyMetrics:
     def _get_or_register(self, name: str, doc: str, labels: list[str]) -> Counter:
         """idempotently get or register a Prometheus counter on the registry."""
         # Under standard registry or custom registry, if name is already collected, reuse it
-        if hasattr(self._registry, "_names_to_collectors") and name in self._registry._names_to_collectors:
+        if hasattr(self._registry, "_names_to_collectors") and name in self._registry._names_to_collectors:  # noqa: E501
             return self._registry._names_to_collectors[name]
         try:
             return Counter(name, doc, labels, registry=self._registry)

@@ -7,7 +7,6 @@ import yaml
 
 from anonreq.locale.bundle import EntityTypeConfig, LocaleBundle, RecognizerTier
 
-
 LOCALES = ["en", "de-DE", "fr-FR", "nl-NL", "es", "it-IT", "ar", "pt-BR"]
 
 
@@ -31,5 +30,5 @@ def test_entity_type_config_round_trip() -> None:
 
 
 def test_recognizer_tier_validation_rejects_unknown() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         EntityTypeConfig.from_dict({"name": "X", "tier": "UNKNOWN"})

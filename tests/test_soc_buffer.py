@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import math
-import time
 from typing import Any
 
 import pytest
@@ -76,7 +75,7 @@ class FakeAsyncSink:
         from anonreq.soc.sinks import SinkStatus
         return SinkStatus(healthy=True, reachable=True)
 
-    async def format_event(self, event: Any) -> str:
+    async def format_event(self, _event: Any) -> str:
         return "formatted"
 
     @property
@@ -161,7 +160,7 @@ class TestExponentialBackoff:
     @pytest.mark.asyncio
     async def test_backoff_sequence_default(self):
         """Test 4: Exponential backoff sequence: 1s, 2s, 4s, 8s, 16s, 32s (capped at 60s)."""
-        from anonreq.soc.buffer import _backoff_delay, BackoffConfig
+        from anonreq.soc.buffer import BackoffConfig, _backoff_delay
 
         config = BackoffConfig(initial=1, multiplier=2, max=60, jitter=0.0, max_retries=5)
 
@@ -175,7 +174,7 @@ class TestExponentialBackoff:
     @pytest.mark.asyncio
     async def test_backoff_capped_at_max(self):
         """Backoff is capped at max value (60s)."""
-        from anonreq.soc.buffer import _backoff_delay, BackoffConfig
+        from anonreq.soc.buffer import BackoffConfig, _backoff_delay
 
         config = BackoffConfig(initial=1, multiplier=2, max=60, jitter=0.0, max_retries=10)
 
@@ -186,7 +185,7 @@ class TestExponentialBackoff:
     @pytest.mark.asyncio
     async def test_jitter_applied_within_range(self):
         """Test 5: Jitter applied within ±10% of computed backoff."""
-        from anonreq.soc.buffer import _backoff_delay, BackoffConfig
+        from anonreq.soc.buffer import BackoffConfig, _backoff_delay
 
         config = BackoffConfig(initial=1, multiplier=2, max=60, jitter=0.1, max_retries=5)
 
@@ -204,7 +203,7 @@ class TestRetryManager:
     @pytest.mark.asyncio
     async def test_max_retries_drops_event(self):
         """Test 6: Max retries exhausted → event dropped."""
-        from anonreq.soc.buffer import SinkBuffer, BackoffConfig
+        from anonreq.soc.buffer import BackoffConfig, SinkBuffer
 
         # Sink that always fails
         sink = FakeAsyncSink(fail_forever=True)
@@ -229,7 +228,7 @@ class TestRetryManager:
     @pytest.mark.asyncio
     async def test_event_forwarded_on_success(self):
         """Event is forwarded to sink when send succeeds."""
-        from anonreq.soc.buffer import SinkBuffer, BackoffConfig
+        from anonreq.soc.buffer import BackoffConfig, SinkBuffer
 
         sink = FakeAsyncSink(fail_count=0)
         backoff = BackoffConfig(initial=0.01, multiplier=2, max=0.1, jitter=0.0, max_retries=3)
@@ -251,7 +250,7 @@ class TestRetryManager:
     @pytest.mark.asyncio
     async def test_retry_on_failure_then_success(self):
         """Retry after failure then succeed."""
-        from anonreq.soc.buffer import SinkBuffer, BackoffConfig
+        from anonreq.soc.buffer import BackoffConfig, SinkBuffer
 
         # Fail once then succeed
         sink = FakeAsyncSink(fail_count=1)

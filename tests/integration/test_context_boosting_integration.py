@@ -15,8 +15,8 @@ from __future__ import annotations
 import pytest
 
 from anonreq.detection.boost import (
-    ContextBooster,
     FINANCIAL_ENTITY_TYPES,
+    ContextBooster,
 )
 from anonreq.models.detection import DetectionResult
 

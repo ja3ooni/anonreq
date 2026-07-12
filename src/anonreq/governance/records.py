@@ -7,7 +7,7 @@ including creation, retrieval, update, and paginated listing.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -44,7 +44,7 @@ async def create_governance_record(
     Returns:
         The created GovernanceRecord with nested ReviewCycle.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     next_review = (now + timedelta(days=interval_days)).replace(microsecond=0)
 
     review_cycle = ReviewCycleModel(
@@ -126,7 +126,7 @@ async def update_governance_record(
         raise ValueError(f"No governance record for tenant: {tenant_id}")
 
     # Record the change in change_history for audit trail
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     existing_history = json_to_change_history(
         getattr(model, "change_history", None)
     )
@@ -148,7 +148,7 @@ async def update_governance_record(
         description=f"Governance record updated to version {next_version}",
         changes=changes_desc,
     )
-    updated_history = existing_history + [new_entry]
+    updated_history = [*existing_history, new_entry]
 
     model.officers = officers_to_json(officers)
     model.change_history = change_history_to_json(updated_history)
@@ -220,5 +220,5 @@ def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
 
 def _ensure_tz(dt: Any) -> Any:
     if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt

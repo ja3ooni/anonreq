@@ -11,7 +11,6 @@ Per D-45 through D-49:
 
 from __future__ import annotations
 
-import structlog
 from structlog import get_logger
 
 from anonreq.models.processing_context import ProcessingContext

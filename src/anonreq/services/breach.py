@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel
 
@@ -101,7 +101,7 @@ class BreachService:
         detected_by: str = "system",
         regulator_queue: bool = False,
     ) -> BreachNotification:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         notification = BreachNotification(
             breach_id=str(uuid.uuid4()),
             severity=severity,
@@ -126,7 +126,7 @@ class BreachService:
 
     async def send_notification(self, breach_id: str) -> BreachNotification:
         notification = await self._get_notification_or_raise(breach_id)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         notification.status = "sent"
         notification.sent_at = now
         notification.delivered = True
@@ -171,7 +171,7 @@ class BreachService:
     ) -> BreachNotification:
         notification = await self._get_notification_or_raise(breach_id)
         notification.status = "acknowledged"
-        notification.acknowledged_at = datetime.now(timezone.utc)
+        notification.acknowledged_at = datetime.now(UTC)
         notification.acknowledged_by = acknowledged_by
         await self._redis.set(
             f"{BREACH_KEY_PREFIX}:{breach_id}",
@@ -186,7 +186,7 @@ class BreachService:
     ) -> BreachNotification:
         notification = await self._get_notification_or_raise(breach_id)
         notification.status = "closed"
-        notification.closed_at = datetime.now(timezone.utc)
+        notification.closed_at = datetime.now(UTC)
         notification.closed_by = closed_by
         await self._redis.set(
             f"{BREACH_KEY_PREFIX}:{breach_id}",

@@ -10,16 +10,15 @@ Provides:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 from anonreq.cache.manager import CacheManager
 
 
-class LifecycleStage(str, Enum):
+class LifecycleStage(StrEnum):
     DESIGN = "design"
     REVIEW = "review"
     TESTING = "testing"
@@ -105,7 +104,7 @@ class LifecycleService:
         notes: str | None = None,
     ) -> LifecycleState:
         raw = await self._redis.get(self._state_key(tenant_id))
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if raw is None:
             current_stage = LifecycleStage.DESIGN

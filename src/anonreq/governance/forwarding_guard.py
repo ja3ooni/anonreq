@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import structlog
 from prometheus_client import Counter
 from structlog import get_logger
 

@@ -7,7 +7,6 @@ Tests verify:
 - No stack traces, PII, or internal URLs in responses
 """
 
-from unittest.mock import ANY
 
 import pytest
 from fastapi import FastAPI, HTTPException
@@ -51,7 +50,6 @@ def exception_app() -> FastAPI:
 
     @app.get("/raise-422")
     async def raise_validation():
-        from pydantic import ValidationError
         from pydantic import BaseModel, Field
 
         class TestModel(BaseModel):
@@ -108,7 +106,7 @@ class TestExceptionEnvelope:
         response = await client.get("/raise-generic")
         body = response.json()
         assert body["error"]["message"] != "Something broke internally"
-        assert "internal" in body["error"]["message"].lower() or "error" in body["error"]["message"].lower()
+        assert "internal" in body["error"]["message"].lower() or "error" in body["error"]["message"].lower()  # noqa: E501
 
     async def test_dependency_unavailable_returns_503(self, client: AsyncClient):
         """Test 3: DependencyUnavailableError returns 503."""

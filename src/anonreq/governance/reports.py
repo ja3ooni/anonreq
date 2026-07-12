@@ -12,7 +12,7 @@ Supports DORA, NIS2, GDPR, ISO 27001/42001, EBA, FCA, SEC, and FINRA.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -54,13 +54,13 @@ DORA_SECTIONS = [
     {
         "id": "incident_management",
         "title": "ICT Incident Management",
-        "description": "Incident detection, classification, escalation and resolution per DORA Art 11",
+        "description": "Incident detection, classification, escalation and resolution per DORA Art 11",  # noqa: E501
         "data_sources": ["IncidentManager"],
     },
     {
         "id": "provider_oversight",
         "title": "Third-Party ICT Provider Oversight",
-        "description": "Provider inventory, risk classification, concentration risk per DORA Art 28, 30",
+        "description": "Provider inventory, risk classification, concentration risk per DORA Art 28, 30",  # noqa: E501
         "data_sources": ["ProviderInventory"],
     },
     {
@@ -162,7 +162,7 @@ ISO_42001_SECTIONS = [
     {
         "id": "model_governance",
         "title": "AI Model Governance",
-        "description": "Model inventory, lifecycle stages and approval gating per ISO 42001 Clause 6.1",
+        "description": "Model inventory, lifecycle stages and approval gating per ISO 42001 Clause 6.1",  # noqa: E501
         "data_sources": ["ModelInventory"],
     },
     {
@@ -380,7 +380,7 @@ async def generate_compliance_report(
     return {
         "framework": framework,
         "framework_name": FRAMEWORK_DESCRIPTIONS.get(framework, framework),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "tenant_id": scope,
         "sections": sections,
         "summary": summary,
@@ -446,19 +446,7 @@ async def _evaluate_section(
                 "records_found": found,
                 "status": "available" if found > 0 else "not_found",
             })
-        elif "detection" in source_lower or "mnpi" in source_lower:
-            evidence.append({
-                "source": source,
-                "records_found": 1,
-                "status": "available",
-            })
-        elif "audit" in source_lower:
-            evidence.append({
-                "source": source,
-                "records_found": 1,
-                "status": "available",
-            })
-        elif "cache" in source_lower:
+        elif "detection" in source_lower or "mnpi" in source_lower or "audit" in source_lower or "cache" in source_lower:  # noqa: E501
             evidence.append({
                 "source": source,
                 "records_found": 1,
@@ -470,31 +458,7 @@ async def _evaluate_section(
                 "records_found": len(FRAMEWORKS),
                 "status": "available",
             })
-        elif "firewall" in source_lower or "dlp" in source_lower:
-            evidence.append({
-                "source": source,
-                "records_found": 1,
-                "status": "available",
-            })
-        elif "admin" in source_lower or "rbac" in source_lower:
-            evidence.append({
-                "source": source,
-                "records_found": 1,
-                "status": "available",
-            })
-        elif "prometheus" in source_lower or "slo" in source_lower:
-            evidence.append({
-                "source": source,
-                "records_found": 1,
-                "status": "available",
-            })
-        elif "fairness" in source_lower:
-            evidence.append({
-                "source": source,
-                "records_found": 1,
-                "status": "available",
-            })
-        elif "minio" in source_lower or "worm" in source_lower:
+        elif "firewall" in source_lower or "dlp" in source_lower or "admin" in source_lower or "rbac" in source_lower or "prometheus" in source_lower or "slo" in source_lower or "fairness" in source_lower or "minio" in source_lower or "worm" in source_lower:  # noqa: E501
             evidence.append({
                 "source": source,
                 "records_found": 1,
@@ -531,15 +495,14 @@ async def _check_incidents(tenant_id: str | None) -> int:
     return len(_incident_store)
 
 
-async def _check_providers(db: AsyncSession | None, tenant_id: str | None) -> int:
+async def _check_providers(db: AsyncSession | None, _tenant_id: str | None) -> int:
     """Count provider records."""
     # In-memory check — count known config entries
-    from anonreq.governance.provider_inventory import ProviderInventory
 
     if db is not None:
         try:
             lifecycle_mock = None
-            inventory = ProviderInventory(db, lifecycle_mock if lifecycle_mock else _mock_lifecycle())
+            inventory = ProviderInventory(db, lifecycle_mock if lifecycle_mock else _mock_lifecycle())  # noqa: E501
             providers = await inventory.list_providers()
             return len(providers)
         except Exception:
@@ -570,12 +533,12 @@ async def _check_risk_assessments(db: AsyncSession | None, tenant_id: str | None
     return 1  # Default positive
 
 
-async def _check_models(db: AsyncSession | None, tenant_id: str | None) -> int:
+async def _check_models(_db: AsyncSession | None, _tenant_id: str | None) -> int:
     """Count model inventory records. Defaults to 1 if not checkable."""
     return 1  # Model inventory requires DB
 
 
-async def _check_aml_events(db: AsyncSession | None, tenant_id: str | None) -> int:
+async def _check_aml_events(_db: AsyncSession | None, tenant_id: str | None) -> int:
     """Count AML webhook events."""
     from anonreq.governance.webhooks.aml import _aml_config_store
     if tenant_id:
@@ -602,7 +565,7 @@ async def _check_governance_records(db: AsyncSession | None, tenant_id: str | No
 
 class _MockLifecycle:
     """Minimal mock lifecycle for standalone report evaluations."""
-    async def get_current_stage(self, object_id: str) -> Any:
+    async def get_current_stage(self, _object_id: str) -> Any:
         return _MockStage()
 
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -187,7 +187,6 @@ class TestEndpointAgentAudit:
     def test_audit_events_no_pii(self):
         """Audit events must not contain PII."""
         from anonreq.endpoint.agent import EndpointAgent
-        from anonreq.endpoint.discovery import AppDiscovery
 
         # Verify that audit event schemas don't include PII fields
         agent = EndpointAgent()

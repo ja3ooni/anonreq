@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -71,8 +70,8 @@ def test_hash_policy_state_different():
 
 
 @pytest.mark.asyncio
-async def test_record_decision_evidence(evidence_store, mock_policy_store):
-    decision_ts = datetime.now(timezone.utc)
+async def test_record_decision_evidence(evidence_store):
+    decision_ts = datetime.now(UTC)
     decision = PolicyDecision(
         action=PolicyAction.BLOCK,
         matched_rule_ids=["rule_001"],
@@ -100,7 +99,7 @@ async def test_record_decision_evidence(evidence_store, mock_policy_store):
 
 @pytest.mark.asyncio
 async def test_evidence_manifest_generation(evidence_store):
-    decision_ts = datetime.now(timezone.utc)
+    decision_ts = datetime.now(UTC)
     decision = PolicyDecision(
         action=PolicyAction.BLOCK,
         matched_rule_ids=["rule_001"],
@@ -111,7 +110,7 @@ async def test_evidence_manifest_generation(evidence_store):
     r2 = await evidence_store.record_decision_evidence("tenant_abc", decision)
 
     # Record a different tenant
-    r3 = await evidence_store.record_decision_evidence("tenant_xyz", decision)
+    await evidence_store.record_decision_evidence("tenant_xyz", decision)
 
     manifest = await evidence_store.generate_manifest("tenant_abc")
     assert manifest["tenant_id"] == "tenant_abc"
@@ -126,7 +125,7 @@ def test_no_sensitive_values_in_serialized_evidence(evidence_store):
     decision = PolicyDecision(
         action=PolicyAction.BLOCK,
         matched_rule_ids=["rule_001"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
         reason="Blocked due to SSN: 123-45-6789",  # potentially sensitive detail in reason
     )
 

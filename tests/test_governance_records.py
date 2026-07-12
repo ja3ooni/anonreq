@@ -5,7 +5,7 @@ Uses SQLite in-memory with aiosqlite matching Phase 11 test patterns.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import text
@@ -15,18 +15,6 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from anonreq.models.audit import Base
-from anonreq.models.governance import (
-    GovernanceOfficer,
-    GovernanceOfficerRole,
-    GovernanceRecord,
-    ReviewCycle,
-    ReviewCycleModel,
-    GovernanceRecordModel,
-    RiskAssessmentModel,
-    json_to_officers,
-    officers_to_json,
-)
 from anonreq.governance.records import (
     create_governance_record,
     get_governance_record,
@@ -39,6 +27,15 @@ from anonreq.governance.reviews import (
     get_overdue_reviews,
     get_upcoming_reviews,
     schedule_review,
+)
+from anonreq.models.audit import Base
+from anonreq.models.governance import (
+    GovernanceOfficer,
+    GovernanceOfficerRole,
+    GovernanceRecordModel,
+    ReviewCycleModel,
+    json_to_officers,
+    officers_to_json,
 )
 
 
@@ -230,7 +227,7 @@ class TestReviewCycles:
         assert len(overdue) == 0
 
         rc_id = record.review_cycle.id
-        past_date = datetime.now(timezone.utc) - timedelta(days=10)
+        past_date = datetime.now(UTC) - timedelta(days=10)
         await session.execute(
             text(
                 "UPDATE review_cycle SET next_review_date = :dt WHERE id = :id"
@@ -317,7 +314,7 @@ class TestGovernanceStatus:
         )
 
         rc_id = record.review_cycle.id
-        past_date = datetime.now(timezone.utc) - timedelta(days=15)
+        past_date = datetime.now(UTC) - timedelta(days=15)
         await session.execute(
             text(
                 "UPDATE review_cycle SET next_review_date = :dt WHERE id = :id"
@@ -332,7 +329,7 @@ class TestGovernanceStatus:
         total = await count_records(session)
         assert total == 1
 
-    async def test_json_serialization_roundtrip(self, session: AsyncSession):
+    async def test_json_serialization_roundtrip(self):
         """Officers JSON serializes and deserializes correctly."""
         officers = sample_officers()
         raw = officers_to_json(officers)
@@ -343,13 +340,13 @@ class TestGovernanceStatus:
 
     async def test_orm_model_relationship(self, session: AsyncSession):
         """GovernanceRecordModel loads review_cycle relationship."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         rc = ReviewCycleModel(
             tenant_id="t1",
             interval_days=90,
             last_review_date=None,
-            next_review_date=datetime.now(timezone.utc),
+            next_review_date=datetime.now(UTC),
             status="active",
         )
         session.add(rc)
@@ -359,8 +356,8 @@ class TestGovernanceStatus:
             tenant_id="t1",
             officers='[{"role": "governance", "name": "A", "email": "a@b.com"}]',
             review_cycle_id=rc.id,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
             status="active",
         )
         session.add(gr)

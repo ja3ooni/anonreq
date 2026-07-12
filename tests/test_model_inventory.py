@@ -7,7 +7,7 @@ default to not-approved).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -51,7 +51,7 @@ class TestModelRecordValidation:
         assert record.review_cycle_days == 365
 
     def test_model_record_with_all_fields(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = ModelRecord(
             id="model_001",
             provider="anthropic",
@@ -115,7 +115,7 @@ class TestModelRecordValidation:
 
 def _make_mock_orm(**overrides):
     """Create a MagicMock with ModelAnonReqModel-like attributes."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     attrs = {
         "model_id": "model_001",
         "provider": "openai",
@@ -250,7 +250,7 @@ class TestModelInventory:
 
     async def test_update_model_review(self, inventory, mock_db):
         """Test: update_model_review updates review fields."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_orm = _make_mock_orm()
         mock_orm.model_id = "model_001"
 
@@ -278,7 +278,7 @@ class TestModelInventory:
 
     async def test_update_model_review_sets_next_review_date(self, inventory, mock_db):
         """Test: update_model_review sets next_review_date based on interval."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_orm = _make_mock_orm(
             risk_classification="HIGH",
             last_review_date=now,

@@ -9,12 +9,8 @@ Covers:
 
 from __future__ import annotations
 
-import json
-import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
-
-import pytest
 
 from anonreq.governance.audit import (
     FORBIDDEN_AUDIT_KEYS,
@@ -23,7 +19,6 @@ from anonreq.governance.audit import (
     emit_tool_audit_event,
     tool_audit_event_to_dict,
 )
-
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -41,7 +36,7 @@ def make_event(
         "permission": "allow",
         "tenant_id": "test_tenant",
         "session_id": "sess_test",
-        "timestamp": datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        "timestamp": datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC),
     }
     kwargs.update(overrides)
     return ToolAuditEvent(**kwargs)
@@ -61,7 +56,7 @@ class TestToolAuditEventType:
         assert ToolAuditEventType.TOOL_APPROVAL_GRANTED.value == "approval_granted"
         assert ToolAuditEventType.TOOL_APPROVAL_DENIED.value == "approval_denied"
         assert ToolAuditEventType.TOOL_RESULT_PII_DETECTED.value == "result_pii_detected"
-        assert ToolAuditEventType.TOOL_RESULT_RECONSTRUCTION_DETECTED.value == "result_reconstruction_detected"
+        assert ToolAuditEventType.TOOL_RESULT_RECONSTRUCTION_DETECTED.value == "result_reconstruction_detected"  # noqa: E501
 
     def test_all_seven_types_exist(self) -> None:
         """Exactly 7 event type members exist."""

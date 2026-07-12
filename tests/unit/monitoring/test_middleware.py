@@ -13,7 +13,7 @@ Tests cover:
 - Labels never contain raw entity values or request content (AG-15)
 """
 
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from prometheus_client import REGISTRY
@@ -119,8 +119,8 @@ class TestProcessingContextFields:
         assert ctx.processing_overhead_ms is None
 
     def test_overhead_calculation(self):
+
         from anonreq.models.processing_context import ProcessingContext
-        import time
         ctx = ProcessingContext(request_id="test")
         ctx.request_receipt_time = 1000.0
         ctx.provider_dispatch_time = 1050.0
@@ -134,9 +134,10 @@ class TestDetectionStageInstrumentation:
     @pytest.mark.asyncio
     async def test_records_detection_latency(self):
         """DetectionStage records detection_latency_ms histogram."""
-        from anonreq.pipeline.detection import DetectionStage
-        from anonreq.models.processing_context import ProcessingContext
         import time
+
+        from anonreq.models.processing_context import ProcessingContext
+        from anonreq.pipeline.detection import DetectionStage
 
         ctx = ProcessingContext(request_id="test_req_001")
         ctx.request_receipt_time = time.monotonic()
@@ -174,7 +175,7 @@ class TestDetectionStageInstrumentation:
             span_arbiter=mock_arbiter,
             exclusion_list=mock_exclusion,
         )
-        result = await stage.execute(ctx)
+        await stage.execute(ctx)
 
         # Get the count after
         after_samples = list(REGISTRY.collect())
@@ -195,9 +196,10 @@ class TestDetectionStageInstrumentation:
     @pytest.mark.asyncio
     async def test_detection_latency_skipped_on_pass(self):
         """When classification action is PASS, latency should NOT be recorded."""
-        from anonreq.pipeline.detection import DetectionStage
-        from anonreq.models.processing_context import ProcessingContext
         import time
+
+        from anonreq.models.processing_context import ProcessingContext
+        from anonreq.pipeline.detection import DetectionStage
 
         ctx = ProcessingContext(request_id="test_req_002")
         ctx.request_receipt_time = time.monotonic()
@@ -223,7 +225,7 @@ class TestDetectionStageInstrumentation:
             span_arbiter=mock_arbiter,
             exclusion_list=mock_exclusion,
         )
-        result = await stage.execute(ctx)
+        await stage.execute(ctx)
 
         # Count should NOT have changed
         after_samples = list(REGISTRY.collect())
@@ -246,8 +248,8 @@ class TestForwardingGuardInstrumentation:
     @pytest.mark.asyncio
     async def test_records_provider_dispatch_time(self):
         """ForwardingGuard sets provider_dispatch_time when checks pass."""
-        from anonreq.pipeline.forwarding_guard import ForwardingGuard
         from anonreq.models.processing_context import ProcessingContext
+        from anonreq.pipeline.forwarding_guard import ForwardingGuard
 
         ctx = ProcessingContext(request_id="test_req_001")
         ctx.request_receipt_time = 100.0
@@ -257,7 +259,7 @@ class TestForwardingGuardInstrumentation:
         assert ctx.provider_dispatch_time is None
 
         stage = ForwardingGuard()
-        result = await stage.execute(ctx)
+        await stage.execute(ctx)
 
         # After PASS execution, guard should set provider_dispatch_time
         assert ctx.provider_dispatch_time is not None
@@ -266,15 +268,15 @@ class TestForwardingGuardInstrumentation:
     @pytest.mark.asyncio
     async def test_provider_dispatch_time_not_set_on_fail(self):
         """When checks fail, provider_dispatch_time should NOT be set."""
-        from anonreq.pipeline.forwarding_guard import ForwardingGuard
         from anonreq.models.processing_context import ProcessingContext
+        from anonreq.pipeline.forwarding_guard import ForwardingGuard
 
         ctx = ProcessingContext(request_id="test_req_002")
         # No classification_result — guard will fail
         assert ctx.provider_dispatch_time is None
 
         stage = ForwardingGuard()
-        result = await stage.execute(ctx)
+        await stage.execute(ctx)
 
         # Guard failed — dispatch time should NOT be set
         assert ctx.provider_dispatch_time is None
@@ -290,7 +292,6 @@ class TestRestorationStageInstrumentation:
         from anonreq.monitoring import metrics
 
         ctx = ProcessingContext(request_id="test_req_001")
-        import time
         ctx.request_receipt_time = 1000.0
         ctx.provider_dispatch_time = 1050.0
 
@@ -367,7 +368,8 @@ class TestAuditFailuresInstrumentation:
                         found = True
                         val = s.value
         assert found, "audit_failures_total sample not found in registry"
-        assert val is not None and val >= 1.0
+        assert val is not None
+        assert val >= 1.0
 
 
 class TestEntitiesDetectedInstrumentation:
@@ -398,10 +400,5 @@ class TestNoPIIInInstrumentationLabels:
     def test_failure_type_labels_are_controlled_enums(self):
         """failure_type must be from a controlled set, not dynamic/request-derived."""
         from anonreq.monitoring.metrics import fail_secure_events
-        valid_types = {
-            "detection_error", "cache_error", "forwarding_denied",
-            "provider_timeout", "circuit_breaker_open", "auth_error",
-            "internal_error", "restoration_error",
-        }
         # Verify that failure_type is a label name
         assert "failure_type" in fail_secure_events._labelnames

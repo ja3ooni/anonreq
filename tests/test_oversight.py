@@ -5,14 +5,12 @@ Uses fakeredis-backed cache manager matching conftest patterns.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from anonreq.services.oversight import (
     ApprovalRequest,
-    ApprovalRequestCreate,
-    KillSwitchStatus,
     OversightService,
 )
 
@@ -23,7 +21,7 @@ async def oversight_service(cache_manager):
     # Ensure clean state
     await svc._redis.delete("anonreq:oversight:kill-switch")
     await svc._redis.delete("anonreq:oversight:approvals")
-    yield svc
+    return svc
 
 
 @pytest.fixture
@@ -144,8 +142,12 @@ class TestKillSwitch:
 
 class TestVersioning:
     async def test_governance_record_has_version(self):
-        from anonreq.models.governance import GovernanceRecord, ReviewCycle, GovernanceOfficer, GovernanceOfficerRole
-        from datetime import datetime
+        from anonreq.models.governance import (
+            GovernanceOfficer,
+            GovernanceOfficerRole,
+            GovernanceRecord,
+            ReviewCycle,
+        )
 
         record = GovernanceRecord(
             id=1,
@@ -161,19 +163,18 @@ class TestVersioning:
                 last_review_date=None, next_review_date=None,
                 status="active",
             ),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
             version=1,
         )
         assert record.version == 1
 
     async def test_change_entry_model(self):
         from anonreq.models.governance import ChangeEntry
-        from datetime import datetime
 
         entry = ChangeEntry(
             version=1,
-            changed_at=datetime.now(timezone.utc),
+            changed_at=datetime.now(UTC),
             changed_by="alice@acme.com",
             description="Initial creation",
             changes={"officers": "added 4 officers"},
@@ -184,11 +185,10 @@ class TestVersioning:
 
     async def test_change_entry_default_timestamp(self):
         from anonreq.models.governance import ChangeEntry
-        from datetime import datetime, timezone
 
         entry = ChangeEntry(
             version=1,
-            changed_at=datetime.now(timezone.utc),
+            changed_at=datetime.now(UTC),
             changed_by="test",
             description="test",
         )

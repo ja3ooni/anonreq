@@ -8,15 +8,16 @@ Tests 18-02: Human Approval Flow
 from __future__ import annotations
 
 import pytest
-from anonreq.agent.approval import ToolApprovalQueue, ApprovalStatus
-from anonreq.agent.inspector import ToolResultInspector, InspectionResult, SensitivityLevel
+from anonreq.agent.approval import ApprovalStatus, ToolApprovalQueue
+from anonreq.agent.inspector import InspectionResult, SensitivityLevel, ToolResultInspector
 
 
 class TestToolApprovalQueue:
     @pytest.fixture
     async def queue(self):
-        from anonreq.cache.manager import CacheManager
         import fakeredis.aioredis
+
+        from anonreq.cache.manager import CacheManager
         fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
         manager = CacheManager.__new__(CacheManager)
         manager._redis = fake_redis
@@ -196,7 +197,7 @@ class TestToolResultInspector:
         assert result.sensitivity >= SensitivityLevel.HIGH
 
     def test_inspection_result_has_correct_properties(self):
-        result = InspectionResult(sensitivity=SensitivityLevel.HIGH, findings=[{"type": "ssn", "value": "***"}])
+        result = InspectionResult(sensitivity=SensitivityLevel.HIGH, findings=[{"type": "ssn", "value": "***"}])  # noqa: E501
         assert result.sensitivity == SensitivityLevel.HIGH
         assert len(result.findings) == 1
         assert result.has_findings()

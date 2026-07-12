@@ -9,7 +9,6 @@ Provides:
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 import structlog
@@ -64,22 +63,21 @@ class MITMHandler:
             )
 
         client_cert = request.scope.get("client_certificate")
-        if client_cert:
-            if self._tls.certificate_pinning_detected(client_cert):
-                logger.warning(
-                    f"Certificate pinning detected — blocking CONNECT to {target}"
-                )
-                return Response(
-                    status_code=426,
-                    content="Upgrade Required: certificate pinning detected",
-                    headers={"X-AnonReq-Blocked": "certificate-pinning"},
-                )
+        if client_cert and self._tls.certificate_pinning_detected(client_cert):
+            logger.warning(
+                f"Certificate pinning detected — blocking CONNECT to {target}"
+            )
+            return Response(
+                status_code=426,
+                content="Upgrade Required: certificate pinning detected",
+                headers={"X-AnonReq-Blocked": "certificate-pinning"},
+            )
 
         return await self._establish_tls_tunnel(request)
 
     async def _establish_tls_tunnel(
         self,
-        request: Request,
+        _request: Request,
     ) -> Response:
         """Establish a bidirectional TLS tunnel to the target.
 

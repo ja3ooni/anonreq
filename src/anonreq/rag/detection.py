@@ -54,7 +54,7 @@ async def retrieval_time_detect(
 
             # Check if entity already has a mapping
             already_mapped = False
-            for token, value in updated_mappings.items():
+            for _token, value in updated_mappings.items():
                 if value == entity_text:
                     already_mapped = True
                     break

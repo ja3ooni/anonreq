@@ -13,8 +13,8 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import text
@@ -24,17 +24,16 @@ from sqlalchemy.orm import sessionmaker
 from anonreq.ediscovery.export import EDiscoveryExporter
 from anonreq.models.ediscovery import ExportFormat
 
-
 # ── Shared test data ───────────────────────────────────────────────
 
 TENANT_A = "tenant-ediscovery-a"
 TENANT_B = "tenant-ediscovery-b"
 SESSION_1 = "ses_ediscovery_001"
 SESSION_2 = "ses_ediscovery_002"
-T0 = datetime(2025, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
-T1 = datetime(2025, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
-T2 = datetime(2025, 7, 1, 12, 0, 0, tzinfo=timezone.utc)
-T3 = datetime(2025, 7, 15, 12, 0, 0, tzinfo=timezone.utc)
+T0 = datetime(2025, 6, 1, 12, 0, 0, tzinfo=UTC)
+T1 = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)
+T2 = datetime(2025, 7, 1, 12, 0, 0, tzinfo=UTC)
+T3 = datetime(2025, 7, 15, 12, 0, 0, tzinfo=UTC)
 
 
 # ── Helpers ────────────────────────────────────────────────────────
@@ -290,7 +289,7 @@ async def exporter(db_session: AsyncSession) -> EDiscoveryExporter:
 def _data_lines(content: str) -> list[str]:
     """Return non-comment lines from JSONL content."""
     return [
-        l for l in content.strip().split("\n")
+        l for l in content.strip().split("\n")  # noqa: E741
         if l.strip() and not l.startswith("#")
     ]
 
@@ -300,7 +299,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_export_jsonl_structure(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
     ):
         """JSONL export returns newline-delimited JSON records."""
         result = await exporter.export(
@@ -322,7 +321,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_export_pdf_structure(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
     ):
         """PDF export returns valid PDF bytes."""
         result = await exporter.export(
@@ -337,7 +336,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_export_edrm_xml_structure(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
     ):
         """EDRM XML export returns valid XML."""
         result = await exporter.export(
@@ -352,7 +351,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_cross_format_record_count_consistency(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
     ):
         """All formats return same record count for same filters."""
         jsonl = await exporter.export(
@@ -430,7 +429,7 @@ class TestFiltering:
         """Export filtered to Q2 date range excludes oldest records."""
         result = await exporter.export(
             tenant_id=TENANT_A,
-            date_from=datetime(2025, 7, 1, tzinfo=timezone.utc),
+            date_from=datetime(2025, 7, 1, tzinfo=UTC),
             export_format=ExportFormat.JSONL,
         )
         # Should exclude lin_test_005 (T0 = June 1) and include July records
@@ -449,8 +448,8 @@ class TestFiltering:
         """Export with both date_from and date_to."""
         result = await exporter.export(
             tenant_id=TENANT_A,
-            date_from=datetime(2025, 6, 1, tzinfo=timezone.utc),
-            date_to=datetime(2025, 6, 30, tzinfo=timezone.utc),
+            date_from=datetime(2025, 6, 1, tzinfo=UTC),
+            date_to=datetime(2025, 6, 30, tzinfo=UTC),
             export_format=ExportFormat.JSONL,
         )
         # Only lin_test_005 (T0 = June 1) falls in this range
@@ -512,7 +511,6 @@ class TestErrorHandling:
         self, exporter: EDiscoveryExporter
     ):
         """Export raises ValueError for unknown format."""
-        import anonreq.models.ediscovery as edm
 
         class FakeFormat:
             value = "unknown"
@@ -525,7 +523,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_exporter_handles_db_empty(
-        self, db_session: AsyncSession
+        self, db_session: AsyncSession  # noqa: PT019
     ):
         """Export on fresh (empty) DB returns empty."""
         # Drop all data and recreate exporter with clean session

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from anonreq.policy.models import PolicyAction, PolicyDecision, ResidencyRule
 
@@ -13,9 +13,9 @@ class ResidencyRouter:
         self,
         tenant_id: str,
         provider_region: str,
-        provider_name: str,
+        _provider_name: str,
     ) -> PolicyDecision:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         rule = self._rules.get(tenant_id)
         if rule is None:
             return PolicyDecision(

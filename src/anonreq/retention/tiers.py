@@ -10,7 +10,7 @@ Per D-017:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -196,7 +196,7 @@ class RetentionManager:
         # PostgreSQL tier — delete expired lineage records
         tier_config = self._config[tier]
         duration_days = tier_config["duration_days"]
-        cutoff = datetime.now(timezone.utc) - timedelta(days=duration_days)
+        cutoff = datetime.now(UTC) - timedelta(days=duration_days)
 
         # Check Legal Hold
         skipped = 0

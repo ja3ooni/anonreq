@@ -34,7 +34,7 @@ class StreamingFirewallDetector:
     async def process_chunk(
         self,
         chunk: bytes,
-        ctx: ProcessingContext,
+        _ctx: ProcessingContext,
     ) -> tuple[bytes, list[DetectionResult]]:
         text = chunk.decode("utf-8", errors="replace")
         results = await self._detector.ingest(text)

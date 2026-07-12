@@ -6,16 +6,16 @@ risk assessment operations, and a governance status dashboard.
 
 from __future__ import annotations
 
+import contextlib
 import uuid
-from datetime import datetime, timezone
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from anonreq.governance.approval import ApprovalManager
 from anonreq.governance.records import (
-    create_governance_record,
     get_governance_record,
     list_governance_records,
     update_governance_record,
@@ -35,11 +35,8 @@ from anonreq.governance.risk import (
 )
 from anonreq.models.audit import AuditEvent
 from anonreq.models.governance import (
-    GovernanceOfficer,
     GovernanceOfficerUpdate,
-    GovernanceRecord,
     RiskAssessment,
-    RiskDimensionScore,
 )
 
 governance_router = APIRouter(prefix="/v1/governance", tags=["governance"])
@@ -76,7 +73,7 @@ def _emit_sync(
             event_id=f"gov_{uuid.uuid4().hex[:24]}",
             prev_hash=None,
             hash="",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             tenant_id=tenant_id,
             request_id=getattr(request.state, "request_id", None),
             policy_id=None,
@@ -90,17 +87,15 @@ def _emit_sync(
             new_value_hash=None,
             metadata_json=metadata_json,
         )
-        try:
+        with contextlib.suppress(Exception):
             await chain.store_event(event)
-        except Exception:
-            pass
 
-    asyncio.ensure_future(_emit())
+        _ = asyncio.ensure_future(_emit())  # noqa: RUF006
 
 
 @governance_router.get("/status")
 async def governance_status(
-    request: Request,
+    _request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """GET /v1/governance/status — return governance record status.
@@ -109,14 +104,14 @@ async def governance_status(
     a per-tenant breakdown of overdue items, active legal hold count,
     and overdue supplier reviews.
     """
-    from anonreq.retention.legal_hold import LegalHoldManager
     from anonreq.governance.supplier import SupplierGovernance
+    from anonreq.retention.legal_hold import LegalHoldManager
 
     total = await count_records(db)
     overdue_list = await get_overdue_reviews(db)
     upcoming_list = await get_upcoming_reviews(db, days=30)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     overdue_by_tenant = []
     for rec in overdue_list:
         if rec.review_cycle.next_review_date:
@@ -145,7 +140,7 @@ async def governance_status(
 
 @governance_router.get("/records")
 async def list_records(
-    request: Request,
+    _request: Request,
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
@@ -158,7 +153,7 @@ async def list_records(
 @governance_router.get("/records/{tenant_id}")
 async def get_record(
     tenant_id: str,
-    request: Request,
+    _request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """GET /v1/governance/records/{tenant_id} — get a specific record."""
@@ -179,7 +174,7 @@ async def update_record(
     try:
         record = await update_governance_record(db, tenant_id, payload.officers)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
 
     _emit_sync(
         request,
@@ -200,7 +195,7 @@ async def complete_record_review(
     try:
         cycle = await complete_review(db, tenant_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
 
     _emit_sync(
         request,
@@ -228,7 +223,7 @@ async def create_record_risk_assessment(
             payload.extensions,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+        raise HTTPException(status_code=422, detail=str(exc))  # noqa: B904
 
     _emit_sync(
         request,
@@ -242,7 +237,7 @@ async def create_record_risk_assessment(
 @governance_router.get("/records/{tenant_id}/risk")
 async def get_record_risk_assessment(
     tenant_id: str,
-    request: Request,
+    _request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """GET /v1/governance/records/{tenant_id}/risk — get risk assessment."""
@@ -265,7 +260,7 @@ async def update_record_risk_assessment(
             db, tenant_id, payload.dimensions, payload.extensions
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
 
     _emit_sync(
         request,
@@ -292,7 +287,7 @@ async def flag_risk_reassessment(
     try:
         assessment = await flag_reassessment(db, tenant_id, reason)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
 
     _emit_sync(
         request,
@@ -318,7 +313,7 @@ async def trigger_config_reassessment(
         tenant_id = body.get("tenant_id", "default")
         changed_fields = body.get("changed_fields", [])
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid request body")
+        raise HTTPException(status_code=400, detail="Invalid request body")  # noqa: B904
 
     flagged = await check_config_triggers_reassessment(db, tenant_id, changed_fields)
 
@@ -337,7 +332,7 @@ async def trigger_config_reassessment(
 
 @governance_router.get("/legal-holds")
 async def list_legal_holds(
-    request: Request,
+    _request: Request,
     tenant_id: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -386,7 +381,7 @@ async def release_legal_hold(
             hold_id, released_by=body.get("released_by", "unknown")
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
     return released.model_dump()
 
 
@@ -395,7 +390,7 @@ async def release_legal_hold(
 
 @governance_router.get("/suppliers")
 async def list_suppliers(
-    request: Request,
+    _request: Request,
     risk_status: str | None = None,
     contract_status: str | None = None,
     db: AsyncSession = Depends(get_db),
@@ -431,7 +426,7 @@ async def create_supplier(
 
 @governance_router.get("/suppliers/overdue-reviews")
 async def get_supplier_overdue_reviews(
-    request: Request,
+    _request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """GET /v1/governance/suppliers/overdue-reviews — list overdue reviews."""
@@ -458,7 +453,7 @@ async def trigger_supplier_risk_re_evaluation(
             supplier_id, trigger=body.get("trigger", "")
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
     return result.model_dump()
 
 
@@ -467,11 +462,10 @@ def _parse_optional_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     try:
-        from datetime import timezone
 
         dt = datetime.fromisoformat(value)
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt
     except (ValueError, TypeError):
         return None
@@ -502,7 +496,7 @@ async def submit_request(
 
 @governance_router.get("/dsar/requests")
 async def list_dsar_requests(
-    request: Request,
+    _request: Request,
     tenant_id: str | None = None,
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
@@ -547,36 +541,36 @@ async def fulfill_dsar_request(
         result = await workflow.fulfill_request(
             request_id=request_id,
             fulfilled_by=body.get("fulfilled_by", "unknown"),
-            notes=body.get("notes"),
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
     return result.model_dump()
 
 
 @governance_router.post("/dsar/erasure/{subject_id}")
 async def erase_subject_data(
     subject_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
+    _request: Request,
 ) -> dict:
     """POST /v1/governance/dsar/erasure/{subject_id} — erase subject data."""
     from anonreq.dsar.erasure import DataErasureService
 
-    service = DataErasureService(db)
+    cache = _request.app.state.cache_manager
+    service = DataErasureService(cache)
     erased = await service.erase_subject_data(subject_id)
-    return {"subject_id": subject_id, "erased": erased, "erased_at": datetime.now(timezone.utc).isoformat()}
+    return {"subject_id": subject_id, "erased": erased, "erased_at": datetime.now(UTC).isoformat()}
 
 
 @governance_router.get("/dsar/erasure/{subject_id}")
 async def check_subject_erasure(
     subject_id: str,
-    db: AsyncSession = Depends(get_db),
+    _request: Request,
 ) -> dict:
     """GET /v1/governance/dsar/erasure/{subject_id} — check erasure status."""
     from anonreq.dsar.erasure import DataErasureService
 
-    service = DataErasureService(db)
+    cache = _request.app.state.cache_manager
+    service = DataErasureService(cache)
     erased = await service.has_been_erased(subject_id)
     return {"subject_id": subject_id, "erased": erased}
 
@@ -591,10 +585,12 @@ async def restrict_subject(
     from anonreq.dsar.restriction import DataRestrictionService
 
     body = await request.json()
-    service = DataRestrictionService(db)
+    cache = request.app.state.cache_manager
+    service = DataRestrictionService(db=db, cache_manager=cache)
+    tenant_id = body.get("tenant_id", "default")
     await service.restrict_subject(
-        subject_id,
-        reason=body.get("reason", ""),
+        tenant_id=tenant_id,
+        subject_id=subject_id,
         restricted_by=body.get("restricted_by", "unknown"),
     )
     return {"subject_id": subject_id, "restricted": True}
@@ -603,12 +599,14 @@ async def restrict_subject(
 @governance_router.get("/dsar/restriction/{subject_id}")
 async def check_subject_restriction(
     subject_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """GET /v1/governance/dsar/restriction/{subject_id} — check restriction."""
     from anonreq.dsar.restriction import DataRestrictionService
 
-    service = DataRestrictionService(db)
+    cache = request.app.state.cache_manager
+    service = DataRestrictionService(db=db, cache_manager=cache)
     restricted = await service.is_subject_restricted(subject_id)
     return {"subject_id": subject_id, "restricted": restricted}
 
@@ -616,24 +614,28 @@ async def check_subject_restriction(
 @governance_router.delete("/dsar/restriction/{subject_id}")
 async def remove_subject_restriction(
     subject_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """DELETE /v1/governance/dsar/restriction/{subject_id} — remove restriction."""
     from anonreq.dsar.restriction import DataRestrictionService
 
-    service = DataRestrictionService(db)
+    cache = request.app.state.cache_manager
+    service = DataRestrictionService(db=db, cache_manager=cache)
     removed = await service.remove_restriction(subject_id)
     return {"subject_id": subject_id, "removed": removed}
 
 
 @governance_router.get("/dsar/restrictions")
 async def list_restricted_subjects(
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """GET /v1/governance/dsar/restrictions — list restricted subjects."""
     from anonreq.dsar.restriction import DataRestrictionService
 
-    service = DataRestrictionService(db)
+    cache = request.app.state.cache_manager
+    service = DataRestrictionService(db=db, cache_manager=cache)
     subjects = await service.list_restricted_subjects()
     return {"object": "list", "data": subjects}
 
@@ -664,7 +666,7 @@ async def send_breach_notifications(
 
 @governance_router.get("/breach/queue")
 async def get_breach_notification_queue(
-    request: Request,
+    _request: Request,
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -680,7 +682,7 @@ async def get_breach_notification_queue(
 
 @governance_router.post("/breach/retry")
 async def retry_failed_notifications(
-    request: Request,
+    _request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """POST /v1/governance/breach/retry — retry failed notifications."""
@@ -695,7 +697,7 @@ async def retry_failed_notifications(
 
 @governance_router.get("/breach/templates")
 async def list_breach_templates(
-    request: Request,
+    _request: Request,
 ) -> dict:
     """GET /v1/governance/breach/templates — list available templates."""
     from anonreq.breach.templates import BreachTemplateManager
@@ -722,7 +724,6 @@ async def set_breach_custom_template(
         subject_template=body["subject_template"],
         body_template=body["body_template"],
     )
-    import asyncio
 
     await mgr.set_custom_template(body["framework"], body["region"], custom)
     return {"status": "ok", "template_id": custom.id}
@@ -756,7 +757,7 @@ async def create_approval(
         tool_call_dict = body.get("tool_call", {})
         context_dict = body.get("context", {})
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid request body")
+        raise HTTPException(status_code=400, detail="Invalid request body")  # noqa: B904
 
     from anonreq.governance.tool_extractor import ToolCall
     from anonreq.models.processing_context import ProcessingContext

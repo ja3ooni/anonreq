@@ -10,7 +10,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import text
@@ -20,10 +20,9 @@ from sqlalchemy.orm import sessionmaker
 from anonreq.ediscovery.export import EDiscoveryExporter
 from anonreq.models.ediscovery import ExportFormat
 
-
 _TENANT = "tenant-dsar-int"
-_T0 = datetime(2025, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
-_T1 = datetime(2025, 10, 15, 12, 0, 0, tzinfo=timezone.utc)
+_T0 = datetime(2025, 10, 1, 12, 0, 0, tzinfo=UTC)
+_T1 = datetime(2025, 10, 15, 12, 0, 0, tzinfo=UTC)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────
@@ -97,7 +96,7 @@ class TestDSAREDiscovery:
         assert result.record_count >= 2, \
             "Expected at least 2 DSAR records"
         data_lines = [
-            l for l in result.content.strip().split("\n")
+            l for l in result.content.strip().split("\n")  # noqa: E741
             if l.strip() and not l.startswith("#")
         ]
         assert len(data_lines) == result.record_count

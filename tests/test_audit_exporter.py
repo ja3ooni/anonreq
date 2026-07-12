@@ -5,10 +5,11 @@ from __future__ import annotations
 import gzip
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
-import pytest
+
 import pyarrow.parquet as pq
+import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -41,7 +42,7 @@ async def test_audit_exporter_generates_files_and_uploads(audit_chain):
     # Event 3: in July 2026
     e1 = AuditEvent(
         event_id="e1", prev_hash=None, hash="",
-        timestamp=datetime(2026, 7, 15, 12, 0, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 7, 15, 12, 0, 0, tzinfo=UTC),
         tenant_id="tenant1", request_id=None, policy_id=None, decision=None,
         provider=None, latency_ms=None, event_type="config_change",
         operator_id="op1", change_type="update", prev_value_hash=None,
@@ -49,7 +50,7 @@ async def test_audit_exporter_generates_files_and_uploads(audit_chain):
     )
     e2 = AuditEvent(
         event_id="e2", prev_hash="h1", hash="",
-        timestamp=datetime(2026, 8, 1, 12, 0, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 1, 12, 0, 0, tzinfo=UTC),
         tenant_id="tenant1", request_id=None, policy_id=None, decision=None,
         provider=None, latency_ms=None, event_type="config_change",
         operator_id="op1", change_type="update", prev_value_hash=None,
@@ -57,7 +58,7 @@ async def test_audit_exporter_generates_files_and_uploads(audit_chain):
     )
     e3 = AuditEvent(
         event_id="e3", prev_hash="h2", hash="",
-        timestamp=datetime(2026, 7, 30, 23, 59, 59, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 7, 30, 23, 59, 59, tzinfo=UTC),
         tenant_id="tenant2", request_id=None, policy_id=None, decision=None,
         provider=None, latency_ms=None, event_type="slo_breach_detected",
         operator_id=None, change_type=None, prev_value_hash=None,
@@ -70,24 +71,24 @@ async def test_audit_exporter_generates_files_and_uploads(audit_chain):
 
     # Initialize exporter
     cfg = ExportConfig(
-        monthly=MonthlyConfig(enabled=True, schedule="0 0 5 * *", formats=["jsonl", "parquet"], compression="gzip"),
-        minio=MinioConfig(endpoint="http://localhost:9000", bucket="test-bucket", access_key="key", secret_key="secret", secure=False, worm_enabled=True, retention_days=30)
+        monthly=MonthlyConfig(enabled=True, schedule="0 0 5 * *", formats=["jsonl", "parquet"], compression="gzip"),  # noqa: E501
+        minio=MinioConfig(endpoint="http://localhost:9000", bucket="test-bucket", access_key="key", secret_key="secret", secure=False, worm_enabled=True, retention_days=30)  # noqa: E501
     )
-    
+
     exporter = AuditExporter(audit_chain, config=cfg)
 
     # Mock MinIO client
     mock_minio = MagicMock()
     mock_minio.bucket_exists.return_value = True
-    
+
     # Track files uploaded
     uploaded_files = {}
-    
-    def mock_fput_object(bucket_name, remote_path, local_path):
+
+    def mock_fput_object(_bucket_name, remote_path, local_path):
         # Read file contents and save
         with open(local_path, "rb") as f:
             uploaded_files[remote_path] = f.read()
-            
+
     mock_minio.fput_object.side_effect = mock_fput_object
 
     with patch.object(exporter, "_get_minio_client", return_value=mock_minio):
@@ -138,16 +139,16 @@ async def test_audit_exporter_generates_files_and_uploads(audit_chain):
 @pytest.mark.asyncio
 async def test_audit_exporter_empty_month(audit_chain):
     cfg = ExportConfig(
-        monthly=MonthlyConfig(enabled=True, schedule="0 0 5 * *", formats=["jsonl", "parquet"], compression="gzip"),
-        minio=MinioConfig(endpoint="http://localhost:9000", bucket="test-bucket", access_key="key", secret_key="secret", secure=False, worm_enabled=True, retention_days=30)
+        monthly=MonthlyConfig(enabled=True, schedule="0 0 5 * *", formats=["jsonl", "parquet"], compression="gzip"),  # noqa: E501
+        minio=MinioConfig(endpoint="http://localhost:9000", bucket="test-bucket", access_key="key", secret_key="secret", secure=False, worm_enabled=True, retention_days=30)  # noqa: E501
     )
     exporter = AuditExporter(audit_chain, config=cfg)
 
     mock_minio = MagicMock()
     mock_minio.bucket_exists.return_value = True
     uploaded_files = {}
-    
-    def mock_fput_object(bucket_name, remote_path, local_path):
+
+    def mock_fput_object(_bucket_name, remote_path, local_path):
         with open(local_path, "rb") as f:
             uploaded_files[remote_path] = f.read()
     mock_minio.fput_object.side_effect = mock_fput_object

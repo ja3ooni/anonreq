@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
 
 import pytest
@@ -10,9 +9,9 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.gateway.passthrough import (
-    ProxyOnlyHandler,
     GatewayStatus,
     ProxyMode,
+    ProxyOnlyHandler,
 )
 
 
@@ -34,7 +33,7 @@ class TestProxyOnlyHandler:
         assert response["mode"] == "proxy-only"
 
     async def test_passthrough_no_anonymization(self, handler):
-        body = b'{"model": "gpt-4", "messages": [{"role": "user", "content": "My email is john@example.com"}]}'
+        body = b'{"model": "gpt-4", "messages": [{"role": "user", "content": "My email is john@example.com"}]}'  # noqa: E501
         response = await handler.passthrough(
             method="POST",
             path="/v1/chat/completions",
@@ -159,7 +158,7 @@ class TestProxyOnlyModeIntegration:
 
     async def test_proxy_only_mode_no_detection(self):
         handler = ProxyOnlyHandler()
-        body = b'{"model": "gpt-4", "messages": [{"role": "user", "content": "My SSN is 123-45-6789"}]}'
+        body = b'{"model": "gpt-4", "messages": [{"role": "user", "content": "My SSN is 123-45-6789"}]}'  # noqa: E501
         response = await handler.passthrough(
             method="POST",
             path="/v1/chat/completions",

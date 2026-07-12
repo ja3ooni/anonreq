@@ -9,13 +9,11 @@ Per D-021 through D-025:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from anonreq.models.dsar import DsarRequest, DsarRequestType, DsarResult, SubjectStatus
-
 
 # In-memory stores for mock DB operations
 _dsar_store: dict[str, dict] = {}
@@ -49,7 +47,7 @@ def mock_db_session():
         result.rowcount = 1
         result.fetchone = AsyncMock(return_value=None)
         result.fetchall = AsyncMock(return_value=[])
-        stmt_str = str(stmt) if hasattr(stmt, "__str__") else str(stmt)
+        stmt_str = str(stmt) if hasattr(stmt, "__str__") else str(stmt)  # noqa: RUF034
         params = params or {}
 
         if "INSERT INTO dsar_requests" in stmt_str:
@@ -132,7 +130,7 @@ def mock_cache_manager():
     cm = MagicMock()
     redis = AsyncMock()
     redis.scan = AsyncMock(
-        side_effect=lambda cursor, match=None, count=100: (
+        side_effect=lambda _cursor, _match=None, _count=100: (
             0, list(_scan_return_keys)
         )
     )
@@ -168,9 +166,9 @@ def restriction_service(mock_db_session, mock_cache_manager):
 
 @pytest.fixture
 def dsar_workflow(mock_db_session, mock_cache_manager, mock_legal_hold_manager):
-    from anonreq.dsar.workflow import DsarWorkflow
     from anonreq.dsar.erasure import DataErasureService
     from anonreq.dsar.restriction import DataRestrictionService
+    from anonreq.dsar.workflow import DsarWorkflow
 
     return DsarWorkflow(
         db=mock_db_session,

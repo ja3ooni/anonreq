@@ -25,11 +25,10 @@ Key design decisions:
 
 Performance note: 1000 sequential tokenizer invocations is fast (~tens of ms),
 so the full count is used in the Hypothesis test without a separate slow marker.
-"""
+"""  # noqa: RUF002
 
 from __future__ import annotations
 
-import math
 import re
 import string
 from typing import Any
@@ -79,7 +78,7 @@ def _make_detection(
 # ── Property 1-3, 6: Same value across sessions → unique tokens ──────────────
 
 
-@pytest.mark.parametrize("entity_label,detection_type", [
+@pytest.mark.parametrize(("entity_label", "detection_type"), [
     pytest.param("EMAIL", "EMAIL_ADDRESS", id="email"),
     pytest.param("PHONE", "PHONE_NUMBER", id="phone"),
     pytest.param("CREDIT_CARD", "CREDIT_CARD", id="credit_card"),
@@ -283,7 +282,7 @@ def test_different_values_unique(value_a: str, value_b: str) -> None:
     start_b = text_b.index(value_b)
 
     detection_a = _make_detection("EMAIL_ADDRESS", start_a, start_a + len(value_a))
-    detection_b = _make_detection("EMAIL_ADDRESS", start_b, start_b + len(value_b))
+    _make_detection("EMAIL_ADDRESS", start_b, start_b + len(value_b))
 
     all_tokens: set[str] = set()
 
@@ -293,7 +292,7 @@ def test_different_values_unique(value_a: str, value_b: str) -> None:
 
         # Tokenize value_a
         _, mapping_a = tokenizer.tokenize(text_a, [detection_a])
-        token_a = next(iter(mapping_a)) if mapping_a else None
+        next(iter(mapping_a)) if mapping_a else None
 
         # Tokenize value_b (same session, new initialize_session skipped)
         # Actually: we need separate sessions for cross-value uniqueness
@@ -333,7 +332,7 @@ def test_different_values_unique(value_a: str, value_b: str) -> None:
 
     # Cross-session: all tokens from all sessions should be unique
     # (different sessions for same values, and different values within sessions)
-    expected_unique = MAX_SESSIONS * 2  # 2 values per session
+    MAX_SESSIONS * 2  # 2 values per session
     # ... but that's only if value_a and value_b differ, which assume guarantees
     assert len(all_tokens) >= MAX_SESSIONS * 2 * 0.99, (
         f"Expected ~{MAX_SESSIONS * 2} unique tokens across sessions, "
@@ -408,7 +407,7 @@ def test_collision_probability_bound() -> None:
     - The first token index = ``(seed & 0x3FFFFFFF)`` (30-bit space)
     - For N=1000, P(at least one collision) ≈ N² / (2 × 2³⁰) ≈ 4.7e-4
     - This meets the ≤ 2⁻³² ≈ 2.3e-10 per-pair bound
-    """
+    """  # noqa: RUF002
     # Tokenizer uses: token_index = (self._seed & 0xFFFFFFFF) + counter
     # 0xFFFFFFFF = 2^32 - 1, so seed space is 2^32 possible values
     seed_space = 2 ** 32

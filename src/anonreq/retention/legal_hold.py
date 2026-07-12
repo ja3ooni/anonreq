@@ -8,9 +8,8 @@ Per D-018, D-019, D-020:
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
@@ -81,7 +80,7 @@ class LegalHoldManager:
             record_id=record_id,
             reason=reason,
             activated_by=activated_by,
-            activated_at=datetime.now(timezone.utc),
+            activated_at=datetime.now(UTC),
             expires_at=expires_at,
         )
 
@@ -156,7 +155,7 @@ class LegalHoldManager:
             raise ValueError(f"Hold not found: {hold_id}")
 
         # Update hold
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         update_stmt = text("""
             UPDATE legal_hold
             SET released_at = :released_at,
@@ -214,7 +213,7 @@ class LegalHoldManager:
             params = {
                 "tenant_id": tenant_id,
                 "record_id": record_id,
-                "now": datetime.now(timezone.utc),
+                "now": datetime.now(UTC),
             }
         else:
             # Check tenant-level hold
@@ -226,7 +225,7 @@ class LegalHoldManager:
             """)
             params = {
                 "tenant_id": tenant_id,
-                "now": datetime.now(timezone.utc),
+                "now": datetime.now(UTC),
             }
 
         try:
@@ -300,7 +299,7 @@ class LegalHoldManager:
         """)
         params = {
             "tenant_id": tenant_id,
-            "now": datetime.now(timezone.utc),
+            "now": datetime.now(UTC),
         }
 
         try:

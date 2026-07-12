@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class DeploymentMode(str, Enum):
+class DeploymentMode(StrEnum):
     REVERSE = "reverse"
     TRANSPARENT = "transparent"
     VIRTUAL = "virtual"
@@ -30,7 +30,7 @@ class TopologyConfig:
 
 
 def get_deployment_config(mode: str | None = None) -> TopologyConfig:
-    raw = (mode or os.environ.get("DEPLOYMENT_MODE") or os.environ.get("ANONREQ_DEPLOYMENT_MODE") or "reverse")
+    raw = (mode or os.environ.get("DEPLOYMENT_MODE") or os.environ.get("ANONREQ_DEPLOYMENT_MODE") or "reverse")  # noqa: E501
     normalized = raw.strip().lower()
     try:
         deployment_mode = DeploymentMode(normalized)
@@ -67,7 +67,7 @@ def get_deployment_config(mode: str | None = None) -> TopologyConfig:
             ca_cert_path=ca_cert_path,
             ca_key_path=ca_key_path,
             network_attachment="virtual_appliance",
-            vm_spec={"vcpu": 4, "ram_gb": 16, "disk_gb": 100, "hypervisors": ["vmware", "hyper-v", "kvm"]},
+            vm_spec={"vcpu": 4, "ram_gb": 16, "disk_gb": 100, "hypervisors": ["vmware", "hyper-v", "kvm"]},  # noqa: E501
         )
     return TopologyConfig(
         mode=deployment_mode,

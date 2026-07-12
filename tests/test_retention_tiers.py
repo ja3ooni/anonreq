@@ -9,11 +9,9 @@ Per D-017:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

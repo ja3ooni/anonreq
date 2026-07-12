@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from anonreq.firewall.models import DetectionResult
 from anonreq.models.processing_context import ProcessingContext
 
 
-class FirewallAuditEvent(str, Enum):
+class FirewallAuditEvent(StrEnum):
     INJECTION_DETECTED = "firewall_injection_detected"
     OUTBOUND_VIOLATION = "firewall_outbound_violation"
     RULE_RELOADED = "firewall_rule_reloaded"
@@ -18,7 +18,7 @@ class FirewallAuditPublisher:
     async def publish_injection(self, result: DetectionResult, ctx: ProcessingContext) -> None:
         ctx.audit_metadata["firewall_event"] = {
             "event_type": FirewallAuditEvent.INJECTION_DETECTED.value,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "tenant_id": ctx.tenant_id,
             "session_id": ctx.context_id,
             "category": result.category.value,
@@ -29,10 +29,10 @@ class FirewallAuditPublisher:
             "matched_text_snippet": self._truncate_snippet(result.matched_text_snippet),
         }
 
-    async def publish_outbound_violation(self, result: DetectionResult, ctx: ProcessingContext) -> None:
+    async def publish_outbound_violation(self, result: DetectionResult, ctx: ProcessingContext) -> None:  # noqa: E501
         ctx.audit_metadata["firewall_event"] = {
             "event_type": FirewallAuditEvent.OUTBOUND_VIOLATION.value,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "tenant_id": ctx.tenant_id,
             "session_id": ctx.context_id,
             "category": result.category.value,
@@ -51,7 +51,7 @@ class FirewallAuditPublisher:
     ) -> dict[str, Any]:
         event = {
             "event_type": FirewallAuditEvent.RULE_RELOADED.value,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "old_rule_count": old_count,
             "new_rule_count": new_count,
             "version": version,

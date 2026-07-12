@@ -15,7 +15,7 @@ from anonreq.proxy.transparent_proxy import ProxyRequest, TransparentProxy
 
 
 class DummyDispatcher:
-    async def dispatch(self, content_type: str, body: bytes, ctx: object):
+    async def dispatch(self, _content_type: str, body: bytes, ctx: object = None, **kwargs):
         return b"ok:" + body
 
 
@@ -27,7 +27,7 @@ def _write_test_ca(tmp_path):
             x509.NameAttribute(NameOID.COMMON_NAME, "AnonReq Integration Root"),
         ]
     )
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -127,7 +127,7 @@ async def test_reverse_proxy_supports_base_url_rewrite_and_dispatch():
     assert response.headers["host"] == "anonreq.local"
 
 
-def test_create_deployment_proxy_reverse(monkeypatch):
+def test_create_deployment_proxy_reverse():
     config = get_deployment_config("reverse")
 
     proxy = create_deployment_proxy(config, DummyDispatcher())

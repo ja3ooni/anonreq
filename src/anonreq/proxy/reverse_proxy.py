@@ -28,7 +28,7 @@ class ReverseProxyResponse:
 class ReverseProxy:
     """HTTP reverse proxy facade that routes requests through the dispatcher."""
 
-    def __init__(self, content_dispatcher: Any, upstream_base_url: str = "https://api.openai.com") -> None:
+    def __init__(self, content_dispatcher: Any, upstream_base_url: str = "https://api.openai.com") -> None:  # noqa: E501
         self.content_dispatcher = content_dispatcher
         self.upstream_base_url = upstream_base_url.rstrip("/")
         self.outbound_tls_context = ssl.create_default_context()
@@ -41,7 +41,7 @@ class ReverseProxy:
         headers = self._preserve_metadata(request.headers)
         content_type = headers.get("content-type", "application/json")
         if hasattr(self.content_dispatcher, "dispatch"):
-            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx={"path": request.path})
+            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx={"path": request.path})  # noqa: E501
         elif callable(self.content_dispatcher):
             result = await self.content_dispatcher(request)
         else:

@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ _SYSLOG_TIMESTAMP_FMT = "%b %d %H:%M:%S"
 
 _RAW_MAX_LINE_LENGTH = 4096
 _DEFAULT_MAX_BATCH_SIZE = 10_000
-_HOSTNAME_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*$")
+_HOSTNAME_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]*[a-zA-Z0-9])?)*$")  # noqa: E501
 
 
 class DNSParseError(ValueError):
@@ -44,7 +44,7 @@ class DNSEntry:
         raw: Original log line for debugging.
     """
 
-    __slots__ = ("hostname", "source_ip", "timestamp", "query_type", "response_ip", "raw")
+    __slots__ = ("hostname", "query_type", "raw", "response_ip", "source_ip", "timestamp")
 
     def __init__(
         self,
@@ -163,13 +163,13 @@ class DNSParser:
         )
 
     def _parse_syslog_timestamp(self, ts_str: str) -> datetime:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         try:
             # Prepend current year to avoid ambiguous-date deprecation in 3.15+
             parsed = datetime.strptime(
                 f"{now.year} {ts_str}", "%Y " + _SYSLOG_TIMESTAMP_FMT
             )
-            return parsed.replace(tzinfo=timezone.utc)
+            return parsed.replace(tzinfo=UTC)
         except ValueError:
             return now
 
@@ -177,7 +177,7 @@ class DNSParser:
         try:
             data: dict[str, Any] = json.loads(line)
         except json.JSONDecodeError as e:
-            raise DNSParseError(f"Invalid JSON") from e
+            raise DNSParseError("Invalid JSON") from e
 
         hostname = data.get("query", "")
         source_ip = data.get("src_ip", "")
@@ -199,11 +199,11 @@ class DNSParser:
 
     def _parse_json_timestamp(self, ts_str: str) -> datetime:
         if not ts_str:
-            return datetime.now(timezone.utc)
+            return datetime.now(UTC)
         try:
             return datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
         except (ValueError, TypeError):
-            return datetime.now(timezone.utc)
+            return datetime.now(UTC)
 
     def _parse_raw(self, line: str) -> DNSEntry:
         hostname = line.strip()
@@ -214,7 +214,7 @@ class DNSParser:
         return DNSEntry(
             hostname=hostname.lower(),
             source_ip="0.0.0.0",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             query_type="A",
             raw=line,
         )

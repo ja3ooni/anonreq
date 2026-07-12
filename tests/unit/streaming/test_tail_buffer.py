@@ -14,13 +14,9 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import AsyncIterator
-from typing import Any
-
-import pytest
 
 from anonreq.streaming.stream_event import EventType, StreamEvent
 from anonreq.streaming.tail_buffer import BufferState, TailBuffer
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -59,7 +55,7 @@ class TestCollectingState:
     async def test_ingest_text_delta_appends_to_buffer(self) -> None:
         """Ingesting a TEXT_DELTA event appends delta_text to active_buffer."""
         tb = TailBuffer()
-        results = await collect(tb.ingest(make_delta("Hello ")))
+        await collect(tb.ingest(make_delta("Hello ")))
         assert "Hello " in tb.active_buffer
         assert tb.state == BufferState.COLLECTING
 
@@ -157,7 +153,7 @@ class TestMaxBufferChars:
         tb = TailBuffer()
         # Ingest text well over MAX_BUFFER_CHARS
         text = "A" * (tb.MAX_BUFFER_CHARS + 100)
-        results = await collect(tb.ingest(make_delta(text)))
+        await collect(tb.ingest(make_delta(text)))
         # Active buffer should be reduced
         assert len(tb.active_buffer) <= tb.MAX_BUFFER_CHARS or tb.state == BufferState.FLUSHING
 
@@ -176,7 +172,7 @@ class TestMaxBufferAge:
         # Set last_flush_at to far in the past
         tb.last_flush_at = time.monotonic() - 10  # 10 seconds ago
         # Ingest a small amount of text
-        results = await collect(tb.ingest(make_delta("Hello")))
+        await collect(tb.ingest(make_delta("Hello")))
         # Should flush due to age and transition back to COLLECTING
         assert tb.state in (BufferState.COLLECTING, BufferState.FLUSHING)
 
@@ -280,7 +276,7 @@ class TestChunkCountNoFlush:
         """Many small TEXT_DELTA events should not trigger flush by count alone."""
         tb = TailBuffer()
         # Send many small chunks
-        for i in range(50):
+        for _i in range(50):
             await collect(tb.ingest(make_delta("a")))
         # At least some text should be buffered
         assert len(tb.active_buffer) >= 50 or tb.state != BufferState.COLLECTING

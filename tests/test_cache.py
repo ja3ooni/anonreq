@@ -12,7 +12,7 @@ Tests verify:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+import contextlib
 
 import pytest
 
@@ -21,8 +21,35 @@ import pytest
 def cache_manager():
     """Create a CacheManager backed by fakeredis."""
     import fakeredis.aioredis
+    import redis.exceptions
 
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+
+    configs = {}
+    async def mock_config_get(name):
+        return {name: configs.get(name, "")}
+    async def mock_config_set(name, value):
+        configs[name] = value
+        return True
+    fake_redis.config_get = mock_config_get
+    fake_redis.config_set = mock_config_set
+
+    closed = False
+    original_aclose = fake_redis.aclose
+    async def mock_aclose():
+        nonlocal closed
+        closed = True
+        await original_aclose()
+
+    original_ping = fake_redis.ping
+    async def mock_ping():
+        if closed:
+            raise redis.exceptions.ConnectionError("Connection closed")
+        return await original_ping()
+
+    fake_redis.aclose = mock_aclose
+    fake_redis.ping = mock_ping
+
     from anonreq.cache.manager import CacheManager
 
     manager = CacheManager.__new__(CacheManager)
@@ -31,10 +58,8 @@ def cache_manager():
     yield manager
     import asyncio
 
-    try:
+    with contextlib.suppress(RuntimeError):
         asyncio.run(fake_redis.aclose())
-    except RuntimeError:
-        pass
 
 
 class TestCacheManagerStore:
@@ -53,7 +78,6 @@ class TestCacheManagerStore:
     @pytest.mark.asyncio
     async def test_store_mapping_sets_ttl(self, cache_manager):
         """Test 4: store_mapping sets TTL (default 300s) on the key."""
-        import time as time_module
 
         await cache_manager.store_mapping("tenant1", "sess_ttl", {"[EMAIL_0]": "test@example.com"})
         ttl = await cache_manager._redis.ttl("anonreq:tenant1:sess_ttl")
@@ -137,7 +161,7 @@ class TestCacheManagerHealth:
 
     @pytest.mark.asyncio
     async def test_health_check_healthy(self, cache_manager):
-        """Test 5: health_check returns healthy when Valkey is reachable and persistence-disabled."""
+        """Test 5: health_check returns healthy when Valkey is reachable and persistence-disabled."""  # noqa: E501
         from anonreq.cache.health import check_cache_health
 
         # Configure fakeredis to simulate persistence-disabled state
@@ -185,5 +209,5 @@ class TestCacheManagerClose:
         """Test 8: CacheManager.close() cleans up connection pool."""
         await cache_manager.close()
         # After close, operations should fail
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017, PT011
             await cache_manager._redis.ping()

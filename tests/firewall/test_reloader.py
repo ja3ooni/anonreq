@@ -3,12 +3,11 @@ from __future__ import annotations
 import asyncio
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import yaml
 
-from anonreq.firewall.models import DetectionCategory, FirewallRule
 from anonreq.firewall.reloader import FirewallRuleReloader
 from anonreq.firewall.rules import FirewallRuleLoader
 
@@ -72,7 +71,7 @@ class TestFirewallRuleReloader:
         loader.load()
         rel = FirewallRuleReloader(loader)
 
-        old1, new1 = await rel.reload()
+        _old1, new1 = await rel.reload()
         assert len(new1) == 1
 
         with open(rules_file, "w") as f:
@@ -109,8 +108,8 @@ class TestFirewallRuleReloader:
         loader.load()
         rel = FirewallRuleReloader(loader)
 
-        for i in range(3):
-            old, new = await rel.reload()
+        for _i in range(3):
+            _old, new = await rel.reload()
             assert len(new) >= 1
 
     @pytest.mark.asyncio

@@ -14,11 +14,10 @@ and falls back to ``DIRECT`` for non-AI traffic.
 from __future__ import annotations
 
 import hashlib
-import time
 from typing import Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 
@@ -27,9 +26,9 @@ from anonreq.admin.auth import verify_admin_api_key
 logger = structlog.get_logger()
 
 __all__ = [
+    "CustomRuleRequest",
     "PACGenerator",
     "router",
-    "CustomRuleRequest",
 ]
 
 
@@ -236,7 +235,7 @@ def _get_generator(request: Request) -> PACGenerator:
     Uses app state to allow the generator to be shared across requests
     and configured during app startup.
     """
-    global _generator  # noqa: PLW0603
+    global _generator
 
     gen: PACGenerator | None = getattr(request.app.state, "pac_generator", None)
     if gen is not None:

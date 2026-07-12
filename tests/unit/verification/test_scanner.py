@@ -9,9 +9,7 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
-from anonreq.verification.scanner import ResponseScanner, ScanResult, TOKEN_PATTERN
+from anonreq.verification.scanner import TOKEN_PATTERN, ResponseScanner, ScanResult
 
 
 class TestTokenPattern:

@@ -9,23 +9,22 @@ Tests cover:
 
 from __future__ import annotations
 
-import yaml
 import pytest
-
+import yaml
 
 MITRE_CONFIG_PATH = "config/mitre_attack.yaml"
 
 
 @pytest.fixture
 def mitre_config():
-    with open(MITRE_CONFIG_PATH, "r") as f:
+    with open(MITRE_CONFIG_PATH) as f:
         data = yaml.safe_load(f)
     return data["mitre_attack"]
 
 
 def test_mitre_config_loads():
     """MITRE ATT&CK config loads safely from YAML."""
-    with open(MITRE_CONFIG_PATH, "r") as f:
+    with open(MITRE_CONFIG_PATH) as f:
         data = yaml.safe_load(f)
     assert "mitre_attack" in data
     assert data["mitre_attack"]["version"] == "15.1"
@@ -110,7 +109,7 @@ def test_mitre_ip_technique_id(mitre_config):
 
 def test_mitre_config_min_entries():
     """MITRE config has at least 9 category entries (8 core + exfiltration + default)."""
-    with open(MITRE_CONFIG_PATH, "r") as f:
+    with open(MITRE_CONFIG_PATH) as f:
         data = yaml.safe_load(f)
     mappings = data["mitre_attack"]["mappings"]
     assert len(mappings) >= 9

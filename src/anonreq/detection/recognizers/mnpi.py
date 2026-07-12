@@ -42,7 +42,7 @@ class MNPIConfig:
     score: float = 0.85
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "MNPIConfig":
+    def from_dict(cls, data: dict[str, Any]) -> MNPIConfig:
         """Create MNPIConfig from a dictionary (e.g. parsed YAML).
 
         Args:

@@ -11,7 +11,6 @@ from anonreq.agent.schema import ToolResult
 from anonreq.models.detection import DetectionResult
 from anonreq.tokenization.tokenizer import Tokenizer
 
-
 REDACTED_ERROR = "[REDACTED_ERROR]"
 STACK_TRACE_RE = re.compile(
     r"Traceback \(most recent call last\):[\s\S]*"

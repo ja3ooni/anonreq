@@ -84,10 +84,7 @@ class JsonAnalyzer:
 
     def _is_sensitive_key(self, key: str) -> bool:
         lowered = key.lower().replace("_", ".")
-        for pattern in SENSITIVE_KEY_PATTERNS:
-            if pattern.search(lowered):
-                return True
-        return False
+        return any(pattern.search(lowered) for pattern in SENSITIVE_KEY_PATTERNS)
 
     async def _analyze_string(
         self,

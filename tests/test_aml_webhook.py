@@ -12,14 +12,13 @@ Covers:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
 
 from anonreq.models.governance import AmlEventPayload, AmlWebhookConfig
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -106,7 +105,7 @@ class TestAmlEventPayload:
 
     def test_payload_creation(self):
         """Create a valid payload."""
-        now = datetime.now(timezone.utc)
+        datetime.now(UTC)
         payload = AmlEventPayload(
             event_id=str(uuid.uuid4()),
             tenant_id="acme-corp",
@@ -138,7 +137,7 @@ class TestAmlEventPayload:
 
     def test_payload_with_optional_fields(self):
         """All optional fields are correctly populated."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         payload = AmlEventPayload(
             event_id="evt_001",
             tenant_id="acme-corp",
@@ -360,11 +359,11 @@ class TestAmlWebhookFailure:
     @pytest.mark.asyncio
     async def test_delivery_failure_non_blocking(
         self, mock_db_session: AsyncMock, mock_http_client: MagicMock,
-        mock_audit_emitter: MagicMock, caplog: pytest.LogCaptureFixture,
+        mock_audit_emitter: MagicMock,
     ):
         """Webhook delivery failure is logged but does not raise."""
+
         from anonreq.governance.webhooks.aml import AmlWebhookManager
-        import logging
 
         mock_http_client.post.side_effect = httpx.RequestError(
             "Connection refused", request=MagicMock(),

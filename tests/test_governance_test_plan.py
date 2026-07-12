@@ -27,15 +27,13 @@ Security Tests:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -48,18 +46,14 @@ from anonreq.models.governance import (
     ChangeEntry,
     GovernanceOfficer,
     GovernanceOfficerRole,
-    GovernanceRecord,
     GovernanceRecordModel,
-    ReviewCycle,
     ReviewCycleModel,
-    RiskDimensionScore,
     change_history_to_json,
     json_to_change_history,
 )
 from anonreq.services.lifecycle import LifecycleService, LifecycleStage
 from anonreq.services.oversight import OversightService
 from anonreq.services.transparency import TransparencyService
-
 
 # ── Shared Fixtures ──────────────────────────────────────────────────────
 
@@ -115,7 +109,7 @@ class TestVersioningAppendOnly:
             tenant_id="v-test",
             interval_days=90,
             last_review_date=None,
-            next_review_date=datetime.now(timezone.utc),
+            next_review_date=datetime.now(UTC),
             status="active",
         )
         session.add(rc)
@@ -125,8 +119,8 @@ class TestVersioningAppendOnly:
             tenant_id="v-test",
             officers='[{"role": "governance", "name": "A", "email": "a@b.com"}]',
             review_cycle_id=rc.id,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
             status="active",
             version=1,
         )
@@ -143,7 +137,7 @@ class TestVersioningAppendOnly:
             tenant_id="ch-test",
             interval_days=90,
             last_review_date=None,
-            next_review_date=datetime.now(timezone.utc),
+            next_review_date=datetime.now(UTC),
             status="active",
         )
         session.add(rc)
@@ -153,7 +147,7 @@ class TestVersioningAppendOnly:
         history_json = json.dumps([
             {
                 "version": 1,
-                "changed_at": datetime.now(timezone.utc).isoformat(),
+                "changed_at": datetime.now(UTC).isoformat(),
                 "changed_by": "alice@acme.com",
                 "description": "Initial creation",
                 "changes": {"officers": "added 4 officers"},
@@ -163,8 +157,8 @@ class TestVersioningAppendOnly:
             tenant_id="ch-test",
             officers='[{"role": "governance", "name": "A", "email": "a@b.com"}]',
             review_cycle_id=rc.id,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
             status="active",
             version=1,
             change_history=history_json,
@@ -235,7 +229,7 @@ class TestVersioningDiffCorrectness:
         """ChangeEntry requires version, changed_at, changed_by, and description."""
         entry = ChangeEntry(
             version=1,
-            changed_at=datetime.now(timezone.utc),
+            changed_at=datetime.now(UTC),
             changed_by="alice@acme.com",
             description="Initial creation",
         )
@@ -247,7 +241,7 @@ class TestVersioningDiffCorrectness:
         """ChangeEntry stores arbitrary change metadata in the changes dict."""
         entry = ChangeEntry(
             version=2,
-            changed_at=datetime.now(timezone.utc),
+            changed_at=datetime.now(UTC),
             changed_by="bob@acme.com",
             description="Updated risk score",
             changes={
@@ -394,7 +388,7 @@ def _create_governance_app() -> FastAPI:
     app.state.audit_chain = AsyncMock()
     app.state.chain_anchor = AsyncMock()
     app.state.chain_anchor.get_anchor_status.return_value = {
-        "last_anchored": datetime.now(timezone.utc).isoformat(),
+        "last_anchored": datetime.now(UTC).isoformat(),
         "anchor_count": 42,
         "chain_intact": True,
     }
@@ -453,7 +447,7 @@ class TestApprovalQueueApproveIntegration:
             "description": "Test approval",
             "status": "pending",
             "risk_score": 0.85,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         })
         svc._redis.hset.return_value = None
         oversight_app.state.oversight_service = svc
@@ -515,7 +509,7 @@ class TestApprovalQueueRejectIntegration:
             "description": "Test rejection",
             "status": "pending",
             "risk_score": 0.85,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         })
         svc._redis.hset.return_value = None
         oversight_app.state.oversight_service = svc
@@ -591,7 +585,7 @@ class TestKillSwitchGlobalBlocksAll:
             "active": True,
             "operator_id": "admin@acme.com",
             "reason": "Security incident",
-            "activated_at": datetime.now(timezone.utc).isoformat(),
+            "activated_at": datetime.now(UTC).isoformat(),
         })
         oversight_app.state.oversight_service = svc
 
@@ -663,11 +657,11 @@ class TestKillSwitchPerTenant:
 
     async def test_forwarding_guard_blocks_unapproved_model(self):
         """ForwardingGuard blocks a model not in the approved list."""
-        from anonreq.governance.model_inventory import ModelInventory
         from anonreq.governance.forwarding_guard import (
             ModelNotApprovedError,
             check_model_approval,
         )
+        from anonreq.governance.model_inventory import ModelInventory
 
         inventory = AsyncMock(spec=ModelInventory)
         inventory.is_model_approved.return_value = False
@@ -681,8 +675,8 @@ class TestKillSwitchPerTenant:
 
     async def test_forwarding_guard_allows_approved_model(self):
         """ForwardingGuard allows a model in the approved list."""
-        from anonreq.governance.model_inventory import ModelInventory
         from anonreq.governance.forwarding_guard import check_model_approval
+        from anonreq.governance.model_inventory import ModelInventory
 
         inventory = AsyncMock(spec=ModelInventory)
         inventory.is_model_approved.return_value = True
@@ -695,11 +689,11 @@ class TestKillSwitchPerTenant:
 
     async def test_forwarding_guard_blocks_suspended_provider(self):
         """ForwardingGuard blocks traffic to a suspended provider."""
-        from anonreq.governance.provider_inventory import ProviderInventory
         from anonreq.governance.forwarding_guard import (
             ProviderSuspendedError,
             check_provider_active,
         )
+        from anonreq.governance.provider_inventory import ProviderInventory
 
         inventory = AsyncMock(spec=ProviderInventory)
         inventory.is_provider_active.return_value = False
@@ -712,8 +706,8 @@ class TestKillSwitchPerTenant:
 
     async def test_forwarding_guard_allows_active_provider(self):
         """ForwardingGuard allows traffic to an active provider."""
-        from anonreq.governance.provider_inventory import ProviderInventory
         from anonreq.governance.forwarding_guard import check_provider_active
+        from anonreq.governance.provider_inventory import ProviderInventory
 
         inventory = AsyncMock(spec=ProviderInventory)
         inventory.is_provider_active.return_value = True
@@ -818,7 +812,7 @@ class TestVersionRollback:
         )
         v1_id = record.id
         v1_tenant = record.tenant_id
-        v1_officer_name = record.officers[0].name
+        record.officers[0].name  # noqa: B018
 
         officers_v2 = sample_officers()
         officers_v2[0] = GovernanceOfficer(
@@ -860,9 +854,9 @@ class TestVersionRollback:
         # The change entry describes the difference
         change = ChangeEntry(
             version=2,
-            changed_at=datetime.now(timezone.utc),
+            changed_at=datetime.now(UTC),
             changed_by="admin",
-            description=f"Updated governance officer: {v1_officers[0].name} -> {v2_officers[0].name}",
+            description=f"Updated governance officer: {v1_officers[0].name} -> {v2_officers[0].name}",  # noqa: E501
             changes={
                 "officers[0].name": f"{v1_officers[0].name} -> {v2_officers[0].name}",
                 "officers[0].email": f"{v1_officers[0].email} -> {v2_officers[0].email}",

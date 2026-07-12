@@ -11,12 +11,12 @@ Pipeline execution order:
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from anonreq.models.dlp import DLPAction, DLPCategory, DLPDetection, DLPResult
 from anonreq.models.processing_context import ProcessingContext
-
 
 # ===========================================================================
 # Task 1: DLP Pipeline Integration
@@ -29,8 +29,8 @@ class TestDLPPipelineIntegration:
     @pytest.mark.asyncio
     async def test_dlp_result_stamped_on_context(self):
         """DLPEngine.inspect_request result is stamped on ctx.dlp_result."""
-        from anonreq.services.pipeline import PipelineService
         from anonreq.services.pdp2 import PDP2Service
+        from anonreq.services.pipeline import PipelineService
 
         dlp_engine = MagicMock()
         # Return a DLPResult with a BLOCK detection
@@ -69,8 +69,8 @@ class TestDLPPipelineIntegration:
     @pytest.mark.asyncio
     async def test_dlp_block_aborts_pipeline_before_provider(self):
         """DLP BLOCK aborts pipeline — provider never called."""
-        from anonreq.services.pipeline import PipelineService
         from anonreq.services.pdp2 import PDP2Service
+        from anonreq.services.pipeline import PipelineService
 
         dlp_engine = MagicMock()
         dlp_engine.inspect.return_value = DLPResult(
@@ -124,8 +124,8 @@ class TestDLPPipelineIntegration:
     @pytest.mark.asyncio
     async def test_dlp_allowed_continues_to_pdp2(self):
         """DLP ALLOW continues pipeline to PDP #2."""
-        from anonreq.services.pipeline import PipelineService
         from anonreq.services.pdp2 import PDP2Service, PolicyDecision
+        from anonreq.services.pipeline import PipelineService
 
         dlp_engine = MagicMock()
         dlp_engine.inspect_request = AsyncMock(return_value=DLPResult(
@@ -173,8 +173,8 @@ class TestDLPPipelineIntegration:
     @pytest.mark.asyncio
     async def test_outbound_dlp_scans_response_with_dual_gate(self):
         """Outbound DLP scans pre-restore + post-restore response text."""
-        from anonreq.services.pipeline import PipelineService
         from anonreq.services.pdp2 import PDP2Service
+        from anonreq.services.pipeline import PipelineService
 
         dlp_engine = MagicMock()
         dlp_engine.inspect = AsyncMock(return_value=DLPResult(
@@ -212,8 +212,8 @@ class TestDLPPipelineIntegration:
     @pytest.mark.asyncio
     async def test_outbound_dlp_block_suppresses_response(self):
         """Outbound DLP BLOCK results in error with 451."""
-        from anonreq.services.pipeline import PipelineService
         from anonreq.services.pdp2 import PDP2Service, PolicyDecision
+        from anonreq.services.pipeline import PipelineService
 
         dlp_engine = MagicMock()
         dlp_engine.inspect_request = AsyncMock(return_value=DLPResult(
@@ -251,7 +251,7 @@ class TestDLPPipelineIntegration:
         ctx = ProcessingContext(request_id="test_005", tenant_id="default")
         ctx.text_nodes = [{"value": "How can I help?"}]
         ctx.provider_response = {
-            "choices": [{"index": 0, "message": {"role": "assistant", "content": "SSN: 123-45-6789"}}],
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "SSN: 123-45-6789"}}],  # noqa: E501
         }
 
         result = await pipeline.run(ctx)
@@ -266,8 +266,8 @@ class TestDLPPipelineIntegration:
     @pytest.mark.asyncio
     async def test_dlp_execution_order_after_classification_before_pdp2(self):
         """DLP runs after classification, before PDP #2 in pipeline execution."""
-        from anonreq.services.pipeline import PipelineService
         from anonreq.services.pdp2 import PDP2Service, PolicyDecision
+        from anonreq.services.pipeline import PipelineService
 
         call_order: list[str] = []
 
@@ -288,10 +288,10 @@ class TestDLPPipelineIntegration:
         pipeline = PipelineService(dlp_engine=dlp_engine, pdp2_service=pdp2)
 
         # Use spies to track call order
-        pipeline._run_threat_detection = AsyncMock(side_effect=lambda ctx: call_order.append("threat"))
-        pipeline._run_extraction = AsyncMock(side_effect=lambda ctx: call_order.append("extraction"))
-        pipeline._run_detection = AsyncMock(side_effect=lambda ctx: call_order.append("detection"))
-        pipeline._run_classification = AsyncMock(side_effect=lambda ctx: call_order.append("classification"))
+        pipeline._run_threat_detection = AsyncMock(side_effect=lambda _ctx: call_order.append("threat"))  # noqa: E501
+        pipeline._run_extraction = AsyncMock(side_effect=lambda _ctx: call_order.append("extraction"))  # noqa: E501
+        pipeline._run_detection = AsyncMock(side_effect=lambda _ctx: call_order.append("detection"))
+        pipeline._run_classification = AsyncMock(side_effect=lambda _ctx: call_order.append("classification"))  # noqa: E501
         # Override _run_inbound_dlp to track order
         original_inbound_dlp = pipeline._run_inbound_dlp
 
@@ -300,10 +300,10 @@ class TestDLPPipelineIntegration:
             await original_inbound_dlp(ctx)
 
         pipeline._run_inbound_dlp = tracked_inbound_dlp
-        pipeline._run_anonymization = AsyncMock(side_effect=lambda ctx: call_order.append("anonymize"))
-        pipeline._run_forward = AsyncMock(side_effect=lambda ctx: call_order.append("forward"))
-        pipeline._run_restoration = AsyncMock(side_effect=lambda ctx: call_order.append("restore"))
-        pipeline._run_outbound_dlp = AsyncMock(side_effect=lambda ctx: call_order.append("dlp_outbound"))
+        pipeline._run_anonymization = AsyncMock(side_effect=lambda _ctx: call_order.append("anonymize"))  # noqa: E501
+        pipeline._run_forward = AsyncMock(side_effect=lambda _ctx: call_order.append("forward"))
+        pipeline._run_restoration = AsyncMock(side_effect=lambda _ctx: call_order.append("restore"))
+        pipeline._run_outbound_dlp = AsyncMock(side_effect=lambda _ctx: call_order.append("dlp_outbound"))  # noqa: E501
 
         ctx = ProcessingContext(request_id="test_006", tenant_id="default")
         ctx.text_nodes = [{"value": "Hello"}]
@@ -360,16 +360,16 @@ class TestPDP2DLPIntegration:
 
     def test_classification_to_dlp_action_mapping(self):
         """Classification levels map to expected DLP actions."""
-        from anonreq.services.pdp2 import PDP2Service
         from anonreq.models.classification import ClassificationLevel
+        from anonreq.services.pdp2 import PDP2Service
 
         pdp2 = PDP2Service()
 
         assert pdp2._classification_to_dlp_action(ClassificationLevel.PUBLIC) == DLPAction.ALLOW
         assert pdp2._classification_to_dlp_action(ClassificationLevel.INTERNAL) == DLPAction.ALLOW
-        assert pdp2._classification_to_dlp_action(ClassificationLevel.CONFIDENTIAL) == DLPAction.ANONYMIZE
-        assert pdp2._classification_to_dlp_action(ClassificationLevel.RESTRICTED) == DLPAction.ANONYMIZE
-        assert pdp2._classification_to_dlp_action(ClassificationLevel.HIGHLY_RESTRICTED) == DLPAction.BLOCK
+        assert pdp2._classification_to_dlp_action(ClassificationLevel.CONFIDENTIAL) == DLPAction.ANONYMIZE  # noqa: E501
+        assert pdp2._classification_to_dlp_action(ClassificationLevel.RESTRICTED) == DLPAction.ANONYMIZE  # noqa: E501
+        assert pdp2._classification_to_dlp_action(ClassificationLevel.HIGHLY_RESTRICTED) == DLPAction.BLOCK  # noqa: E501
 
     @pytest.mark.asyncio
     async def test_pdp2_evaluate_with_dlp_block(self):
@@ -423,8 +423,8 @@ class TestPDP2DLPIntegration:
     @pytest.mark.asyncio
     async def test_classification_tightens_when_more_restrictive(self):
         """Classification level tightens DLP action when more restrictive."""
-        from anonreq.services.pdp2 import PDP2Service
         from anonreq.models.classification import ClassificationLevel, ClassificationResult
+        from anonreq.services.pdp2 import PDP2Service
 
         pdp2 = PDP2Service()
         ctx = ProcessingContext(request_id="test_012", tenant_id="default")
@@ -453,8 +453,8 @@ class TestPDP2DLPIntegration:
     @pytest.mark.asyncio
     async def test_classification_never_loosens_dlp(self):
         """Classification tightening never loosens a more restrictive DLP action."""
-        from anonreq.services.pdp2 import PDP2Service
         from anonreq.models.classification import ClassificationLevel, ClassificationResult
+        from anonreq.services.pdp2 import PDP2Service
 
         pdp2 = PDP2Service()
         ctx = ProcessingContext(request_id="test_013", tenant_id="default")
@@ -500,8 +500,8 @@ class TestPDP2DLPIntegration:
     @pytest.mark.asyncio
     async def test_most_restrictive_action_wins_across_sources(self):
         """Most restrictive action across DLP + classification wins."""
-        from anonreq.services.pdp2 import PDP2Service
         from anonreq.models.classification import ClassificationLevel, ClassificationResult
+        from anonreq.services.pdp2 import PDP2Service
 
         pdp2 = PDP2Service()
         ctx = ProcessingContext(request_id="test_015", tenant_id="default")

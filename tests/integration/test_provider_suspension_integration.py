@@ -12,8 +12,8 @@ Covers:
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
@@ -36,7 +36,7 @@ def _make_provider_record(
     name: str = "Test Provider",
     status: str = "active",
 ) -> ProviderRecord:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return ProviderRecord(
         id=provider_id,
         name=name,

@@ -11,20 +11,18 @@ Tests cover:
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from anonreq.exceptions import AnonReqError
 from anonreq.proxy.modes import (
-    PROXY_ONLY_STAGES,
     FULL_STAGES,
+    PROXY_ONLY_STAGES,
     ProxyMode,
     get_pipeline_for_mode,
     mode_from_env,
+    proxy_mode_description,
     requires_detection,
     requires_mitm,
-    proxy_mode_description,
 )
 
 
@@ -188,7 +186,7 @@ class TestProxyModeIntegration:
 
     async def test_proxy_only_skips_detection_in_middleware(self):
         """Proxy-only mode should not invoke detection middleware."""
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import patch
 
         with patch("anonreq.proxy.modes.get_pipeline_for_mode") as mock_get:
             mock_get.return_value = ["auth", "routing", "forwarding_guard", "audit"]

@@ -64,12 +64,14 @@ ALLOWLIST: frozenset[str] = frozenset({
     "classification_level",
     "matched_rule_id",
     "reset_at",
+    "stage",
+    "error",
 })
 
 
 def allowlist_processor(
-    logger: structlog.stdlib.BoundLogger,
-    method_name: str,
+    _logger: structlog.stdlib.BoundLogger,
+    _method_name: str,
     event_dict: dict[str, Any],
 ) -> dict[str, Any]:
     """Structlog processor that drops non-allowlisted fields.

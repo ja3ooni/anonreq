@@ -257,7 +257,7 @@ class PDPToolEvaluator:
 
     def get_permitted_actions(
         self,
-        provider: str,
+        _provider: str,
         domain: str,
     ) -> list[str]:
         """Get list of tool names permitted for the given provider+domain.

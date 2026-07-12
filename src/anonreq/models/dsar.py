@@ -10,12 +10,12 @@ Per D-021 through D-025:
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-class DsarRequestType(str, Enum):
+class DsarRequestType(StrEnum):
     """Type of Data Subject Access Request.
 
     Per D-021: Standard DSAR request types covering all data subject
@@ -29,7 +29,7 @@ class DsarRequestType(str, Enum):
     ACCESS = "ACCESS"
 
 
-class SubjectStatus(str, Enum):
+class SubjectStatus(StrEnum):
     """Status of a data subject after DSAR fulfillment.
 
     Per D-025:

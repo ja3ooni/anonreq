@@ -12,12 +12,14 @@ from __future__ import annotations
 import tempfile
 from pathlib import Path
 
-import pytest
-
-from anonreq.detection.regex_detector import RegexDetector
-from anonreq.detection.regex_patterns import PATTERNS, luhn_checksum, ENTITY_SPECIFICITY, TIER_1_ENTITIES
 from anonreq.detection.exclusion_list import ExclusionList
-
+from anonreq.detection.regex_detector import RegexDetector
+from anonreq.detection.regex_patterns import (
+    ENTITY_SPECIFICITY,
+    PATTERNS,
+    TIER_1_ENTITIES,
+    luhn_checksum,
+)
 
 # ---------------------------------------------------------------------------
 # Luhn checksum tests
@@ -74,7 +76,7 @@ class TestRegexPatterns:
 
     def test_required_tier1_entities_present(self):
         """All required Tier 1 entities are defined."""
-        required = {"EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "IBAN_CODE", "IP_ADDRESS", "URL"}
+        required = {"EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "IBAN_CODE", "IP_ADDRESS", "URL"}  # noqa: E501
         for entity in required:
             assert entity in PATTERNS, f"Missing pattern: {entity}"
 
@@ -90,8 +92,8 @@ class TestRegexPatterns:
         assert ENTITY_SPECIFICITY["API_KEY"] > ENTITY_SPECIFICITY["EMAIL_ADDRESS"]
 
     def test_entity_specificity_ranking_order(self):
-        """Specificity ranking matches D-41: API_KEY > EMAIL > PHONE > CC > IBAN > SSN > URL > IP."""
-        order = ["API_KEY", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "IBAN_CODE", "US_SSN", "URL", "IP_ADDRESS"]
+        """Specificity ranking matches D-41: API_KEY > EMAIL > PHONE > CC > IBAN > SSN > URL > IP."""  # noqa: E501
+        order = ["API_KEY", "EMAIL_ADDRESS", "PHONE_NUMBER", "CREDIT_CARD", "IBAN_CODE", "US_SSN", "URL", "IP_ADDRESS"]  # noqa: E501
         for i in range(len(order) - 1):
             assert ENTITY_SPECIFICITY[order[i]] >= ENTITY_SPECIFICITY[order[i + 1]], \
                 f"{order[i]} should have >= specificity than {order[i+1]}"
@@ -297,7 +299,7 @@ class TestExclusionList:
         """filter_detections removes matching detections from a list."""
         ex = ExclusionList(exclusions=["safe@example.com"])
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 16, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 16, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         # filter_detections needs the original text value to check exclusions
         # We'll test this once the integration is wired
@@ -308,7 +310,7 @@ class TestExclusionList:
         """filter_detections preserves non-matching detections."""
         ex = ExclusionList(exclusions=["safe@example.com"])
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 17, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 17, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
         filtered = ex.filter_detections(detections, original_text="risk@example.com")
         assert len(filtered) == 1
@@ -335,7 +337,7 @@ exclusions:
         """Empty exclusion list does not suppress anything."""
         ex = ExclusionList(exclusions=[])
         assert ex.is_excluded("anything") is False
-        assert ex.filter_detections([{"entity_type": "EMAIL"}], "test") == [{"entity_type": "EMAIL"}]
+        assert ex.filter_detections([{"entity_type": "EMAIL"}], "test") == [{"entity_type": "EMAIL"}]  # noqa: E501
 
     def test_exclusion_case_sensitive(self):
         """Exclusion match is case-sensitive (exact match on detected value)."""

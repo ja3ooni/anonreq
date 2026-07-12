@@ -9,11 +9,9 @@ Per D-001, D-025:
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
-import pytest
 import respx
 
 from anonreq.discovery.dns_parser import DNSEntry
@@ -34,7 +32,7 @@ class TestShadowAIEvent:
             estimated_service="openai",
             confidence=1.0,
             detection_source="dns",
-            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
             tenant_id="tenant_001",
         )
         assert event.event_type == "shadow_ai_detected"
@@ -61,7 +59,7 @@ class TestEventGenerator:
         """generate_event creates ShadowAIEvent from DNSEntry + MatchResult."""
         entry = DNSEntry(
             "api.openai.com", "10.0.0.1",
-            datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+            datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
         )
         match = MatchResult("openai", 1.0, "exact", AI_SIGNATURES[0])
         event = self.generator.generate_event(entry, match)
@@ -76,7 +74,7 @@ class TestEventGenerator:
         """generate_event creates ShadowAIEvent from ProxyEntry + MatchResult."""
         entry = ProxyEntry(
             "10.0.0.1",
-            datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+            datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
             "POST",
             "https://api.openai.com/v1/chat/completions",
             200,
@@ -97,7 +95,7 @@ class TestEventGenerator:
             estimated_service="openai",
             confidence=1.0,
             detection_source="dns",
-            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
             tenant_id="tenant_001",
         )
         self.generator.emit(event)
@@ -113,7 +111,7 @@ class TestEventGenerator:
             estimated_service="openai",
             confidence=1.0,
             detection_source="dns",
-            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
             tenant_id="tenant_001",
         )
         with respx.mock:
@@ -134,7 +132,7 @@ class TestEventGenerator:
             estimated_service="openai",
             confidence=1.0,
             detection_source="dns",
-            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
             tenant_id="tenant_001",
         )
         with respx.mock:
@@ -157,7 +155,7 @@ class TestEventGenerator:
                 estimated_service="openai",
                 confidence=1.0,
                 detection_source="dns",
-                timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
                 tenant_id="tenant_001",
             ),
             ShadowAIEvent(
@@ -166,7 +164,7 @@ class TestEventGenerator:
                 estimated_service="anthropic",
                 confidence=1.0,
                 detection_source="proxy",
-                timestamp=datetime(2026, 6, 20, 10, 1, 0, tzinfo=timezone.utc),
+                timestamp=datetime(2026, 6, 20, 10, 1, 0, tzinfo=UTC),
                 tenant_id="tenant_001",
             ),
         ]
@@ -181,7 +179,7 @@ class TestEventGenerator:
             estimated_service="openai",
             confidence=1.0,
             detection_source="dns",
-            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
             tenant_id="tenant_001",
         )
         d = event.to_dict()

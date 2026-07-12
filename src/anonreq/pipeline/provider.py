@@ -11,10 +11,7 @@ Per PROV-01 and PROV-06:
 
 from __future__ import annotations
 
-from typing import Any
-
 import httpx
-import structlog
 from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError
@@ -75,10 +72,7 @@ class ProviderStage(PipelineStage):
         # Determine which body to send
         action = ctx.classification_result.get("action") if ctx.classification_result else None
 
-        if action == "ANONYMIZE":
-            request_body = ctx.transformed_request
-        else:
-            request_body = ctx.original_request
+        request_body = ctx.transformed_request if action == "ANONYMIZE" else ctx.original_request
 
         if request_body is None:
             ctx.fail_secure(
@@ -132,10 +126,15 @@ class ProviderStage(PipelineStage):
             )
 
             if response.is_error:
+                try:
+                    error_body = response.json()
+                    error_detail = str(error_body)[:200]
+                except Exception:
+                    error_detail = response.text[:200] if response.text else "no body"
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=502,
-                        message="Provider returned an error",
+                        message=f"Provider returned HTTP {response.status_code}: {error_detail}",
                         request_id=ctx.request_id,
                     )
                 )
@@ -169,11 +168,27 @@ class ProviderStage(PipelineStage):
             )
         except PipelineAbortError:
             raise
-        except Exception as exc:
+        except httpx.HTTPStatusError as exc:
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=502,
-                    message="Provider request failed",
+                    message=f"Provider HTTP {exc.response.status_code}",
+                    request_id=ctx.request_id,
+                )
+            )
+        except httpx.RequestError as exc:
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=502,
+                    message=f"Provider request failed: {type(exc).__name__}",
+                    request_id=ctx.request_id,
+                )
+            )
+        except ValueError as exc:
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=502,
+                    message=f"Provider response parse error: {exc}",
                     request_id=ctx.request_id,
                 )
             )

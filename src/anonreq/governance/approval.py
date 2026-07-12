@@ -14,10 +14,11 @@ Per T-18-02-01, T-18-02-02:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import secrets
-from datetime import datetime, timedelta, timezone
-from enum import Enum
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any
 
 from fastapi import HTTPException
@@ -26,11 +27,10 @@ from anonreq.cache.manager import CacheManager
 from anonreq.governance.tool_extractor import ToolCall
 from anonreq.models.processing_context import ProcessingContext
 
-
 APPROVAL_KEY_PREFIX = "anonreq:approval:"
 
 
-class ApprovalStatus(str, Enum):
+class ApprovalStatus(StrEnum):
     """Status of an approval request.
 
     PENDING: Awaiting human decision.
@@ -52,16 +52,16 @@ class ApprovalRecord:
     """
 
     __slots__ = (
+        "approval_note",
+        "context_id",
+        "created_at",
+        "decided_at",
+        "decided_by",
+        "expires_at",
+        "status",
+        "tenant_id",
         "token",
         "tool_call",
-        "context_id",
-        "tenant_id",
-        "status",
-        "created_at",
-        "expires_at",
-        "decided_by",
-        "decided_at",
-        "approval_note",
     )
 
     def __init__(
@@ -82,7 +82,7 @@ class ApprovalRecord:
         self.context_id = context_id
         self.tenant_id = tenant_id
         self.status = status
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self.created_at = created_at or now
         self.expires_at = expires_at or now
         self.decided_by = decided_by
@@ -191,7 +191,7 @@ class ApprovalManager:
             Dict with ``approval_token`` and ``status="pending"``.
         """
         token = secrets.token_urlsafe(32)  # 256-bit entropy
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         expires_at = now.replace(microsecond=0) + timedelta(seconds=self._ttl)
 
         record = ApprovalRecord(
@@ -219,7 +219,7 @@ class ApprovalManager:
 
         # Optionally add to Phase 14 oversight queue
         if self._oversight_service is not None:
-            try:
+            with contextlib.suppress(Exception):
                 await self._oversight_service.create_approval_request(
                     tenant_id=context.tenant_id,
                     request_type="tool_approval",
@@ -232,8 +232,6 @@ class ApprovalManager:
                         "context_id": context.context_id,
                     },
                 )
-            except Exception:
-                pass  # Non-critical — token is already stored
 
         return {
             "approval_token": token,
@@ -261,7 +259,7 @@ class ApprovalManager:
         expires_at_str = raw.get("expires_at", "")
         if expires_at_str:
             expires_at = datetime.fromisoformat(expires_at_str)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             if now > expires_at and raw.get("status") == ApprovalStatus.PENDING.value:
                 # Mark as expired
                 raw["status"] = ApprovalStatus.EXPIRED.value
@@ -311,7 +309,7 @@ class ApprovalManager:
                 detail=f"Approval token already resolved: {current_status}",
             )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         raw["status"] = ApprovalStatus.APPROVED.value
         raw["decided_by"] = decided_by
         raw["decided_at"] = now.isoformat()
@@ -369,7 +367,7 @@ class ApprovalManager:
                 detail=f"Approval token already resolved: {current_status}",
             )
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         raw["status"] = ApprovalStatus.DENIED.value
         raw["decided_by"] = decided_by
         raw["decided_at"] = now.isoformat()
@@ -399,7 +397,7 @@ class ApprovalManager:
         cursor = 0
         deleted = 0
         pattern = f"{APPROVAL_KEY_PREFIX}*"
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         while True:
             cursor, keys = await self._redis.scan(cursor=cursor, match=pattern, count=100)

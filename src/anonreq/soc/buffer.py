@@ -12,10 +12,10 @@ Per D-017 through D-021, 20-ARCHITECTURE.md:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import random
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from prometheus_client import Counter, Gauge
@@ -112,7 +112,7 @@ class SinkBuffer:
         maxsize: int = 10000,
         backoff: BackoffConfig | None = None,
         audit_logger: Any | None = None,
-        metrics_registry: Any | None = None,
+        _metrics_registry: Any | None = None,
     ) -> None:
         self._sink = sink
         self._maxsize = maxsize
@@ -215,17 +215,15 @@ class SinkBuffer:
         """Cancel the retry loop and drain remaining events."""
         if self._task is not None:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._drain()
 
     async def _retry_loop(self) -> None:
         """Background loop consuming events from the queue and retrying."""
         while True:
             try:
-                seq, event = await self._queue.get()
+                _seq, event = await self._queue.get()
                 sent = False
 
                 for attempt in range(self._backoff.max_retries + 1):

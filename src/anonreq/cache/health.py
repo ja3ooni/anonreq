@@ -10,19 +10,22 @@ are met.
 
 This module is used by the ``/health`` endpoint (Phase 1) and the
 pre-flight startup checks (Phase 1). It is implemented here because it
-requires access to ``CacheManager._redis`` internals.
+requires access to ``'CacheManager'._redis`` internals.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from anonreq.cache.manager import CacheManager
 
 
-async def check_cache_health(manager: "CacheManager") -> dict[str, Any]:
+async def check_cache_health(manager: CacheManager) -> dict[str, Any]:
     """Check Valkey reachability and persistence-disabled state.
 
     Args:
-        manager: A ``CacheManager`` instance with an active Valkey
+        manager: A ``'CacheManager'`` instance with an active Valkey
             connection.
 
     Returns:
@@ -38,8 +41,9 @@ async def check_cache_health(manager: "CacheManager") -> dict[str, Any]:
     try:
         ping = await manager._redis.ping()
         config_save = await manager._redis.config_get("save")
-        save_value = config_save.get("save", "")
-        persistence_disabled = save_value == "" or save_value == [""]
+        save_value = config_save.get("save", "") if config_save else ""
+        save_val_list = [save_value] if isinstance(save_value, str) else (save_value or [])
+        persistence_disabled = not save_val_list or save_val_list == [""]
 
         return {
             "reachable": ping,

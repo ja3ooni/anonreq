@@ -9,10 +9,9 @@ Per PIPE-05, CACH-04, AUDT-04, AUDT-05:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-import structlog
 from structlog import get_logger
 
 from anonreq.models.processing_context import ProcessingContext
@@ -63,11 +62,19 @@ class CleanupStage(PipelineStage):
                     request_id=ctx.request_id,
                     tenant_id=ctx.tenant_id,
                 )
-            except Exception:
+            except (KeyError, TypeError, ValueError) as exc:
                 logger.warning(
                     "cleanup.mapping_delete_failed",
                     stage=self.name,
                     request_id=ctx.request_id,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
+            except Exception as exc:
+                logger.warning(
+                    "cleanup.mapping_delete_failed",
+                    stage=self.name,
+                    request_id=ctx.request_id,
+                    error=f"{type(exc).__name__}",
                 )
                 # Per T-02-04-03: TTL fallback handles expiry if DEL fails.
                 # Pipeline does NOT fail if DEL fails.
@@ -137,10 +144,10 @@ class CleanupStage(PipelineStage):
             classification_level = res.highest.name
             classification_labels = res.labels
             classification_client_override = res.client_override
-            classification_client_asserted_level = res.client_asserted_level.name if res.client_asserted_level else None
+            classification_client_asserted_level = res.client_asserted_level.name if res.client_asserted_level else None  # noqa: E501
 
         return {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "request_id": ctx.request_id,
             "tenant_id": ctx.tenant_id,
             "context_id": ctx.context_id or "",

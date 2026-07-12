@@ -11,6 +11,7 @@ Tests cover:
 """
 
 from __future__ import annotations
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -19,10 +20,8 @@ from anonreq.cache.manager import CacheManager
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.governance.tool_extractor import ToolResult
 from anonreq.governance.tool_inspector import (
-    InspectionResult,
     ToolResultInspector,
 )
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -32,8 +31,8 @@ def mock_presidio():
     """Mock PresidioClient returning preset PII detections."""
     client = AsyncMock(spec=PresidioClient)
 
-    async def analyze_side_effect(text, language="en", entities=None, score_threshold=0.7):
-        if "john@example.com" in text or "email" in text.lower() and "@" in text:
+    async def analyze_side_effect(text, _language="en", _entities=None, _score_threshold=0.7):
+        if "john@example.com" in text or ("email" in text.lower() and "@" in text):
             return [
                 {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 16, "score": 0.99},
             ]
@@ -133,7 +132,7 @@ class TestReconstructionDetection:
         assert result.reconstruction_confidence >= 0.7
         assert any("Token patterns" in ind for ind in result.reconstruction_indicators)
 
-    async def test_reconstructed_value_matches_mapping(self, inspector, tool_result, fake_cache_manager):
+    async def test_reconstructed_value_matches_mapping(self, inspector, tool_result, fake_cache_manager):  # noqa: E501
         """Indicator 2: Content contains original value matching a token mapping."""
         await fake_cache_manager._redis.set(
             "anonreq:sess_test:EMAIL_ADDRESS_0", "john@example.com"
@@ -170,7 +169,7 @@ class TestReconstructionDetection:
             result = await inspector.inspect(tool_result)
             assert result.reconstruction_attempt is True, f"Failed for: {prompt}"
 
-    async def test_suppress_for_high_confidence_reconstruction(self, inspector, tool_result, fake_cache_manager):
+    async def test_suppress_for_high_confidence_reconstruction(self, inspector, tool_result, fake_cache_manager):  # noqa: E501
         """Reconstruction confidence >= 0.9 → action='suppress'."""
         await fake_cache_manager._redis.set(
             "anonreq:sess_high:EMAIL_ADDRESS_0", "john@example.com"

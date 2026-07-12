@@ -8,7 +8,7 @@ Provides:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -36,7 +36,7 @@ class ChunkMetadata:
     entity_count: int = 0
     token_count: int = 0
     business_unit: str | None = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize metadata to dict (for storage/audit)."""

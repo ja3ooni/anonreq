@@ -1,5 +1,24 @@
 # Milestones
 
+## v1.5 v1.5 (Shipped: 2026-07-09)
+
+**Phases completed:** 4 phases, 10 plans, 27 tasks
+
+**Key accomplishments:**
+
+- Ruff and mypy configured in pyproject.toml and verified passing cleanly across the codebase with type-safe cache health checks
+- Docker Compose orchestration secured by removing host port bindings from postgres/minio/prometheus/grafana and disabling Grafana anonymous authentication
+- GitHub Actions CI/CD pipeline implemented to automatically lint, type-check, test, and enforce coverage metrics on all main branch updates
+- Trust Center modules, schemas, services, rate limiting, and router integration configured and wired into the gateway
+- Comprehensive unit and integration test suite created and executed with 100% pass rate
+- Translation infrastructure and base markdown documents prepared for target languages
+- All 54 source-to-target documentation translations completed and verified
+- Enterprise secret and hostname detection recognizers implemented, configured, and integrated
+- HMAC-SHA256 commercial licensing and compliance evidence service implemented and verified
+- Phase 26 unit, property-based, and integration test coverage complete and passing
+
+---
+
 ## v1.0 MVP (Shipped: 2026-07-07)
 
 **Phases completed:** 24 phases, 112 plans, 179 tasks

@@ -10,10 +10,8 @@ from __future__ import annotations
 import pytest
 
 from anonreq.governance.tool_extractor import (
-    ToolCall,
     ToolExtractionError,
     ToolExtractor,
-    ToolResult,
 )
 
 

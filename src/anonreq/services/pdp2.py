@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from anonreq.models.classification import ClassificationLevel
-from anonreq.models.dlp import DLPAction, DLPResult
+from anonreq.models.dlp import DLPAction
 from anonreq.models.processing_context import ProcessingContext
 
 ACTION_RANK = {

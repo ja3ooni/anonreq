@@ -5,14 +5,14 @@ Per D-009, D-010, D-011:
 - LineageArchiver: JSONL archival to MinIO for long-term compliance
 """
 
-from anonreq.lineage.tracker import LineageTracker, record_lineage, query_lineage
 from anonreq.lineage.archive import LineageArchiver, archive_lineage, get_archived_lineage
+from anonreq.lineage.tracker import LineageTracker, query_lineage, record_lineage
 
 __all__ = [
-    "LineageTracker",
-    "record_lineage",
-    "query_lineage",
     "LineageArchiver",
+    "LineageTracker",
     "archive_lineage",
     "get_archived_lineage",
+    "query_lineage",
+    "record_lineage",
 ]

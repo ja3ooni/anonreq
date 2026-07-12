@@ -8,13 +8,13 @@ Provides:
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Callable
+from collections.abc import Callable
+from enum import StrEnum
 
 from fastapi import HTTPException, Request
 
 
-class Role(str, Enum):
+class Role(StrEnum):
     ADMINISTRATOR = "administrator"
     SECURITY_OFFICER = "security_officer"
     OPERATOR = "operator"
@@ -56,7 +56,7 @@ def require_role(minimum_role: Role) -> Callable:
         try:
             user_role = Role(user_role_str)
         except ValueError:
-            raise HTTPException(
+            raise HTTPException(  # noqa: B904
                 status_code=403,
                 detail={"error": "forbidden", "reason": "unknown_role", "role": user_role_str},
             )

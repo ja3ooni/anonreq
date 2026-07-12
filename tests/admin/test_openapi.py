@@ -7,6 +7,7 @@ correct security requirements, and RBAC metadata.
 from __future__ import annotations
 
 from pathlib import Path
+
 import yaml
 
 
@@ -43,9 +44,9 @@ def test_openapi_spec_structure():
         for method in paths[path]:
             op = paths[path][method]
             assert "security" in op, f"Missing security requirement in {method} {path}"
-            assert any("BearerAuth" in scheme for scheme in op["security"]), f"BearerAuth missing in {method} {path}"
+            assert any("BearerAuth" in scheme for scheme in op["security"]), f"BearerAuth missing in {method} {path}"  # noqa: E501
             assert "x-rbac" in op, f"Missing x-rbac metadata in {method} {path}"
-            assert "minimum_role" in op["x-rbac"], f"x-rbac must specify minimum_role in {method} {path}"
+            assert "minimum_role" in op["x-rbac"], f"x-rbac must specify minimum_role in {method} {path}"  # noqa: E501
 
     # Verify component schemas
     components = spec.get("components", {})

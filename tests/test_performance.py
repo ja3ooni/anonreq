@@ -19,6 +19,7 @@ import time
 
 import pytest
 
+from anonreq.proxy.modes import ProxyMode
 from anonreq.proxy.optimizations import (
     PROXY_LATENCY_HISTOGRAM,
     ConnectionPoolConfig,
@@ -28,7 +29,6 @@ from anonreq.proxy.optimizations import (
     configure_httpx_client,
     register_latency_metric,
 )
-from anonreq.proxy.modes import ProxyMode
 
 
 class TestLatencyTimer:
@@ -72,7 +72,7 @@ class TestRegisterLatencyMetric:
         register_latency_metric("auth", 1.5, mode="proxy-only")
 
     def test_histogram_observes_with_labels(self):
-        before_count = len(list(PROXY_LATENCY_HISTOGRAM.collect()))
+        len(list(PROXY_LATENCY_HISTOGRAM.collect()))
         register_latency_metric("routing", 2.0, mode="full")
         # Prometheus histograms lazily create collectors
         assert True  # No assertion needed — just ensure no exception

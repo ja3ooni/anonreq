@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import fnmatch
 import ipaddress
-from typing import Any
 
 from anonreq.discovery.hostname_signatures import ProviderSignature
 
@@ -25,7 +24,7 @@ class MatchResult:
         signature: The ProviderSignature that matched.
     """
 
-    __slots__ = ("provider", "confidence", "match_type", "signature")
+    __slots__ = ("confidence", "match_type", "provider", "signature")
 
     def __init__(
         self,

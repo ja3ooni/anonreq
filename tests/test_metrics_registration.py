@@ -11,7 +11,6 @@ from anonreq.firewall import metrics as firewall_metrics
 from anonreq.proxy import metrics as proxy_metrics
 from anonreq.voice import metrics as voice_metrics
 
-
 EXPECTED_METRICS = {
     "anonreq_firewall_blocks_total": (Counter, ("detection_type", "tenant_id")),
     "anonreq_firewall_evaluation_duration_ms": (Histogram, ("decision",)),
@@ -32,7 +31,7 @@ EXPECTED_METRICS = {
 
 
 def _collector(metric_name: str):
-    return getattr(REGISTRY, "_names_to_collectors")[metric_name]
+    return REGISTRY._names_to_collectors[metric_name]
 
 
 def test_all_phase_21_metrics_registered_with_expected_types_and_labels():
@@ -55,7 +54,7 @@ def test_phase_21_metrics_increment_without_duplicate_registration_errors():
     ).inc()
     firewall_metrics.firewall_evaluation_duration_ms.labels(decision="block").observe(12)
     firewall_metrics.firewall_latency_budget_exceeded_total.inc()
-    agent_metrics.agent_tool_calls_inspected_total.labels(action="allow", tenant_id="tenant_a").inc()
+    agent_metrics.agent_tool_calls_inspected_total.labels(action="allow", tenant_id="tenant_a").inc()  # noqa: E501
     agent_metrics.agent_tool_results_sanitized_total.labels(
         entity_type="email", tenant_id="tenant_a"
     ).inc()

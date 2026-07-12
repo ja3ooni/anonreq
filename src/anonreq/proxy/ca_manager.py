@@ -16,7 +16,7 @@ import os
 import stat
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -28,7 +28,11 @@ from cryptography.x509.oid import NameOID
 from anonreq.exceptions import AnonReqError
 
 try:
-    from watchdog.events import FileModifiedEvent, FileCreatedEvent, FileSystemEventHandler
+    from watchdog.events import (  # noqa: F401
+        FileCreatedEvent,
+        FileModifiedEvent,
+        FileSystemEventHandler,
+    )
     from watchdog.observers import Observer
 except ImportError:
     Observer = None
@@ -62,7 +66,7 @@ def _generate_self_signed_ca(cn: str = "AnonReq CA") -> tuple[Any, Any, bytes, b
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, cn),
     ])
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     cert_builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -107,27 +111,27 @@ def _extract_cert_meta(
         "not_before": not_before,
         "not_after": not_after,
         "label": label,
-        "uploaded_at": uploaded_at or datetime.now(timezone.utc).isoformat(),
+        "uploaded_at": uploaded_at or datetime.now(UTC).isoformat(),
     }
 
 
 class _CAFileHandler(FileSystemEventHandler):
     """Watchdog event handler that triggers CAManager reload on file changes."""
 
-    def __init__(self, manager: "CAManager", debounce: float = 2.0) -> None:
+    def __init__(self, manager: CAManager, debounce: float = 2.0) -> None:
         self.manager = manager
         self.debounce = debounce
         self._last_trigger: float = 0.0
 
-    def on_modified(self, event) -> None:
+    def on_modified(self, event: Any) -> None:
         if not event.is_directory and event.src_path.endswith((".pem", ".key")):
             self._debounced_reload(event.src_path)
 
-    def on_created(self, event) -> None:
+    def on_created(self, event: Any) -> None:
         if not event.is_directory and event.src_path.endswith((".pem", ".key")):
             self._debounced_reload(event.src_path)
 
-    def _debounced_reload(self, path: str) -> None:
+    def _debounced_reload(self, _path: str) -> None:
         now = time.monotonic()
         if now - self._last_trigger < self.debounce:
             return
@@ -158,7 +162,7 @@ class CAManager:
         self._certs: dict[int, dict[str, Any]] = {}
         self._active_serial: int | None = None
 
-        self._observer: Observer | None = None
+        self._observer: Observer | None = None  # type: ignore[valid-type]
         self._start_file_watcher(debounce)
 
     # ------------------------------------------------------------------

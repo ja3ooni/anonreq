@@ -15,16 +15,12 @@ Uses Hypothesis to prove DLP invariants hold across random inputs:
 
 from __future__ import annotations
 
-import re
-from unittest.mock import AsyncMock
-
 import pytest
 import yaml
-from hypothesis import assume, given, strategies as st
+from hypothesis import assume, given
+from hypothesis import strategies as st
 
-from anonreq.models.dlp import DLPAction, DLPCategory, DLPDetection, DLPResult
-from anonreq.models.processing_context import ProcessingContext
-
+from anonreq.models.dlp import DLPAction, DLPCategory, DLPDetection
 
 # ===========================================================================
 # Strategies
@@ -36,14 +32,14 @@ action_strategies = st.sampled_from(list(DLPAction))
 
 @pytest.fixture(scope="module")
 def dlp_config():
-    with open("config/dlp.yaml", "r") as f:
+    with open("config/dlp.yaml") as f:
         data = yaml.safe_load(f)
     return data["dlp"]
 
 
 @pytest.fixture(scope="module")
 def mitre_config():
-    with open("config/mitre_attack.yaml", "r") as f:
+    with open("config/mitre_attack.yaml") as f:
         data = yaml.safe_load(f)
     return data["mitre_attack"]
 
@@ -378,7 +374,7 @@ class TestEmptyContentHandling:
 
         engine = DLPEngine(dlp_config)
         # Benign conversational text should not trigger CREDENTIALS or HEALTH
-        result = await engine.inspect("I was wondering if you could help me with a question I have about programming")
+        result = await engine.inspect("I was wondering if you could help me with a question I have about programming")  # noqa: E501
         non_benign = [
             d for d in result.detections
             if d.category in (DLPCategory.CREDENTIALS, DLPCategory.HEALTH,

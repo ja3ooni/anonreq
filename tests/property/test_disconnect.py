@@ -13,17 +13,15 @@ StreamingRestorationStage with fakeredis — no external dependencies.
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock
 
 import fakeredis.aioredis
-import pytest
-from hypothesis import HealthCheck, given, settings, strategies as st
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
 
 from anonreq.streaming.cleanup import SessionCleanup
 from anonreq.streaming.restoration import StreamingRestorationStage
-from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
+from anonreq.streaming.stream_event import EventType, StreamEvent
 from anonreq.streaming.tail_buffer import TailBuffer
-
 
 # ── Shared Hypothesis settings per TEST-PLAN.md ──────────────────────────────
 
@@ -116,7 +114,7 @@ def test_07e_no_forwarded_bytes_after_disconnect(chunks: list[str]) -> None:
                 StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=chunk),
             ):
                 emitted.append(item)
-        before_disconnect_count = len(emitted)
+        len(emitted)
         # None of the remaining chunks should be ingested
         remaining = chunks[disconnect_after:]
         for chunk in remaining:
@@ -265,7 +263,7 @@ def test_07g_provider_stream_stops_after_disconnect(n_events: int) -> None:
         # Feed events
         for i in range(min(n_events, 3)):
             async for _ in buffer.ingest(
-                StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=f"pre_{i} "),
+                StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=f"pre_{i} "),  # noqa: E501
             ):
                 pass
         await cleanup.cleanup("CLIENT_DISCONNECT")
@@ -273,7 +271,7 @@ def test_07g_provider_stream_stops_after_disconnect(n_events: int) -> None:
         buffer.terminate()
         post_count = 0
         async for _ in buffer.ingest(
-            StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text="post_disconnect_data "),
+            StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text="post_disconnect_data "),  # noqa: E501
         ):
             post_count += 1
         orphaned = await _count_keys(cache)
@@ -290,7 +288,7 @@ def test_07g_provider_stream_stops_after_disconnect(n_events: int) -> None:
 
 @HYP_SETTINGS
 @given(st.text(min_size=5, max_size=30))
-def test_07h_disconnect_timeout_race_exactly_one_terminal(text: str) -> None:
+def test_07h_disconnect_timeout_race_exactly_one_terminal(_text: str) -> None:  # noqa: PT019
     """Disconnect + timeout firing near-simultaneously: exactly one terminal state.
 
     Both asyncio.CancelledError (disconnect analogue) and a timeout
@@ -422,7 +420,7 @@ def test_disconnect_partial_token(text: str) -> None:
         emitted = [
             item
             async for item in buffer.ingest(
-                StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=text + " [EM"),
+                StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=text + " [EM"),  # noqa: E501
             )
         ]
         await cleanup.cleanup("CLIENT_DISCONNECT")
@@ -452,7 +450,7 @@ def test_disconnect_during_restoration(text: str) -> None:
 
 @HYP_SETTINGS
 @given(st.text(min_size=5, max_size=30))
-def test_disconnect_finish_race(_text: str) -> None:
+def test_disconnect_finish_race(_text: str) -> None:  # noqa: PT019
     """Original: FINISH and CLIENT_DISCONNECT race, cleanup idempotent."""
     async def run() -> SessionCleanup:
         cache = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -485,7 +483,7 @@ def test_disconnect_finish_normal_cleanup(text: str) -> None:
                 StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=chunk),
             ):
                 pass
-        remaining = buffer.flush_remaining()
+        buffer.flush_remaining()
         # Normal finish
         await cleanup.cleanup("FINISH")
         orphaned = await _count_keys(cache)

@@ -13,13 +13,13 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 from prometheus_client import Counter
 
-from anonreq.soc.sinks import SinkBase, SinkStatus
+from anonreq.soc.sinks import SinkStatus
 
 logger = logging.getLogger("anonreq.soc.sinks.elastic_bulk")
 
@@ -110,7 +110,7 @@ class ElasticBulkSink:
         Returns:
             Index name with date placeholders resolved.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         return now.strftime(self._index_pattern)
 
     async def format_event(self, event: Any) -> str:

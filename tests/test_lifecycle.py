@@ -10,7 +10,6 @@ import pytest
 from anonreq.services.lifecycle import (
     LifecycleService,
     LifecycleStage,
-    LifecycleState,
 )
 
 
@@ -20,7 +19,7 @@ async def lifecycle_service(cache_manager):
     # Clean slate
     await svc._redis.delete("anonreq:lifecycle:acme-corp")
     await svc._redis.delete("anonreq:lifecycle:acme-corp:transitions")
-    yield svc
+    return svc
 
 
 class TestLifecycleStages:
@@ -40,7 +39,7 @@ class TestLifecycleStages:
 
     async def test_valid_transition_review_to_testing(self, lifecycle_service):
         await lifecycle_service.transition("acme-corp", LifecycleStage.REVIEW, "alice@acme.com")
-        state = await lifecycle_service.transition("acme-corp", LifecycleStage.TESTING, "bob@acme.com")
+        state = await lifecycle_service.transition("acme-corp", LifecycleStage.TESTING, "bob@acme.com")  # noqa: E501
         assert state.current_stage == LifecycleStage.TESTING
 
     async def test_valid_transition_testing_to_production(self, lifecycle_service):

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -14,7 +14,7 @@ def valid_ctx():
     ctx.policy_decision = PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["all_checks_passed"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
         ttl_seconds=60,
     )
     ctx.transformed_request = {"model": "gpt-4", "messages": []}
@@ -46,7 +46,7 @@ class TestForwardingGuard:
         guard = ForwardingGuard()
         valid_ctx.policy_decision = PolicyDecision(
             action=PolicyAction.BLOCK, matched_rule_ids=["block_hr"],
-            decision_ts=datetime.now(timezone.utc), ttl_seconds=60,
+            decision_ts=datetime.now(UTC), ttl_seconds=60,
         )
         verdict = await guard.validate(valid_ctx)
         assert verdict.action == PolicyAction.BLOCK
@@ -67,7 +67,7 @@ class TestForwardingGuard:
         guard = ForwardingGuard()
         valid_ctx.policy_decision = PolicyDecision(
             action=PolicyAction.ALLOW, matched_rule_ids=["all_checks_passed"],
-            decision_ts=datetime(2020, 1, 1, tzinfo=timezone.utc),
+            decision_ts=datetime(2020, 1, 1, tzinfo=UTC),
             ttl_seconds=1,
         )
         verdict = await guard.validate(valid_ctx)
@@ -80,7 +80,7 @@ class TestForwardingGuard:
         guard = ForwardingGuard()
         valid_ctx.policy_decision = PolicyDecision(
             action=PolicyAction.FLAG_AND_FORWARD, matched_rule_ids=["flag_conf"],
-            decision_ts=datetime.now(timezone.utc), ttl_seconds=60,
+            decision_ts=datetime.now(UTC), ttl_seconds=60,
         )
         valid_ctx.transformed_request = None
         verdict = await guard.validate(valid_ctx)
@@ -92,7 +92,7 @@ class TestForwardingGuard:
         guard = ForwardingGuard()
         valid_ctx.policy_decision = PolicyDecision(
             action=PolicyAction.ALLOW, matched_rule_ids=[],
-            decision_ts=datetime.now(timezone.utc), ttl_seconds=60,
+            decision_ts=datetime.now(UTC), ttl_seconds=60,
         )
         valid_ctx.transformed_request = None
         verdict = await guard.validate(valid_ctx)

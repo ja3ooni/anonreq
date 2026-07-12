@@ -17,12 +17,11 @@ import io
 import logging
 import re
 
-import pytest
 import yaml
-from hypothesis import assume, given, settings, strategies as st
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.detection.recognizers.mnpi import MNPIConfig, MNPIRecognizer
-
 
 # ── Load config once at module level ──────────────────────────────
 
@@ -129,19 +128,14 @@ class TestNoMNPILogsInvariant:
             for value in mnpi_values:
                 pattern = r'\b' + re.escape(value) + r'\b'
                 if re.search(pattern, log_content):
-                    assert False, (
-                        f"MNPI value '{value}' must not appear in log output. "
-                        f"Text: '{text}'"
-                    )
+                    raise AssertionError(f"MNPI value '{value}' must not appear in log output. " f"Text: '{text}'")  # noqa: E501
 
             # Also check no raw entity values from detection results
             for det in detections:
                 det_value = text[det["start"]:det["end"]]
                 pattern = r'\b' + re.escape(det_value) + r'\b'
                 if re.search(pattern, log_content):
-                    assert False, (
-                        f"Detected value '{det_value}' must not appear in log output"
-                    )
+                    raise AssertionError(f"Detected value '{det_value}' must not appear in log output")  # noqa: E501
         finally:
             logger.removeHandler(handler)
 

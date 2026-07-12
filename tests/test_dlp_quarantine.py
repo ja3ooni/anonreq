@@ -9,19 +9,19 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
 from anonreq.models.dlp import DLPAction, DLPCategory, DLPDetection, DLPResult
-from anonreq.services.dlp_engine import DLPEngine, QuarantineResult
 from anonreq.models.processing_context import ProcessingContext
+from anonreq.services.dlp_engine import DLPEngine, QuarantineResult
 
 
 @pytest.fixture
 def dlp_config():
     import yaml
-    with open("config/dlp.yaml", "r") as f:
+    with open("config/dlp.yaml") as f:
         data = yaml.safe_load(f)
     return data["dlp"]
 

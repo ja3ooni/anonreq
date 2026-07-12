@@ -8,7 +8,7 @@ Tests verify:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -93,7 +93,7 @@ class TestEndToEndDelivery:
             tenant_id="tenant-abc",
             session_id="sess-123",
             content={"ip_address": "10.0.0.55", "action": "blocked", "severity": "high"},
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
         normalizer.publish_raw(raw)
@@ -141,7 +141,7 @@ class TestEndToEndDelivery:
 class TestMetadataOnlyDelivery:
     """Delivered normalized event excludes raw content fields."""
 
-    FORBIDDEN_CONTENT_KEYS = {"content", "prompt", "response", "raw_text", "message", "text"}
+    FORBIDDEN_CONTENT_KEYS = {"content", "prompt", "response", "raw_text", "message", "text"}  # noqa: RUF012
 
     @pytest.mark.asyncio
     async def test_normalized_event_no_raw_content_fields(

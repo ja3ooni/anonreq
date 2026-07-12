@@ -8,8 +8,6 @@ import pytest
 from anonreq.exceptions import OutboundDLPError, PipelineBlockedError
 from anonreq.models.dlp import DLPAction, DLPDetection, DLPResult
 from anonreq.models.processing_context import ProcessingContext
-from anonreq.pipeline.base import PipelineStage
-from anonreq.pipeline.manager import PipelineManager
 
 
 class TestRuntimeDLPPipeline:
@@ -17,7 +15,7 @@ class TestRuntimeDLPPipeline:
 
     @pytest.mark.asyncio
     async def test_pipeline_manager_includes_dlp_stages(self):
-        """A PipelineManager built by build_pipeline() includes InboundDLPStage and OutboundDLPStage."""
+        """A PipelineManager built by build_pipeline() includes InboundDLPStage and OutboundDLPStage."""  # noqa: E501
         from anonreq.routing.chat import build_pipeline
 
         mock_cache = MagicMock()

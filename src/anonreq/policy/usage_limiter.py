@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import math
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from anonreq.cache.manager import CacheManager
 from anonreq.policy.models import PolicyAction, PolicyDecision, RateLimitConfig
@@ -26,7 +25,7 @@ class UsageLimiter:
 
     async def check_rate_limit(self, tenant_id: str) -> PolicyDecision:
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             rpm_key = self._rpm_key(tenant_id)
             tpm_key = self._tpm_key(tenant_id)
             conc_key = self._concurrent_key(tenant_id)
@@ -67,7 +66,7 @@ class UsageLimiter:
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["rate_limit_error"],
-                decision_ts=datetime.now(timezone.utc),
+                decision_ts=datetime.now(UTC),
                 reason="Rate limit check failed: cache unavailable",
                 enforcement="503",
             )

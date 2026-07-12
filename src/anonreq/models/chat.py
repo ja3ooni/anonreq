@@ -80,6 +80,6 @@ class ChatCompletionResponse(BaseModel):
     created: int
     model: str
     choices: list[ChatCompletionChoice]
-    usage: dict[str, int] | None = None
+    usage: dict[str, Any] | None = None
 
     model_config = {"extra": "ignore"}

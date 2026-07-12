@@ -58,7 +58,7 @@ class AliasRegistry:
         for alias_name, alias in self._aliases.items():
             if alias.provider not in providers:
                 raise ValueError(
-                    f"Alias '{self._display_names[alias_name]}' references unknown provider '{alias.provider}'"
+                    f"Alias '{self._display_names[alias_name]}' references unknown provider '{alias.provider}'"  # noqa: E501
                 )
 
     def resolve(self, alias: str) -> ModelAlias:

@@ -9,9 +9,6 @@ import pytest
 from anonreq.gateway.detector import (
     AIDetector,
     MCPInspector,
-    MCPMessage,
-    ProviderMatch,
-    TrafficClassification,
 )
 
 

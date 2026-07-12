@@ -18,13 +18,11 @@ import pytest
 from anonreq.governance.pdp_tool_evaluator import (
     PDPToolEvaluator,
     ToolBlockedError,
-    ToolDecision,
 )
 from anonreq.governance.tool_extractor import ToolCall, ToolResult
 from anonreq.governance.tool_policy_parser import (
     ToolPermission,
     ToolPolicyParser,
-    ToolRiskLevel,
 )
 from anonreq.models.processing_context import ProcessingContext
 
@@ -177,7 +175,7 @@ class TestEvaluate:
         assert decision.permission == ToolPermission.ALLOW
 
     @pytest.mark.asyncio
-    async def test_unlisted_critical_risk_default_requires_approval(self, evaluator, context):
+    async def test_unlisted_critical_risk_default_requires_approval(self, context):
         """Test 4: Unlisted CRITICAL risk tool defaults to REQUIRE_HUMAN_APPROVAL."""
         # code_interpreter is classified as critical in the sample config
         # but let's test with a truly unknown tool name
@@ -275,7 +273,7 @@ class TestCrossDomainIsolation:
         assert decision.permission == ToolPermission.ALLOW
 
     @pytest.mark.asyncio
-    async def test_host_domain_to_host_provider_allowed(self, evaluator, context):
+    async def test_host_domain_to_host_provider_allowed(self, context):
         """Host domain + host provider → allowed (if not blocked by policy)."""
         tool_call = ToolCall(
             id="call_1",

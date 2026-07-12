@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
@@ -10,12 +10,11 @@ from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.config import settings
-from anonreq.routing.chat import router as chat_router
 from anonreq.exceptions import global_exception_handler, http_exception_handler
-from anonreq.models.classification import ClassificationLevel
+from anonreq.middleware.classification import ClassificationMiddleware
 from anonreq.models.request_context import RequestContext
 from anonreq.routing.chat import build_pipeline
-from anonreq.middleware.classification import ClassificationMiddleware
+from anonreq.routing.chat import router as chat_router
 
 
 @pytest.fixture
@@ -91,7 +90,7 @@ async def test_pipeline_runs_sensitivity_classification(mock_app):
     pdp.evaluate_all.return_value = PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["allow_all"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.ALLOW,
@@ -162,13 +161,13 @@ async def test_pipeline_blocks_highly_restricted(mock_app):
         action=PolicyAction.BLOCK,
         matched_rule_ids=["classification_block"],
         reason="Request classified as HIGHLY_RESTRICTED is blocked per policy",
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.BLOCK,
         status_code=451,
         should_forward=False,
-        body={"error_type": "classification_block", "reason": "Request classified as HIGHLY_RESTRICTED is blocked per policy"},
+        body={"error_type": "classification_block", "reason": "Request classified as HIGHLY_RESTRICTED is blocked per policy"},  # noqa: E501
     )
 
     transport = ASGITransport(app=app)
@@ -182,7 +181,7 @@ async def test_pipeline_blocks_highly_restricted(mock_app):
         assert response.status_code == 451
         body = response.json()
         assert "error" in body
-        assert "highly_restricted" in body["error"]["message"].lower() or "blocked" in body["error"]["message"].lower()
+        assert "highly_restricted" in body["error"]["message"].lower() or "blocked" in body["error"]["message"].lower()  # noqa: E501
 
 
 @pytest.mark.asyncio
@@ -195,7 +194,7 @@ async def test_client_override_in_pipeline(mock_app):
     pdp.evaluate_all.return_value = PolicyDecision(
         action=PolicyAction.ALLOW,
         matched_rule_ids=["allow_all"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
     )
     pep.enforce.return_value = PolicyEnforcementResult(
         action=PolicyAction.ALLOW,

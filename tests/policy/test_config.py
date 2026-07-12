@@ -95,8 +95,8 @@ class TestLoadPolicyConfig:
     def test_explicit_path_overrides_default(self, tmp_path):
         default_path = tmp_path / "policy.yaml"
         explicit_path = tmp_path / "custom.yaml"
-        _write_yaml(default_path, {"version": "1.0", "rules": [{"rule_id": "d1", "action": "BLOCK"}]})
-        _write_yaml(explicit_path, {"version": "2.0", "rules": [{"rule_id": "c1", "action": "ALLOW"}]})
+        _write_yaml(default_path, {"version": "1.0", "rules": [{"rule_id": "d1", "action": "BLOCK"}]})  # noqa: E501
+        _write_yaml(explicit_path, {"version": "2.0", "rules": [{"rule_id": "c1", "action": "ALLOW"}]})  # noqa: E501
         cfg = load_policy_config(explicit_path)
         assert cfg.version == "2.0"
         assert cfg.rules[0].rule_id == "c1"

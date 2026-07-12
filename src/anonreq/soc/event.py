@@ -12,12 +12,12 @@ are stripped before normalization (D-012).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 
-class SeverityLevel(str, Enum):
+class SeverityLevel(StrEnum):
     """Severity classification for security events.
 
     Ordered from least to most severe for comparison:
@@ -115,4 +115,4 @@ class RawSecurityEvent:
 
     def __post_init__(self) -> None:
         if not self.timestamp:
-            self.timestamp = datetime.now(timezone.utc).isoformat()
+            self.timestamp = datetime.now(UTC).isoformat()

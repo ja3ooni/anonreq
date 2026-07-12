@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from prometheus_client import CollectorRegistry, generate_latest
 
@@ -55,7 +53,7 @@ def mock_store() -> AsyncMock:
 def mock_limiter() -> AsyncMock:
     limiter = AsyncMock(spec=UsageLimiter)
     limiter.check_rate_limit.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
     return limiter
 
@@ -64,7 +62,7 @@ def mock_limiter() -> AsyncMock:
 def mock_spend() -> AsyncMock:
     spend = AsyncMock(spec=SpendController)
     spend.check_spend.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
     return spend
 
@@ -73,7 +71,7 @@ def mock_spend() -> AsyncMock:
 def mock_residency() -> AsyncMock:
     residency = AsyncMock(spec=ResidencyRouter)
     residency.resolve_region.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
     return residency
 
@@ -110,7 +108,7 @@ async def test_policy_ordering_deterministic(pdp, mock_store):
 async def test_rpm_tpm_concurrent_counters_accurate(mock_limiter):
     # Verifies that rate limit incrementing works correctly (tested via UsageLimiter mock/calls)
     mock_limiter.check_rate_limit.return_value = PolicyDecision(
-        action=PolicyAction.BLOCK, matched_rule_ids=["rate_limit_exceeded"], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.BLOCK, matched_rule_ids=["rate_limit_exceeded"], decision_ts=datetime.now(UTC)  # noqa: E501
     )
     decision = await mock_limiter.check_rate_limit("tenant_sec")
     assert decision.action == PolicyAction.BLOCK
@@ -120,11 +118,11 @@ async def test_rpm_tpm_concurrent_counters_accurate(mock_limiter):
 @pytest.mark.asyncio
 async def test_budget_window_utc_boundary():
     # Verifies daily budget resets at 00:00 UTC
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     # Check if budget reset timestamp falls on a UTC boundary or resets
-    reset_time = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=timezone.utc)
+    reset_time = datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=UTC)
     assert reset_time.hour == 0
-    assert reset_time.tzinfo == timezone.utc
+    assert reset_time.tzinfo == UTC
 
 
 @pytest.mark.asyncio
@@ -133,7 +131,7 @@ async def test_region_routing_fail_closed(pdp, mock_residency):
     mock_residency.resolve_region.return_value = PolicyDecision(
         action=PolicyAction.BLOCK,
         matched_rule_ids=["routing_error"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
         enforcement="503",
         reason="Unknown provider region",
     )
@@ -144,7 +142,7 @@ async def test_region_routing_fail_closed(pdp, mock_residency):
 
 
 @pytest.mark.asyncio
-async def test_classification_override_handling(pdp, mock_store):
+async def test_classification_override_handling(pdp):
     # If client asserts Public classification but engine detects Confidential,
     # the PDP must evaluate against detected Confidential level.
     ctx = ProcessingContext(
@@ -161,21 +159,21 @@ async def test_classification_override_handling(pdp, mock_store):
 async def test_no_raw_pii_in_logs(caplog):
     # Set logging to capture all info/error events
     caplog.set_level(logging.INFO)
-    
+
     import structlog
     logger = structlog.get_logger("test_logger")
     publisher = DecisionAuditPublisher(logger)
-    
+
     await publisher.publish_decision(
         ProcessingContext(request_id="session_123", tenant_id="tenant_sec"),
         PolicyDecision(
             action=PolicyAction.BLOCK,
             matched_rule_ids=["rule_001"],
-            decision_ts=datetime.now(timezone.utc),
+            decision_ts=datetime.now(UTC),
             reason="Sensitive SSN 999-99-9999 or secret key sk-98765",
         ),
     )
-    
+
     # Assert that the raw log messages do not leak any sensitive string
     for record in caplog.records:
         assert "999-99-9999" not in record.message

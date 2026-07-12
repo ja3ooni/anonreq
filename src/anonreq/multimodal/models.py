@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ContentType(str, Enum):
+class ContentType(StrEnum):
     TEXT_PLAIN = "text/plain"
     APPLICATION_JSON = "application/json"
     MULTIPART_FORM_DATA = "multipart/form-data"

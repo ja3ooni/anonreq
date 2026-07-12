@@ -5,7 +5,6 @@ from re import Pattern
 
 from anonreq.firewall.config import FirewallConfig
 
-
 SYSTEM_PROMPT_SIGNALS: tuple[str, ...] = (
     r"(?i)(system\s*prompt|initial\s*instruction|base\s*persona|your\s*instructions)",
     r"(?i)(ignore\s*(all\s*)?previous|disregard|forget\s*(all\s*)?your)",
@@ -18,7 +17,7 @@ class OverrideDetector:
 
     def __init__(self, config: FirewallConfig | None = None) -> None:
         self.config = config or FirewallConfig()
-        self._patterns: tuple[Pattern[str], ...] = tuple(re.compile(p) for p in SYSTEM_PROMPT_SIGNALS)
+        self._patterns: tuple[Pattern[str], ...] = tuple(re.compile(p) for p in SYSTEM_PROMPT_SIGNALS)  # noqa: E501
 
     def score(self, text: str) -> float:
         if not text.strip():

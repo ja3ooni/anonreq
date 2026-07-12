@@ -162,7 +162,7 @@ async def test_detection_stage_injects_custom_patterns(registry):
 
 
 @pytest.mark.asyncio
-async def test_detection_without_config_registry_is_unchanged(registry):
+async def test_detection_without_config_registry_is_unchanged():
     """DetectionStage without config_registry behaves identically to before."""
     from anonreq.pipeline.detection import DetectionStage
 

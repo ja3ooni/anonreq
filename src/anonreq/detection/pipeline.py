@@ -19,10 +19,32 @@ import logging
 from typing import Any
 
 from anonreq.detection.boost import ContextBooster
+from anonreq.detection.recognizers.enterprise import create_enterprise_bundle
 from anonreq.detection.recognizers.mnpi import MNPIRecognizer, create_mnpi_bundle
 from anonreq.models.detection import DetectionResult
 
 logger = logging.getLogger(__name__)
+
+
+def load_enterprise_recognizers(
+    config_path: str = "config/recognizers.yaml",
+) -> dict[str, Any]:
+    """Load and return the enabled enterprise recognizers bundle.
+
+    Returns a dictionary mapping recognizer key names to instances.
+    Gracefully degrades returning an empty dictionary on failure.
+    """
+    try:
+        return create_enterprise_bundle(config_path=config_path)
+    except FileNotFoundError:
+        logger.warning(
+            "Enterprise recognizer config not found; enterprise detection disabled",
+            extra={"config_path": config_path},
+        )
+        return {}
+    except Exception as exc:
+        logger.exception("Failed to load enterprise recognizers", extra={"error": str(exc)})
+        return {}
 
 
 def load_mnpi_recognizers(
@@ -55,8 +77,8 @@ def load_mnpi_recognizers(
             extra={"config_path": config_path},
         )
         return []
-    except Exception:
-        logger.exception("Failed to load MNPI recognizers")
+    except Exception as exc:
+        logger.exception("Failed to load MNPI recognizers", extra={"error": str(exc)})
         return []
 
 

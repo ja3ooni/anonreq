@@ -11,7 +11,7 @@ Provides:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 # Default dimension weights (must sum to ~1.0)
@@ -25,7 +25,7 @@ _DEFAULT_WEIGHTS: dict[str, float] = {
 }
 
 
-class RiskDimension(str, Enum):
+class RiskDimension(StrEnum):
     """Risk score dimensions."""
 
     PROVIDER_TRUST = "provider_trust"
@@ -36,7 +36,7 @@ class RiskDimension(str, Enum):
     RETENTION_POLICY = "retention_policy"
 
 
-class RiskBand(str, Enum):
+class RiskBand(StrEnum):
     """Risk band classification based on score ranges."""
 
     LOW = "low"
@@ -178,10 +178,7 @@ class RiskScoreEngine:
         Args:
             classification: Data classification level.
         """
-        if classification:
-            key = classification.lower().strip().replace(" ", "_")
-        else:
-            key = ""
+        key = classification.lower().strip().replace(" ", "_") if classification else ""
         return float(self._classification_scores.get(key, 30))
 
     def score_shadow_usage(self, shadow_status: str) -> float:
@@ -235,7 +232,7 @@ class RiskScoreEngine:
         total_weight = 0.0
         weighted_sum = 0.0
 
-        for dim_key, dim in scores.items():
+        for _dim_key, dim in scores.items():
             w = dim.weight
             total_weight += w
             weighted_sum += dim.score * w

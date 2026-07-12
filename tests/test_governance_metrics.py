@@ -14,10 +14,9 @@ assertions impossible with shared module-level counters.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 import pytest
-from prometheus_client import REGISTRY, CollectorRegistry, Counter, generate_latest
+from prometheus_client import CollectorRegistry, Counter, generate_latest
 
 from anonreq.governance.metrics import (
     TOOL_BLOCKS_COUNTER,
@@ -25,7 +24,6 @@ from anonreq.governance.metrics import (
     TOOL_RESULT_VIOLATIONS_COUNTER,
     register_tool_governance_metrics,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -64,7 +62,7 @@ def _read_counter_value(
         if "{" in line:
             labels_str = line[line.index("{") + 1 : line.index("}")]
             parsed = _parse_labels(labels_str)
-            if labels is not None:
+            if labels is not None:  # noqa: SIM102
                 if any(parsed.get(k) != v for k, v in labels.items()):
                     continue
         elif labels is not None:
@@ -105,7 +103,7 @@ class TestToolCallsFresh:
         # line (``anonreq_tool_calls_total{...} N``) only appears after
         # the first ``inc()``.  Verify no *data* line yet.
         sample_lines = [
-            l for l in text.splitlines()
+            l for l in text.splitlines()  # noqa: E741
             if l.startswith("anonreq_tool_calls_total{")
         ]
         assert len(sample_lines) == 0
@@ -246,7 +244,7 @@ class TestRegisterToolGovernanceMetrics:
         # After first inc each
         for name in names:
             counter = _get_counter(registry, name)
-            counter.labels(**{"permission": "test", "domain": "test", "provider": "test"} if "calls" in name else {"tool_name": "test", "domain": "test", "reason": "test"} if "blocks" in name else {"type_label": "test"}).inc()
+            counter.labels(**{"permission": "test", "domain": "test", "provider": "test"} if "calls" in name else {"tool_name": "test", "domain": "test", "reason": "test"} if "blocks" in name else {"type_label": "test"}).inc()  # noqa: E501
         text = generate_latest(registry).decode()
         assert "anonreq_tool_calls_total" in text
         assert "anonreq_tool_blocks_total" in text

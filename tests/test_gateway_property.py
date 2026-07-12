@@ -10,13 +10,12 @@ Uses Hypothesis to verify:
 from __future__ import annotations
 
 import json
-from urllib.parse import urlparse
 
-from hypothesis import assume, given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from anonreq.gateway.detector import AIDetector, MCPInspector
 from anonreq.gateway.router import RouteTable
-
 
 # ---------------------------------------------------------------------------
 # AIDetector property tests
@@ -88,10 +87,11 @@ class TestAIDetectorProperties:
     def test_detector_is_deterministic(self):
         detector1 = AIDetector()
         detector2 = AIDetector()
-        for hostname in ["api.openai.com", "api.anthropic.com", "generativelanguage.googleapis.com"]:
+        for hostname in ["api.openai.com", "api.anthropic.com", "generativelanguage.googleapis.com"]:  # noqa: E501
             r1 = detector1.detect_hostname(hostname)
             r2 = detector2.detect_hostname(hostname)
-            assert r1 is not None and r2 is not None
+            assert r1 is not None
+            assert r2 is not None
             assert r1.provider == r2.provider
 
 
@@ -176,7 +176,8 @@ class TestRouteTableProperties:
         hostname = "api.openai.com"
         m1 = rt.lookup(hostname)
         m2 = rt.lookup(hostname)
-        assert m1 is not None and m2 is not None
+        assert m1 is not None
+        assert m2 is not None
         assert m1.provider == m2.provider
         assert m1.entry.target_url == m2.entry.target_url
 

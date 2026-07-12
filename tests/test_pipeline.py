@@ -11,12 +11,9 @@ Tests cover:
 
 from __future__ import annotations
 
-import json
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 
 # ===========================================================================
 # Fixtures
@@ -152,7 +149,7 @@ class TestPipelineManager:
             def __init__(self):
                 super().__init__("StageA")
 
-            async def execute(self, ctx):
+            async def execute(self, _ctx):
                 call_order.append("StageA")
                 raise RuntimeError("Unexpected error")
 
@@ -310,7 +307,7 @@ class TestDetectionStage:
         regex_detector = MagicMock()
         # First node: email detected, second node: no PII
         regex_detector.detect.side_effect = [
-            [{"entity_type": "EMAIL_ADDRESS", "start": 11, "end": 27, "score": 1.0, "source": "regex"}],
+            [{"entity_type": "EMAIL_ADDRESS", "start": 11, "end": 27, "score": 1.0, "source": "regex"}],  # noqa: E501
             [],
         ]
 
@@ -323,12 +320,12 @@ class TestDetectionStage:
         span_arbiter = MagicMock()
         # Merge single node, return combined
         span_arbiter.merge.side_effect = [
-            [{"entity_type": "EMAIL_ADDRESS", "start": 11, "end": 27, "score": 1.0, "source": "regex"}],
+            [{"entity_type": "EMAIL_ADDRESS", "start": 11, "end": 27, "score": 1.0, "source": "regex"}],  # noqa: E501
             [],
         ]
 
         exclusion_list = MagicMock()
-        exclusion_list.filter_detections.side_effect = lambda dets, text: dets
+        exclusion_list.filter_detections.side_effect = lambda dets, _text: dets
 
         proc_ctx.text_nodes = sample_text_nodes_two
         proc_ctx.classification_result = {"action": "ANONYMIZE"}
@@ -469,7 +466,7 @@ class TestTokenizationStage:
         assert len(result.token_mappings) == 1
         assert result.transformed_request is not None
         # The transformed request should have the token in place of the email
-        token = list(result.token_mappings.keys())[0]
+        token = next(iter(result.token_mappings.keys()))
         content = result.transformed_request["messages"][0]["content"]
         assert token in content
         assert "john@example.com" not in content
@@ -488,7 +485,7 @@ class TestTokenizationStage:
         proc_ctx.classification_result = {"action": "PASS"}
 
         stage = TokenizationStage(tokenizer=tokenizer, cache_manager=cache_manager)
-        result = await stage.execute(proc_ctx)
+        await stage.execute(proc_ctx)
 
         tokenizer.tokenize.assert_not_called()
         cache_manager.store_mapping.assert_not_called()
@@ -536,8 +533,8 @@ class TestForwardingGuard:
     @pytest.mark.asyncio
     async def test_missing_classification_fails(self, proc_ctx):
         """Missing classification result → 503."""
-        from anonreq.pipeline.forwarding_guard import ForwardingGuard
         from anonreq.exceptions import PipelineAbortError
+        from anonreq.pipeline.forwarding_guard import ForwardingGuard
 
         proc_ctx.classification_result = None
 
@@ -552,7 +549,6 @@ class TestForwardingGuard:
     async def test_missing_detections_for_anonymize(self, proc_ctx):
         """ANONYMIZE without detections → 503."""
         from anonreq.pipeline.forwarding_guard import ForwardingGuard
-        from anonreq.exceptions import PipelineAbortError
 
         proc_ctx.classification_result = {"action": "ANONYMIZE"}
         proc_ctx.detections = None  # Detection didn't run
@@ -567,7 +563,6 @@ class TestForwardingGuard:
     async def test_missing_token_mappings_for_anonymize(self, proc_ctx):
         """ANONYMIZE without token_mappings → 503."""
         from anonreq.pipeline.forwarding_guard import ForwardingGuard
-        from anonreq.exceptions import PipelineAbortError
 
         proc_ctx.classification_result = {"action": "ANONYMIZE"}
         proc_ctx.detections = [{"entity_type": "EMAIL_ADDRESS"}]
@@ -592,7 +587,6 @@ class TestProviderStage:
     async def test_forwards_sanitized_request(self, proc_ctx):
         """ProviderStage sends transformed_request and returns response."""
         import respx
-        from httpx import Response
 
         from anonreq.pipeline.provider import ProviderStage
 
@@ -634,13 +628,12 @@ class TestProviderStage:
 
             assert not result.has_errors()
             assert result.provider_response is not None
-            assert result.provider_response["choices"][0]["message"]["content"] == "Your email is [EMAIL_0]"
+            assert result.provider_response["choices"][0]["message"]["content"] == "Your email is [EMAIL_0]"  # noqa: E501
 
     @pytest.mark.asyncio
     async def test_fails_on_upstream_error(self, proc_ctx):
         """ProviderStage fails on upstream HTTP error."""
         import respx
-        from httpx import Response
 
         from anonreq.pipeline.provider import ProviderStage
 
@@ -699,7 +692,6 @@ class TestProviderStage:
             result = await stage.execute(proc_ctx)
 
             assert result.has_errors()
-            from anonreq.exceptions import PipelineAbortError
 
             assert result.errors[-1].status_code == 504
 
@@ -830,7 +822,7 @@ class TestRestorer:
         mapping = {"[EMAIL_0]": "user@example.com"}
         result = Restorer.restore_response(response, mapping)
 
-        assert '"to": "user@example.com"' in result["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
+        assert '"to": "user@example.com"' in result["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]  # noqa: E501
 
 
 # ============================================================================
@@ -867,7 +859,7 @@ class TestRestorationStage:
 
         assert not result.has_errors()
         assert result.restored_response is not None
-        assert result.restored_response["choices"][0]["message"]["content"] == "Your email is user@example.com"
+        assert result.restored_response["choices"][0]["message"]["content"] == "Your email is user@example.com"  # noqa: E501
 
     @pytest.mark.asyncio
     async def test_fails_without_provider_response(self, proc_ctx):
@@ -935,7 +927,7 @@ class TestCleanupStage:
         proc_ctx.classification_result = {"action": "PASS"}
 
         stage = CleanupStage(cache_manager=cache_manager)
-        result = await stage.execute(proc_ctx)
+        await stage.execute(proc_ctx)
 
         cache_manager.delete_mapping.assert_not_called()
 
@@ -949,7 +941,6 @@ class TestCleanupStage:
         proc_ctx.context_id = "test-session-123"
         proc_ctx.tenant_id = "default"
         proc_ctx.request_id = "test_req_001"
-        proc_tx = proc_ctx  # alias
         proc_ctx.classification_result = {"action": "PASS", "matched_rule_ids": []}
         proc_ctx.detections = []
 
@@ -973,8 +964,8 @@ class TestFullPipeline:
         """BLOCK classification → ctx.has_errors() with 403."""
         from anonreq.classification.engine import ClassificationEngine, ClassificationRule
         from anonreq.pipeline.classification import ClassificationStage
-        from anonreq.pipeline.manager import PipelineManager
         from anonreq.pipeline.forwarding_guard import ForwardingGuard
+        from anonreq.pipeline.manager import PipelineManager
 
         # Create a classification engine that blocks email content
         engine = ClassificationEngine(
@@ -1000,7 +991,6 @@ class TestFullPipeline:
         result = await manager.run(proc_ctx)
 
         assert result.has_errors()
-        from anonreq.exceptions import PipelineAbortError
 
         assert result.errors[-1].status_code == 403
 
@@ -1041,7 +1031,7 @@ class TestFullPipeline:
 
 
 class TestFullPipelineWithDetection:
-    """Full pipeline with Classification → Detection → Tokenization → Guard → Provider → Restoration → Cleanup."""
+    """Full pipeline with Classification → Detection → Tokenization → Guard → Provider → Restoration → Cleanup."""  # noqa: E501
 
     @pytest.mark.asyncio
     async def test_full_pipeline_anonymize_flow(self, proc_ctx, sample_request_dict):
@@ -1051,7 +1041,6 @@ class TestFullPipelineWithDetection:
         from anonreq.cache.manager import CacheManager
         from anonreq.classification.engine import ClassificationEngine
         from anonreq.detection.exclusion_list import ExclusionList
-        from anonreq.detection.regex_detector import RegexDetector
         from anonreq.detection.span_arbiter import SpanArbiter
         from anonreq.pipeline.classification import ClassificationStage
         from anonreq.pipeline.cleanup import CleanupStage
@@ -1071,7 +1060,7 @@ class TestFullPipelineWithDetection:
         # Text: "My name is John and email is john@example.com"
         # John at 11-15, john@example.com at 29-45
         regex_detector.detect.return_value = [
-            {"entity_type": "EMAIL_ADDRESS", "start": 29, "end": 45, "score": 1.0, "source": "regex"},
+            {"entity_type": "EMAIL_ADDRESS", "start": 29, "end": 45, "score": 1.0, "source": "regex"},  # noqa: E501
         ]
 
         presidio_client = MagicMock()

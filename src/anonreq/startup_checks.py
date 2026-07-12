@@ -16,7 +16,6 @@ Threat model coverage:
   network. URLs come from config, not user input. (Accept — minimal SSRF risk.)
 """
 
-import socket
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlparse
 
@@ -45,7 +44,7 @@ async def check_valkey(url: str) -> bool:
     port = parsed.port or 6379
 
     try:
-        reader, writer = await asyncio_open_connection(host, port)
+        _reader, writer = await asyncio_open_connection(host, port)
         writer.close()
         await writer.wait_closed()
         return True
@@ -79,8 +78,8 @@ async def asyncio_open_connection(host: str, port: int, timeout: float = 3.0) ->
             timeout=timeout,
         )
         return reader, writer
-    except asyncio.TimeoutError:
-        raise TimeoutError(f"Connection to {host}:{port} timed out")
+    except TimeoutError:
+        raise TimeoutError(f"Connection to {host}:{port} timed out")  # noqa: B904
 
 
 async def check_presidio(url: str) -> bool:

@@ -5,8 +5,6 @@ Phase 15 Financial Services Compliance, D-002.
 
 from __future__ import annotations
 
-import os
-import tempfile
 import time
 from pathlib import Path
 
@@ -14,7 +12,6 @@ import pytest
 import yaml
 
 from anonreq.config.restricted_names import RestrictedNamesManager
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -159,7 +156,7 @@ class TestHotReload:
         time.sleep(0.02)
 
         # Append a new name
-        with open(sample_yaml, "r") as f:
+        with open(sample_yaml) as f:
             data = yaml.safe_load(f)
         data["tenants"]["bigbank"]["restricted_names"].append("Platinum Venture")
         with open(sample_yaml, "w") as f:
@@ -178,7 +175,7 @@ class TestHotReload:
         time.sleep(0.02)
 
         # Remove one name
-        with open(sample_yaml, "r") as f:
+        with open(sample_yaml) as f:
             data = yaml.safe_load(f)
         data["tenants"]["acme-corp"]["restricted_names"].remove("Project Firestorm")
         with open(sample_yaml, "w") as f:
@@ -196,7 +193,7 @@ class TestHotReload:
 
         time.sleep(0.02)
 
-        with open(sample_yaml, "r") as f:
+        with open(sample_yaml) as f:
             data = yaml.safe_load(f)
         data["tenants"]["newco"] = {"restricted_names": ["Secret Alpha"]}
         with open(sample_yaml, "w") as f:
@@ -282,7 +279,7 @@ class TestThreadSafety:
         mgr = RestrictedNamesManager(config_path=sample_yaml)
 
         time.sleep(0.02)
-        with open(sample_yaml, "r") as f:
+        with open(sample_yaml) as f:
             data = yaml.safe_load(f)
         data["tenants"]["bigbank"]["restricted_names"] = ["New Mega Deal"]
         with open(sample_yaml, "w") as f:

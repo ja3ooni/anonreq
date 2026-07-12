@@ -3,13 +3,13 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from decimal import Decimal
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator, model_serializer
 
 
-class PolicyAction(str, Enum):
+class PolicyAction(StrEnum):
     BLOCK = "BLOCK"
     ALLOW = "ALLOW"
     ROUTE_LOCAL = "ROUTE_LOCAL"

@@ -3,8 +3,6 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import FastAPI, Request
-from httpx import ASGITransport, AsyncClient
 
 from anonreq.multimodal.models import AnalyzerResult, ContentType, UnifiedDetectionResult
 
@@ -134,7 +132,7 @@ class TestContentTypeDispatcher:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "header,expected",
+        ("header", "expected"),
         [
             ("application/x-anonreq-agent-tool-call", ContentType.AGENT_TOOL_CALL),
             ("application/x-anonreq-agent-tool-result", ContentType.AGENT_TOOL_RESULT),
@@ -173,7 +171,7 @@ class TestContentTypeDispatcher:
         mock_multipart_analyzer.analyze.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_unknown_type_returns_route_local(self, mock_json_analyzer, mock_multipart_analyzer):
+    async def test_unknown_type_returns_route_local(self, mock_json_analyzer, mock_multipart_analyzer):  # noqa: E501
         from anonreq.multimodal.dispatcher import ContentTypeDispatcher
 
         dispatcher = ContentTypeDispatcher(
@@ -186,7 +184,7 @@ class TestContentTypeDispatcher:
         assert result.should_process is False
 
     @pytest.mark.asyncio
-    async def test_missing_header_defaults_to_text_plain(self, mock_json_analyzer, mock_multipart_analyzer):
+    async def test_missing_header_defaults_to_text_plain(self, mock_json_analyzer, mock_multipart_analyzer):  # noqa: E501
         from anonreq.multimodal.dispatcher import ContentTypeDispatcher
 
         dispatcher = ContentTypeDispatcher(
@@ -233,7 +231,7 @@ class TestContentTypeDispatcher:
         assert raw == "multipart/form-data"
 
     @pytest.mark.asyncio
-    async def test_parse_content_type_with_boundary(self, mock_json_analyzer, mock_multipart_analyzer):
+    async def test_parse_content_type_with_boundary(self, mock_json_analyzer, mock_multipart_analyzer):  # noqa: E501
         from anonreq.multimodal.dispatcher import ContentTypeDispatcher
 
         dispatcher = ContentTypeDispatcher(

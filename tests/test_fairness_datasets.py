@@ -6,20 +6,19 @@ Uses SQLite in-memory for DB and a mock MinIO client.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine
 
+from anonreq.fairness.datasets import FairnessDatasetManager
 from anonreq.models.fairness import (
     Base,
-    FairnessDataset,
     DemographicResult,
-    FairnessResult,
+    FairnessDataset,
     FairnessEvaluation,
-    dataset_model_to_dataclass,
+    FairnessResult,
 )
-from anonreq.fairness.datasets import FairnessDatasetManager
 
 
 @pytest.fixture
@@ -47,10 +46,10 @@ def mock_minio():
         async def make_bucket(self, bucket: str) -> None:
             self._buckets.add(bucket)
 
-        async def put_object(self, bucket, object_path, data, length, content_type):
+        async def put_object(self, bucket, object_path, data, length=None, content_type=None, *args, **kwargs):
             self._objects[object_path] = data.read() if hasattr(data, 'read') else data
 
-        async def get_object(self, bucket, object_path):
+        async def get_object(self, _bucket, object_path):
             class Response:
                 def __init__(self, data):
                     self._data = data
@@ -76,13 +75,13 @@ class TestFairnessDatasetModel:
     """Tests for FairnessDataset dataclass."""
 
     def test_dataset_creates_with_required_fields(self):
-        """Test 1: FairnessDataset includes id, sha256, owner, approved_by, approval_date, framework, version."""
+        """Test 1: FairnessDataset includes id, sha256, owner, approved_by, approval_date, framework, version."""  # noqa: E501
         ds = FairnessDataset(
             id="ds_001",
             sha256="abc123def456",
             owner="alice",
             approved_by="compliance-team",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="en-US",
@@ -91,7 +90,7 @@ class TestFairnessDatasetModel:
         assert ds.sha256 == "abc123def456"
         assert ds.owner == "alice"
         assert ds.approved_by == "compliance-team"
-        assert ds.approval_date == datetime(2026, 6, 20, tzinfo=timezone.utc)
+        assert ds.approval_date == datetime(2026, 6, 20, tzinfo=UTC)
         assert ds.framework == "bias-v1"
         assert ds.version == "1.0"
         assert ds.locale == "en-US"
@@ -103,7 +102,7 @@ class TestFairnessDatasetModel:
             sha256="def789",
             owner="bob",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="de-DE",
@@ -119,7 +118,7 @@ class TestFairnessDatasetModel:
             sha256="ghi012",
             owner="carol",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="2.0",
             locale="fr-FR",
@@ -274,7 +273,7 @@ class TestFairnessDatasetManager:
             sha256="",
             owner="alice",
             approved_by="compliance-team",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="en-US",
@@ -295,7 +294,7 @@ class TestFairnessDatasetManager:
             sha256="",
             owner="bob",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="de-DE",
@@ -318,7 +317,7 @@ class TestFairnessDatasetManager:
             sha256="",
             owner="carol",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="fr-FR",
@@ -336,7 +335,7 @@ class TestFairnessDatasetManager:
         retrieved = await manager.get_dataset(dataset_id="nonexistent")
         assert retrieved is None
 
-        retrieved = await manager.get_dataset(sha256="0000000000000000000000000000000000000000000000000000000000000000")
+        retrieved = await manager.get_dataset(sha256="0000000000000000000000000000000000000000000000000000000000000000")  # noqa: E501
         assert retrieved is None
 
     async def test_duplicate_detection_by_hash(self, manager):
@@ -346,7 +345,7 @@ class TestFairnessDatasetManager:
             sha256="",
             owner="alice",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="en-US",
@@ -359,7 +358,7 @@ class TestFairnessDatasetManager:
             sha256="",
             owner="bob",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="en-US",
@@ -376,7 +375,7 @@ class TestFairnessDatasetManager:
                 sha256="",
                 owner="tester",
                 approved_by="compliance",
-                approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+                approval_date=datetime(2026, 6, 20, tzinfo=UTC),
                 framework=fw,
                 version="1.0",
                 locale=locale,
@@ -399,7 +398,7 @@ class TestFairnessDatasetManager:
                 sha256="",
                 owner="tester",
                 approved_by="compliance",
-                approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+                approval_date=datetime(2026, 6, 20, tzinfo=UTC),
                 framework=fw[0],
                 version=fw[1],
                 locale="en-US",
@@ -421,7 +420,7 @@ class TestFairnessDatasetManager:
                 sha256="",
                 owner="tester",
                 approved_by="compliance",
-                approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+                approval_date=datetime(2026, 6, 20, tzinfo=UTC),
                 framework="v1",
                 version="1.0",
                 locale="en-US",
@@ -448,7 +447,7 @@ class TestFairnessDatasetManager:
             sha256="",
             owner="alice",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="bias-v1",
             version="1.0",
             locale="en-US",
@@ -469,7 +468,7 @@ class TestFairnessDatasetManager:
                 sha256="",
                 owner="tester",
                 approved_by="compliance",
-                approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+                approval_date=datetime(2026, 6, 20, tzinfo=UTC),
                 framework="bias-v1",
                 version="1.0",
                 locale=locale,

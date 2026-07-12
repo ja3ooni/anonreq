@@ -11,17 +11,15 @@ Proves:
 
 from __future__ import annotations
 
-import asyncio
-from datetime import datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
 import pytest
-from hypothesis import assume, given, settings, strategies as st
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.policy.audit import DecisionAuditPublisher
-from anonreq.policy.evidence import _hash_policy_state
 from anonreq.policy.models import PolicyAction, PolicyDecision, PolicyRule
 from anonreq.policy.pdp import PolicyDecisionPoint
 from anonreq.policy.residency_router import ResidencyRouter
@@ -40,7 +38,7 @@ policy_action_strategy = st.sampled_from(list(PolicyAction))
 
 priority_strategy = st.integers(min_value=0, max_value=1000)
 
-classification_strategy = st.sampled_from(["Public", "Internal", "Confidential", "Highly Restricted"])
+classification_strategy = st.sampled_from(["Public", "Internal", "Confidential", "Highly Restricted"])  # noqa: E501
 
 region_strategy = st.sampled_from(["us-east-1", "eu-west-1", "ap-southeast-1"])
 
@@ -107,17 +105,17 @@ async def test_tenant_isolation(tenant_a, tenant_b, rule_a):
     # Mock other PDP components
     mock_limiter = AsyncMock(spec=UsageLimiter)
     mock_limiter.check_rate_limit.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     mock_spend = AsyncMock(spec=SpendController)
     mock_spend.check_spend.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     mock_residency = AsyncMock(spec=ResidencyRouter)
     mock_residency.resolve_region.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     pdp = PolicyDecisionPoint(mock_store, mock_limiter, mock_spend, mock_residency)
@@ -138,10 +136,9 @@ async def test_tenant_isolation(tenant_a, tenant_b, rule_a):
 @given(
     tenant_id=tenant_id_strategy,
     classification=classification_strategy,
-    region=region_strategy,
 )
 @settings(max_examples=30)
-async def test_fail_secure_on_cache_failure(tenant_id, classification, region):
+async def test_fail_secure_on_cache_failure(tenant_id, classification):
     # Mock components to raise exceptions simulating redis/Valkey outages
     mock_store = AsyncMock(spec=PolicyStore)
     mock_store.enabled_rules.side_effect = Exception("Redis connection lost")
@@ -197,17 +194,17 @@ async def test_deny_dominates_allow(priority_allow, priority_block, tenant_id):
 
     mock_limiter = AsyncMock(spec=UsageLimiter)
     mock_limiter.check_rate_limit.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     mock_spend = AsyncMock(spec=SpendController)
     mock_spend.check_spend.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     mock_residency = AsyncMock(spec=ResidencyRouter)
     mock_residency.resolve_region.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     pdp = PolicyDecisionPoint(mock_store, mock_limiter, mock_spend, mock_residency)
@@ -243,7 +240,7 @@ async def test_no_raw_pii_in_audit(pii_value, tenant_id, session_id):
         PolicyDecision(
             action=PolicyAction.BLOCK,
             matched_rule_ids=["rule_001"],
-            decision_ts=datetime.now(timezone.utc),
+            decision_ts=datetime.now(UTC),
             reason=f"Failed validation because of {pii_value}",
         ),
     )
@@ -282,17 +279,17 @@ async def test_decision_deterministic(tenant_id, classification, provider):
 
     mock_limiter = AsyncMock(spec=UsageLimiter)
     mock_limiter.check_rate_limit.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     mock_spend = AsyncMock(spec=SpendController)
     mock_spend.check_spend.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     mock_residency = AsyncMock(spec=ResidencyRouter)
     mock_residency.resolve_region.return_value = PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc)
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC)
     )
 
     # Disable TTL cache to ensure evaluation runs on each call

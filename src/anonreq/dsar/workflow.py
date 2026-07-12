@@ -10,20 +10,21 @@ Per D-021 through D-025:
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from anonreq.models.audit import AuditEvent
 from anonreq.models.dsar import (
     DsarRequest,
     DsarRequestType,
     DsarResult,
     SubjectStatus,
 )
-from anonreq.models.audit import AuditEvent
 
 logger = logging.getLogger("anonreq.dsar.workflow")
 
@@ -86,7 +87,7 @@ class DsarWorkflow:
         Returns:
             The created DsarRequest.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         request_id = f"dsar_{uuid4().hex[:16]}"
 
         request = DsarRequest(
@@ -163,7 +164,7 @@ class DsarWorkflow:
         Raises:
             ValueError: If the request is not found.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         stmt = text("""
             UPDATE dsar_requests
             SET status = :status,
@@ -181,7 +182,7 @@ class DsarWorkflow:
             await self._db.commit()
         except Exception:
             await self._db.rollback()
-            raise ValueError(f"Failed to verify DSAR request: {request_id}")
+            raise ValueError(f"Failed to verify DSAR request: {request_id}")  # noqa: B904
 
         if result.rowcount == 0:
             raise ValueError(f"DSAR request not found: {request_id}")
@@ -222,7 +223,7 @@ class DsarWorkflow:
         if request is None:
             raise ValueError(f"DSAR request not found: {request_id}")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         subject_status: SubjectStatus | None = None
         summary = ""
 
@@ -444,10 +445,8 @@ class DsarWorkflow:
         result_str = row_dict.get("result")
         subject_status: SubjectStatus | None = None
         if result_str:
-            try:
+            with contextlib.suppress(ValueError):
                 subject_status = SubjectStatus(result_str)
-            except ValueError:
-                pass
 
         return DsarRequest(
             id=row_dict.get("id", ""),
@@ -481,7 +480,7 @@ class DsarWorkflow:
                 event_id=f"dsar_{uuid4().hex[:24]}",
                 prev_hash=None,
                 hash="",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 tenant_id=tenant_id,
                 request_id=None,
                 policy_id=None,

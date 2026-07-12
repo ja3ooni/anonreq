@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from anonreq.locale.checksum import ChecksumValidatorRegistry
 from anonreq.locale.registry import LocaleRegistry
 

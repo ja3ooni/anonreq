@@ -12,7 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase
@@ -60,7 +60,7 @@ class ExportTrackingModel(Base):
     year = Column(Integer, nullable=False)
     month = Column(Integer, nullable=False)
     event_count = Column(Integer, nullable=False)
-    formats = Column(Text, nullable=False)          # JSON list of formats (e.g. '["jsonl", "parquet"]')
+    formats = Column(Text, nullable=False)          # JSON list of formats (e.g. '["jsonl", "parquet"]')  # noqa: E501
     checksums_json = Column(Text, nullable=False)   # JSON dict of SHA-384 hashes
     created_at = Column(DateTime(timezone=True), nullable=False)
 
@@ -213,5 +213,5 @@ class MnpiAuditEvent:
     entity_type: str
     policy_action: str
     detected_value_hash: str
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     policy_rule_id: str | None = None

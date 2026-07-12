@@ -16,7 +16,7 @@ __all__ = [
     "AppClassification",
     "AppPolicy",
     "CASBClassifier",
-    "ClassificationAction",
     "CASBEngine",
     "CASBEvent",
+    "ClassificationAction",
 ]

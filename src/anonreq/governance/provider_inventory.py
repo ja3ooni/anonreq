@@ -10,7 +10,7 @@ Provides:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, select
@@ -60,11 +60,11 @@ class ProviderInventory:
         Returns:
             The created ProviderRecord.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         provider_id = f"prov_{uuid.uuid4().hex[:24]}"
 
         # Initialise lifecycle — LifecycleService defaults to DESIGN
-        stage = await self._lifecycle.get_current_stage(provider_id)
+        await self._lifecycle.get_current_stage(provider_id)
 
         orm = ProviderAnonReqModel(
             provider_id=provider_id,
@@ -168,7 +168,7 @@ class ProviderInventory:
         if orm is None:
             raise ValueError(f"Provider not found: {provider_id}")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         orm.status = "suspended"
         orm.updated_at = now
 
@@ -199,7 +199,7 @@ class ProviderInventory:
         if orm is None:
             raise ValueError(f"Provider not found: {provider_id}")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         orm.status = "active"
         orm.updated_at = now
 
@@ -231,7 +231,7 @@ class ProviderInventory:
         if orm is None:
             raise ValueError(f"Provider not found: {provider_id}")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         orm.concentration_risk = True
         orm.concentration_risk_justification = justification
         orm.concentration_risk_justification_date = now
@@ -309,5 +309,5 @@ def _orm_to_provider_record(orm: ProviderAnonReqModel) -> ProviderRecord:
 
 def _ensure_tz(dt: Any) -> Any:
     if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt

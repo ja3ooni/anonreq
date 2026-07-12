@@ -16,7 +16,7 @@ class FakeSTT:
     def __init__(self, outputs: list[str]) -> None:
         self.outputs = list(outputs)
 
-    async def transcribe(self, chunk: AudioChunk) -> str:
+    async def transcribe(self, _chunk: AudioChunk) -> str:
         return self.outputs.pop(0)
 
 
@@ -86,7 +86,7 @@ async def test_voice_pipeline_orchestrates_audio_sanitization_flow():
     )
     connector = FakeConnector([make_chunk()])
 
-    output = [chunk async for chunk in pipeline.process_stream(connector, output_format="audio", method="mute")]
+    output = [chunk async for chunk in pipeline.process_stream(connector, output_format="audio", method="mute")]  # noqa: E501
 
     assert connector.started is True
     assert connector.stopped is True
@@ -143,7 +143,7 @@ async def test_voice_pipeline_preserves_sequence_order_for_sanitized_frames():
     )
 
     output = [
-        frame async for frame in pipeline.process_stream(FakeConnector([first, second]), output_format="audio")
+        frame async for frame in pipeline.process_stream(FakeConnector([first, second]), output_format="audio")  # noqa: E501
     ]
 
     assert len(output) == 2
@@ -169,6 +169,6 @@ async def test_voice_pipeline_records_latency_exceeded_event():
     times = iter([0.0, 0.01])
     pipeline._clock = lambda: next(times)
 
-    _ = [frame async for frame in pipeline.process_stream(FakeConnector([make_chunk()]), output_format="audio")]
+    _ = [frame async for frame in pipeline.process_stream(FakeConnector([make_chunk()]), output_format="audio")]  # noqa: E501
 
     assert any(event == "voice_latency_exceeded" for event, _ in audit.events)

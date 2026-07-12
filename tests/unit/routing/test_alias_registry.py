@@ -49,7 +49,7 @@ def test_unknown_alias_lists_available(tmp_path: Path) -> None:
 def test_list_aliases_sorted(tmp_path: Path) -> None:
     config = write_aliases(
         tmp_path / "aliases.yaml",
-        "model_aliases:\n  zed:\n    provider: openai\n    model: a\n  alpha:\n    provider: openai\n    model: b\n",
+        "model_aliases:\n  zed:\n    provider: openai\n    model: a\n  alpha:\n    provider: openai\n    model: b\n",  # noqa: E501
     )
     registry = AliasRegistry(str(config))
     assert list(registry.list_aliases()) == ["alpha", "zed"]

@@ -23,7 +23,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.types import CertificateIssuerPrivateKeyTypes
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
-
 DEFAULT_CERT_TTL_SECONDS: Final[int] = 24 * 60 * 60
 MIN_TLS_VERSION: Final[ssl.TLSVersion] = ssl.TLSVersion.TLSv1_3
 
@@ -76,7 +75,7 @@ def generate_dynamic_cert(
         raise TLSInterceptorError("certificate TTL must be positive")
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     serial = x509.random_serial_number()
     subject = x509.Name(
         [
@@ -161,8 +160,8 @@ class TLSInterceptor:
 
             # SSLContext accepts paths only. Keep generated material in temp files
             # briefly, load it into OpenSSL, then remove it from disk.
-            cert_file = tempfile.NamedTemporaryFile(prefix="anonreq-cert-", suffix=".pem", delete=False)
-            key_file = tempfile.NamedTemporaryFile(prefix="anonreq-key-", suffix=".pem", delete=False)
+            cert_file = tempfile.NamedTemporaryFile(prefix="anonreq-cert-", suffix=".pem", delete=False)  # noqa: E501, SIM115
+            key_file = tempfile.NamedTemporaryFile(prefix="anonreq-key-", suffix=".pem", delete=False)  # noqa: E501, SIM115
             try:
                 cert_file.write(cert_pem)
                 key_file.write(key_pem)

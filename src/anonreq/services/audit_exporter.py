@@ -13,15 +13,14 @@ import os
 import tempfile
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-import yaml
+from datetime import UTC, datetime, timedelta
 
-from minio import Minio
-from minio.retention import Retention
-from minio.error import S3Error
 import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
+import yaml
+from minio import Minio
+from minio.retention import Retention
 from sqlalchemy import text
 
 from anonreq.models.audit import AuditEvent, ExportResult
@@ -56,7 +55,7 @@ class ExportConfig:
 
 
 class AuditExporter:
-    def __init__(self, audit_chain: AuditChainService, config: ExportConfig | None = None, config_path: str = "config/export.yaml") -> None:
+    def __init__(self, audit_chain: AuditChainService, config: ExportConfig | None = None, config_path: str = "config/export.yaml") -> None:  # noqa: E501
         self._audit_chain = audit_chain
         self._minio_client = None
 
@@ -68,7 +67,7 @@ class AuditExporter:
                 with open(config_path) as f:
                     data = yaml.safe_load(f) or {}
                     cfg = data.get("export", {})
-                    
+
                     m_cfg = cfg.get("monthly", {})
                     monthly = MonthlyConfig(
                         enabled=m_cfg.get("enabled", True),
@@ -133,20 +132,20 @@ class AuditExporter:
             bucket_name = self._config.minio.bucket
             try:
                 if not self._minio_client.bucket_exists(bucket_name):
-                    self._minio_client.make_bucket(bucket_name, object_lock=self._config.minio.worm_enabled)
+                    self._minio_client.make_bucket(bucket_name, object_lock=self._config.minio.worm_enabled)  # noqa: E501
             except Exception as e:
                 logger.warning("minio.bucket_setup_failed", bucket=bucket_name, error=str(e))
-                
+
         return self._minio_client
 
     async def export_month(self, year: int, month: int) -> ExportResult:
         """Export all audit events for the given month to MinIO and tracking."""
         # Calculate date boundaries
-        date_from = datetime(year, month, 1, 0, 0, 0, tzinfo=timezone.utc)
+        date_from = datetime(year, month, 1, 0, 0, 0, tzinfo=UTC)
         if month == 12:
-            date_to = datetime(year + 1, 1, 1, 0, 0, 0, tzinfo=timezone.utc) - timedelta(microseconds=1)
+            date_to = datetime(year + 1, 1, 1, 0, 0, 0, tzinfo=UTC) - timedelta(microseconds=1)
         else:
-            date_to = datetime(year, month + 1, 1, 0, 0, 0, tzinfo=timezone.utc) - timedelta(microseconds=1)
+            date_to = datetime(year, month + 1, 1, 0, 0, 0, tzinfo=UTC) - timedelta(microseconds=1)
 
         # 1. Fetch events from AuditChainService (no tenant_id filter -> get all events)
         events = await self._audit_chain.get_events(
@@ -180,13 +179,13 @@ class AuditExporter:
                 await self._upload_to_minio(client, local_parquet, remote_parquet)
 
         # 4. Record export in PostgreSQL export_tracking table
-        created_at = datetime.now(timezone.utc)
-        async with self._audit_chain._session_factory() as session:
+        created_at = datetime.now(UTC)
+        async with self._audit_chain._session_factory() as session:  # noqa: SIM117
             async with session.begin():
                 await session.execute(
                     text(
-                        "INSERT INTO export_tracking (year, month, event_count, formats, checksums_json, created_at) "
-                        "VALUES (:year, :month, :event_count, :formats, :checksums_json, :created_at)"
+                        "INSERT INTO export_tracking (year, month, event_count, formats, checksums_json, created_at) "  # noqa: E501
+                        "VALUES (:year, :month, :event_count, :formats, :checksums_json, :created_at)"  # noqa: E501
                     ),
                     {
                         "year": year,
@@ -262,7 +261,7 @@ class AuditExporter:
                 }
                 line = json.dumps(evt_dict) + "\n"
                 f.write(line)
-        
+
         # Calculate checksum
         with open(path, "rb") as f:
             while chunk := f.read(8192):
@@ -289,7 +288,7 @@ class AuditExporter:
             "new_value_hash": [e.new_value_hash for e in events],
             "metadata_json": [e.metadata_json for e in events],
         }
-        
+
         schema = pa.schema([
             ("event_id", pa.string()),
             ("prev_hash", pa.string()),
@@ -308,7 +307,7 @@ class AuditExporter:
             ("new_value_hash", pa.string()),
             ("metadata_json", pa.string()),
         ])
-        
+
         table = pa.Table.from_pydict(data, schema=schema)
         pq.write_table(table, path)
 
@@ -322,13 +321,13 @@ class AuditExporter:
     async def _upload_to_minio(self, client: Minio, local_path: str, remote_path: str) -> None:
         """Upload file to MinIO WORM bucket with retention headers."""
         bucket_name = self._config.minio.bucket
-        
+
         # Perform upload
         client.fput_object(bucket_name, remote_path, local_path)
 
         # Set Object Lock Retention if enabled
         if self._config.minio.worm_enabled:
-            retain_until = datetime.now(timezone.utc) + timedelta(days=self._config.minio.retention_days)
+            retain_until = datetime.now(UTC) + timedelta(days=self._config.minio.retention_days)
             try:
                 client.set_object_retention(
                     bucket_name,
@@ -340,7 +339,7 @@ class AuditExporter:
 
     async def run_scheduled_export(self) -> ExportResult | None:
         """Called by scheduler. Exports previous month if not already exported."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Compute previous month
         first_of_this_month = now.replace(day=1)
         prev_month_dt = first_of_this_month - timedelta(days=1)
@@ -369,17 +368,17 @@ class AuditExporter:
                 {"limit": limit}
             )
             rows = result.mappings().all()
-            
+
             history = []
             for r in rows:
                 formats = json.loads(r["formats"])
                 checksums = json.loads(r["checksums_json"])
-                
+
                 ts = r["created_at"]
                 if isinstance(ts, str):
                     ts = datetime.fromisoformat(ts)
                 if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
+                    ts = ts.replace(tzinfo=UTC)
 
                 history.append(ExportResult(
                     year=r["year"],

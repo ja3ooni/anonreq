@@ -9,17 +9,16 @@ Per D-002, D-006, D-007:
 
 from __future__ import annotations
 
-import json
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import Integer, select, func, and_
-from sqlalchemy import cast
+from sqlalchemy import Integer, and_, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from anonreq.incidents.classification import IncidentClassifier, IncidentSeverity
+from anonreq.incidents.classification import IncidentClassifier
 from anonreq.models.fairness import (
     FairnessEvaluation,
     ProductionMetricModel,
@@ -77,16 +76,15 @@ class FairnessMonitor:
             detected: Whether the entity was correctly detected.
             demographic_group: Demographic group of the request.
         """
-        async with self._session_factory() as session:
-            async with session.begin():
-                metric = ProductionMetricModel(
-                    tenant_id=tenant_id,
-                    entity_type=entity_type,
-                    demographic_group=demographic_group,
-                    detected=detected,
-                    recorded_at=datetime.now(timezone.utc),
-                )
-                session.add(metric)
+        async with self._session_factory() as session, session.begin():
+            metric = ProductionMetricModel(
+                tenant_id=tenant_id,
+                entity_type=entity_type,
+                demographic_group=demographic_group,
+                detected=detected,
+                recorded_at=datetime.now(UTC),
+            )
+            session.add(metric)
 
     async def set_baseline(self, evaluation: FairnessEvaluation) -> None:
         """Update the baseline from a completed fairness evaluation.
@@ -120,7 +118,7 @@ class FairnessMonitor:
             logger.warning("No baseline set — returning empty drift results")
             return []
 
-        window_start = datetime.now(timezone.utc) - timedelta(minutes=window_minutes)
+        window_start = datetime.now(UTC) - timedelta(minutes=window_minutes)
 
         alerts: list[dict[str, Any]] = []
 
@@ -160,7 +158,7 @@ class FairnessMonitor:
                 )
 
                 incident_id = f"inc_{uuid4().hex[:16]}"
-                incident = self._incident_classifier.create_incident_record(
+                self._incident_classifier.create_incident_record(
                     incident_id=incident_id,
                     severity=sev,
                     incident_type="fairness_drift",
@@ -189,7 +187,7 @@ class FairnessMonitor:
                         "baseline_recall": round(baseline_recall, 4),
                         "production_recall": round(production_recall, 4),
                         "severity": sev.name,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": datetime.now(UTC).isoformat(),
                     })
 
         return alerts

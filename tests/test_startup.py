@@ -7,7 +7,7 @@ Tests verify:
 - App startup with unreachable dependency raises error via lifespan
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -43,11 +43,11 @@ class TestStartupChecks:
     @patch("anonreq.startup_checks.check_valkey", return_value=False)
     @patch("anonreq.startup_checks.check_presidio", return_value=True)
     async def test_startup_checks_raises_when_valkey_unreachable(
-        self, mock_presidio, mock_valkey, test_settings
+        self, _mock_presidio, _mock_valkey, test_settings  # noqa: PT019
     ):
         """Test 2: run_startup_checks raises when Valkey unreachable."""
-        from anonreq.startup_checks import run_startup_checks
         from anonreq.exceptions import DependencyUnavailableError
+        from anonreq.startup_checks import run_startup_checks
 
         with pytest.raises(DependencyUnavailableError) as exc_info:
             await run_startup_checks(test_settings)
@@ -56,11 +56,11 @@ class TestStartupChecks:
     @patch("anonreq.startup_checks.check_valkey", return_value=True)
     @patch("anonreq.startup_checks.check_presidio", return_value=False)
     async def test_startup_checks_raises_when_presidio_unreachable(
-        self, mock_presidio, mock_valkey, test_settings
+        self, _mock_presidio, _mock_valkey, test_settings  # noqa: PT019
     ):
         """Test 3: run_startup_checks raises when Presidio unreachable."""
-        from anonreq.startup_checks import run_startup_checks
         from anonreq.exceptions import DependencyUnavailableError
+        from anonreq.startup_checks import run_startup_checks
 
         with pytest.raises(DependencyUnavailableError) as exc_info:
             await run_startup_checks(test_settings)
@@ -69,11 +69,11 @@ class TestStartupChecks:
     @patch("anonreq.startup_checks.check_valkey", return_value=True)
     @patch("anonreq.startup_checks.check_presidio", return_value=True)
     async def test_startup_checks_logs_results(
-        self, mock_presidio, mock_valkey, test_settings, capsys
+        self, _mock_presidio, _mock_valkey, test_settings, capsys  # noqa: PT019
     ):
         """run_startup_checks logs check results."""
-        from anonreq.startup_checks import run_startup_checks
         from anonreq.logging_config import setup_logging
+        from anonreq.startup_checks import run_startup_checks
 
         setup_logging(level="INFO")
         await run_startup_checks(test_settings)

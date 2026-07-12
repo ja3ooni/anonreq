@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-import time
 
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.policy.models import PolicyAction, PolicyDecision, PolicyRule
@@ -21,7 +20,7 @@ def mock_policy_store():
 def mock_usage_limiter():
     limiter = AsyncMock()
     limiter.check_rate_limit = AsyncMock(return_value=PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc),
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC),
     ))
     return limiter
 
@@ -30,7 +29,7 @@ def mock_usage_limiter():
 def mock_spend_controller():
     ctrl = AsyncMock()
     ctrl.check_spend = AsyncMock(return_value=PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc),
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC),
     ))
     return ctrl
 
@@ -39,7 +38,7 @@ def mock_spend_controller():
 def mock_residency_router():
     router = AsyncMock()
     router.resolve_region = AsyncMock(return_value=PolicyDecision(
-        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(timezone.utc),
+        action=PolicyAction.ALLOW, matched_rule_ids=[], decision_ts=datetime.now(UTC),
     ))
     return router
 
@@ -64,7 +63,7 @@ class TestEvaluateClassification:
                        conditions={"classification_level": "Highly Restricted"}),
             PolicyRule(rule_id="allow_default", action=PolicyAction.ALLOW, priority=0),
         ]
-        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Highly Restricted"})
+        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Highly Restricted"})  # noqa: E501
         assert decision.action == PolicyAction.BLOCK
         assert "block_hr" in decision.matched_rule_ids
 
@@ -75,7 +74,7 @@ class TestEvaluateClassification:
                        conditions={"classification_level": "Highly Restricted"}),
             PolicyRule(rule_id="allow_default", action=PolicyAction.ALLOW, priority=0),
         ]
-        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Internal"})
+        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Internal"})  # noqa: E501
         assert decision.action == PolicyAction.ALLOW
 
     @pytest.mark.asyncio
@@ -90,13 +89,13 @@ class TestEvaluateClassification:
     @pytest.mark.asyncio
     async def test_returns_allow_when_no_rules(self, pdp, mock_policy_store):
         mock_policy_store.enabled_rules.return_value = []
-        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Highly Restricted"})
+        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Highly Restricted"})  # noqa: E501
         assert decision.action == PolicyAction.ALLOW
 
     @pytest.mark.asyncio
     async def test_returns_block_on_store_error(self, pdp, mock_policy_store):
         mock_policy_store.enabled_rules.side_effect = Exception("Redis unavailable")
-        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Highly Restricted"})
+        decision = await pdp.evaluate_classification("test_tenant", {"classification_level": "Highly Restricted"})  # noqa: E501
         assert decision.action == PolicyAction.BLOCK
         assert decision.enforcement == "503"
 
@@ -106,7 +105,7 @@ class TestEvaluateRateLimit:
     async def test_returns_block_when_usage_limiter_denies(self, pdp, mock_usage_limiter):
         mock_usage_limiter.check_rate_limit.return_value = PolicyDecision(
             action=PolicyAction.BLOCK, matched_rule_ids=["rate_limit"],
-            decision_ts=datetime.now(timezone.utc), reason="RPM limit exceeded",
+            decision_ts=datetime.now(UTC), reason="RPM limit exceeded",
         )
         decision = await pdp.evaluate_rate_limit("test_tenant")
         assert decision.action == PolicyAction.BLOCK
@@ -116,7 +115,7 @@ class TestEvaluateRateLimit:
     async def test_returns_allow_when_rate_ok(self, pdp, mock_usage_limiter):
         mock_usage_limiter.check_rate_limit.return_value = PolicyDecision(
             action=PolicyAction.ALLOW, matched_rule_ids=["rate_limit"],
-            decision_ts=datetime.now(timezone.utc),
+            decision_ts=datetime.now(UTC),
         )
         decision = await pdp.evaluate_rate_limit("test_tenant")
         assert decision.action == PolicyAction.ALLOW
@@ -134,7 +133,7 @@ class TestEvaluateSpend:
     async def test_returns_block_when_spend_exceeded(self, pdp, mock_spend_controller):
         mock_spend_controller.check_spend.return_value = PolicyDecision(
             action=PolicyAction.BLOCK, matched_rule_ids=["spend_limit"],
-            decision_ts=datetime.now(timezone.utc), reason="Daily spend limit exceeded",
+            decision_ts=datetime.now(UTC), reason="Daily spend limit exceeded",
         )
         decision = await pdp.evaluate_spend("test_tenant")
         assert decision.action == PolicyAction.BLOCK
@@ -143,7 +142,7 @@ class TestEvaluateSpend:
     async def test_returns_allow_when_spend_ok(self, pdp, mock_spend_controller):
         mock_spend_controller.check_spend.return_value = PolicyDecision(
             action=PolicyAction.ALLOW, matched_rule_ids=["spend_limit"],
-            decision_ts=datetime.now(timezone.utc),
+            decision_ts=datetime.now(UTC),
         )
         decision = await pdp.evaluate_spend("test_tenant")
         assert decision.action == PolicyAction.ALLOW
@@ -161,7 +160,7 @@ class TestEvaluateResidency:
     async def test_returns_block_when_region_blocked(self, pdp, mock_residency_router):
         mock_residency_router.resolve_region.return_value = PolicyDecision(
             action=PolicyAction.BLOCK, matched_rule_ids=["residency_block"],
-            decision_ts=datetime.now(timezone.utc), reason="Region cn-north-1 is blocked",
+            decision_ts=datetime.now(UTC), reason="Region cn-north-1 is blocked",
         )
         decision = await pdp.evaluate_residency("test_tenant", "openai", "cn-north-1")
         assert decision.action == PolicyAction.BLOCK
@@ -170,7 +169,7 @@ class TestEvaluateResidency:
     async def test_returns_allow_when_region_allowed(self, pdp, mock_residency_router):
         mock_residency_router.resolve_region.return_value = PolicyDecision(
             action=PolicyAction.ALLOW, matched_rule_ids=["residency_match"],
-            decision_ts=datetime.now(timezone.utc), reason="Region us-east-1 is allowed",
+            decision_ts=datetime.now(UTC), reason="Region us-east-1 is allowed",
         )
         decision = await pdp.evaluate_residency("test_tenant", "openai", "us-east-1")
         assert decision.action == PolicyAction.ALLOW
@@ -198,7 +197,7 @@ class TestEvaluateAll:
         assert decision.matched_rule_ids == ["all_checks_passed"]
 
     @pytest.mark.asyncio
-    async def test_fail_fast_classification_block_shortcircuits(self, pdp, mock_policy_store, mock_usage_limiter):
+    async def test_fail_fast_classification_block_shortcircuits(self, pdp, mock_policy_store, mock_usage_limiter):  # noqa: E501
         mock_policy_store.enabled_rules.return_value = [
             PolicyRule(rule_id="block_hr", action=PolicyAction.BLOCK, priority=100,
                        conditions={"classification_level": "Highly Restricted"}),
@@ -210,7 +209,7 @@ class TestEvaluateAll:
         mock_usage_limiter.check_rate_limit.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_fail_fast_rate_limit_block_shortcircuits(self, pdp, mock_policy_store, mock_spend_controller):
+    async def test_fail_fast_rate_limit_block_shortcircuits(self, pdp, mock_policy_store):
         mock_policy_store.enabled_rules.return_value = [
             PolicyRule(rule_id="allow_default", action=PolicyAction.ALLOW, priority=0),
         ]
@@ -218,7 +217,7 @@ class TestEvaluateAll:
         limiter = AsyncMock()
         limiter.check_rate_limit = AsyncMock(return_value=PolicyDecision(
             action=PolicyAction.BLOCK, matched_rule_ids=["rate_limit"],
-            decision_ts=datetime.now(timezone.utc), reason="RPM exceeded",
+            decision_ts=datetime.now(UTC), reason="RPM exceeded",
         ))
         spend_ctrl = AsyncMock()
         pdp_rate = PolicyDecisionPoint(

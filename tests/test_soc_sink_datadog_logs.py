@@ -150,7 +150,7 @@ class TestDatadogLogsConfig:
     @pytest.mark.asyncio
     async def test_default_source_tag(self):
         """Default source tag is 'anonreq'."""
-        from anonreq.soc.sinks.datadog_logs import DatadogLogsSink, DEFAULT_SOURCE_TAG
+        from anonreq.soc.sinks.datadog_logs import DEFAULT_SOURCE_TAG
 
         assert DEFAULT_SOURCE_TAG == "anonreq"
 

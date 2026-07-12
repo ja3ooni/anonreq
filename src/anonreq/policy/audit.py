@@ -6,15 +6,15 @@ All events are metadata-only and strictly filtered against a field allowlist.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from anonreq.models.processing_context import ProcessingContext
-from anonreq.policy.models import PolicyAction, PolicyDecision
 from anonreq.policy.metrics import register_policy_metrics
+from anonreq.policy.models import PolicyAction, PolicyDecision
 
 ALLOWED_FIELDS: frozenset[str] = frozenset({
     "event_type",
@@ -45,7 +45,7 @@ class PolicyAuditEvent(BaseModel):
     """Pydantic model representing a structured, metadata-only policy audit event."""
 
     event_type: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     tenant_id: str
     session_id: str | None = None
     actor_id: str | None = None
@@ -62,7 +62,7 @@ class DecisionAuditPublisher:
         """Initialize with a structured logger."""
         self._logger = audit_logger
 
-    def _build_event(self, event_type: str, **fields) -> PolicyAuditEvent:
+    def _build_event(self, event_type: str, **fields: Any) -> PolicyAuditEvent:
         """Construct a PolicyAuditEvent, enforcing the metadata-only field allowlist."""
         # Filter fields against metadata allowlist
         filtered = {k: v for k, v in fields.items() if k in ALLOWED_FIELDS}
@@ -72,7 +72,7 @@ class DecisionAuditPublisher:
             if isinstance(v, Decimal):
                 filtered[k] = float(v)
 
-        timestamp = filtered.pop("timestamp", None) or datetime.now(timezone.utc)
+        timestamp = filtered.pop("timestamp", None) or datetime.now(UTC)
         tenant_id = filtered.pop("tenant_id", "default")
         session_id = filtered.pop("session_id", None)
         actor_id = filtered.pop("actor_id", None)
@@ -105,7 +105,7 @@ class DecisionAuditPublisher:
         if event.decision_id is not None:
             log_fields["decision_id"] = event.decision_id
         if event.action is not None:
-            log_fields["action"] = event.action.value if hasattr(event.action, "value") else str(event.action)
+            log_fields["action"] = event.action.value if hasattr(event.action, "value") else str(event.action)  # noqa: E501
         if event.matched_rule_ids:
             log_fields["matched_rule_ids"] = event.matched_rule_ids
 
@@ -129,14 +129,14 @@ class DecisionAuditPublisher:
 
         # Increment metrics
         metrics = register_policy_metrics()
-        action_str = decision.action.value if hasattr(decision.action, "value") else str(decision.action)
+        action_str = decision.action.value if hasattr(decision.action, "value") else str(decision.action)  # noqa: E501
         metrics.record_decision(ctx.tenant_id, action_str)
 
         if decision.action == PolicyAction.BLOCK:
             reason_metric = decision.matched_rule_ids[0] if decision.matched_rule_ids else "blocked"
             metrics.record_denial(ctx.tenant_id, reason_metric)
 
-    async def publish_rate_limit(self, tenant_id: str, limit_type: str, current: int, limit: int) -> None:
+    async def publish_rate_limit(self, tenant_id: str, limit_type: str, current: int, limit: int) -> None:  # noqa: E501
         """Publish a rate limit hit event and increment rate limit metrics."""
         event = self._build_event(
             "rate_limit_exceeded",
@@ -150,7 +150,7 @@ class DecisionAuditPublisher:
         metrics = register_policy_metrics()
         metrics.record_rate_limit(tenant_id, limit_type)
 
-    async def publish_spend_limit(self, tenant_id: str, budget_type: str, current: Decimal, limit: Decimal, currency: str) -> None:
+    async def publish_spend_limit(self, tenant_id: str, budget_type: str, current: Decimal, limit: Decimal, currency: str) -> None:  # noqa: E501
         """Publish a spend budget limit hit event and increment spend metrics."""
         event = self._build_event(
             "spend_limit_exceeded",
@@ -165,7 +165,7 @@ class DecisionAuditPublisher:
         metrics = register_policy_metrics()
         metrics.record_spend_limit(tenant_id, budget_type)
 
-    async def publish_routing_violation(self, tenant_id: str, provider: str, region: str, allowed: list[str]) -> None:
+    async def publish_routing_violation(self, tenant_id: str, provider: str, region: str, allowed: list[str]) -> None:  # noqa: E501
         """Publish a residency routing violation event."""
         event = self._build_event(
             "routing_policy_violation",
@@ -176,7 +176,7 @@ class DecisionAuditPublisher:
         )
         self._emit(event)
 
-    async def publish_classification_block(self, tenant_id: str, classification: str, rule_id: str) -> None:
+    async def publish_classification_block(self, tenant_id: str, classification: str, rule_id: str) -> None:  # noqa: E501
         """Publish a content classification block event."""
         event = self._build_event(
             "classification_block",
@@ -192,6 +192,6 @@ class DecisionAuditPublisher:
             "budget_reset",
             tenant_id=tenant_id,
             budget_type=budget_type,
-            reset_at=datetime.now(timezone.utc).isoformat(),
+            reset_at=datetime.now(UTC).isoformat(),
         )
         self._emit(event)

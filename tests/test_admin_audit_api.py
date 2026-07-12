@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock
+
 import pytest
 from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
@@ -48,7 +49,7 @@ async def test_get_config_history_authorized(audit_app):
     audit_app.state.audit_chain.get_events.return_value = [
         AuditEvent(
             event_id="e1", prev_hash=None, hash="h1",
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             tenant_id="test_tenant", request_id=None, policy_id=None, decision=None,
             provider=None, latency_ms=None, event_type="config_change",
             operator_id="op1", change_type="update", prev_value_hash=None,
@@ -64,7 +65,7 @@ async def test_get_config_history_authorized(audit_app):
             "X-AnonReq-Role": "administrator",
             "X-AnonReq-Tenant-ID": "test_tenant",
         }
-        response = await client.get("/v1/admin/audit/config-history?tenant_id=test_tenant", headers=headers)
+        response = await client.get("/v1/admin/audit/config-history?tenant_id=test_tenant", headers=headers)  # noqa: E501
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 1
@@ -99,7 +100,7 @@ async def test_export_config_history_streaming(audit_app):
     events = [
         AuditEvent(
             event_id="e1", prev_hash=None, hash="h1",
-            timestamp=datetime(2026, 7, 3, 12, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 7, 3, 12, 0, 0, tzinfo=UTC),
             tenant_id="test_tenant", request_id=None, policy_id=None, decision=None,
             provider=None, latency_ms=None, event_type="config_change",
             operator_id="op1", change_type="update", prev_value_hash="prev_h",
@@ -107,7 +108,7 @@ async def test_export_config_history_streaming(audit_app):
         )
     ]
 
-    async def mock_get_events(tenant_id=None, limit=100, offset=0, **kwargs):
+    async def mock_get_events(_tenant_id=None, limit=100, offset=0, **_kwargs):
         if offset >= len(events):
             return []
         return events[offset : offset + limit]
@@ -124,7 +125,7 @@ async def test_export_config_history_streaming(audit_app):
         response = await client.get("/v1/admin/audit/config-history/export", headers=headers)
         assert response.status_code == 200
         assert response.headers["Content-Type"] == "application/x-ndjson"
-        assert "attachment; filename=config-history-export.jsonl" in response.headers["Content-Disposition"]
+        assert "attachment; filename=config-history-export.jsonl" in response.headers["Content-Disposition"]  # noqa: E501
 
         content = response.text
         lines = [json.loads(line) for line in content.strip().split("\n") if line]

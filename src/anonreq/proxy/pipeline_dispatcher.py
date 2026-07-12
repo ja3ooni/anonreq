@@ -48,7 +48,8 @@ class PipelineContentDispatcher:
     Usage::
 
         dispatcher = PipelineContentDispatcher(pipeline_manager, app_state=app.state)
-        result = await dispatcher.dispatch("application/json", body, ctx={"path": "/v1/chat/completions"})
+        ctx = {"path": "/v1/chat/completions"}
+        result = await dispatcher.dispatch("application/json", body, ctx=ctx)
     """
 
     def __init__(

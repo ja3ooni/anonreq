@@ -37,7 +37,7 @@ class CPFValidator(ChecksumValidator):
 
     @staticmethod
     def _check_digit(digits: list[int], weights: range) -> int:
-        total = sum(digit * weight for digit, weight in zip(digits, weights))
+        total = sum(digit * weight for digit, weight in zip(digits, weights, strict=False))
         remainder = total % 11
         return 0 if remainder < 2 else 11 - remainder
 
@@ -55,6 +55,6 @@ class CNPJValidator(ChecksumValidator):
 
     @staticmethod
     def _check_digit(digits: list[int], weights: list[int]) -> int:
-        total = sum(digit * weight for digit, weight in zip(digits, weights))
+        total = sum(digit * weight for digit, weight in zip(digits, weights, strict=False))
         remainder = total % 11
         return 0 if remainder < 2 else 11 - remainder

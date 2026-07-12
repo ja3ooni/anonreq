@@ -11,9 +11,8 @@ Per D-002:
 
 from __future__ import annotations
 
-import ipaddress
 import fnmatch
-from typing import Any
+import ipaddress
 
 
 class ProviderSignature:
@@ -27,7 +26,7 @@ class ProviderSignature:
         jurisdiction: Data jurisdiction — "us", "eu", "cn", or "other".
     """
 
-    __slots__ = ("provider", "hostnames", "ip_ranges", "tier", "jurisdiction")
+    __slots__ = ("hostnames", "ip_ranges", "jurisdiction", "provider", "tier")
 
     def __init__(
         self,

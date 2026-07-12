@@ -14,7 +14,6 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 
 from anonreq.services.oversight import (
-    ApprovalRequestCreate,
     OversightService,
 )
 
@@ -70,7 +69,7 @@ async def approve_approval(
     try:
         req = await svc.approve_request(approval_id, operator_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404 if "not found" in str(exc) else 409, detail=str(exc))
+        raise HTTPException(status_code=404 if "not found" in str(exc) else 409, detail=str(exc))  # noqa: B904
     return req.model_dump()
 
 
@@ -89,7 +88,7 @@ async def reject_approval(
     try:
         req = await svc.reject_request(approval_id, operator_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404 if "not found" in str(exc) else 409, detail=str(exc))
+        raise HTTPException(status_code=404 if "not found" in str(exc) else 409, detail=str(exc))  # noqa: B904
     return req.model_dump()
 
 
@@ -115,7 +114,7 @@ async def post_kill_switch(request: Request) -> dict:
         operator_id = body.get("operator_id", "unknown")
         reason = body.get("reason", "No reason provided")
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid request body")
+        raise HTTPException(status_code=400, detail="Invalid request body")  # noqa: B904
 
     if action == "activate":
         await svc.activate_kill_switch(operator_id, reason)

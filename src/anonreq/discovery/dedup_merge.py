@@ -10,7 +10,6 @@ Per D-001, D-014:
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
@@ -39,9 +38,16 @@ class MergedRecord:
     """
 
     __slots__ = (
-        "service_name", "provider", "sources", "hostnames",
-        "ip_addresses", "first_seen", "last_seen", "total_requests",
-        "total_users", "estimated_token_volume",
+        "estimated_token_volume",
+        "first_seen",
+        "hostnames",
+        "ip_addresses",
+        "last_seen",
+        "provider",
+        "service_name",
+        "sources",
+        "total_requests",
+        "total_users",
     )
 
     def __init__(
@@ -157,7 +163,7 @@ class DedupMerge:
                 g["last_seen"] = entry.timestamp
 
         records: list[MergedRecord] = []
-        for key, info in groups.items():
+        for _key, info in groups.items():
             records.append(MergedRecord(
                 service_name=info["service_name"],
                 provider=info["provider"],

@@ -9,8 +9,6 @@ Per D-29, D-30, D-31:
 
 from __future__ import annotations
 
-import pytest
-
 from anonreq.pipeline.extraction import TextExtractor
 
 
@@ -162,12 +160,12 @@ class TestTextExtractor:
         body = {
             "messages": [
                 {"role": "user", "content": "first"},
-                {"role": "assistant", "content": "second", "tool_calls": [{"function": {"name": "f", "arguments": '{"x": 1}'}}]},
+                {"role": "assistant", "content": "second", "tool_calls": [{"function": {"name": "f", "arguments": '{"x": 1}'}}]},  # noqa: E501
                 {"role": "user", "content": "third"},
             ]
         }
         nodes = TextExtractor.extract(body)
-        # Order: messages[0].content, messages[1].content, messages[1].tool_calls[0].arguments, messages[2].content
+        # Order: messages[0].content, messages[1].content, messages[1].tool_calls[0].arguments, messages[2].content  # noqa: E501
         assert len(nodes) == 4
         assert nodes[0]["value"] == "first"
         assert nodes[1]["value"] == "second"

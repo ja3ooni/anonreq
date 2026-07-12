@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 
 
-class DLPCategory(str, Enum):
+class DLPCategory(StrEnum):
     PII = "PII"
     FINANCIAL = "Financial"
     HEALTH = "Health"
@@ -18,7 +18,7 @@ class DLPCategory(str, Enum):
     EXFILTRATION = "Exfiltration"
 
 
-class DLPAction(str, Enum):
+class DLPAction(StrEnum):
     ALLOW = "allow"
     ANONYMIZE = "anonymize"
     REDACT = "redact"

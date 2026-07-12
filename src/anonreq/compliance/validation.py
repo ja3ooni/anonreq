@@ -19,7 +19,7 @@ class ComplianceViolation:
     message: str
 
 
-def _tiers_for(effective_config: dict | PresetMergeResult, entity_type: str) -> list[RecognizerTier]:
+def _tiers_for(effective_config: dict | PresetMergeResult, entity_type: str) -> list[RecognizerTier]:  # noqa: E501
     if isinstance(effective_config, PresetMergeResult):
         return effective_config.merged_minimum_tiers.get(entity_type, [])
     raw = (effective_config.get("entity_types") or {}).get(entity_type, {})
@@ -71,7 +71,7 @@ def validate_effective_config(
                 continue
 
             required_threshold = preset.thresholds.get(entity_type)
-            if required_threshold is not None and _threshold_for(effective_config, entity_type) < required_threshold:
+            if required_threshold is not None and _threshold_for(effective_config, entity_type) < required_threshold:  # noqa: E501
                 violations.append(ComplianceViolation(
                     preset.id,
                     entity_type,
@@ -89,7 +89,7 @@ def validate_effective_config(
                     f"{entity_type} missing required tiers",
                 ))
 
-            if entity_type in preset.requires_checksum and not _has_checksum(effective_config, entity_type):
+            if entity_type in preset.requires_checksum and not _has_checksum(effective_config, entity_type):  # noqa: E501
                 violations.append(ComplianceViolation(
                     preset.id,
                     entity_type,

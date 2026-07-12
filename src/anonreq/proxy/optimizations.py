@@ -200,7 +200,7 @@ def configure_httpx_client(
         pool_config = ConnectionPoolConfig()
 
     try:
-        import httpx  # noqa: F401
+        import httpx
 
         limits = httpx.Limits(
             max_connections=pool_config.max_connections,

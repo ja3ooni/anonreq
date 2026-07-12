@@ -25,7 +25,7 @@ from __future__ import annotations
 import io
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, timedelta
 from typing import Any
 
 from minio import Minio
@@ -145,7 +145,7 @@ class MinioWormBucket:
             f"/{event.event_id}.json"
         )
 
-        retain_until = ts.replace(tzinfo=timezone.utc) + timedelta(days=RETENTION_DAYS)
+        retain_until = ts.replace(tzinfo=UTC) + timedelta(days=RETENTION_DAYS)
 
         client.put_object(
             self._bucket,
@@ -251,5 +251,5 @@ def create_mnpi_worm_bucket(
         endpoint=endpoint or os.environ.get("MINIO_ENDPOINT", "localhost:9000"),
         access_key=access_key or os.environ.get("MINIO_ACCESS_KEY", "minioadmin"),
         secret_key=secret_key or os.environ.get("MINIO_SECRET_KEY", "minioadmin"),
-        secure=secure if secure is not None else os.environ.get("MINIO_SECURE", "false").lower() == "true",
+        secure=secure if secure is not None else os.environ.get("MINIO_SECURE", "false").lower() == "true",  # noqa: E501
     )

@@ -31,11 +31,9 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 
 from tests.property.conftest import inject_failure
-from hypothesis import strategies as st
-
 from tests.property.strategies import (
-    ENTITY_TYPE_STRATEGIES,
     ALL_ENTITY_TYPES,
+    ENTITY_TYPE_STRATEGIES,
     FailureMode,
     PipelinePath,
     pii_text_strategy,
@@ -51,7 +49,6 @@ _FIXTURE_HC = HealthCheck.function_scoped_fixture
 
 @pytest.mark.parametrize("entity_type", ALL_ENTITY_TYPES)
 async def test_pii_not_in_logs_happy_path(
-    test_app: Any,
     property_client: Any,
     log_capture: Any,
     entity_type: str,
@@ -161,7 +158,6 @@ async def test_pii_not_in_logs_forwarding_denied(
 )
 @given(pii_data=pii_text_strategy())
 async def test_pii_not_in_logs_property(
-    test_app: Any,
     property_client: Any,
     log_capture: Any,
     pii_data: tuple[str, str, str],

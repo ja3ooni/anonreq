@@ -25,7 +25,6 @@ from anonreq.proxy.metrics import (
 )
 from anonreq.proxy.tls_interceptor import TLSInterceptor
 
-
 log = structlog.get_logger(__name__)
 
 
@@ -116,7 +115,7 @@ class TransparentProxy:
             proxy_tls_intercepted_total.labels(domain=request.host, tenant_id="default").inc()
             return await self._route_to_dispatcher(request, decision)
         except Exception:
-            fail_closed_total.labels(component="transparent_proxy", failure_reason="interception_error").inc()
+            fail_closed_total.labels(component="transparent_proxy", failure_reason="interception_error").inc()  # noqa: E501
             return ProxyResponse(
                 status_code=500,
                 body=b"Transparent proxy failed closed.",
@@ -162,7 +161,7 @@ class TransparentProxy:
             writer.write(self._serialize_response(response))
             await writer.drain()
         except Exception as exc:
-            log.error("Transparent proxy connection failed", component="transparent_proxy", error=str(exc))
+            log.error("Transparent proxy connection failed", component="transparent_proxy", error=str(exc))  # noqa: E501
             writer.write(b"HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n")
             await writer.drain()
         finally:
@@ -177,7 +176,7 @@ class TransparentProxy:
         headers = self._preserve_headers(request.headers)
         content_type = headers.get("content-type", "application/json")
         if hasattr(self.content_dispatcher, "dispatch"):
-            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx={"host": request.host})
+            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx={"host": request.host})  # noqa: E501
         elif callable(self.content_dispatcher):
             result = await self.content_dispatcher(request)
         else:
@@ -225,13 +224,13 @@ class TransparentProxy:
     def _blocked(
         self,
         reason: str,
-        request: ProxyRequest,
+        _request: ProxyRequest,
         status_code: int,
         decision: TrafficDecision | None = None,
     ) -> ProxyResponse:
         return ProxyResponse(
             status_code=status_code,
-            body=f"Blocked by AnonReq transparent proxy: {reason}".encode("utf-8"),
+            body=f"Blocked by AnonReq transparent proxy: {reason}".encode(),
             headers={"connection": "close", "x-anonreq-block-reason": reason},
             classification=decision.classification if decision else "unknown",
         )
@@ -248,7 +247,7 @@ class TransparentProxy:
     def _parse_http_request(data: bytes) -> ProxyRequest:
         head, _, body = data.partition(b"\r\n\r\n")
         lines = head.decode("iso-8859-1", errors="replace").splitlines()
-        method, path, _version = (lines[0].split(" ", 2) + ["", ""])[:3]
+        method, path, _version = ([*lines[0].split(" ", 2), "", ""])[:3]
         headers: dict[str, str] = {}
         for line in lines[1:]:
             if ":" in line:
@@ -273,4 +272,4 @@ class TransparentProxy:
         }.get(response.status_code, "OK")
         headers = {"content-length": str(len(response.body)), **response.headers}
         header_blob = "".join(f"{k}: {v}\r\n" for k, v in headers.items())
-        return f"HTTP/1.1 {response.status_code} {reason}\r\n{header_blob}\r\n".encode("ascii") + response.body
+        return f"HTTP/1.1 {response.status_code} {reason}\r\n{header_blob}\r\n".encode("ascii") + response.body  # noqa: E501

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
-import structlog
 from structlog import get_logger
 
 from anonreq.models.processing_context import ProcessingContext
@@ -44,7 +43,7 @@ class ForwardingGuard:
 
             decision_ts = ctx.policy_decision.decision_ts
             ttl = ctx.policy_decision.ttl_seconds
-            elapsed = (datetime.now(timezone.utc) - decision_ts).total_seconds()
+            elapsed = (datetime.now(UTC) - decision_ts).total_seconds()
             if elapsed > ttl:
                 logger.warning(
                     "forwarding_guard.ttl_expired",

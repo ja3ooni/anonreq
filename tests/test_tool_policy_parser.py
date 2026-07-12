@@ -16,7 +16,6 @@ import pytest
 
 from anonreq.governance.tool_policy_parser import (
     ToolPermission,
-    ToolPolicy,
     ToolPolicyParser,
     ToolPolicyValidationError,
     ToolRiskLevel,
@@ -265,7 +264,7 @@ class TestGetPolicy:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
         policy = parser.get_policy("openai", "model", "code_interpreter")
 
         assert policy is not None
@@ -284,7 +283,7 @@ class TestGetPolicy:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
         policy = parser.get_policy("openai", "model", "file_search")
 
         assert policy is not None
@@ -302,7 +301,7 @@ class TestGetPolicy:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
         policy = parser.get_policy("openai", "model", "data.export")
 
         assert policy is not None
@@ -322,7 +321,7 @@ class TestGetPolicy:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
 
         # Exact match wins
         exact = parser.get_policy("openai", "model", "file_search")
@@ -351,7 +350,7 @@ class TestGetPolicy:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
         policy = parser.get_policy("openai", "model", "unknown_tool")
         assert policy is None
 
@@ -367,7 +366,7 @@ class TestGetPolicy:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
         policy = parser.get_policy("openai", "model", "nonexistent")
         assert policy is None
 
@@ -384,7 +383,7 @@ class TestGetPolicy:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
 
         openai_policy = parser.get_policy("openai", "model", "search")
         anthropic_policy = parser.get_policy("anthropic", "model", "search")
@@ -533,7 +532,7 @@ class TestGetPolicyWithParamRules:
                 },
             },
         }
-        policies = parser.parse(yaml)
+        parser.parse(yaml)
         policy = parser.get_policy("openai", "model", "search")
         assert policy is not None
         assert policy.allowed_parameters == ["query"]

@@ -11,8 +11,6 @@ from __future__ import annotations
 
 import ssl
 
-import pytest
-
 from anonreq.proxy.tls_interceptor import MIN_TLS_VERSION
 
 
@@ -21,7 +19,7 @@ class TestTLSVersionEnforcement:
 
     def test_min_tls_version_is_tlsv13(self):
         """``MIN_TLS_VERSION`` must be ``TLSVersion.TLSv1_3``."""
-        assert MIN_TLS_VERSION == ssl.TLSVersion.TLSv1_3
+        assert ssl.TLSVersion.TLSv1_3 == MIN_TLS_VERSION
 
     def test_outbound_tls_context_uses_secure_protocol(self):
         """``ssl.create_default_context`` with ``SERVER_AUTH`` defaults to
@@ -74,9 +72,6 @@ class TestCertificatePinningDetection:
 
     def test_tls_interceptor_upstream_context_check_hostname(self):
         """Upstream context must check hostnames."""
-        from anonreq.proxy.tls import TLSInterceptor
-        import tempfile
-        from pathlib import Path
 
         # We can't easily create a valid CA cert inline, but we can
         # verify the intent by checking the _create_contexts logic.

@@ -54,7 +54,7 @@ class SinkRouter:
                 logger.exception(
                     "Sink send failed for '%s'",
                     sink_name,
-                    extra={"sink_name": sink_name, "event_type": getattr(event, "event_type", "unknown")},
+                    extra={"sink_name": sink_name, "event_type": getattr(event, "event_type", "unknown")},  # noqa: E501
                 )
 
     def get_sinks(self) -> dict[str, SinkBase]:

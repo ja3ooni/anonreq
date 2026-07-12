@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
-from unittest.mock import MagicMock
 
 import pytest
 from prometheus_client import CollectorRegistry
 
 from anonreq.models.processing_context import ProcessingContext
-from anonreq.policy.audit import DecisionAuditPublisher, PolicyAuditEvent
+from anonreq.policy.audit import DecisionAuditPublisher
 from anonreq.policy.metrics import PolicyMetrics
 from anonreq.policy.models import PolicyAction, PolicyDecision
 
@@ -19,7 +18,7 @@ class MockLogger:
     def __init__(self) -> None:
         self.emitted: list[tuple[str, dict]] = []
 
-    def info(self, event: str, **kwargs: Any) -> None:
+    def info(self, event: str, **kwargs: Any) -> None:  # noqa: F821
         self.emitted.append((event, kwargs))
 
 
@@ -47,7 +46,7 @@ def test_policy_decision_recorded(mock_logger, audit_publisher, test_registry, m
     decision = PolicyDecision(
         action=PolicyAction.BLOCK,
         matched_rule_ids=["rule_001"],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
         enforcement="403",
     )
 
@@ -85,7 +84,7 @@ def test_spend_limit_exceeded(mock_logger, audit_publisher, test_registry, monke
     monkeypatch.setattr("anonreq.policy.audit.register_policy_metrics", lambda: metrics)
 
     import asyncio
-    asyncio.run(audit_publisher.publish_spend_limit("tenant_abc", "daily", Decimal("50.25"), Decimal("50.00"), "USD"))
+    asyncio.run(audit_publisher.publish_spend_limit("tenant_abc", "daily", Decimal("50.25"), Decimal("50.00"), "USD"))  # noqa: E501
 
     assert len(mock_logger.emitted) == 1
     event_type, kwargs = mock_logger.emitted[0]
@@ -99,7 +98,7 @@ def test_spend_limit_exceeded(mock_logger, audit_publisher, test_registry, monke
 
 def test_routing_policy_violation(mock_logger, audit_publisher):
     import asyncio
-    asyncio.run(audit_publisher.publish_routing_violation("tenant_abc", "openai", "eu-west-1", ["us-east-1"]))
+    asyncio.run(audit_publisher.publish_routing_violation("tenant_abc", "openai", "eu-west-1", ["us-east-1"]))  # noqa: E501
 
     assert len(mock_logger.emitted) == 1
     event_type, kwargs = mock_logger.emitted[0]
@@ -112,7 +111,7 @@ def test_routing_policy_violation(mock_logger, audit_publisher):
 
 def test_classification_block(mock_logger, audit_publisher):
     import asyncio
-    asyncio.run(audit_publisher.publish_classification_block("tenant_abc", "Confidential", "rule_class_01"))
+    asyncio.run(audit_publisher.publish_classification_block("tenant_abc", "Confidential", "rule_class_01"))  # noqa: E501
 
     assert len(mock_logger.emitted) == 1
     event_type, kwargs = mock_logger.emitted[0]
@@ -134,7 +133,7 @@ def test_budget_reset(mock_logger, audit_publisher):
     assert "reset_at" in kwargs
 
 
-def test_metadata_only_allowlist_enforcement(mock_logger, audit_publisher):
+def test_metadata_only_allowlist_enforcement(audit_publisher):
     # Pass some raw values and internal secret keys (not in allowlist)
     event = audit_publisher._build_event(
         "policy_decision_recorded",
@@ -152,7 +151,7 @@ def test_metadata_only_allowlist_enforcement(mock_logger, audit_publisher):
     assert event.metadata["allowed_regions"] == ["us-east-1"]
 
 
-def test_no_sensitive_values_in_any_event(mock_logger, audit_publisher):
+def test_no_sensitive_values_in_any_event(audit_publisher):
     # Ensure standard forbidden terms like payload, secret, token, pii, key are strictly blocked
     # unless explicitly allowed.
     event = audit_publisher._build_event(
@@ -163,4 +162,4 @@ def test_no_sensitive_values_in_any_event(mock_logger, audit_publisher):
         pii_value="Bob Smith",
         api_secret="sk-12345",
     )
-    assert not any(k in event.metadata for k in ("payload_content", "token", "pii_value", "api_secret"))
+    assert not any(k in event.metadata for k in ("payload_content", "token", "pii_value", "api_secret"))  # noqa: E501

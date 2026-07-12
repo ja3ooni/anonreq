@@ -17,7 +17,7 @@ def fake_cache_manager():
     mgr = CacheManager.__new__(CacheManager)
     mgr._redis = fake
     mgr._ttl = 300
-    yield mgr
+    return mgr
 
 
 @pytest.fixture
@@ -78,7 +78,7 @@ class TestPolicyStoreLoad:
         assert "allow_default" in rule_ids
 
     @pytest.mark.asyncio
-    async def test_load_policies_caches_result(self, policy_store, fake_cache_manager):
+    async def test_load_policies_caches_result(self, policy_store):
         rules1 = await policy_store.load_policies("tenant_cache_test")
         rules2 = await policy_store.load_policies("tenant_cache_test")
         assert rules1 == rules2
@@ -125,9 +125,9 @@ class TestPolicyStoreEnabledRules:
 
 class TestPolicyStoreTenantPolicy:
     @pytest.mark.asyncio
-    async def test_set_tenant_policy_persists(self, policy_store, fake_cache_manager):
+    async def test_set_tenant_policy_persists(self, policy_store):
         tenant_rules = [
-            PolicyRule(rule_id="tenant_specific", name="Tenant Specific", action=PolicyAction.ROUTE_LOCAL),
+            PolicyRule(rule_id="tenant_specific", name="Tenant Specific", action=PolicyAction.ROUTE_LOCAL),  # noqa: E501
         ]
         await policy_store.set_tenant_policy("tenant_b", tenant_rules)
         rules = await policy_store.load_policies("tenant_b")

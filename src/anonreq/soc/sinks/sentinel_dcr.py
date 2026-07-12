@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 from prometheus_client import Counter
 
-from anonreq.soc.sinks import SinkBase, SinkStatus
+from anonreq.soc.sinks import SinkStatus
 
 logger = logging.getLogger("anonreq.soc.sinks.sentinel_dcr")
 

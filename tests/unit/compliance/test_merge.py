@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from anonreq.compliance.merge import merge_presets
 from anonreq.compliance.preset import CompliancePreset
-from anonreq.locale.bundle import RecognizerTier
 
 
 def base_config() -> dict:
@@ -53,6 +52,6 @@ def test_customer_overrides_cannot_weaken() -> None:
     result = merge_presets(
         base_config(),
         [],
-        overrides={"entity_types": {"EMAIL_ADDRESS": {"tier": "REGEX", "confidence_threshold": 0.1}}},
+        overrides={"entity_types": {"EMAIL_ADDRESS": {"tier": "REGEX", "confidence_threshold": 0.1}}},  # noqa: E501
     )
     assert result.merged_thresholds["EMAIL_ADDRESS"] == 0.9

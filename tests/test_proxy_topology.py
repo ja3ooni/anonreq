@@ -82,7 +82,7 @@ async def test_non_ai_traffic_forwarded_untouched_in_fail_open():
     )
 
     response = await proxy.handle_request(
-        ProxyRequest(method="GET", host="example.com", path="/", body=b"raw", client_hello=b"example.com")
+        ProxyRequest(method="GET", host="example.com", path="/", body=b"raw", client_hello=b"example.com")  # noqa: E501
     )
 
     assert response.status_code == 200

@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import re
 
-from hypothesis import assume, given, settings, strategies as st
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.streaming.stream_event import EventType, StreamEvent
 from anonreq.streaming.tail_buffer import TailBuffer
@@ -29,7 +30,7 @@ def _restore_with_mapping(text: str, mapping: dict[str, str]) -> str:
         core = re.escape(token.strip("[]"))
         result = re.sub(
             rf"(?<![A-Za-z0-9_])\[?{core}\]?(?![A-Za-z0-9_])",
-            lambda _m: value,
+            lambda _m: value,  # noqa: B023
             result,
             flags=re.IGNORECASE,
         )
@@ -67,7 +68,7 @@ def test_buffer_overflow_protection(text: str) -> None:
     async def run() -> int:
         max_seen = 0
         for i in range(0, len(text), 100):
-            event = StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=text[i : i + 100])
+            event = StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=text[i : i + 100])  # noqa: E501
             _ = [item async for item in buffer.ingest(event)]
             max_seen = max(max_seen, len(buffer.active_buffer))
         return max_seen
@@ -95,10 +96,10 @@ def test_reasoning_blocked(args) -> None:
     async def run() -> str:
         client_events: list[str] = []
         for pos in positions:
-            event = StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=text[pos : pos + 5])
+            event = StreamEvent(event_type=EventType.TEXT_DELTA, provider="test", delta_text=text[pos : pos + 5])  # noqa: E501
             client_events.extend([item async for item in buffer.ingest(event)])
             # Route layer drops reasoning before TailBuffer/emission in MVP.
-            _ = StreamEvent(event_type=EventType.REASONING_DELTA, provider="test", reasoning=reasoning)
+            _ = StreamEvent(event_type=EventType.REASONING_DELTA, provider="test", reasoning=reasoning)  # noqa: E501
         client_events.append(buffer.flush_remaining())
         return "".join(client_events)
 

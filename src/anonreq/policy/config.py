@@ -7,7 +7,13 @@ from typing import Any
 import yaml
 from pydantic import BaseModel, model_validator
 
-from anonreq.policy.models import PolicyAction, PolicyRule, RateLimitConfig, ResidencyRule, SpendBudget
+from anonreq.policy.models import (
+    PolicyAction,
+    PolicyRule,
+    RateLimitConfig,
+    ResidencyRule,
+    SpendBudget,
+)
 
 
 class PolicyConfig(BaseModel):

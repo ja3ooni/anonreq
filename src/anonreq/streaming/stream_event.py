@@ -12,13 +12,13 @@ Per D-54 through D-58:
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class EventType(str, Enum):
+class EventType(StrEnum):
     """Canonical streaming event types.
 
     All provider-specific streaming events are normalized to one of
@@ -34,7 +34,7 @@ class EventType(str, Enum):
     HEARTBEAT = "HEARTBEAT"
 
 
-class FinishReason(str, Enum):
+class FinishReason(StrEnum):
     """Canonical finish reasons for stream termination.
 
     All provider-specific finish reasons are mapped to one of these

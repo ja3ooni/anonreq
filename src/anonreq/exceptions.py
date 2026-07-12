@@ -16,6 +16,8 @@ from typing import Any
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+
+
 def _extract_request_id(request: Request) -> str:
     """Extract or generate a request_id for error trace correlation.
 
@@ -243,7 +245,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
     # AnonReqError subclasses have their own structured error data
     if isinstance(exc, AnonReqError):
-        exc.request_id = exc.request_id or request_id  # type: ignore[union-attr]
+        exc.request_id = exc.request_id or request_id
         body = _make_error_body(
             message=exc.message,
             error_type=exc.error_type,
@@ -277,7 +279,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     # been called yet, structlog uses its default configuration which
     # writes to stderr. This is safe because structlog is a core dependency
     # installed at build time, so the import will always succeed.
-    import structlog  # noqa: F811
+    import structlog
 
     logger = structlog.get_logger()
     logger.error(
@@ -325,13 +327,13 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
             body["classification"] = {
                 "highest": res.highest.name,
                 "labels": res.labels,
-                "reason": exc.detail if isinstance(exc.detail, str) else "Request blocked due to classification policy",
+                "reason": exc.detail if isinstance(exc.detail, str) else "Request blocked due to classification policy",  # noqa: E501
             }
         else:
             body["classification"] = {
                 "highest": "HIGHLY_RESTRICTED",
                 "labels": [],
-                "reason": exc.detail if isinstance(exc.detail, str) else "Request blocked due to classification policy",
+                "reason": exc.detail if isinstance(exc.detail, str) else "Request blocked due to classification policy",  # noqa: E501
             }
 
     return JSONResponse(status_code=exc.status_code, content=body)

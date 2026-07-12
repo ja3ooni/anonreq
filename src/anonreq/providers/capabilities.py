@@ -64,7 +64,7 @@ class CapabilityResolver:
     def get_capabilities(
         self,
         provider: str,
-        tenant_id: str = "default",
+        _tenant_id: str = "default",
     ) -> ProviderCapabilities:
         """Return the capabilities for a given provider.
 
@@ -81,7 +81,7 @@ class CapabilityResolver:
 
     async def discover_capabilities(
         self,
-        provider: str,
+        _provider: str,
     ) -> ProviderCapabilities | None:
         """Optional provider capability discovery.
 

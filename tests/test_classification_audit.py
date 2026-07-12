@@ -8,14 +8,11 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import pytest
 
-from anonreq.models.classification import ClassificationLevel, ClassificationResult
+from anonreq.models.classification import ClassificationLevel
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.services.classification import ClassificationService
-from anonreq.services.classification_engine import ClassificationEngine
 
 
 class TestAuditClassification:

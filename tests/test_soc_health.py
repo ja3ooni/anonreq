@@ -13,7 +13,7 @@ Tests for:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -49,7 +49,7 @@ class FakeSink:
         if self._fail_after and self._health_calls > self._fail_after:
             self._reachable = False
         if self._reachable:
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             self._last_success = now
             return SinkStatus(healthy=True, reachable=True, last_successful_delivery=now)
         return SinkStatus(
@@ -58,10 +58,10 @@ class FakeSink:
             last_error="Connection refused",
         )
 
-    async def send_event(self, event: Any) -> bool:
+    async def send_event(self, _event: Any) -> bool:
         return True
 
-    async def format_event(self, event: Any) -> str:
+    async def format_event(self, _event: Any) -> str:
         return ""
 
 
@@ -187,7 +187,7 @@ class TestHealthMonitorBasics:
 
         try:
             await asyncio.sleep(0.1)
-            status = monitor.get_status()
+            monitor.get_status()
             agg = monitor.get_aggregate_status()
             assert agg in ("healthy", "degraded", "unknown")
         finally:

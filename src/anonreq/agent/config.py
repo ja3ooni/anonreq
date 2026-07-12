@@ -4,7 +4,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 ToolPolicy = Literal["allow", "allow_with_audit", "require_approval", "block"]
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from anonreq.firewall.models import DetectionCategory
-from anonreq.firewall.rules import FirewallRuleLoader, load_firewall_rules
+from anonreq.firewall.rules import FirewallRuleLoader
 
 router = APIRouter()
 _loader: FirewallRuleLoader | None = None
@@ -29,7 +29,7 @@ async def list_firewall_rules(
         try:
             cat = DetectionCategory(category)
         except ValueError:
-            raise HTTPException(status_code=422, detail=f"Invalid category: {category}")
+            raise HTTPException(status_code=422, detail=f"Invalid category: {category}")  # noqa: B904
         rules = [r for r in rules if r.category == cat]
 
     if enabled is not None:

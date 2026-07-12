@@ -10,7 +10,6 @@ See AUDT-01, AUDT-02, AUDT-03.
 """
 
 import json
-import os
 
 import pytest
 from structlog.contextvars import bind_contextvars, clear_contextvars
@@ -29,15 +28,16 @@ class TestLoggingAllowlist:
 
     def test_log_output_is_valid_json(self, capsys):
         """Test 1: Log output is valid JSON with timestamp, level, event."""
-        from anonreq.logging_config import setup_logging
         import structlog
+
+        from anonreq.logging_config import setup_logging
 
         setup_logging(level="DEBUG")
         log = structlog.get_logger()
         log.info("test_event", component="test")
 
         captured = capsys.readouterr()
-        lines = [l for l in captured.err.split("\n") if l.strip()]
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
 
         assert len(lines) >= 1
         entry = json.loads(lines[0])
@@ -48,15 +48,16 @@ class TestLoggingAllowlist:
 
     def test_non_allowlisted_fields_dropped(self, capsys):
         """Test 2: Non-allowlisted fields are dropped from log output."""
-        from anonreq.logging_config import setup_logging
         import structlog
+
+        from anonreq.logging_config import setup_logging
 
         setup_logging(level="DEBUG")
         log = structlog.get_logger()
         log.info("test_event", sensitive_data="secret-value", component="test")
 
         captured = capsys.readouterr()
-        lines = [l for l in captured.err.split("\n") if l.strip()]
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
 
         assert len(lines) >= 1
         entry = json.loads(lines[0])
@@ -65,8 +66,9 @@ class TestLoggingAllowlist:
 
     def test_allowlisted_fields_survive(self, capsys):
         """Allowlisted fields (timestamp, level, event, component, request_id, etc.) survive."""
-        from anonreq.logging_config import setup_logging, ALLOWLIST
         import structlog
+
+        from anonreq.logging_config import setup_logging
 
         setup_logging(level="DEBUG")
         log = structlog.get_logger()
@@ -82,7 +84,7 @@ class TestLoggingAllowlist:
         )
 
         captured = capsys.readouterr()
-        lines = [l for l in captured.err.split("\n") if l.strip()]
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
 
         assert len(lines) >= 1
         entry = json.loads(lines[0])
@@ -102,8 +104,9 @@ class TestLoggingAllowlist:
 
     def test_request_id_via_contextvars(self, capsys):
         """Test 3: request_id is included via structlog contextvars binding."""
-        from anonreq.logging_config import setup_logging
         import structlog
+
+        from anonreq.logging_config import setup_logging
 
         setup_logging(level="DEBUG")
         bind_contextvars(request_id="req_xyz789")
@@ -112,7 +115,7 @@ class TestLoggingAllowlist:
         log.info("request_started", component="test")
 
         captured = capsys.readouterr()
-        lines = [l for l in captured.err.split("\n") if l.strip()]
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
 
         assert len(lines) >= 1
         entry = json.loads(lines[0])
@@ -120,8 +123,9 @@ class TestLoggingAllowlist:
 
     def test_nested_dict_limitation(self, capsys):
         """Test 4: Nested dict values are NOT recursively checked (documented limitation)."""
-        from anonreq.logging_config import setup_logging
         import structlog
+
+        from anonreq.logging_config import setup_logging
 
         setup_logging(level="DEBUG")
         log = structlog.get_logger()
@@ -130,7 +134,7 @@ class TestLoggingAllowlist:
         log.info("test_nested", component="test", data={"sensitive": "value"})
 
         captured = capsys.readouterr()
-        lines = [l for l in captured.err.split("\n") if l.strip()]
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
 
         assert len(lines) >= 1
         entry = json.loads(lines[0])
@@ -139,8 +143,9 @@ class TestLoggingAllowlist:
 
     def test_log_level_respected(self, capsys):
         """Test 5: Log level respects settings.LOG_LEVEL."""
-        from anonreq.logging_config import setup_logging
         import structlog
+
+        from anonreq.logging_config import setup_logging
 
         setup_logging(level="WARNING")
         log = structlog.get_logger()
@@ -151,7 +156,7 @@ class TestLoggingAllowlist:
         log.error("error_message", component="test")
 
         captured = capsys.readouterr()
-        lines = [l for l in captured.err.split("\n") if l.strip()]
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
 
         events = []
         for line in lines:
@@ -170,8 +175,9 @@ class TestLoggingAllowlist:
 
     def test_structlog_outputs_to_stderr_by_default(self, capsys):
         """structlog configured with StreamHandler should output to stderr."""
-        from anonreq.logging_config import setup_logging
         import structlog
+
+        from anonreq.logging_config import setup_logging
 
         setup_logging(level="INFO")
         log = structlog.get_logger()
@@ -181,5 +187,5 @@ class TestLoggingAllowlist:
         # stdout should be empty
         assert captured.out == ""
         # stderr should have our log output
-        lines = [l for l in captured.err.split("\n") if l.strip()]
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
         assert len(lines) >= 1

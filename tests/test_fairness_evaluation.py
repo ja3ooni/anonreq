@@ -6,20 +6,20 @@ Uses SQLite in-memory for DB, mock MinIO, and mock detection engine.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from anonreq.fairness.datasets import FairnessDatasetManager
+from anonreq.fairness.evaluation import RECALL_DISPARITY_THRESHOLD, FairnessEvaluator
 from anonreq.models.fairness import (
     Base,
-    FairnessDataset,
     DemographicResult,
-    FairnessResult,
+    FairnessDataset,
     FairnessEvaluation,
+    FairnessResult,
 )
-from anonreq.fairness.datasets import FairnessDatasetManager
-from anonreq.fairness.evaluation import FairnessEvaluator, RECALL_DISPARITY_THRESHOLD
 
 
 @pytest.fixture
@@ -40,16 +40,16 @@ def mock_minio():
         def __init__(self):
             self._objects: dict[str, bytes] = {}
 
-        async def bucket_exists(self, bucket: str) -> bool:
+        async def bucket_exists(self, _bucket: str) -> bool:
             return True
 
         async def make_bucket(self, bucket: str) -> None:
             pass
 
-        async def put_object(self, bucket, object_path, data, length, content_type):
+        async def put_object(self, bucket, object_path, data, length=None, content_type=None, *args, **kwargs):
             self._objects[object_path] = data.read() if hasattr(data, 'read') else data
 
-        async def get_object(self, bucket, object_path):
+        async def get_object(self, _bucket, object_path):
             class Response:
                 def __init__(self, data):
                     self._data = data
@@ -127,7 +127,7 @@ async def _register_synthetic_dataset(
         sha256="",
         owner="test",
         approved_by="test-compliance",
-        approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+        approval_date=datetime(2026, 6, 20, tzinfo=UTC),
         framework="test-bias",
         version="1.0",
         locale=locale,
@@ -258,7 +258,7 @@ class TestFairnessEvaluationFull:
     async def test_evaluate_fairness_computes_recall(self, manager):
         """Test 1: evaluate_fairness loads dataset, runs detection, computes recall per group."""
         dataset_id = "eval_test_001"
-        registered, content = await _register_synthetic_dataset(
+        _registered, _content = await _register_synthetic_dataset(
             manager, dataset_id,
             groups={"male": 10, "female": 10},
             entity_type="EMAIL",
@@ -289,7 +289,7 @@ class TestFairnessEvaluationFull:
     async def test_evaluated_recall_matches_expected(self, manager):
         """Overall recall computed correctly across all groups."""
         dataset_id = "eval_recall_001"
-        registered, content = await _register_synthetic_dataset(
+        _registered, _content = await _register_synthetic_dataset(
             manager, dataset_id,
             groups={"male": 100, "female": 100},
             entity_type="EMAIL",
@@ -319,7 +319,7 @@ class TestFairnessEvaluationFull:
     async def test_disparity_threshold_pass(self, manager):
         """Test 3: Disparity ≤ 0.05 → result.passed = True."""
         dataset_id = "eval_threshold_pass_001"
-        registered, content = await _register_synthetic_dataset(
+        _registered, _content = await _register_synthetic_dataset(
             manager, dataset_id,
             groups={"male": 100, "female": 100},
             entity_type="EMAIL",
@@ -360,7 +360,7 @@ class TestFairnessEvaluationFull:
             sha256="",
             owner="test",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="test-bias",
             version="1.0",
             locale="en-US",
@@ -388,7 +388,7 @@ class TestFairnessEvaluationFull:
     async def test_evaluation_emits_audit_event(self, manager):
         """Test 6: Evaluation emits fairness_evaluation_completed audit event."""
         dataset_id = "eval_audit_001"
-        registered, content = await _register_synthetic_dataset(
+        _registered, _content = await _register_synthetic_dataset(
             manager, dataset_id,
             groups={"male": 50, "female": 50},
             entity_type="EMAIL",
@@ -425,24 +425,24 @@ class TestFairnessEvaluationFull:
         content_lines = []
         for entity_type in ["EMAIL", "PHONE"]:
             lines_data = [
-                {"text": f"user{i}_{entity_type.lower()}@example.com", "demographic_group": "male", "entity_type": entity_type}
+                {"text": f"user{i}_{entity_type.lower()}@example.com", "demographic_group": "male", "entity_type": entity_type}  # noqa: E501
                 for i in range(5)
             ] + [
-                {"text": f"user{i}_{entity_type.lower()}@example.com", "demographic_group": "female", "entity_type": entity_type}
+                {"text": f"user{i}_{entity_type.lower()}@example.com", "demographic_group": "female", "entity_type": entity_type}  # noqa: E501
                 for i in range(5)
             ]
             content_lines.extend(lines_data)
 
-        content = json.dumps(content_lines).encode("utf-8") if len(content_lines) == 1 else "\n".join(json.dumps(l) for l in content_lines).encode("utf-8")
+        content = json.dumps(content_lines).encode("utf-8") if len(content_lines) == 1 else "\n".join(json.dumps(l) for l in content_lines).encode("utf-8")  # noqa: E501, E741
 
-        content = "\n".join(json.dumps(l) for l in content_lines).encode("utf-8")
+        content = "\n".join(json.dumps(l) for l in content_lines).encode("utf-8")  # noqa: E741
 
         ds = FairnessDataset(
             id=dataset_id,
             sha256="",
             owner="test",
             approved_by="compliance",
-            approval_date=datetime(2026, 6, 20, tzinfo=timezone.utc),
+            approval_date=datetime(2026, 6, 20, tzinfo=UTC),
             framework="test-bias",
             version="1.0",
             locale="en-US",
@@ -454,9 +454,9 @@ class TestFairnessEvaluationFull:
         def mock_detect(text: str) -> list[dict]:
             results = []
             if "@" in text:
-                results.append({"entity_type": "EMAIL", "start": 0, "end": len(text), "score": 0.98})
+                results.append({"entity_type": "EMAIL", "start": 0, "end": len(text), "score": 0.98})  # noqa: E501
             if "phone" in text.lower():
-                results.append({"entity_type": "PHONE", "start": 0, "end": len(text), "score": 0.95})
+                results.append({"entity_type": "PHONE", "start": 0, "end": len(text), "score": 0.95})  # noqa: E501
             return results
 
         evaluator = FairnessEvaluator(
@@ -494,7 +494,7 @@ class TestFairnessEvaluationFull:
             dataset_manager=manager,
         )
 
-        def mock_detect(text: str) -> list[dict]:
+        def mock_detect(_text: str) -> list[dict]:
             return []
 
         with pytest.raises(FileNotFoundError):

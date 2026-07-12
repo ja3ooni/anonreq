@@ -10,13 +10,10 @@ Per D-012 through D-016:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-from anonreq.models.lineage import SupplierGovernanceRecord
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -47,7 +44,7 @@ def mock_db_session():
     async def mock_execute(stmt, params=None):
         result = AsyncMock()
         result.rowcount = 1
-        stmt_str = str(stmt) if hasattr(stmt, '__str__') else str(stmt)
+        stmt_str = str(stmt) if hasattr(stmt, '__str__') else str(stmt)  # noqa: RUF034
         params = params or {}
         result.fetchall = AsyncMock(return_value=[])
 
@@ -72,7 +69,7 @@ def mock_db_session():
             else:
                 result.fetchone = AsyncMock(return_value=None)
 
-        elif 'SELECT * FROM supplier_governance' in stmt_str or 'WHERE next_review_date' in stmt_str:
+        elif 'SELECT * FROM supplier_governance' in stmt_str or 'WHERE next_review_date' in stmt_str:  # noqa: E501
             rows = list(_supplier_store.values())
 
             # Apply optional filters
@@ -261,7 +258,7 @@ class TestReviewCycle:
 class TestOverdueReviews:
     async def test_get_overdue_reviews(self, supplier_governance):
         """Overdue reviews are detected: next_review_date < now."""
-        old_date = datetime.now(timezone.utc) - timedelta(days=30)
+        old_date = datetime.now(UTC) - timedelta(days=30)
         supplier = await supplier_governance.create_supplier(
             name="Overdue Co",
             provider_type="llm",
@@ -271,7 +268,6 @@ class TestOverdueReviews:
         # Manually set overdue
         supplier.next_review_date = old_date
         # Re-save with overdue
-        from anonreq.governance.supplier import SUPPLIER_TABLE
 
         overdue_list = await supplier_governance.get_overdue_reviews()
         # Should find our supplier (or 0 if not persisted to DB)

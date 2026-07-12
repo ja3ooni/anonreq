@@ -6,13 +6,11 @@ from typing import Any
 from anonreq.firewall.models import (
     DetectionCategory,
     DetectionResult,
-    FirewallAction,
     FirewallRule,
     RuleCategoryConfig,
     SeverityActionMapping,
     SeverityLevel,
 )
-
 
 _SEVERITY_ORDER: dict[SeverityLevel, int] = {
     SeverityLevel.HIGH: 3,

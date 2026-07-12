@@ -12,7 +12,7 @@ from __future__ import annotations
 import io
 import json
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel
@@ -68,7 +68,7 @@ class TransparencyService:
             tenant_id=tenant_id,
             entity_count=entity_count,
             entity_types=entity_types,
-            processed_at=datetime.now(timezone.utc),
+            processed_at=datetime.now(UTC),
             anonymized=anonymized,
         )
         await self._redis.set(
@@ -127,7 +127,7 @@ class TransparencyService:
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             governance_data = {
                 "tenant_id": tenant_id,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "package_type": "conformity",
                 "version": "1.0",
             }

@@ -14,7 +14,6 @@ from anonreq.voice.config import VoiceConfig
 from anonreq.voice.connectors import AudioChunk
 from anonreq.voice.transcript_buffer import TranscriptBuffer
 
-
 log = structlog.get_logger(__name__)
 
 
@@ -145,9 +144,9 @@ class STTEngine:
             return str(result.get("text", "")).strip()
         if isinstance(result, tuple) and result:
             segments = result[0]
-            return " ".join(str(getattr(segment, "text", segment)).strip() for segment in segments).strip()
+            return " ".join(str(getattr(segment, "text", segment)).strip() for segment in segments).strip()  # noqa: E501
         if isinstance(result, list):
-            return " ".join(str(getattr(segment, "text", segment)).strip() for segment in result).strip()
+            return " ".join(str(getattr(segment, "text", segment)).strip() for segment in result).strip()  # noqa: E501
         return str(getattr(result, "text", result or "")).strip()
 
     @staticmethod

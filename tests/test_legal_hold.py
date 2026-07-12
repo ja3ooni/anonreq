@@ -8,13 +8,12 @@ Per D-018, D-019, D-020:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
 from anonreq.models.lineage import LegalHoldRecord
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -37,7 +36,7 @@ def mock_db_session():
 
     async def mock_execute(stmt, params=None):
         result = AsyncMock()
-        stmt_str = str(stmt) if hasattr(stmt, '__str__') else str(stmt)
+        stmt_str = str(stmt) if hasattr(stmt, '__str__') else str(stmt)  # noqa: RUF034
         params = params or {}
         result.rowcount = 1
 
@@ -72,7 +71,7 @@ def mock_db_session():
             # Check active holds
             tenant_id = params.get('tenant_id', '')
             record_id = params.get('record_id', '')
-            now = params.get('now')
+            params.get('now')
 
             # Count holds matching tenant_id that are not released
             matches = []
@@ -159,7 +158,7 @@ class TestActivateHold:
 
     async def test_activate_hold_with_expiry(self, legal_hold_manager):
         """Hold with expires_at has an expiry date."""
-        expires = datetime.now(timezone.utc) + timedelta(days=90)
+        expires = datetime.now(UTC) + timedelta(days=90)
         hold = await legal_hold_manager.activate_hold(
             tenant_id="acme",
             reason="Temporary hold",

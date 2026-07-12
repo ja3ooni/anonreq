@@ -24,7 +24,7 @@ SAMPLE_CHAT_BODY = json.dumps(
 ).encode("utf-8")
 
 
-def _make_mock_pipeline(restored_response: dict | None = None, provider_response: dict | None = None, has_errors: bool = False):
+def _make_mock_pipeline(restored_response: dict | None = None, provider_response: dict | None = None, has_errors: bool = False):  # noqa: E501
     pipeline = AsyncMock()
     pipeline.stages = PropertyMock(return_value=[])
     pipeline.register = MagicMock()
@@ -154,7 +154,7 @@ async def test_non_dict_body_returns_fail_closed():
     pipeline = _make_mock_pipeline()
     dispatcher = PipelineContentDispatcher(pipeline)
 
-    result = await dispatcher.dispatch("application/json", json.dumps(["list", "not", "dict"]).encode(), ctx={})
+    result = await dispatcher.dispatch("application/json", json.dumps(["list", "not", "dict"]).encode(), ctx={})  # noqa: E501
 
     assert result == FAIL_CLOSED_ERROR
 

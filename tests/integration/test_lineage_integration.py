@@ -11,7 +11,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import text
@@ -21,11 +21,10 @@ from sqlalchemy.orm import sessionmaker
 from anonreq.ediscovery.export import EDiscoveryExporter
 from anonreq.models.ediscovery import ExportFormat
 
-
 _TENANT = "tenant-lineage-int"
 _SESSION = "ses-lineage-int-001"
-_T0 = datetime(2025, 9, 1, 12, 0, 0, tzinfo=timezone.utc)
-_T1 = datetime(2025, 9, 15, 12, 0, 0, tzinfo=timezone.utc)
+_T0 = datetime(2025, 9, 1, 12, 0, 0, tzinfo=UTC)
+_T1 = datetime(2025, 9, 15, 12, 0, 0, tzinfo=UTC)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────
@@ -55,7 +54,7 @@ async def db_session() -> AsyncSession:
         """))
 
         # Insert lineage records
-        for i, (eid, ts) in enumerate([
+        for _i, (eid, ts) in enumerate([
             ("lin_int_001", _T0),
             ("lin_int_002", _T1),
         ], start=1):
@@ -103,7 +102,7 @@ class TestLineageEDiscovery:
             "Expected at least 2 lineage records"
 
         data_lines = [
-            l for l in result.content.strip().split("\n")
+            l for l in result.content.strip().split("\n")  # noqa: E741
             if l.strip() and not l.startswith("#")
         ]
         assert len(data_lines) == result.record_count
@@ -141,7 +140,7 @@ class TestLineageEDiscovery:
         """Date range filter excludes older lineage records."""
         exporter = EDiscoveryExporter(db=db_session)
         # Filter to a narrow window — date_from after _T0 but before _T1
-        mid_date = datetime(2025, 9, 10, tzinfo=timezone.utc)
+        mid_date = datetime(2025, 9, 10, tzinfo=UTC)
         result = await exporter.export(
             tenant_id=_TENANT,
             date_from=mid_date,

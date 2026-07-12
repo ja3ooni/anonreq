@@ -5,7 +5,7 @@ from __future__ import annotations
 from anonreq.locale.checksum import ChecksumValidator, digits_only
 
 
-class ISO7064Mod11_2Validator(ChecksumValidator):
+class ISO7064Mod11_2Validator(ChecksumValidator):  # noqa: N801
     """Validate an 11-digit German Steuer-ID checksum."""
 
     def validate(self, value: str) -> bool:

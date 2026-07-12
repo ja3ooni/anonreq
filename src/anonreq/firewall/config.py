@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class FIREWALL_DECISIONS(str, Enum):
+class FIREWALL_DECISIONS(StrEnum):  # noqa: N801
     ALLOW = "ALLOW"
     BLOCK = "BLOCK"
 

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from anonreq.governance.pdp_tool_evaluator import ToolBlockedError
 from anonreq.governance.tool_extractor import ToolExtractor
-from anonreq.governance.pdp_tool_evaluator import PDPToolEvaluator, ToolBlockedError
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.base import PipelineStage
 
@@ -50,15 +50,21 @@ class ToolGovernanceStage(PipelineStage):
                 continue
             try:
                 calls = self._extractor.extract_calls(msg, tool_format)
-            except Exception:
-                ctx.fail_secure(ToolBlockedError("Failed to extract tool calls"))
+            except (KeyError, TypeError, ValueError) as exc:
+                ctx.fail_secure(ToolBlockedError(f"Failed to extract tool calls: {type(exc).__name__}: {exc}"))
+                return ctx
+            except Exception as exc:
+                ctx.fail_secure(ToolBlockedError(f"Failed to extract tool calls: {type(exc).__name__}"))
                 return ctx
 
             for call in calls:
                 try:
-                    decision = await tool_evaluator.evaluate(call, ctx)
-                except Exception:
-                    ctx.fail_secure(ToolBlockedError(f"Tool evaluation failed for {call.name}"))
+                    await tool_evaluator.evaluate(call, ctx)
+                except (KeyError, TypeError, ValueError) as exc:
+                    ctx.fail_secure(ToolBlockedError(f"Tool evaluation failed for {call.name}: {type(exc).__name__}: {exc}"))
+                    return ctx
+                except Exception as exc:
+                    ctx.fail_secure(ToolBlockedError(f"Tool evaluation failed for {call.name}: {type(exc).__name__}"))
                     return ctx
 
                 if ctx.has_errors():

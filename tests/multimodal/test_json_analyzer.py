@@ -5,14 +5,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from anonreq.multimodal.models import ContentType, UnifiedDetectionResult
+from anonreq.multimodal.models import ContentType
 
 
 @pytest.fixture
 def mock_detection_engine():
     m = AsyncMock()
 
-    async def side_effect(value, **kwargs):
+    async def side_effect(value, **_kwargs):
         if "John" in value:
             return [
                 {

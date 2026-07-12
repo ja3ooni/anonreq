@@ -9,11 +9,9 @@ Tests:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
 
-from anonreq.rag.ingest import DocumentChunker, ChunkResult
+from anonreq.rag.ingest import DocumentChunker
 
 
 class TestDocumentChunker:
@@ -82,7 +80,7 @@ class TestDocumentChunker:
         assert self.chunker.chunk("   ") == []
 
     def test_chunk_metadata_generated(self):
-        """Chunk metadata contains classification_level, entity_types_present, source_app_id, original_doc_id."""
+        """Chunk metadata contains classification_level, entity_types_present, source_app_id, original_doc_id."""  # noqa: E501
         doc_id = "doc_001"
         result = self.chunker.chunk_with_metadata(
             text="Hello world.",

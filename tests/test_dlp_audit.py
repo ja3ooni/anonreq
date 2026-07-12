@@ -10,14 +10,13 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import yaml
 
 from anonreq.models.dlp import DLPAction, DLPCategory, DLPDetection, DLPResult
 from anonreq.models.processing_context import ProcessingContext
-
 
 # ===========================================================================
 # Task 1: DLP Audit Events with MITRE Technique IDs
@@ -29,7 +28,7 @@ def audit_logger():
     """Create DLPAuditLogger with loaded MITRE mapping."""
     from anonreq.services.audit_logger import DLPAuditLogger
 
-    with open("config/mitre_attack.yaml", "r") as f:
+    with open("config/mitre_attack.yaml") as f:
         mitre_config = yaml.safe_load(f)
     return DLPAuditLogger(mitre_config)
 
@@ -110,7 +109,7 @@ async def test_dlp_violation_audit_has_mitre_id(audit_logger, sample_ctx, dlp_re
 
 
 @pytest.mark.asyncio
-async def test_dlp_violation_mitre_id_is_t1048_002_for_pii(audit_logger, sample_ctx, dlp_result_with_pii):
+async def test_dlp_violation_mitre_id_is_t1048_002_for_pii(audit_logger, sample_ctx, dlp_result_with_pii):  # noqa: E501
     """PII violation audit event has MITRE technique_id T1048.002."""
     await audit_logger.log_dlp_violation(dlp_result_with_pii, sample_ctx)
     call_kwargs = sample_ctx.audit_chain.log_event.call_args.kwargs
@@ -127,7 +126,7 @@ async def test_dlp_violation_audit_has_mitre_name(audit_logger, sample_ctx, dlp_
 
 
 @pytest.mark.asyncio
-async def test_dlp_violation_audit_has_category_and_action(audit_logger, sample_ctx, dlp_result_with_pii):
+async def test_dlp_violation_audit_has_category_and_action(audit_logger, sample_ctx, dlp_result_with_pii):  # noqa: E501
     """dlp_violation audit event includes dlp_category and dlp_action."""
     await audit_logger.log_dlp_violation(dlp_result_with_pii, sample_ctx)
     call_kwargs = sample_ctx.audit_chain.log_event.call_args.kwargs
@@ -262,7 +261,7 @@ async def test_prometheus_violation_counter_increments(sample_ctx, dlp_result_wi
             action=d.action.value,
         ).inc()
 
-    sample = list(counter.collect())[0]
+    sample = next(iter(counter.collect()))
     total_value = sum(s.value for s in sample.samples if s.name.endswith("_total"))
     assert total_value == 1
 
@@ -286,7 +285,7 @@ async def test_prometheus_exfiltration_counter_increments(sample_ctx):
             encoding_type=method,
         ).inc()
 
-    sample = list(counter.collect())[0]
+    sample = next(iter(counter.collect()))
     total_value = sum(s.value for s in sample.samples if s.name.endswith("_total"))
     assert total_value == 2
 
@@ -308,13 +307,13 @@ async def test_prometheus_action_counter_increments(sample_ctx):
         action="block",
     ).inc()
 
-    sample = list(counter.collect())[0]
+    sample = next(iter(counter.collect()))
     total_value = sum(s.value for s in sample.samples if s.name.endswith("_total"))
     assert total_value == 1
 
 
 @pytest.mark.asyncio
-async def test_prometheus_counter_not_incremented_on_allow(sample_ctx):
+async def test_prometheus_counter_not_incremented_on_allow():
     """Counter is NOT incremented when no DLP detection (ALLOW)."""
     from prometheus_client import Counter
 
@@ -326,7 +325,7 @@ async def test_prometheus_counter_not_incremented_on_allow(sample_ctx):
     counter.clear()
 
     # No detections = no increment
-    sample = list(counter.collect())[0]
+    sample = next(iter(counter.collect()))
     total_value = sum(s.value for s in sample.samples if s.name.endswith("_total"))
     assert total_value == 0
 

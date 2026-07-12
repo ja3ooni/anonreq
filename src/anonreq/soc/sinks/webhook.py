@@ -18,7 +18,7 @@ import httpx
 from jinja2 import BaseLoader, ChainableUndefined, Environment, select_autoescape
 from prometheus_client import Counter
 
-from anonreq.soc.sinks import SinkBase, SinkStatus
+from anonreq.soc.sinks import SinkStatus
 
 logger = logging.getLogger("anonreq.soc.sinks.webhook")
 

@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from anonreq.models.fairness import (
@@ -113,9 +113,9 @@ class FairnessDatasetManager:
         object_path = f"datasets/{actual_sha256}.jsonl"
         try:
             content_stream = type("_BytesStream", (), {
-                "read": lambda self: content,
+                "read": lambda _self: content,
                 "__enter__": lambda self: self,
-                "__exit__": lambda *a: None,
+                "__exit__": lambda *_a: None,
             })()
             await self._minio.put_object(
                 self._bucket,
@@ -127,23 +127,22 @@ class FairnessDatasetManager:
         except AttributeError:
             pass
 
-        async with self._session_factory() as session:
-            async with session.begin():
-                model = FairnessDatasetModel(
-                    id=dataset.id,
-                    sha256=actual_sha256,
-                    owner=dataset.owner,
-                    approved_by=dataset.approved_by,
-                    approval_date=dataset.approval_date,
-                    framework=dataset.framework,
-                    version=dataset.version,
-                    locale=dataset.locale,
-                    group_sizes=json.dumps(dataset.group_sizes) if dataset.group_sizes else None,
-                    entity_type=dataset.entity_type,
-                    total_examples=dataset.total_examples,
-                    created_at=dataset.created_at or datetime.now(timezone.utc),
-                )
-                session.add(model)
+        async with self._session_factory() as session, session.begin():
+            model = FairnessDatasetModel(
+                id=dataset.id,
+                sha256=actual_sha256,
+                owner=dataset.owner,
+                approved_by=dataset.approved_by,
+                approval_date=dataset.approval_date,
+                framework=dataset.framework,
+                version=dataset.version,
+                locale=dataset.locale,
+                group_sizes=json.dumps(dataset.group_sizes) if dataset.group_sizes else None,
+                entity_type=dataset.entity_type,
+                total_examples=dataset.total_examples,
+                created_at=dataset.created_at or datetime.now(UTC),
+            )
+            session.add(model)
 
         return FairnessDataset(
             id=dataset.id,
@@ -157,7 +156,7 @@ class FairnessDatasetManager:
             group_sizes=dataset.group_sizes,
             entity_type=dataset.entity_type,
             total_examples=dataset.total_examples,
-            created_at=dataset.created_at or datetime.now(timezone.utc),
+            created_at=dataset.created_at or datetime.now(UTC),
         )
 
     async def get_dataset(

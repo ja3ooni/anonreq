@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -19,8 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from anonreq.breach.templates import BreachTemplateManager
 from anonreq.models.breach import (
-    BreachNotification,
-    BreachTemplate,
     RegulatorQueueItem,
 )
 
@@ -109,7 +107,7 @@ class BreachNotifier:
         Returns:
             Dict with notification counts and delivery status.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         all_variables = {
             "breach_id": breach_id,
             "date": now.strftime("%Y-%m-%d %H:%M UTC"),
@@ -443,7 +441,7 @@ class BreachNotifier:
                 event_id=f"br_{uuid4().hex[:24]}",
                 prev_hash=None,
                 hash="",
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 tenant_id="system",
                 request_id=None,
                 policy_id=None,

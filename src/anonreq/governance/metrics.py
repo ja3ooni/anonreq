@@ -11,7 +11,7 @@ per-request identifiers (tenant_id, session_id) appear in any label.
 
 from __future__ import annotations
 
-from prometheus_client import Counter, CollectorRegistry
+from prometheus_client import CollectorRegistry, Counter
 
 # ── Module-level counters (auto-register with default REGISTRY) ──────
 

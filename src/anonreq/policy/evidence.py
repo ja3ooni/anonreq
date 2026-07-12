@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from anonreq.policy.models import PolicyAction, PolicyDecision, PolicyRule
 from anonreq.policy.store import PolicyStore
@@ -58,7 +58,7 @@ class EvidenceStore:
         self._store = policy_store
         self._records: dict[str, PolicyEvidence] = {}
 
-    async def record_decision_evidence(self, tenant_id: str, decision: PolicyDecision) -> PolicyEvidence:
+    async def record_decision_evidence(self, tenant_id: str, decision: PolicyDecision) -> PolicyEvidence:  # noqa: E501
         """Generate and store an evidence record based on the current policy state."""
         # Load current rules for the tenant
         rules = await self._store.load_policies(tenant_id)
@@ -70,7 +70,7 @@ class EvidenceStore:
 
         evidence_id = str(uuid4())
         # Use decision.enforcement as decision_id if appropriate, or generate one
-        decision_id = decision.enforcement if (decision.enforcement and decision.enforcement != "503") else uuid4().hex[:16]
+        decision_id = decision.enforcement if (decision.enforcement and decision.enforcement != "503") else uuid4().hex[:16]  # noqa: E501
 
         record = PolicyEvidence(
             evidence_id=evidence_id,

@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import sys
-from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 class TestAppDiscoveryKnownApps:
@@ -13,7 +10,7 @@ class TestAppDiscoveryKnownApps:
 
     def test_known_apps_list_contains_expected(self):
         """Known apps list contains expected AI applications."""
-        from anonreq.endpoint.discovery import KNOWN_AI_APPS, AppDiscovery
+        from anonreq.endpoint.discovery import KNOWN_AI_APPS
 
         assert len(KNOWN_AI_APPS) >= 4
         names = {app["name"] for app in KNOWN_AI_APPS}
@@ -104,7 +101,7 @@ class TestAppDiscoveryUnknown:
         from anonreq.endpoint.discovery import AppDiscovery
 
         mock_enum.return_value = [
-            {"name": "Terminal", "pid": 7890, "path": "/System/Applications/Utilities/Terminal.app"},
+            {"name": "Terminal", "pid": 7890, "path": "/System/Applications/Utilities/Terminal.app"},  # noqa: E501
             {"name": "Finder", "pid": 1111, "path": "/System/Library/CoreServices/Finder.app"},
         ]
         discovery = AppDiscovery()

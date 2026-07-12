@@ -15,7 +15,6 @@ import re
 
 from anonreq.tokenization import TOKEN_PATTERN, Tokenizer
 
-
 # =========================================================================
 # TOKN-01: Token format
 # =========================================================================
@@ -32,7 +31,7 @@ class TestTokenFormat:
             {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 23, "score": 1.0},
         ])
         assert len(mapping) == 1
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         assert re.match(r"\[[A-Z][A-Z_]{0,19}_\d+\]$", token), (
             f"Token '{token}' does not match [TYPE_N]"
         )
@@ -44,7 +43,7 @@ class TestTokenFormat:
         _, mapping = t.tokenize("email: user@example.com", [
             {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 23, "score": 1.0},
         ])
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         type_part = token[1:token.rfind("_")]
         assert type_part.isupper(), f"Type '{type_part}' in token '{token}' is not uppercase"
 
@@ -55,7 +54,7 @@ class TestTokenFormat:
         _, mapping = t.tokenize("email: user@example.com", [
             {"entity_type": "EMAIL_ADDRESS", "start": 7, "end": 23, "score": 1.0},
         ])
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         index_str = token[token.rfind("_") + 1:token.rfind("]")]
         index = int(index_str)
         assert index >= 0, f"Token index {index} is negative"
@@ -84,7 +83,7 @@ class TestDeduplication:
         assert len(mapping) == 1, f"Expected 1 mapping entry, got {len(mapping)}"
 
         # Both occurrences should be replaced with the same token
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         assert tokenized.count(token) == 2, f"Expected token '{token}' to appear twice"
 
     def test_different_values_different_tokens(self) -> None:
@@ -116,7 +115,7 @@ class TestDeduplication:
         ]
         tokenized, mapping = t.tokenize(text, detections)
         assert len(mapping) == 1
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         assert tokenized.count(token) == 2
 
 
@@ -206,10 +205,10 @@ class TestReverseOffsetReplacement:
 
         # First token (leftmost) should be before BBB, second after BBB
         assert tokenized.find(tokens_by_pos[0]) < bbb_pos, (
-            f"Expected first token before BBB"
+            "Expected first token before BBB"
         )
         assert tokenized.find(tokens_by_pos[1]) > bbb_pos, (
-            f"Expected second token after BBB"
+            "Expected second token after BBB"
         )
 
 
@@ -236,8 +235,8 @@ class TestRandomSeed:
         _, m1 = t1.tokenize("user@example.com", detections)
         _, m2 = t2.tokenize("user@example.com", detections)
 
-        t1_token = list(m1.keys())[0]
-        t2_token = list(m2.keys())[0]
+        t1_token = next(iter(m1.keys()))
+        t2_token = next(iter(m2.keys()))
 
         # With 32-bit random seed, probability of collision is ~2^-32
         assert t1_token != t2_token, (
@@ -255,11 +254,11 @@ class TestRandomSeed:
         ]
 
         _, m1 = t.tokenize("user@example.com", detections)
-        t1_token = list(m1.keys())[0]
+        t1_token = next(iter(m1.keys()))
 
         t.initialize_session()  # Reset session
         _, m2 = t.tokenize("user@example.com", detections)
-        t2_token = list(m2.keys())[0]
+        t2_token = next(iter(m2.keys()))
 
         # New session should (with very high probability) produce a different token
         assert t1_token != t2_token, (
@@ -279,7 +278,7 @@ class TestRandomSeed:
                 {"entity_type": "EMAIL_ADDRESS", "start": 0, "end": 16, "score": 1.0},
             ]
             _, mapping = t.tokenize("user@example.com", detections)
-            token = list(mapping.keys())[0]
+            token = next(iter(mapping.keys()))
             idx = int(token[token.rfind("_") + 1:token.rfind("]")])
             if idx > 0:
                 any_non_zero = True
@@ -407,7 +406,7 @@ class TestEntityTypeTruncation:
             {"entity_type": long_type, "start": 6, "end": 20, "score": 1.0},
         ])
 
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         type_part = token[1:token.rfind("_")]
 
         assert len(type_part) <= 20, (
@@ -427,7 +426,7 @@ class TestEntityTypeTruncation:
             {"entity_type": type_20, "start": 0, "end": 4, "score": 1.0},
         ])
 
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         type_part = token[1:token.rfind("_")]
         assert type_part == type_20, f"Expected '{type_20}', got '{type_part}'"
 
@@ -440,7 +439,7 @@ class TestEntityTypeTruncation:
             {"entity_type": "PERSON", "start": 0, "end": 4, "score": 1.0},
         ])
 
-        token = list(mapping.keys())[0]
+        token = next(iter(mapping.keys()))
         type_part = token[1:token.rfind("_")]
         assert type_part == "PERSON"
 
@@ -530,7 +529,7 @@ class TestSessionIsolation:
         ])
 
         assert len(m2) == 1
-        token2 = list(m2.keys())[0]
+        token2 = next(iter(m2.keys()))
         assert "[EMAIL_" in token2
 
     def test_dedup_map_reset_on_new_session(self) -> None:
@@ -622,9 +621,9 @@ class TestLargeText:
         text = base * 20
         assert len(text) > 1000, f"Test text too short: {len(text)}"
 
-        BLOCK_LEN = len(base)
+        BLOCK_LEN = len(base)  # noqa: N806
         detections = [
-            {"entity_type": "EMAIL_ADDRESS", "start": n * BLOCK_LEN + 31, "end": n * BLOCK_LEN + 47, "score": 1.0}
+            {"entity_type": "EMAIL_ADDRESS", "start": n * BLOCK_LEN + 31, "end": n * BLOCK_LEN + 47, "score": 1.0}  # noqa: E501
             for n in range(20)
         ]
 

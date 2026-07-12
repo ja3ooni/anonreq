@@ -6,7 +6,6 @@ from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-
 AudioFormat = Literal["pcm", "wav", "opus"]
 
 
@@ -46,7 +45,7 @@ class VoiceConfig(BaseModel):
         return normalized
 
     @model_validator(mode="after")
-    def _validate_window_overlap(self) -> "VoiceConfig":
+    def _validate_window_overlap(self) -> VoiceConfig:
         if self.window_overlap_ms >= self.sliding_window_ms:
             raise ValueError("window_overlap_ms must be smaller than sliding_window_ms")
         if self.sliding_window_ms > self.latency_budget_ms and self.latency_budget_ms < 150:

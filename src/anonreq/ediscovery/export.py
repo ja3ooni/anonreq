@@ -11,7 +11,7 @@ BreachNotifier, RetentionManager) — not the cache-backed service layer.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,7 +90,7 @@ class EDiscoveryExporter:
                 date_from=date_from,
                 date_to=date_to,
                 entity_types=entity_types,
-                case_reference=case_reference,
+                _case_reference=case_reference,
             )
             # Apply pagination to combined result set
             records = all_records[skip:skip + limit]
@@ -105,7 +105,7 @@ class EDiscoveryExporter:
             case_name=f"eDiscovery Export - {tenant_id}",
             matter=case_reference or "",
             customer=tenant_id,
-            request_id=f"export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            request_id=f"export_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",
             request_name=f"Export for {tenant_id}",
         )
 
@@ -119,7 +119,7 @@ class EDiscoveryExporter:
         content_type, ext = _format_meta(export_format)
         filename = (
             f"ediscovery_{tenant_id}_"
-            f"{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+            f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
             f"{ext}"
         )
 
@@ -140,7 +140,7 @@ class EDiscoveryExporter:
         date_from: datetime | None = None,
         date_to: datetime | None = None,
         entity_types: list[str] | None = None,
-        case_reference: str | None = None,
+        _case_reference: str | None = None,
     ) -> list[dict[str, Any]]:
         """Collect and consolidate records from all data sources.
 
@@ -194,9 +194,22 @@ class EDiscoveryExporter:
             tenant_id, date_from, date_to
         )
         for row in dsar_rows:
+            src = {
+                "id": row.get("id", ""),
+                "tenant_id": tenant_id,
+                "subject_id": row.get("subject_id", ""),
+                "request_type": row.get("request_type", ""),
+                "status": row.get("status", ""),
+                "submitted_at": (
+                    row["submitted_at"].isoformat()
+                    if isinstance(row.get("submitted_at"), datetime)
+                    else str(row.get("submitted_at", ""))
+                ),
+                "notes": row.get("notes", ""),
+            }
             record = {
                 "id": row.get("id", ""),
-                "source": "dsar",
+                "source": src,
                 "tenant_id": tenant_id,
                 "type": "dsar",
                 "metadata": {
@@ -210,11 +223,6 @@ class EDiscoveryExporter:
                     ),
                     "notes": row.get("notes", ""),
                 },
-                "source": {
-                    "tenant_id": tenant_id,
-                    "request_type": row.get("request_type", ""),
-                    "status": row.get("status", ""),
-                },
             }
             records.append(record)
 
@@ -223,9 +231,26 @@ class EDiscoveryExporter:
             tenant_id, date_from, date_to
         )
         for row in breach_rows:
+            src = {
+                "id": row.get("id", ""),
+                "tenant_id": tenant_id,
+                "breach_id": row.get("breach_id", ""),
+                "target_type": row.get("target_type", ""),
+                "target_id": row.get("target_id", ""),
+                "channel": row.get("channel", ""),
+                "template_id": row.get("template_id", ""),
+                "rendered_subject": row.get("rendered_subject", ""),
+                "rendered_body": row.get("rendered_body", ""),
+                "status": row.get("status", ""),
+                "created_at": (
+                    row["created_at"].isoformat()
+                    if isinstance(row.get("created_at"), datetime)
+                    else str(row.get("created_at", ""))
+                ),
+            }
             record = {
                 "id": row.get("id", ""),
-                "source": "breach_notification",
+                "source": src,
                 "tenant_id": tenant_id,
                 "type": "breach",
                 "metadata": {
@@ -238,12 +263,6 @@ class EDiscoveryExporter:
                         if isinstance(row.get("created_at"), datetime)
                         else str(row.get("created_at", ""))
                     ),
-                },
-                "source": {
-                    "tenant_id": tenant_id,
-                    "breach_id": row.get("breach_id", ""),
-                    "target_type": row.get("target_type", ""),
-                    "status": row.get("status", ""),
                 },
             }
             records.append(record)

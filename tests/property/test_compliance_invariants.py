@@ -16,7 +16,6 @@ from hypothesis import strategies as st
 from anonreq.compliance.engine import PresetEngine
 from anonreq.compliance.merge import merge_presets
 from anonreq.compliance.preset import CompliancePreset
-from anonreq.locale.bundle import RecognizerTier
 
 # ---------------------------------------------------------------------------
 # Shared fixtures / helpers
@@ -50,7 +49,7 @@ def _base() -> dict:
 
 preset_id_st = st.sampled_from(ALL_PRESETS)
 entity_type_st = st.sampled_from(ALL_PRESETS_OBJS).flatmap(
-    lambda p: st.sampled_from(p.mandatory_entity_types if p.mandatory_entity_types else ["EMAIL_ADDRESS"])
+    lambda p: st.sampled_from(p.mandatory_entity_types if p.mandatory_entity_types else ["EMAIL_ADDRESS"])  # noqa: E501
 )
 
 
@@ -107,7 +106,7 @@ def test_non_weakening_thresholds(preset_ids: list[str]) -> None:
 @settings(max_examples=50)
 def test_overrides_cannot_weaken_preset_mandated_types(
     preset_ids: list[str],
-    override_name: str,
+    _override_name: str,  # noqa: PT019
 ) -> None:
     """COMP-03: Customer overrides never disable preset-mandated types.
 

@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import sys
+from unittest.mock import MagicMock
+
+# Mock torch so monkeypatching it in tests works even when torch is not installed
+mock_torch = MagicMock()
+sys.modules.setdefault("torch", mock_torch)
+
 from dataclasses import dataclass
 
 import pytest
@@ -27,14 +34,14 @@ class FakeWhisperModel:
         return {"text": text}
 
 
-def make_chunk(data: bytes = b"\x00\x00\xff\x7f", timestamp_ms: int = 0, sequence: int = 1) -> AudioChunk:
+def make_chunk(data: bytes = b"\x00\x00\xff\x7f", timestamp_ms: int = 0, sequence: int = 1) -> AudioChunk:  # noqa: E501
     return AudioChunk(data=data, format="pcm", timestamp_ms=timestamp_ms, sequence=sequence)
 
 
 @pytest.mark.asyncio
 async def test_stt_engine_transcribe_returns_text_from_audio_chunk():
     fake = FakeWhisperModel(["hello local"])
-    engine = STTEngine(model_factory=lambda model_size, device: fake)
+    engine = STTEngine(model_factory=lambda _model_size, _device: fake)
 
     text = await engine.transcribe(make_chunk())
 
@@ -46,7 +53,7 @@ async def test_stt_engine_transcribe_returns_text_from_audio_chunk():
 @pytest.mark.asyncio
 async def test_stt_engine_streaming_transcription_assembles_overlapping_segments():
     fake = FakeWhisperModel(["hello world", "world again", "again soon"])
-    engine = STTEngine(model_factory=lambda model_size, device: fake)
+    engine = STTEngine(model_factory=lambda _model_size, _device: fake)
 
     async def chunks():
         yield make_chunk(timestamp_ms=0, sequence=1)
@@ -67,7 +74,7 @@ def test_stt_engine_uses_configurable_model_size_and_cpu_fallback(monkeypatch):
         seen["device"] = device
         return FakeWhisperModel()
 
-    engine = STTEngine(VoiceConfig(stt_model_size="small", stt_device="auto"), model_factory=factory, eager_load=True)
+    engine = STTEngine(VoiceConfig(stt_model_size="small", stt_device="auto"), model_factory=factory, eager_load=True)  # noqa: E501
 
     assert engine.device == "cpu"
     assert seen == {"model_size": "small", "device": "cpu"}
@@ -75,7 +82,7 @@ def test_stt_engine_uses_configurable_model_size_and_cpu_fallback(monkeypatch):
 
 def test_stt_engine_uses_cuda_when_available(monkeypatch):
     monkeypatch.setattr("torch.cuda.is_available", lambda: True)
-    engine = STTEngine(VoiceConfig(stt_device="auto"), model_factory=lambda _m, _d: FakeWhisperModel())
+    engine = STTEngine(VoiceConfig(stt_device="auto"), model_factory=lambda _m, _d: FakeWhisperModel())  # noqa: E501
 
     assert engine.device == "cuda"
     assert engine.compute_type == "float16"
@@ -92,10 +99,10 @@ async def test_stt_engine_close_unloads_model_and_rejects_future_use():
 
 
 @pytest.mark.asyncio
-async def test_stt_engine_does_not_write_audio_to_disk(monkeypatch, tmp_path):
+async def test_stt_engine_does_not_write_audio_to_disk(monkeypatch):
     writes: list[str] = []
 
-    def forbidden_open(*args, **kwargs):
+    def forbidden_open(*args, **_kwargs):
         writes.append(str(args[0]))
         raise AssertionError("disk write attempted")
 

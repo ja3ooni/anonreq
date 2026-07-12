@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 from pydantic import ValidationError
 
@@ -31,7 +29,7 @@ class TestDetectionCategory:
         }
 
     @pytest.mark.parametrize(
-        "member,expected",
+        ("member", "expected"),
         [
             (DetectionCategory.PROMPT_INJECTION, "prompt_injection"),
             (DetectionCategory.JAILBREAK, "jailbreak"),

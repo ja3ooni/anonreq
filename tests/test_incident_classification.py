@@ -5,10 +5,8 @@ Tests severity classification rules and response time requirements.
 
 from __future__ import annotations
 
-import pytest
-
-from anonreq.models.fairness import IncidentSeverity, INCIDENT_RESPONSE_TIMES
 from anonreq.incidents.classification import IncidentClassifier
+from anonreq.models.fairness import INCIDENT_RESPONSE_TIMES, IncidentSeverity
 
 
 class TestIncidentSeverityEnum:

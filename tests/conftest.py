@@ -11,7 +11,6 @@ Provides:
 """
 
 import os
-from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
@@ -24,6 +23,9 @@ os.environ.setdefault("ANONREQ_API_KEY", "a" * 32)
 os.environ.setdefault("ANONREQ_VALKEY_URL", "redis://localhost:6379/0")
 os.environ.setdefault("ANONREQ_PRESIDIO_URL", "http://localhost:5001")
 os.environ.setdefault("ANONREQ_ADMIN_API_KEY", "adminkey12345678901234567890")
+os.environ.setdefault("ANONREQ_ANTHROPIC_API_KEY", "sk-ant-test-mock-key")
+os.environ.setdefault("ANONREQ_GEMINI_API_KEY", "test-gemini-mock-key")
+os.environ.setdefault("ANONREQ_OLLAMA_API_KEY", "test-ollama-mock-key")
 
 
 
@@ -83,6 +85,7 @@ async def cache_manager():
     Imports are lazy to avoid slow redis-py startup on test collection.
     """
     import fakeredis.aioredis
+
     from anonreq.cache.manager import CacheManager
 
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -201,14 +204,16 @@ def reasoning_stream_strategy(draw):
 
 @pytest.fixture
 def admin_app():
+    from unittest.mock import AsyncMock
+
     from fastapi import FastAPI
     from fastapi.exceptions import HTTPException
-    from unittest.mock import AsyncMock
+
     from anonreq.admin.router import admin_router
-    from anonreq.policy.store import PolicyStore
-    from anonreq.policy.spend_controller import SpendController
-    from anonreq.policy.usage_limiter import UsageLimiter
     from anonreq.exceptions import global_exception_handler, http_exception_handler
+    from anonreq.policy.spend_controller import SpendController
+    from anonreq.policy.store import PolicyStore
+    from anonreq.policy.usage_limiter import UsageLimiter
 
     app = FastAPI()
     app.state.policy_store = AsyncMock(spec=PolicyStore)

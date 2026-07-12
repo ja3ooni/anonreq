@@ -20,17 +20,16 @@ from anonreq.voice.detector import SlidingWindowDetector
 from anonreq.voice.sanitizer import AudioSanitizer, TextSanitizer
 from anonreq.voice.timeline import TimelineMapper
 
-
 RAW_PII = "alice@example.com"
 
 
 class ExplodingTLS:
-    async def generate_cert(self, domain: str):
+    async def generate_cert(self, _domain: str):
         raise RuntimeError("ca unavailable")
 
 
 class NoopTLS:
-    async def generate_cert(self, domain: str):
+    async def generate_cert(self, _domain: str):
         return None
 
 
@@ -38,37 +37,37 @@ class CountingDispatcher:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def dispatch(self, content_type: str, body: bytes, ctx: object):
+    async def dispatch(self, _content_type: str, _body: bytes, _ctx: object):
         self.calls += 1
         return b"forwarded"
 
 
 class ExplodingFirewall:
-    async def evaluate(self, request_text: str):
+    async def evaluate(self, _request_text: str):
         raise RuntimeError("classifier crashed")
 
 
 class TimeoutDetector:
-    async def detect(self, text: str):
-        raise asyncio.TimeoutError("detection timeout")
+    async def detect(self, _text: str):
+        raise TimeoutError("detection timeout")
 
 
 class CacheFailureTokenizer:
     def initialize_session(self) -> None:
         return None
 
-    def tokenize(self, text: str, detections: list[dict[str, Any]]):
+    def tokenize(self, _text: str, _detections: list[dict[str, Any]]):
         raise ConnectionError("valkey unavailable")
 
 
 class OneDetection:
     async def detect(self, text: str):
         start = text.find(RAW_PII)
-        return [{"entity_type": "EMAIL", "start": start, "end": start + len(RAW_PII), "score": 0.99}]
+        return [{"entity_type": "EMAIL", "start": start, "end": start + len(RAW_PII), "score": 0.99}]  # noqa: E501
 
 
 class ExplodingSTT:
-    async def transcribe(self, chunk: AudioChunk) -> str:
+    async def transcribe(self, _chunk: AudioChunk) -> str:
         raise RuntimeError("local stt failed")
 
 
@@ -118,7 +117,7 @@ async def test_cache_failure_fails_closed_before_unsanitized_tool_result_is_retu
 
 async def test_firewall_classifier_crash_returns_500_and_never_forwards():
     dispatcher = CountingDispatcher()
-    proxy = TransparentProxy(NoopTLS(), AITrafficDetector(), dispatcher, firewall_pipeline=ExplodingFirewall())
+    proxy = TransparentProxy(NoopTLS(), AITrafficDetector(), dispatcher, firewall_pipeline=ExplodingFirewall())  # noqa: E501
 
     response = await proxy.handle_request(_ai_request("normal text"))
 
@@ -138,7 +137,7 @@ async def test_stt_engine_failure_closes_stream_with_error_and_no_audio_forward(
 
 async def test_tool_result_sanitizer_crash_propagates_as_fail_closed_error():
     class ExplodingSanitizer(ToolResultSanitizer):
-        async def _sanitize_string(self, value: str) -> str:
+        async def _sanitize_string(self, _value: str) -> str:
             raise RuntimeError("sanitizer crashed")
 
     sanitizer = ExplodingSanitizer(None, None, ToolGovernanceConfig())
@@ -150,7 +149,7 @@ async def test_tool_result_sanitizer_crash_propagates_as_fail_closed_error():
 async def test_proxy_listener_start_failure_surfaces_graceful_error():
     proxy = TransparentProxy(NoopTLS(), AITrafficDetector(), CountingDispatcher())
 
-    async def fail_start_server(*args, **kwargs):
+    async def fail_start_server(*_args, **_kwargs):
         raise OSError("bind failed")
 
     original = asyncio.start_server
@@ -217,7 +216,7 @@ def _tool_result(value: str) -> ToolResult:
     return ToolResult(tool_name="lookup", content={"email": value}, id="call_1", type="openai")
 
 
-def _voice_pipeline(stt_engine: Any) -> VoicePipeline:
+def _voice_pipeline(stt_engine: Any) -> VoicePipeline:  # noqa: F821
     from anonreq.voice.pipeline import VoicePipeline
 
     return VoicePipeline(

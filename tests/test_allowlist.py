@@ -11,8 +11,6 @@ Per D-007, D-008, D-010, D-011:
 
 from __future__ import annotations
 
-import pytest
-
 from anonreq.discovery.ai_signatures import (
     AI_PROVIDER_SIGNATURES,
     get_provider_by_hostname,

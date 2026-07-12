@@ -14,7 +14,7 @@ from typing import Any
 from anonreq.detection.regex_patterns import ENTITY_SPECIFICITY
 
 # Re-export for convenient access from other modules
-__all__ = ["SpanArbiter", "ENTITY_SPECIFICITY"]
+__all__ = ["ENTITY_SPECIFICITY", "SpanArbiter"]
 
 
 class SpanArbiter:

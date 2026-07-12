@@ -6,14 +6,13 @@ Supports three export formats: JSONL, PDF summary, and EDRM XML.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any
+from datetime import UTC, datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 
-class ExportFormat(str, Enum):
+class ExportFormat(StrEnum):
     """Supported eDiscovery export formats."""
 
     JSONL = "jsonl"
@@ -21,7 +20,7 @@ class ExportFormat(str, Enum):
     EDRM_XML = "edrm_xml"
 
 
-class eDiscoveryExportRequest(BaseModel):
+class eDiscoveryExportRequest(BaseModel):  # noqa: N801
     """Request parameters for eDiscovery export.
 
     Attributes:
@@ -45,7 +44,7 @@ class eDiscoveryExportRequest(BaseModel):
     limit: int = 100
 
 
-class eDiscoveryExportResult(BaseModel):
+class eDiscoveryExportResult(BaseModel):  # noqa: N801
     """Result of an eDiscovery export operation.
 
     Attributes:
@@ -65,7 +64,7 @@ class eDiscoveryExportResult(BaseModel):
     filename: str
     record_count: int
     export_timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc)
+        default_factory=lambda: datetime.now(UTC)
     )
 
 

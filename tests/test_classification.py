@@ -13,9 +13,8 @@ import tempfile
 from pathlib import Path
 
 import pytest
-import yaml
 
-from anonreq.classification.engine import ClassificationRule, ClassificationEngine
+from anonreq.classification.engine import ClassificationEngine, ClassificationRule
 from anonreq.classification.loader import ClassificationRuleLoader
 
 # ---------------------------------------------------------------------------
@@ -23,16 +22,17 @@ from anonreq.classification.loader import ClassificationRuleLoader
 # ---------------------------------------------------------------------------
 
 try:
-    from hypothesis import given, settings, strategies as st
+    from hypothesis import given, settings
+    from hypothesis import strategies as st
 
     HAS_HYPOTHESIS = True
 except ImportError:
     HAS_HYPOTHESIS = False
 
-    def given(*args, **kwargs):
+    def given(*_args, **_kwargs):
         return lambda fn: fn
 
-    def settings(**kwargs):
+    def settings(**_kwargs):
         return lambda fn: fn
 
 
@@ -78,10 +78,10 @@ if HAS_HYPOTHESIS:
                 f"got {result['action']}. Text: {text!r}"
             )
             assert len(result["matched_rule_ids"]) > 0, (
-                f"Expected matched_rule_ids for BLOCK action"
+                "Expected matched_rule_ids for BLOCK action"
             )
             assert "CLS-PROP-01" in result["matched_rule_ids"], (
-                f"Expected CLS-PROP-01 in matched_rule_ids"
+                "Expected CLS-PROP-01 in matched_rule_ids"
             )
         else:
             assert result["action"] == "PASS", (
@@ -89,10 +89,10 @@ if HAS_HYPOTHESIS:
                 f"got {result['action']}. Text: {text!r}"
             )
             assert result["matched_rule_ids"] == [], (
-                f"Expected empty matched_rule_ids for PASS"
+                "Expected empty matched_rule_ids for PASS"
             )
             assert result["matched_rule_versions"] == [], (
-                f"Expected empty matched_rule_versions for PASS"
+                "Expected empty matched_rule_versions for PASS"
             )
 
     @given(
@@ -267,7 +267,7 @@ class TestClassificationRule:
             keywords=["email", "phone"],
         )
         nodes = [
-            {"path": "messages[0].content", "role": "user", "value": "My Email is test@example.com"},
+            {"path": "messages[0].content", "role": "user", "value": "My Email is test@example.com"},  # noqa: E501
         ]
         assert rule.matches(nodes) is True
 
@@ -362,7 +362,7 @@ class TestClassificationRule:
             keywords=["CREDIT CARD"],
         )
         nodes = [
-            {"path": "messages[0].content", "role": "user", "value": "My Credit Card number is 4111..."},
+            {"path": "messages[0].content", "role": "user", "value": "My Credit Card number is 4111..."},  # noqa: E501
         ]
         assert rule.matches(nodes) is True
 
@@ -401,19 +401,19 @@ class TestClassificationRule:
 class TestClassificationEngine:
     """Test suite for ClassificationEngine — action-based precedence evaluation."""
 
-    DEFAULT_RULES = [
-        ClassificationRule(id="BLK-001", action="BLOCK", roles=["user"], regex_patterns=[r"(?i)password\s*[:=]\s*\S+"]),
+    DEFAULT_RULES = [  # noqa: RUF012
+        ClassificationRule(id="BLK-001", action="BLOCK", roles=["user"], regex_patterns=[r"(?i)password\s*[:=]\s*\S+"]),  # noqa: E501
         ClassificationRule(id="BLK-002", action="BLOCK", roles=["user"], keywords=["drop table"]),
         ClassificationRule(id="ANZ-001", action="ANONYMIZE", roles=[], keywords=["email"]),
         ClassificationRule(id="ANZ-002", action="ANONYMIZE", roles=[], keywords=["phone"]),
         ClassificationRule(id="PAS-001", action="PASS", roles=[], keywords=["hello"]),
-        ClassificationRule(id="LOC-001", action="ROUTE_LOCAL", roles=["user"], keywords=["internal"]),
+        ClassificationRule(id="LOC-001", action="ROUTE_LOCAL", roles=["user"], keywords=["internal"]),  # noqa: E501
     ]
 
     def test_default_action_pass_when_no_rules_match(self):
         """Classification returns PASS with empty matched_rule_ids when no rules match."""
         engine = ClassificationEngine(rules=self.DEFAULT_RULES, default_action="PASS")
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "What is the weather today?"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "What is the weather today?"}]  # noqa: E501
         result = engine.classify(nodes)
         assert result["action"] == "PASS"
         assert result["matched_rule_ids"] == []
@@ -431,7 +431,7 @@ class TestClassificationEngine:
         """BLOCK wins over ANONYMIZE when both match (action precedence)."""
         engine = ClassificationEngine(rules=self.DEFAULT_RULES)
         # Both BLOCK (BLK-001: password) and ANONYMIZE (ANZ-001: email) could match here
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "Email me at test@example.com, password: x"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "Email me at test@example.com, password: x"}]  # noqa: E501
         result = engine.classify(nodes)
         assert result["action"] == "BLOCK"
         assert "BLK-001" in result["matched_rule_ids"]
@@ -439,7 +439,7 @@ class TestClassificationEngine:
     def test_anonymize_action_returned_when_no_block_matches(self):
         """ANONYMIZE returned when no BLOCK rules match but ANONYMIZE rules do."""
         engine = ClassificationEngine(rules=self.DEFAULT_RULES)
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "My email is test@example.com"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "My email is test@example.com"}]  # noqa: E501
         result = engine.classify(nodes)
         assert result["action"] == "ANONYMIZE"
         assert "ANZ-001" in result["matched_rule_ids"]
@@ -449,7 +449,7 @@ class TestClassificationEngine:
         engine = ClassificationEngine(rules=self.DEFAULT_RULES)
         # This input matches ROUTE_LOCAL (LOC-001: "internal"), ANONYMIZE (ANZ-001: "email"),
         # PASS (PAS-001: "hello"), and BLOCK (BLK-002: "drop table")
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "hello, internal email: don't drop table"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "hello, internal email: don't drop table"}]  # noqa: E501
         result = engine.classify(nodes)
         assert result["action"] == "BLOCK"
         assert "BLK-002" in result["matched_rule_ids"]
@@ -465,11 +465,11 @@ class TestClassificationEngine:
     def test_disabled_rules_are_skipped(self):
         """Rules with enabled=False are not evaluated."""
         rules = [
-            ClassificationRule(id="BLK-001", action="BLOCK", enabled=False, roles=["user"], regex_patterns=[r"(?i)password"]),
-            ClassificationRule(id="ANZ-001", action="ANONYMIZE", enabled=True, roles=[], keywords=["email"]),
+            ClassificationRule(id="BLK-001", action="BLOCK", enabled=False, roles=["user"], regex_patterns=[r"(?i)password"]),  # noqa: E501
+            ClassificationRule(id="ANZ-001", action="ANONYMIZE", enabled=True, roles=[], keywords=["email"]),  # noqa: E501
         ]
         engine = ClassificationEngine(rules=rules)
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "password is secret and my email is test@test.com"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "password is secret and my email is test@test.com"}]  # noqa: E501
         result = engine.classify(nodes)
         # BLK-001 is disabled so it should be skipped, ANZ-001 should match
         assert result["action"] == "ANONYMIZE"
@@ -478,7 +478,7 @@ class TestClassificationEngine:
     def test_route_local_action(self):
         """ROUTE_LOCAL action is returned when matching rule has that action."""
         engine = ClassificationEngine(rules=self.DEFAULT_RULES)
-        nodes = [{"path": "messages[0].content", "role": "user", "value": "Please check the internal knowledge base"}]
+        nodes = [{"path": "messages[0].content", "role": "user", "value": "Please check the internal knowledge base"}]  # noqa: E501
         result = engine.classify(nodes)
         assert result["action"] == "ROUTE_LOCAL"
         assert "LOC-001" in result["matched_rule_ids"]

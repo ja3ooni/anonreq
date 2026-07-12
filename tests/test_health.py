@@ -7,7 +7,7 @@ Tests verify:
 - GET /health/ready also works
 """
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 from fastapi import FastAPI
@@ -37,7 +37,7 @@ class TestHealthEndpoint:
     @patch("anonreq.health.check_valkey", return_value=True)
     @patch("anonreq.health.check_presidio", return_value=True)
     async def test_health_returns_200_when_healthy(
-        self, mock_presidio, mock_valkey, client: AsyncClient
+        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
     ):
         """Test 1: GET /health returns 200 when all components healthy."""
         response = await client.get("/health")
@@ -46,7 +46,7 @@ class TestHealthEndpoint:
     @patch("anonreq.health.check_valkey", return_value=True)
     @patch("anonreq.health.check_presidio", return_value=True)
     async def test_health_response_includes_component_status(
-        self, mock_presidio, mock_valkey, client: AsyncClient
+        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
     ):
         """Test 2: /health response includes component status fields."""
         response = await client.get("/health")
@@ -61,7 +61,7 @@ class TestHealthEndpoint:
     @patch("anonreq.health.check_valkey", return_value=True)
     @patch("anonreq.health.check_presidio", return_value=True)
     async def test_health_healthy_status(
-        self, mock_presidio, mock_valkey, client: AsyncClient
+        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
     ):
         """All components healthy → overall status 'healthy'."""
         response = await client.get("/health")
@@ -74,7 +74,7 @@ class TestHealthEndpoint:
     @patch("anonreq.health.check_valkey", return_value=False)
     @patch("anonreq.health.check_presidio", return_value=True)
     async def test_health_503_when_valkey_unhealthy(
-        self, mock_presidio, mock_valkey, client: AsyncClient
+        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
     ):
         """Valkey unhealthy → 503 with degraded status."""
         response = await client.get("/health")
@@ -87,7 +87,7 @@ class TestHealthEndpoint:
     @patch("anonreq.health.check_valkey", return_value=True)
     @patch("anonreq.health.check_presidio", return_value=False)
     async def test_health_503_when_presidio_unhealthy(
-        self, mock_presidio, mock_valkey, client: AsyncClient
+        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
     ):
         """Presidio unhealthy → 503 with degraded status."""
         response = await client.get("/health")
@@ -100,7 +100,7 @@ class TestHealthEndpoint:
     @patch("anonreq.health.check_valkey", return_value=False)
     @patch("anonreq.health.check_presidio", return_value=False)
     async def test_health_503_when_all_unhealthy(
-        self, mock_presidio, mock_valkey, client: AsyncClient
+        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
     ):
         """All components unhealthy → 503 with degraded status."""
         response = await client.get("/health")
@@ -117,7 +117,7 @@ class TestHealthReadyEndpoint:
     @patch("anonreq.health.check_valkey", return_value=True)
     @patch("anonreq.health.check_presidio", return_value=True)
     async def test_health_ready_returns_200(
-        self, mock_presidio, mock_valkey, client: AsyncClient
+        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
     ):
         """GET /health/ready returns 200 when healthy."""
         response = await client.get("/health/ready")

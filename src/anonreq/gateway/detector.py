@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -224,10 +223,7 @@ class AIDetector:
         )
 
     def _is_ai_endpoint(self, path: str) -> bool:
-        for pattern in AI_ENDPOINT_PATTERNS:
-            if pattern.search(path):
-                return True
-        return False
+        return any(pattern.search(path) for pattern in AI_ENDPOINT_PATTERNS)
 
     def _classify_endpoint(self, path: str) -> str | None:
         path_lower = path.lower()
@@ -257,13 +253,12 @@ class AIDetector:
             if provider is not None:
                 return provider
 
-        if isinstance(payload, dict):
-            if "messages" in payload:
-                msgs = payload["messages"]
-                if isinstance(msgs, list) and any(
-                    isinstance(m, dict) and "role" in m for m in msgs
-                ):
-                    return "openai"
+        if isinstance(payload, dict) and "messages" in payload:
+            msgs = payload["messages"]
+            if isinstance(msgs, list) and any(
+                isinstance(m, dict) and "role" in m for m in msgs
+            ):
+                return "openai"
 
         return None
 
@@ -324,9 +319,8 @@ class MCPInspector:
         for msg in messages:
             if not isinstance(msg, dict):
                 continue
-            if "tool_calls" in msg and isinstance(msg["tool_calls"], list):
-                if len(msg["tool_calls"]) > 0:
-                    return True
+            if "tool_calls" in msg and isinstance(msg["tool_calls"], list) and len(msg["tool_calls"]) > 0:  # noqa
+                return True
             if msg.get("role") == "tool":
                 return True
 

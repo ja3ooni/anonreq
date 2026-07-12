@@ -7,14 +7,13 @@ Tests verify:
 - Auth errors include request_id in response body
 """
 
-from unittest.mock import ANY
 
-import pytest
-from fastapi import FastAPI, HTTPException, Depends, Request
-from httpx import ASGITransport, AsyncClient
 from uuid import uuid4
 
+import pytest
 import structlog
+from fastapi import Depends, FastAPI, HTTPException, Request
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.fixture
@@ -33,6 +32,7 @@ def auth_app(monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     # instantiated the singleton with a different key. We reimport to
     # pick up our monkeypatched value.
     import importlib
+
     from anonreq import config
     importlib.reload(config)
 

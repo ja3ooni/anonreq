@@ -11,13 +11,12 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from anonreq.models.governance import IncidentRecord, ServiceCriticality
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -69,7 +68,7 @@ class TestIncidentRecord:
 
     def test_minimal_incident(self):
         """Create an incident with required fields only."""
-        now = datetime.now(timezone.utc)
+        datetime.now(UTC)
         incident = IncidentRecord(
             tenant_id="acme-corp",
             service_id="svc-gateway",
@@ -87,7 +86,7 @@ class TestIncidentRecord:
 
     def test_full_incident(self):
         """Create an incident with all fields."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         incident = IncidentRecord(
             id="inc_001",
             tenant_id="acme-corp",

@@ -15,13 +15,12 @@ Design decisions:
   because ``test_app`` is function-scoped (rebuilds pipeline per test).  The
   fixture state is not mutated by Hypothesis — it is set up once and reused
   across all generated examples within a single test function call.
-"""
+"""  # noqa: RUF002
 
 from __future__ import annotations
 
 from typing import Any
 
-import pytest
 from hypothesis import HealthCheck, given, settings
 
 from tests.property.conftest import inject_failure
@@ -50,7 +49,7 @@ async def test_fail_secure_returns_5xx(
     property_client: Any,
     failure_mode: FailureMode,
 ) -> None:
-    """TEST-04a–04e: Every failure mode returns HTTP >= 500."""
+    """TEST-04a–04e: Every failure mode returns HTTP >= 500."""  # noqa: RUF002
     async with inject_failure(failure_mode, PipelinePath.NON_STREAMING, test_app):
         response = await property_client.post(
             "/v1/chat/completions",
@@ -84,7 +83,7 @@ async def test_fail_secure_provider_not_called(
 
     For provider-timeout and circuit-breaker modes the provider IS called
     (the timeout happens inside the HTTP call) — those are excluded.
-    """
+    """  # noqa: RUF002
     async with inject_failure(failure_mode, PipelinePath.NON_STREAMING, test_app):
         await property_client.post(
             "/v1/chat/completions",
@@ -202,7 +201,7 @@ async def test_fail_secure_stream_terminates(
     cm: CacheManager = test_app.state.cache_manager
     original_store = cm.store_mapping
 
-    async def fail_store(*args: object, **kwargs: object) -> None:
+    async def fail_store(*_args: object, **_kwargs: object) -> None:
         msg = "Simulated cache failure"
         raise RuntimeError(msg)
 

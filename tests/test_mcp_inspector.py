@@ -11,9 +11,7 @@ from __future__ import annotations
 import json
 import types
 
-import pytest
-
-from anonreq.mcp.inspector import MCPInspector, InspectionResult
+from anonreq.mcp.inspector import MCPInspector
 
 
 class TestMCPInspector:

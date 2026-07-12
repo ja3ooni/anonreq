@@ -10,11 +10,11 @@ Provides:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class AppClassification(str, Enum):
+class AppClassification(StrEnum):
     """3-tier CASB app classification."""
 
     SANCTIONED = "sanctioned"
@@ -22,7 +22,7 @@ class AppClassification(str, Enum):
     UNSANCTIONED = "unsanctioned"
 
 
-class ClassificationAction(str, Enum):
+class ClassificationAction(StrEnum):
     """Enforcement action for classified apps."""
 
     ALLOW = "allow"
@@ -171,7 +171,7 @@ class CASBClassifier:
             try:
                 classification = AppClassification(classification_str)
             except ValueError:
-                raise ValueError(f"Unknown classification '{classification_str}' for app '{app_id}'")
+                raise ValueError(f"Unknown classification '{classification_str}' for app '{app_id}'")  # noqa: B904, E501
 
             risk_score = config.get("risk_score", 50)
             if not isinstance(risk_score, int) or not (0 <= risk_score <= 100):
@@ -183,7 +183,7 @@ class CASBClassifier:
                 try:
                     action = ClassificationAction(action_str)
                 except ValueError:
-                    raise ValueError(f"Unknown action '{action_str}' for app '{app_id}'")
+                    raise ValueError(f"Unknown action '{action_str}' for app '{app_id}'")  # noqa: B904
 
             policy = AppPolicy(
                 app_id=app_id,

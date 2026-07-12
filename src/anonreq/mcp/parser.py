@@ -17,10 +17,10 @@ Per D-007, D-008:
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class MCPParseError(Exception):
@@ -196,8 +196,7 @@ class MCPParser:
                     )
 
             # Handle notifications with embedded tool calls
-            if msg.method and msg.method.startswith("notifications/"):
-                if msg.params and "tool_calls" in msg.params:
+            if msg.method and msg.method.startswith("notifications/") and msg.params and "tool_calls" in msg.params:  # noqa
                     for tc in msg.params["tool_calls"]:
                         tool_calls.append(
                             MCPToolCall(

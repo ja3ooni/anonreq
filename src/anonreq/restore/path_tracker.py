@@ -7,8 +7,6 @@ for tool call arguments, nested content, and multipart parts.
 
 from __future__ import annotations
 
-from typing import Dict, List
-
 
 class PathTracker:
     """Tracks JSON pointer / dot-notation paths for anonymization tokens.
@@ -27,7 +25,7 @@ class PathTracker:
     """
 
     def __init__(self) -> None:
-        self._paths: Dict[str, List[str]] = {}
+        self._paths: dict[str, list[str]] = {}
 
     def track(self, entity_key: str, path: str) -> None:
         """Record that *entity_key* (a token like ``[EMAIL_0]``) appeared at
@@ -51,14 +49,14 @@ class PathTracker:
         if path not in existing:
             existing.append(path)
 
-    def get_path(self, entity_key: str) -> List[str]:
+    def get_path(self, entity_key: str) -> list[str]:
         """Return all tracked paths for *entity_key*.
 
         Returns an empty list if the key has not been tracked.
         """
         return list(self._paths.get(entity_key, []))
 
-    def get_all(self) -> Dict[str, List[str]]:
+    def get_all(self) -> dict[str, list[str]]:
         """Return the full mapping of entity_key → list of paths."""
         return {k: list(v) for k, v in self._paths.items()}
 

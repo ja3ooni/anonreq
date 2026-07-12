@@ -36,9 +36,15 @@ class UsageSummary:
     """
 
     __slots__ = (
-        "service_name", "provider", "request_count", "user_count",
-        "user_list", "first_seen", "last_seen", "estimated_token_volume",
         "data_classification",
+        "estimated_token_volume",
+        "first_seen",
+        "last_seen",
+        "provider",
+        "request_count",
+        "service_name",
+        "user_count",
+        "user_list",
     )
 
     def __init__(
@@ -219,7 +225,7 @@ class UsageAnalyzer:
                     user_list=sorted(all_users),
                     first_seen=min(dns.first_seen, proxy.first_seen),
                     last_seen=max(dns.last_seen, proxy.last_seen),
-                    estimated_token_volume=dns.estimated_token_volume + proxy.estimated_token_volume,
+                    estimated_token_volume=dns.estimated_token_volume + proxy.estimated_token_volume,  # noqa: E501
                     data_classification=dns.data_classification or proxy.data_classification,
                 )
             elif dns:

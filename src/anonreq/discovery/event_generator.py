@@ -9,10 +9,9 @@ Per D-001, D-025:
 
 from __future__ import annotations
 
-import json
 import logging
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -34,7 +33,7 @@ class ShadowAIEvent:
         source_ip: IP address of the client.
         destination_host: The AI service hostname.
         estimated_service: Name of the estimated AI service/provider.
-        confidence: Detection confidence (0.0–1.0).
+        confidence: Detection confidence (0.0-1.0).
         detection_source: Source of detection — "dns" or "proxy".
         timestamp: When the event was generated.
         tenant_id: Tenant identifier for multi-tenant deployments.
@@ -46,7 +45,7 @@ class ShadowAIEvent:
     estimated_service: str = ""
     confidence: float = 0.0
     detection_source: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     tenant_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -114,7 +113,7 @@ class EventGenerator:
             estimated_service=match.provider,
             confidence=match.confidence,
             detection_source=detection_source,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             tenant_id=self._tenant_id,
         )
 

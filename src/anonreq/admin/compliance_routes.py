@@ -3,13 +3,14 @@
 Provides:
 - GET /v1/admin/compliance/report — generate framework-specific compliance report
 - GET /v1/admin/compliance/report/frameworks — list supported frameworks
+- GET /v1/admin/compliance/evidence — generate compliance evidence for frameworks (Phase 26)
 
 All endpoints require ADMINISTRATOR role per T-15-04-01 mitigation.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from anonreq.governance.reports import (
     FRAMEWORKS,
@@ -17,9 +18,18 @@ from anonreq.governance.reports import (
     list_frameworks,
 )
 from anonreq.middleware.rbac import require_role
+from anonreq.services.compliance_evidence import ComplianceEvidenceService
+from anonreq.license.validator import require_license
 
 router = APIRouter(
     prefix="/compliance/report",
+    tags=["admin-compliance"],
+    dependencies=[Depends(require_role("admin"))],
+)
+
+# New router for other compliance endpoints to map directly to /v1/admin/compliance
+evidence_router = APIRouter(
+    prefix="/compliance",
     tags=["admin-compliance"],
     dependencies=[Depends(require_role("admin"))],
 )
@@ -64,3 +74,18 @@ async def get_frameworks() -> dict:
         "data": frameworks,
         "total": len(frameworks),
     }
+
+
+@evidence_router.get("/evidence")
+async def get_compliance_evidence(
+    request: Request,
+    framework: str = Query("soc2", description="Framework ID (e.g. soc2, iso27001, gdpr)"),
+    _license: None = Depends(require_license("compliance_monitoring")),
+) -> dict:
+    """GET /v1/admin/compliance/evidence — collect compliance evidence.
+
+    Per D-04: Aggregates evidence from SLO engine, audit chain,
+    governance records, and incident history.
+    """
+    service: ComplianceEvidenceService = request.app.state.compliance_evidence_service
+    return await service.collect_evidence(framework=framework)

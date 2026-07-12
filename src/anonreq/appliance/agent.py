@@ -16,7 +16,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import re
 import shutil
 import time
@@ -530,7 +529,7 @@ class ApplianceAgent:
                 "stdout": stdout.decode("utf-8", errors="replace"),
                 "stderr": stderr.decode("utf-8", errors="replace"),
             }
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("Command timed out after %ss: %s", timeout, subcommand)
             return {
                 "returncode": -1,

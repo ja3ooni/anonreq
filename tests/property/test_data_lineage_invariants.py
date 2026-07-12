@@ -10,12 +10,12 @@ Per REQ-44, REQ-47, TEST-05:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-import hypothesis
 import pytest
-from hypothesis import assume, given, strategies as st
+from hypothesis import assume, given
+from hypothesis import strategies as st
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -23,13 +23,12 @@ from sqlalchemy.orm import sessionmaker
 from anonreq.lineage.tracker import LineageTracker
 from anonreq.models.lineage import LineageRecord
 
-
 # ── Hypothesis strategies for LineageRecord ───────────────────────
 
 _timestamps = st.datetimes(
     min_value=datetime(2024, 1, 1),
     max_value=datetime(2026, 12, 31),
-).map(lambda dt: dt.replace(tzinfo=timezone.utc))
+).map(lambda dt: dt.replace(tzinfo=UTC))
 
 _lineage_record_strategy = st.builds(
     LineageRecord,
@@ -193,14 +192,14 @@ class TestLineageFilters:
                 provider="openai", model="gpt-4", entity_types=[],
                 entity_count=0, policies_applied=[],
                 classification_action="pass", processing_time_ms=10,
-                request_timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                request_timestamp=datetime(2025, 1, 1, tzinfo=UTC),
             )
             rb = LineageRecord(
                 id="tb_001", session_id="sess_b", tenant_id=tb,
                 provider="anthropic", model="claude-3", entity_types=[],
                 entity_count=0, policies_applied=[],
                 classification_action="pass", processing_time_ms=10,
-                request_timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                request_timestamp=datetime(2025, 1, 1, tzinfo=UTC),
             )
             await tracker.record_lineage(ra)
             await tracker.record_lineage(rb)
@@ -232,14 +231,14 @@ class TestLineageFilters:
                 provider="openai", model="gpt-4", entity_types=[],
                 entity_count=0, policies_applied=[],
                 classification_action="pass", processing_time_ms=10,
-                request_timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                request_timestamp=datetime(2025, 1, 1, tzinfo=UTC),
             )
             rb = LineageRecord(
                 id="sb_001", session_id=sb, tenant_id="tenant1",
                 provider="anthropic", model="claude-3", entity_types=[],
                 entity_count=0, policies_applied=[],
                 classification_action="pass", processing_time_ms=10,
-                request_timestamp=datetime(2025, 1, 1, tzinfo=timezone.utc),
+                request_timestamp=datetime(2025, 1, 1, tzinfo=UTC),
             )
             await tracker.record_lineage(ra)
             await tracker.record_lineage(rb)

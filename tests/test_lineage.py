@@ -5,7 +5,7 @@ Uses fakeredis-backed cache matching conftest patterns.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -18,14 +18,14 @@ async def lineage_service(cache_manager):
     keys = await svc._redis.keys("anonreq:lineage:*")
     for k in keys:
         await svc._redis.delete(k)
-    yield svc
+    return svc
 
 
 def sample_record(tenant_id="acme-corp", session_id="ses-001") -> LineageRecord:
     return LineageRecord(
         session_id=session_id,
         tenant_id=tenant_id,
-        timestamp_request_received=datetime.now(timezone.utc),
+        timestamp_request_received=datetime.now(UTC),
         provider_routed_to="openai",
         model_used="gpt-4",
         entities_anonymized_count={"EMAIL": 2, "PHONE": 1},
@@ -69,7 +69,7 @@ class TestLineageRecordCreation:
         record = LineageRecord(
             session_id="ses-min",
             tenant_id="acme-corp",
-            timestamp_request_received=datetime.now(timezone.utc),
+            timestamp_request_received=datetime.now(UTC),
             entities_anonymized_count={},
             policy_actions_applied=[],
         )

@@ -16,9 +16,7 @@ Instrumentation (D-140, D-161):
 from __future__ import annotations
 
 import time
-from typing import Any
 
-import structlog
 from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError

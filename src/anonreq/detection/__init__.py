@@ -11,20 +11,20 @@ Phase 15 Financial Services Compliance:
   tenant restricted names)
 """
 
-from anonreq.detection.regex_detector import RegexDetector
-from anonreq.detection.regex_patterns import PATTERNS, luhn_checksum, ENTITY_SPECIFICITY
-from anonreq.detection.presidio_client import PresidioClient, PresidioTimeoutError, PresidioError
 from anonreq.detection.exclusion_list import ExclusionList
+from anonreq.detection.presidio_client import PresidioClient, PresidioError, PresidioTimeoutError
+from anonreq.detection.regex_detector import RegexDetector
+from anonreq.detection.regex_patterns import ENTITY_SPECIFICITY, PATTERNS, luhn_checksum
 from anonreq.detection.span_arbiter import SpanArbiter
 
 __all__ = [
-    "RegexDetector",
-    "PATTERNS",
-    "luhn_checksum",
     "ENTITY_SPECIFICITY",
-    "PresidioClient",
-    "PresidioTimeoutError",
-    "PresidioError",
+    "PATTERNS",
     "ExclusionList",
+    "PresidioClient",
+    "PresidioError",
+    "PresidioTimeoutError",
+    "RegexDetector",
     "SpanArbiter",
+    "luhn_checksum",
 ]

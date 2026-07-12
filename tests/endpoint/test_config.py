@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -99,7 +98,7 @@ class TestEndpointConfigYaml:
 
     def test_invalid_yaml_raises(self, tmp_path: Path):
         """Invalid YAML content raises a clear error."""
-        from anonreq.endpoint.config import load_config, EndpointConfigError
+        from anonreq.endpoint.config import EndpointConfigError, load_config
 
         config_file = tmp_path / "endpoint.yaml"
         config_file.write_text("{invalid: yaml: broken")

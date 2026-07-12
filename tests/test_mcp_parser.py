@@ -15,7 +15,7 @@ import json
 
 import pytest
 
-from anonreq.mcp.parser import MCPParser, MCPMessage, MCPToolCall, MCPToolResult, MCPParseError
+from anonreq.mcp.parser import MCPMessage, MCPParseError, MCPParser
 
 
 class TestMCPParser:
@@ -40,7 +40,7 @@ class TestMCPParser:
         assert result.jsonrpc == "2.0"
         assert result.id == 1
         assert result.method == "tools/call"
-        assert result.params == {"name": "get_weather", "arguments": {"location": "San Francisco", "unit": "celsius"}}
+        assert result.params == {"name": "get_weather", "arguments": {"location": "San Francisco", "unit": "celsius"}}  # noqa: E501
 
     def test_parse_batch_messages(self):
         """Parse a batch (list) of MCP messages."""

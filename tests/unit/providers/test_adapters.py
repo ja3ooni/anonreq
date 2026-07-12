@@ -15,20 +15,18 @@ from __future__ import annotations
 import os
 import re
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import respx
 from httpx import Response
 
 from anonreq.providers.adapter import (
-    ProviderCapabilities,
     ProviderRequest,
     ProviderResponse,
     RestoredResponse,
 )
-from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
-
+from anonreq.streaming.stream_event import EventType, FinishReason
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -63,7 +61,7 @@ def processing_context(openai_chat_request):
 
 
 @pytest.fixture
-def ctx_with_tools(openai_chat_request):
+def ctx_with_tools():
     """A ProcessingContext with tools in the request."""
     from anonreq.models.processing_context import ProcessingContext
 
@@ -356,7 +354,7 @@ class TestAnthropicStreamEvents:
 class TestAnthropicErrorNormalization:
     """Tests for error normalization per PROV-08."""
 
-    SENSITIVE_PATTERNS = [
+    SENSITIVE_PATTERNS = [  # noqa: RUF012
         re.compile(r"sk-[a-zA-Z0-9]{20,}"),  # Anthropic API keys
         re.compile(r"http[s]?://[^\s]+"),  # URLs
         re.compile(r"[A-Za-z0-9+/]{40,}={0,2}"),  # Base64 content
@@ -397,7 +395,7 @@ class TestAnthropicErrorNormalization:
                     )
                 )
 
-                with pytest.raises(Exception) as exc_info:
+                with pytest.raises(Exception) as exc_info:  # noqa: PT011
                     await adapter.execute(request)
 
                 error_msg = str(exc_info.value)
@@ -434,7 +432,7 @@ class TestAnthropicErrorNormalization:
                     )
                 )
 
-                with pytest.raises(Exception) as exc_info:
+                with pytest.raises(Exception) as exc_info:  # noqa: PT011
                     await adapter.execute(request)
 
                 error_msg = str(exc_info.value)
@@ -696,7 +694,7 @@ class TestGeminiErrorNormalization:
                     )
                 )
 
-                with pytest.raises(Exception) as exc_info:
+                with pytest.raises(Exception) as exc_info:  # noqa: PT011
                     await adapter.execute(request)
 
                 error_msg = str(exc_info.value)
@@ -738,7 +736,7 @@ class TestGeminiErrorNormalization:
                     )
                 )
 
-                with pytest.raises(Exception) as exc_info:
+                with pytest.raises(Exception) as exc_info:  # noqa: PT011
                     await adapter.execute(request)
 
                 error_msg = str(exc_info.value)
@@ -959,7 +957,7 @@ class TestOllamaErrorNormalization:
                 )
             )
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(Exception) as exc_info:  # noqa: PT011
                 await adapter.execute(request)
 
             error_msg = str(exc_info.value)
@@ -985,7 +983,7 @@ class TestOllamaErrorNormalization:
                 )
             )
 
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(Exception) as exc_info:  # noqa: PT011
                 async for _ in adapter.stream_events(request):
                     pass
 

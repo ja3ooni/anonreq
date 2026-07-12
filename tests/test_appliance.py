@@ -17,10 +17,9 @@ All Docker CLI calls are mocked using ``unittest.mock``.
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -262,7 +261,7 @@ class TestApplianceAgentUpdate:
 
     @patch("anonreq.appliance.agent.ApplianceAgent._run_compose_command")
     @patch("anonreq.appliance.agent.ApplianceAgent._update_compose_image_tag")
-    def test_update_success(self, mock_update_tag, mock_run, agent):
+    def test_update_success(self, _mock_update_tag, mock_run, agent):  # noqa: PT019
         # First call (pull) succeeds, second call (up) succeeds
         mock_run.side_effect = [
             {"returncode": 0, "stdout": "pull ok", "stderr": ""},

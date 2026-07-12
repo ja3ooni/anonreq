@@ -10,7 +10,7 @@ Provides:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, select
@@ -66,7 +66,7 @@ class ModelInventory:
         Returns:
             The created ModelRecord.
         """
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         model_id = f"model_{uuid.uuid4().hex[:24]}"
 
         # Initialise lifecycle — LifecycleService defaults to DESIGN
@@ -208,7 +208,7 @@ class ModelInventory:
         if orm is None:
             raise ValueError(f"Model not found: {model_id}")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         orm.validation_status = validation_status
         orm.validation_date = validation_date
         orm.last_review_date = now
@@ -296,5 +296,5 @@ def _orm_to_model_record(orm: ModelAnonReqModel) -> ModelRecord:
 
 def _ensure_tz(dt: Any) -> Any:
     if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt

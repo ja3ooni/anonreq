@@ -32,9 +32,7 @@ class RecognizerMerger:
             source_codes.add(bundle.code)
             for config in sorted(bundle.entity_types, key=lambda item: item.name):
                 existing = merged.get(config.name)
-                if existing is None:
-                    merged[config.name] = config
-                elif config.confidence_threshold > existing.confidence_threshold:
+                if existing is None or config.confidence_threshold > existing.confidence_threshold:
                     merged[config.name] = config
 
         return MergedRecognizerSet(

@@ -49,7 +49,7 @@ FULL_STAGES: Final[list[str]] = [
 """Pipeline stages for full inspection mode — all capabilities enabled."""
 
 
-class ProxyMode(str, enum.Enum):
+class ProxyMode(enum.StrEnum):
     """Gateway operating modes.
 
     Each mode defines which pipeline stages are active and how the

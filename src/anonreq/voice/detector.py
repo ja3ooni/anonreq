@@ -156,7 +156,7 @@ class SlidingWindowDetector:
             entity = {
                 "start": getattr(raw_entity, "start", getattr(raw_entity, "start_char", 0)),
                 "end": getattr(raw_entity, "end", getattr(raw_entity, "end_char", 0)),
-                "entity_type": getattr(raw_entity, "entity_type", getattr(raw_entity, "type", "PII")),
+                "entity_type": getattr(raw_entity, "entity_type", getattr(raw_entity, "type", "PII")),  # noqa: E501
                 "score": getattr(raw_entity, "score", getattr(raw_entity, "confidence", None)),
             }
         if "start" not in entity and "start_char" in entity:

@@ -12,8 +12,6 @@ Per D-13, D-14, D-15 and CACH-01 through CACH-06:
 
 from __future__ import annotations
 
-from typing import Any
-
 import redis.asyncio as redis
 
 

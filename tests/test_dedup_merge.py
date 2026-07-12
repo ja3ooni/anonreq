@@ -8,7 +8,7 @@ Per D-001, D-014:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from anonreq.discovery.dedup_merge import DedupMerge, MergedRecord
 from anonreq.discovery.dns_parser import DNSEntry
@@ -22,7 +22,7 @@ class TestMergedRecord:
 
     def test_merged_record_has_required_fields(self):
         """MergedRecord contains service_name, provider, sources, hostnames, etc."""
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         record = MergedRecord(
             service_name="api.openai.com",
             provider="openai",
@@ -53,9 +53,9 @@ class TestDedupMerge:
         """Merge DNS-only entries returns correct grouped records."""
         entries = [
             DNSEntry("api.openai.com", "10.0.0.1",
-                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)),
             DNSEntry("api.openai.com", "10.0.0.2",
-                     datetime(2026, 6, 20, 10, 1, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 1, 0, tzinfo=UTC)),
         ]
         records = self.merger.merge(entries, [], self.matcher)
         assert len(records) == 1
@@ -69,7 +69,7 @@ class TestDedupMerge:
         """Merge proxy-only entries returns correct grouped records."""
         entries = [
             ProxyEntry("10.0.0.1",
-                       datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc),
+                       datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC),
                        "POST", "https://api.openai.com/v1/chat/completions", 200, 1500),
         ]
         records = self.merger.merge([], entries, self.matcher)
@@ -81,11 +81,11 @@ class TestDedupMerge:
         """Merge combines DNS and proxy entries for the same provider."""
         dns_entries = [
             DNSEntry("api.openai.com", "10.0.0.1",
-                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)),
         ]
         proxy_entries = [
             ProxyEntry("10.0.0.2",
-                       datetime(2026, 6, 20, 10, 1, 0, tzinfo=timezone.utc),
+                       datetime(2026, 6, 20, 10, 1, 0, tzinfo=UTC),
                        "POST", "https://api.openai.com/v1/chat/completions", 200, 1500),
         ]
         records = self.merger.merge(dns_entries, proxy_entries, self.matcher)
@@ -100,9 +100,9 @@ class TestDedupMerge:
         """Merge separates entries from different providers."""
         dns_entries = [
             DNSEntry("api.openai.com", "10.0.0.1",
-                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)),
             DNSEntry("api.anthropic.com", "10.0.0.1",
-                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)),
         ]
         records = self.merger.merge(dns_entries, [], self.matcher)
         assert len(records) == 2
@@ -113,24 +113,24 @@ class TestDedupMerge:
         """Timeline conflict resolution: latest timestamp wins."""
         dns_entries = [
             DNSEntry("api.openai.com", "10.0.0.1",
-                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)),
         ]
         proxy_entries = [
             ProxyEntry("10.0.0.1",
-                       datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc),
+                       datetime(2026, 6, 20, 12, 0, 0, tzinfo=UTC),
                        "POST", "https://api.openai.com/v1/chat/completions", 200, 1500),
         ]
         records = self.merger.merge(dns_entries, proxy_entries, self.matcher)
-        assert records[0].last_seen == datetime(2026, 6, 20, 12, 0, 0, tzinfo=timezone.utc)
-        assert records[0].first_seen == datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)
+        assert records[0].last_seen == datetime(2026, 6, 20, 12, 0, 0, tzinfo=UTC)
+        assert records[0].first_seen == datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)
 
     def test_unmatched_entries_are_excluded(self):
         """Entries that don't match any provider are excluded from results."""
         dns_entries = [
             DNSEntry("api.openai.com", "10.0.0.1",
-                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)),
             DNSEntry("unknown.internal.corp", "10.0.0.2",
-                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=timezone.utc)),
+                     datetime(2026, 6, 20, 10, 0, 0, tzinfo=UTC)),
         ]
         records = self.merger.merge(dns_entries, [], self.matcher)
         assert len(records) == 1

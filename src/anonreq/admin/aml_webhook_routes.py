@@ -45,7 +45,7 @@ async def set_aml_webhook_config(
 @router.post("/{tenant_id}/test")
 async def test_aml_webhook(
     tenant_id: str,
-    _: None = Depends(require_role("admin")),
+    _: None = Depends(require_role("admin")),  # noqa: PT019, PT028
 ) -> dict[str, str]:
     """Send a test AML webhook event for a tenant."""
     from anonreq.governance.webhooks.aml import AmlWebhookManager
@@ -67,4 +67,4 @@ async def test_aml_webhook(
     delivered = await manager.fire_webhook(payload, config)
     if delivered:
         return {"status": "delivered", "tenant_id": tenant_id}
-    return {"status": "failed", "tenant_id": tenant_id, "detail": "Webhook delivery failed (see logs)"}
+    return {"status": "failed", "tenant_id": tenant_id, "detail": "Webhook delivery failed (see logs)"}  # noqa: E501

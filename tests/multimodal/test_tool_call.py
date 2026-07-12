@@ -7,7 +7,6 @@ import pytest
 
 from anonreq.multimodal.json_analyzer import JsonAnalyzer
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -22,7 +21,7 @@ def mock_json_analyzer():
     """
     m = AsyncMock(spec=JsonAnalyzer)
 
-    async def analyze_side_effect(json_data, path="$"):
+    async def analyze_side_effect(json_data, _path="$"):
         from anonreq.multimodal.models import ContentType, UnifiedDetectionResult
 
         result = UnifiedDetectionResult(content_type=ContentType.APPLICATION_JSON)

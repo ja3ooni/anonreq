@@ -10,9 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pytest
-
-from anonreq.discovery.proxy_parser import ProxyParser, ProxyEntry
+from anonreq.discovery.proxy_parser import ProxyEntry, ProxyParser
 
 
 class TestProxyEntry:
@@ -60,7 +58,7 @@ class TestProxyParser:
 
     def test_parse_squid_format(self):
         """Parse Squid proxy access log format."""
-        line = "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/104.18.1.1 application/json"
+        line = "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/104.18.1.1 application/json"  # noqa: E501
         entry = self.parser.parse_line(line, format="squid")
         assert entry is not None
         assert entry.source_ip == "10.0.0.1"
@@ -71,7 +69,7 @@ class TestProxyParser:
 
     def test_parse_squid_without_user(self):
         """Parse Squid format without username (- placeholder)."""
-        line = "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 GET https://api.anthropic.com/v1/messages - DIRECT/104.18.1.1 text/html"
+        line = "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 GET https://api.anthropic.com/v1/messages - DIRECT/104.18.1.1 text/html"  # noqa: E501
         entry = self.parser.parse_line(line, format="squid")
         assert entry is not None
         assert entry.source_ip == "10.0.0.1"
@@ -101,7 +99,7 @@ class TestProxyParser:
 
     def test_auto_detect_squid(self):
         """Auto-detect Squid format by leading timestamp."""
-        line = "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/104.18.1.1 application/json"
+        line = "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/104.18.1.1 application/json"  # noqa: E501
         entry = self.parser.parse_line(line)
         assert entry is not None
         assert entry.source_ip == "10.0.0.1"
@@ -138,8 +136,8 @@ class TestProxyParser:
     def test_parse_batch_all_valid(self):
         """Batch parsing returns all valid entries."""
         lines = [
-            "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/1.2.3.4 application/json",
-            "1718870401.456    200 10.0.0.2 TCP_MISS/200 800 GET https://api.anthropic.com/v1/messages user456 DIRECT/1.2.3.5 application/json",
+            "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/1.2.3.4 application/json",  # noqa: E501
+            "1718870401.456    200 10.0.0.2 TCP_MISS/200 800 GET https://api.anthropic.com/v1/messages user456 DIRECT/1.2.3.5 application/json",  # noqa: E501
         ]
         entries = self.parser.parse_batch(lines)
         assert len(entries) == 2
@@ -147,9 +145,9 @@ class TestProxyParser:
     def test_parse_batch_skips_invalid(self):
         """Batch parsing skips invalid lines."""
         lines = [
-            "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/1.2.3.4 application/json",
+            "1718870400.123    100 10.0.0.1 TCP_MISS/200 1500 POST https://api.openai.com/v1/chat/completions user123 DIRECT/1.2.3.4 application/json",  # noqa: E501
             "garbage line",
-            "1718870401.456    200 10.0.0.2 TCP_MISS/200 800 GET https://api.anthropic.com/v1/messages user456 DIRECT/1.2.3.5 application/json",
+            "1718870401.456    200 10.0.0.2 TCP_MISS/200 800 GET https://api.anthropic.com/v1/messages user456 DIRECT/1.2.3.5 application/json",  # noqa: E501
         ]
         entries = self.parser.parse_batch(lines)
         assert len(entries) == 2

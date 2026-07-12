@@ -11,6 +11,7 @@ Provides:
 from __future__ import annotations
 
 import ssl
+from datetime import datetime
 from pathlib import Path
 
 from cryptography import x509
@@ -96,7 +97,7 @@ class TLSInterceptor:
         return self._ca_cert.serial_number if self._ca_cert else None
 
     @property
-    def ca_cert_not_after(self):
+    def ca_cert_not_after(self) -> datetime | None:
         if self._ca_cert is None:
             return None
         try:
@@ -172,8 +173,7 @@ class TLSInterceptor:
         if isinstance(pub_key, rsa.RSAPublicKey):
             if pub_key.key_size <= 1024:
                 return True
-        elif isinstance(pub_key, ec.EllipticCurvePublicKey):
-            if pub_key.key_size is not None and pub_key.key_size <= 192:
+        elif isinstance(pub_key, ec.EllipticCurvePublicKey) and pub_key.key_size is not None and pub_key.key_size <= 192:  # noqa
                 return True
 
         return False

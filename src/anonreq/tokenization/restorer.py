@@ -13,8 +13,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from anonreq.models.tokenization import TOKEN_PATTERN
-
 
 class Restorer:
     """Restores tokens to original values in LLM responses.
@@ -56,7 +54,7 @@ class Restorer:
             # escapes (\1, \A, \000, etc.) in the replacement value.
             # Without this, an original value like "\1" would be interpreted
             # as a group reference, causing re.error or incorrect output.
-            result = pattern.sub(lambda m: original, result)
+            result = pattern.sub(lambda _m: original, result)  # noqa: B023
 
         return result
 

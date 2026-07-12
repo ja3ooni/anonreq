@@ -13,12 +13,11 @@ any type.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Dict, Optional
+from dataclasses import dataclass
+from enum import StrEnum
 
 
-class RouteDecisionType(str, Enum):
+class RouteDecisionType(StrEnum):
     """Possible routing outcomes."""
 
     FORWARD = "FORWARD"
@@ -84,7 +83,7 @@ class LocalRouter:
 
     def __init__(
         self,
-        config: Optional[Dict[str, str]] = None,
+        config: dict[str, str] | None = None,
     ) -> None:
         """Initialize the router.
 
@@ -94,7 +93,7 @@ class LocalRouter:
                 or ``"BLOCK"``.
         """
         self._rules: list[tuple[str, RouteDecisionType, str]] = list(_DEFAULT_RULES)
-        self._exact_overrides: Dict[str, RouteDecisionType] = {}
+        self._exact_overrides: dict[str, RouteDecisionType] = {}
 
         if config:
             for ct, decision_str in config.items():
@@ -107,7 +106,7 @@ class LocalRouter:
     def route(
         self,
         content_type: str | None,
-        payload: bytes,
+        _payload: bytes,
     ) -> RouteDecision:
         """Decide what to do with a payload of the given *content_type*.
 

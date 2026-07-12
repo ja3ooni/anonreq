@@ -10,7 +10,7 @@ import asyncio
 import logging
 import platform
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from anonreq.endpoint.config import EndpointConfig, load_config
@@ -178,7 +178,7 @@ class EndpointAgent:
             captured_traffic_count=self._traffic_count,
             status="running" if self.running else "stopped",
             hostname=self._hostname,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
     def _emit_audit(self, event_type: str, **fields: Any) -> None:

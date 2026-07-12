@@ -114,9 +114,8 @@ class RAGRestorationService:
         try:
             cache_key = f"anonreq:rag:tokens:{session_id}"
             raw = await self._cache_manager.get(cache_key)
-            if raw:
-                if isinstance(raw, dict):
-                    return raw
+            if raw and isinstance(raw, dict):
+                return raw
             return {}
         except Exception:
             logger.warning("Failed to load token mappings", exc_info=True)

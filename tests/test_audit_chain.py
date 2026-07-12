@@ -7,10 +7,11 @@ PostgreSQL migration would create.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from anonreq.models.audit import AuditEvent, Base, compute_event_hash
 from anonreq.services.audit_chain import AuditChainService, AuditConfig
@@ -46,7 +47,7 @@ def make_event(
         event_id=event_id,
         prev_hash=prev_hash,
         hash="",
-        timestamp=timestamp or datetime.now(timezone.utc),
+        timestamp=timestamp or datetime.now(UTC),
         tenant_id=tenant_id,
         request_id=f"req_{event_id}",
         policy_id=None,
@@ -74,7 +75,7 @@ class TestHashComputation:
 
     def test_hash_is_deterministic(self):
         """Same event fields produce the same hash."""
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         evt1 = make_event("evt_001", timestamp=ts)
         evt2 = make_event("evt_001", timestamp=ts)
         assert compute_event_hash(evt1) == compute_event_hash(evt2)
@@ -173,7 +174,7 @@ class TestAuditChainService:
 
     async def test_append_only_no_delete_method(self, service):
         """Verify no mutable methods exist."""
-        methods = [m for m in dir(service) if callable(getattr(service, m)) and not m.startswith("_")]
+        methods = [m for m in dir(service) if callable(getattr(service, m)) and not m.startswith("_")]  # noqa: E501
         mutable = {"update", "delete", "modify", "remove"}
         assert not mutable & set(methods)
 

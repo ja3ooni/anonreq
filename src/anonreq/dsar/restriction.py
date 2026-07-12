@@ -11,8 +11,7 @@ remove_restriction allows future requests again.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import AsyncIterator
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -70,7 +69,7 @@ class DataRestrictionService:
         if await self.is_subject_restricted(subject_id):
             return False
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         # Store in PostgreSQL
         try:

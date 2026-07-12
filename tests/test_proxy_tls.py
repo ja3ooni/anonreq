@@ -19,7 +19,7 @@ def _write_test_ca(tmp_path):
             x509.NameAttribute(NameOID.COMMON_NAME, "AnonReq Test Root"),
         ]
     )
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)

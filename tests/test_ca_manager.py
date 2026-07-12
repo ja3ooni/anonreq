@@ -53,7 +53,7 @@ class TestCAManager:
 
     async def test_upload_writes_files_to_ca_dir(self, manager, ca_dir, sample_ca):
         """Test 3: upload_ca_cert writes PEM files to the CA directory."""
-        cert, key, cert_pem, key_pem = sample_ca
+        _cert, _key, cert_pem, key_pem = sample_ca
         result = await manager.upload_ca_cert(cert_pem, key_pem)
 
         serial = result["serial"]
@@ -78,13 +78,13 @@ class TestCAManager:
         assert "not_before" in info
         assert "uploaded_at" in info
 
-    async def test_list_ca_certs_returns_all_certs_sorted(self, manager, ca_dir, sample_ca):
+    async def test_list_ca_certs_returns_all_certs_sorted(self, manager, sample_ca):
         """Test 5: list_ca_certs returns all certs sorted by upload time desc."""
         _, _, cert_pem, key_pem = sample_ca
         await manager.upload_ca_cert(cert_pem, key_pem, label="first")
 
-        cert2, key2, cert_pem2, key_pem2 = _generate_self_signed_ca(cn="Test CA 2")
-        await manager.upload_ca_cert(cert_pem2.decode("utf-8"), key_pem2.decode("utf-8"), label="second")
+        _cert2, _key2, cert_pem2, key_pem2 = _generate_self_signed_ca(cn="Test CA 2")
+        await manager.upload_ca_cert(cert_pem2.decode("utf-8"), key_pem2.decode("utf-8"), label="second")  # noqa: E501
 
         certs = await manager.list_ca_certs()
         assert len(certs) == 2
@@ -102,7 +102,7 @@ class TestCAManager:
     async def test_upload_mismatched_cert_key_raises_error(self, manager, sample_ca):
         """Test 7: Uploading cert with wrong key raises CAManagerError."""
         _, _, cert_pem, _ = sample_ca
-        _, _, other_cert_pem, other_key_pem = _generate_self_signed_ca(cn="Other CA")
+        _, _, _other_cert_pem, other_key_pem = _generate_self_signed_ca(cn="Other CA")
 
         with pytest.raises(CAManagerError, match="do not match"):
             await manager.upload_ca_cert(
@@ -110,7 +110,7 @@ class TestCAManager:
                 other_key_pem.decode("utf-8"),
             )
 
-    async def test_reload_preserves_previous_on_failure(self, manager, ca_dir, sample_ca):
+    async def test_reload_preserves_previous_on_failure(self, manager, sample_ca):
         """Test 8: reload with invalid cert preserves previous CA."""
         cert, _, cert_pem, key_pem = sample_ca
         await manager.upload_ca_cert(cert_pem, key_pem, label="original")

@@ -6,10 +6,9 @@ from collections.abc import Iterable
 from typing import Any
 
 from anonreq.agent.config import ToolGovernanceConfig
-from anonreq.agent.metrics import agent_tool_calls_inspected_total, agent_governance_duration_ms
 from anonreq.agent.mcp_parser import MCPParser
+from anonreq.agent.metrics import agent_governance_duration_ms, agent_tool_calls_inspected_total
 from anonreq.agent.schema import InspectionResult, ToolCall
-
 
 INJECTION_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bignore\s+(all\s+)?previous\s+instructions\b", re.I), "prompt_injection"),
@@ -89,14 +88,14 @@ class ToolCallInspector:
                 confidence=max_confidence,
                 mitre_atlas_id="AML-T0018",
                 audit_event_type="agent_tool_call_injected",
-                metadata={"threat_count": len(threats), "categories": sorted({t["category"] for t in threats})},
+                metadata={"threat_count": len(threats), "categories": sorted({t["category"] for t in threats})},  # noqa: E501
             ))
 
         return self._record(InspectionResult(
             action="allow",
             reason="tool call allowed",
             confidence=0.0,
-            audit_event_type="agent_tool_call_allowed" if effective_policy == "allow_with_audit" else None,
+            audit_event_type="agent_tool_call_allowed" if effective_policy == "allow_with_audit" else None,  # noqa: E501
             metadata={"policy": effective_policy},
         ))
 
@@ -169,6 +168,6 @@ class ToolCallInspector:
         return normalized
 
     def _record(self, result: InspectionResult) -> InspectionResult:
-        agent_tool_calls_inspected_total.labels(action=result.action, tenant_id=self.tenant_id).inc()
+        agent_tool_calls_inspected_total.labels(action=result.action, tenant_id=self.tenant_id).inc()  # noqa: E501
         agent_governance_duration_ms.labels(operation="call_inspect").observe(0)
         return result

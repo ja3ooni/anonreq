@@ -9,7 +9,7 @@ server required for unit tests.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,7 +20,6 @@ from anonreq.storage.minio import (
     MinioWormBucket,
     create_mnpi_worm_bucket,
 )
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -57,7 +56,7 @@ def sample_event() -> MnpiAuditEvent:
         entity_type="MNPI_TICKER",
         policy_action="anonymize",
         detected_value_hash="abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-        timestamp=datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC),
         policy_rule_id="policy-01",
     )
 
@@ -158,7 +157,7 @@ class TestStoreAuditEvents:
 
     @pytest.mark.asyncio
     async def test_store_audit_event_creates_object(
-        self, worm_bucket: MinioWormBucket, mock_minio_client: MagicMock, sample_event: MnpiAuditEvent
+        self, worm_bucket: MinioWormBucket, mock_minio_client: MagicMock, sample_event: MnpiAuditEvent  # noqa: E501
     ):
         """store_mnpi_audit_event uploads event JSON to the correct path."""
         object_path = await worm_bucket.store_mnpi_audit_event(sample_event)
@@ -177,7 +176,7 @@ class TestStoreAuditEvents:
 
     @pytest.mark.asyncio
     async def test_store_sets_object_retention(
-        self, worm_bucket: MinioWormBucket, mock_minio_client: MagicMock, sample_event: MnpiAuditEvent
+        self, worm_bucket: MinioWormBucket, mock_minio_client: MagicMock, sample_event: MnpiAuditEvent  # noqa: E501
     ):
         """Stored events have COMPLIANCE retention set."""
         await worm_bucket.store_mnpi_audit_event(sample_event)
@@ -210,7 +209,7 @@ class TestStoreAuditEvents:
             entity_type="MNPI_DEAL",
             policy_action="block",
             detected_value_hash="deadbeef",
-            timestamp=datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC),
             policy_rule_id="policy-42",
         )
         await worm_bucket.store_mnpi_audit_event(event)
@@ -232,7 +231,7 @@ class TestStoreAuditEvents:
             entity_type="MNPI_TICKER",
             policy_action="flag",
             detected_value_hash="cafebabe",
-            timestamp=datetime(2026, 7, 4, 12, 0, 0, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 7, 4, 12, 0, 0, tzinfo=UTC),
         )
         await worm_bucket.store_mnpi_audit_event(event)
 
@@ -243,7 +242,7 @@ class TestStoreAuditEvents:
 
     @pytest.mark.asyncio
     async def test_store_raises_on_s3_error(
-        self, worm_bucket: MinioWormBucket, mock_minio_client: MagicMock, sample_event: MnpiAuditEvent
+        self, worm_bucket: MinioWormBucket, mock_minio_client: MagicMock, sample_event: MnpiAuditEvent  # noqa: E501
     ):
         """S3 error during store propagates as S3Error."""
         from minio.error import S3Error

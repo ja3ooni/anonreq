@@ -10,7 +10,7 @@ Provides:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -30,7 +30,7 @@ async def list_inventory(
     approval_status: str | None = Query(None),
     limit: int = Query(100, ge=1, le=10000),
     offset: int = Query(0, ge=0),
-):
+) -> Any:
     """List AI asset inventory with optional filters.
 
     Returns JSON or CSV based on format parameter.
@@ -57,7 +57,7 @@ async def list_inventory(
         )
 
     records = inventory.list_records(filters=filters, limit=limit, offset=offset)
-    total = len(inventory.list_records(filters=filters)) if hasattr(inventory, "list_records") else len(records)
+    total = len(inventory.list_records(filters=filters)) if hasattr(inventory, "list_records") else len(records)  # noqa: E501
     return {
         "records": [r.to_dict() for r in records],
         "total": total,
@@ -70,7 +70,7 @@ async def list_inventory(
 async def get_inventory_service(
     request: Request,
     service_name: str,
-):
+) -> Any:
     """Get a single inventory record by service name."""
     inventory = getattr(request.app.state, "inventory_service", None)
     if inventory is None:
@@ -87,7 +87,7 @@ async def get_inventory_service(
 async def create_inventory_entry(
     request: Request,
     entry: dict[str, Any],
-):
+) -> Any:
     """Create or update a manual inventory entry.
 
     Accepts InventoryRecord fields as JSON body.
@@ -109,7 +109,7 @@ async def create_inventory_entry(
         data_classification=entry.get("data_classification"),
         approval_status=entry.get("approval_status", "not_reviewed"),
         risk_score=entry.get("risk_score", 0.0),
-        last_seen=datetime.now(timezone.utc),
+        last_seen=datetime.now(UTC),
         owner=entry.get("owner"),
         business_unit=entry.get("business_unit"),
         sources=["manual"],
@@ -124,7 +124,7 @@ async def get_costs(
     request: Request,
     provider: str | None = Query(None),
     business_unit: str | None = Query(None),
-):
+) -> Any:
     """Get cost breakdown by provider, model, business_unit."""
     inventory = getattr(request.app.state, "inventory_service", None)
     if inventory is None:
@@ -143,7 +143,7 @@ async def get_costs(
 
 
 @router.get("/refresh")
-async def refresh_inventory(request: Request):
+async def refresh_inventory(request: Request) -> Any:
     """Trigger an inventory refresh from DNS/proxy sources."""
     inventory = getattr(request.app.state, "inventory_service", None)
     if inventory is None:
@@ -153,5 +153,5 @@ async def refresh_inventory(request: Request):
     # In production, this would re-read DNS/proxy logs
     return {
         "updated_count": len(inventory._records),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

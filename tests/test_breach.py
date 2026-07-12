@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from anonreq.services.breach import BreachNotification, BreachService
+from anonreq.services.breach import BreachService
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ async def breach_service(cache_manager):
     keys = await svc._redis.keys("anonreq:breach-template:*")
     for k in keys:
         await svc._redis.delete(k)
-    yield svc
+    return svc
 
 
 class TestBreachTemplate:

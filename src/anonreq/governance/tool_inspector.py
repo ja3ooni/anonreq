@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from anonreq.cache.manager import CacheManager
@@ -46,15 +46,15 @@ class InspectionResult:
     """
 
     __slots__ = (
-        "tool_name",
-        "tool_id",
+        "action",
         "pii_detected",
         "pii_entity_count",
         "pii_entity_types",
         "reconstruction_attempt",
         "reconstruction_confidence",
         "reconstruction_indicators",
-        "action",
+        "tool_id",
+        "tool_name",
     )
 
     def __init__(
@@ -91,7 +91,7 @@ class InspectionResult:
             "reconstruction_confidence": round(self.reconstruction_confidence, 4),
             "reconstruction_indicators": list(self.reconstruction_indicators),
             "action": self.action,
-            "inspected_at": datetime.now(timezone.utc).isoformat(),
+            "inspected_at": datetime.now(UTC).isoformat(),
         }
 
     def __repr__(self) -> str:
@@ -103,7 +103,7 @@ class InspectionResult:
         )
 
 
-def _extract_text_content(result) -> str:
+def _extract_text_content(result: Any) -> str:
     """Extract text content from a ToolResult for analysis."""
     content = result.content
     if content is None:
@@ -163,7 +163,7 @@ async def _detect_reconstruction_attempts(
                         continue
                     original = await cache_manager._redis.get(key)
                     if original is not None:
-                        original_str = original.decode() if isinstance(original, bytes) else str(original)
+                        original_str = original.decode() if isinstance(original, bytes) else str(original)  # noqa: E501
                         if original_str in text_content:
                             indicators.append(
                                 "Reconstructed value found in content matching token mapping"
@@ -205,7 +205,7 @@ async def _detect_reconstruction_attempts(
 
 def _determine_action(
     pii_detected: bool,
-    pii_entity_count: int,
+    _pii_entity_count: int,
     reconstruction_attempt: bool,
     reconstruction_confidence: float,
 ) -> str:
@@ -286,7 +286,7 @@ class ToolResultInspector:
         # 3. Action determination
         result.action = _determine_action(
             pii_detected=result.pii_detected,
-            pii_entity_count=result.pii_entity_count,
+            _pii_entity_count=result.pii_entity_count,
             reconstruction_attempt=result.reconstruction_attempt,
             reconstruction_confidence=result.reconstruction_confidence,
         )

@@ -31,15 +31,15 @@ class EndpointConfig:
     """
 
     __slots__ = (
-        "enabled",
-        "discovery_interval_sec",
-        "heartbeat_interval_sec",
-        "capture_enabled",
-        "capture_interface",
-        "gateway_url",
-        "data_dir",
         "bind_host",
         "bind_port",
+        "capture_enabled",
+        "capture_interface",
+        "data_dir",
+        "discovery_interval_sec",
+        "enabled",
+        "gateway_url",
+        "heartbeat_interval_sec",
     )
 
     def __init__(

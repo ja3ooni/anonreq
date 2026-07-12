@@ -17,14 +17,14 @@ from anonreq.pipeline.restoration import RestorationStage
 from anonreq.pipeline.tokenization import TokenizationStage
 
 __all__ = [
-    "PipelineStage",
-    "PipelineManager",
-    "TextExtractor",
     "ClassificationStage",
+    "CleanupStage",
     "DetectionStage",
-    "TokenizationStage",
     "ForwardingGuard",
+    "PipelineManager",
+    "PipelineStage",
     "ProviderStage",
     "RestorationStage",
-    "CleanupStage",
+    "TextExtractor",
+    "TokenizationStage",
 ]

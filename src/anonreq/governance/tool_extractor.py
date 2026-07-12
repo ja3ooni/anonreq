@@ -12,7 +12,7 @@ Per D-018, D-019, D-020: domain detection (model vs host) for strict isolation.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -125,7 +125,7 @@ class ToolExtractor:
     def detect_format(
         self,
         request_body: dict[str, Any],
-        headers: dict[str, str],
+        _headers: dict[str, str],
     ) -> str | None:
         """Auto-detect which tool format is in use based on the request body.
 
@@ -170,7 +170,7 @@ class ToolExtractor:
     def detect_domain(
         self,
         headers: dict[str, str],
-        request_body: dict[str, Any],
+        _request_body: dict[str, Any],
     ) -> str:
         """Detect tool domain based on headers.
 
@@ -222,7 +222,7 @@ class ToolExtractor:
                 try:
                     arguments = json.loads(args_raw)
                 except json.JSONDecodeError as exc:
-                    raise ToolExtractionError(
+                    raise ToolExtractionError(  # noqa: B904
                         f"OpenAI tool call '{call_id}': invalid JSON in arguments: {exc}"
                     )
             elif isinstance(args_raw, dict):

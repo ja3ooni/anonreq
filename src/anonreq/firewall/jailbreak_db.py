@@ -7,7 +7,6 @@ from pathlib import Path
 from re import Pattern
 from typing import Any
 
-
 DEFAULT_JAILBREAK_PATTERNS: list[dict[str, Any]] = [
     {
         "pattern_id": "JB-001",
@@ -58,10 +57,7 @@ class JailbreakDB:
         path = Path(self.db_path)
         if path.exists():
             raw = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(raw, dict):
-                patterns = raw.get("patterns", [])
-            else:
-                patterns = raw
+            patterns = raw.get("patterns", []) if isinstance(raw, dict) else raw
             if not isinstance(patterns, list):
                 raise ValueError("jailbreak DB must contain a list of patterns")
             self._patterns = [self._validate_pattern(item) for item in patterns]
@@ -84,7 +80,7 @@ class JailbreakDB:
         matches: list[dict[str, Any]] = []
         for compiled in self._compiled:
             regex_hit = compiled.regex.search(text) if compiled.regex else None
-            keyword_hit = bool(compiled.keywords) and all(k in normalized for k in compiled.keywords)
+            keyword_hit = bool(compiled.keywords) and all(k in normalized for k in compiled.keywords)  # noqa: E501
             if not regex_hit and not keyword_hit:
                 continue
             source = compiled.source

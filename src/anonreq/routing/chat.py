@@ -13,20 +13,19 @@ from __future__ import annotations
 from typing import Any
 from uuid import uuid4
 
-import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 from structlog import get_logger
 
+from anonreq.admin.routes import registry as admin_config_registry
 from anonreq.cache.manager import CacheManager
 from anonreq.classification.engine import ClassificationEngine
 from anonreq.classification.loader import ClassificationRuleLoader
 from anonreq.config import settings
 from anonreq.config.restricted_names import RestrictedNamesManager
 from anonreq.dependencies import auth_context
-from anonreq.admin.routes import registry as admin_config_registry
 from anonreq.detection.exclusion_list import ExclusionList
-from anonreq.detection.pipeline import load_mnpi_recognizers
+from anonreq.detection.pipeline import load_enterprise_recognizers, load_mnpi_recognizers
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
@@ -38,7 +37,6 @@ from anonreq.locale.registry import LocaleRegistry
 from anonreq.models.chat import ChatCompletionResponse, ChatRequest
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.models.request_context import RequestContext
-from anonreq.providers.registry import ProviderNotFoundError, ProviderRegistry
 from anonreq.pipeline.classification import ClassificationStage
 from anonreq.pipeline.cleanup import CleanupStage
 from anonreq.pipeline.detection import DetectionStage
@@ -50,11 +48,12 @@ from anonreq.pipeline.provider import ProviderStage
 from anonreq.pipeline.restoration import RestorationStage
 from anonreq.pipeline.stages import (
     LocaleNegotiationStage,
-    SensitivityClassificationStage,
     PolicyEnforcementStage,
+    SensitivityClassificationStage,
 )
 from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.pipeline.tool_governance import ToolGovernanceStage
+from anonreq.providers.registry import ProviderNotFoundError, ProviderRegistry
 from anonreq.routing.alias_registry import AliasNotFoundError, AliasRegistry
 from anonreq.streaming.cleanup import SessionCleanup
 from anonreq.streaming.emitter import SSEEmitter
@@ -116,6 +115,7 @@ def build_pre_provider_pipeline(
                 config_path="config/mnpi_recognizers.yaml",
                 restricted_names_mgr=restricted_names_mgr,
             ),
+            enterprise_recognizers=load_enterprise_recognizers(),
         ),
         SensitivityClassificationStage(),
         PolicyEnforcementStage(app_state=app_state),
@@ -151,24 +151,7 @@ def build_pipeline(
     provider_timeout = settings.REQUEST_TIMEOUT_SECONDS
 
     # Create pipeline stages
-    stages = build_pre_provider_pipeline(
-        cache_manager,
-        presidio_client,
-        locale_negotiator=locale_negotiator,
-        recognizer_merger=recognizer_merger,
-        checksum_registry=checksum_registry,
-        app_state=app_state,
-    ).stages + [
-        ProviderStage(
-            openai_base_url=provider_base_url,
-            api_key=provider_api_key,
-            timeout=provider_timeout,
-            alias_registry=alias_registry,
-        ),
-        OutboundDLPStage(app_state=app_state),
-        RestorationStage(),
-        CleanupStage(cache_manager=cache_manager),
-    ]
+    stages = [*build_pre_provider_pipeline(cache_manager, presidio_client, locale_negotiator=locale_negotiator, recognizer_merger=recognizer_merger, checksum_registry=checksum_registry, app_state=app_state).stages, ProviderStage(openai_base_url=provider_base_url, api_key=provider_api_key, timeout=provider_timeout, alias_registry=alias_registry), OutboundDLPStage(app_state=app_state), RestorationStage(), CleanupStage(cache_manager=cache_manager)]  # noqa: E501
 
     manager = PipelineManager()
     for stage in stages:
@@ -243,7 +226,7 @@ async def _stream_chat_completions(
     proc_ctx = await pre_provider.run(proc_ctx)
     _raise_for_pipeline_errors(proc_ctx)
 
-    action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"
+    action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
     if action == "BLOCK":
         raise HTTPException(status_code=403, detail="Request blocked by policy")
     if action == "ROUTE_LOCAL":
@@ -265,16 +248,16 @@ async def _stream_chat_completions(
 
         adapter = provider_registry.get_adapter(alias.provider)
         if not adapter.capabilities.streaming:
-            raise HTTPException(status_code=400, detail=f"Provider '{alias.provider}' does not support streaming")
+            raise HTTPException(status_code=400, detail=f"Provider '{alias.provider}' does not support streaming")  # noqa: E501
 
         proc_ctx.original_request = provider_request_body
         provider_request = adapter.translate_request(proc_ctx)
     except AliasNotFoundError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc))  # noqa: B904
     except ProviderNotFoundError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc))  # noqa: B904
     except ValueError:
-        raise HTTPException(
+        raise HTTPException(  # noqa: B904
             status_code=502,
             detail="Provider configuration error",
         )
@@ -336,7 +319,7 @@ async def _stream_chat_completions(
                     finish_reason=FinishReason.STOP,
                 ))
                 yield emitter.close_frame()
-        except PipelineAbortError as exc:
+        except PipelineAbortError:
             terminal_state = "PROVIDER_ERROR"
             yield emitter.emit(StreamEvent(
                 event_type=EventType.ERROR,
@@ -416,7 +399,7 @@ async def chat_completions(
     _raise_for_pipeline_errors(proc_ctx)
 
     # ── Determine response body ───────────────────────────────────────────
-    action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"
+    action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
 
     if action in ("BLOCK",):
         raise HTTPException(status_code=403, detail="Request blocked by policy")
@@ -427,9 +410,7 @@ async def chat_completions(
     # Determine response data
     if action == "ANONYMIZE" and proc_ctx.restored_response:
         response_data = proc_ctx.restored_response
-    elif proc_ctx.provider_response:
-        response_data = proc_ctx.provider_response
-    elif action == "PASS" and proc_ctx.provider_response:
+    elif proc_ctx.provider_response or (action == "PASS" and proc_ctx.provider_response):
         response_data = proc_ctx.provider_response
     else:
         raise HTTPException(status_code=500, detail="No response produced")
@@ -443,8 +424,8 @@ async def chat_completions(
     response.headers["X-AnonReq-Processed"] = "true" if was_anonymized else "false"
     response.headers["X-AnonReq-Entity-Count"] = str(entity_count)
     if proc_ctx.classification_result_v2:
-        response.headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name
-        response.headers["X-AnonReq-Highest-Entity"] = proc_ctx.classification_result_v2.highest_entity or ""
+        response.headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name  # noqa: E501
+        response.headers["X-AnonReq-Highest-Entity"] = proc_ctx.classification_result_v2.highest_entity or ""  # noqa: E501
 
     # Serialize response
     validated = ChatCompletionResponse.model_validate(response_data)

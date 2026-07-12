@@ -7,8 +7,7 @@ and reassessment flagging.
 
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -92,7 +91,7 @@ async def create_risk_assessment(
         d.overall_score = compute_dimension_score(d.severity, d.likelihood)
 
     overall = compute_overall_risk_score(all_dims)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     assessment = RiskAssessmentModel(
         tenant_id=tenant_id,
@@ -180,7 +179,7 @@ async def update_risk_assessment(
     model.dimensions = dimensions_to_json(dimensions)
     model.extensions = dimensions_to_json(extensions) if extensions else None
     model.overall_risk_score = compute_overall_risk_score(all_dims)
-    model.updated_at = datetime.now(timezone.utc)
+    model.updated_at = datetime.now(UTC)
     await db.flush()
     await db.refresh(model)
 
@@ -190,7 +189,7 @@ async def update_risk_assessment(
 async def flag_reassessment(
     db: AsyncSession,
     tenant_id: str,
-    reason: str,
+    _reason: str,
 ) -> RiskAssessment:
     """Set the reassessment_required flag on the latest assessment.
 
@@ -217,7 +216,7 @@ async def flag_reassessment(
         raise ValueError(f"No risk assessment for tenant: {tenant_id}")
 
     model.reassessment_required = True
-    model.updated_at = datetime.now(timezone.utc)
+    model.updated_at = datetime.now(UTC)
     await db.flush()
     await db.refresh(model)
 
@@ -266,7 +265,7 @@ async def check_config_triggers_reassessment(
 
 def _validate_core_dimensions(
     dimensions: list[RiskDimensionScore],
-    extensions: list[RiskDimensionScore] | None = None,
+    _extensions: list[RiskDimensionScore] | None = None,
 ) -> None:
     """Validate that all core risk dimensions are present.
 
@@ -302,5 +301,5 @@ def _model_to_assessment(model: RiskAssessmentModel) -> RiskAssessment:
 
 def _ensure_tz(dt: Any) -> Any:
     if dt is not None and dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
+        return dt.replace(tzinfo=UTC)
     return dt

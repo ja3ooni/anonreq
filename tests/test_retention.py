@@ -5,13 +5,9 @@ Uses fakeredis-backed cache matching conftest patterns.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
 
 from anonreq.services.retention import (
-    LegalHold,
-    RetentionPolicy,
     RetentionService,
 )
 
@@ -25,7 +21,7 @@ async def retention_service(cache_manager):
     keys = await svc._redis.keys("anonreq:legalhold:*")
     for k in keys:
         await svc._redis.delete(k)
-    yield svc
+    return svc
 
 
 class TestRetentionPolicy:

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -116,9 +116,9 @@ class PineconeConnector(VectorStoreConnector):
                 self._pc = Pinecone(api_key=self._api_key)
                 self._client = self._pc.Index(self._index_name)
             except ImportError:
-                raise ImportError("pinecone client not installed")
-            except Exception as exc:
-                logger.error("Failed to connect to Pinecone", error=str(exc))
+                raise ImportError("pinecone client not installed")  # noqa: B904
+            except Exception:
+                logger.exception("Failed to connect to Pinecone")
                 raise
 
     async def embed_and_store(
@@ -136,7 +136,7 @@ class PineconeConnector(VectorStoreConnector):
             vectors.append({
                 "id": chunk_id,
                 "values": vec,
-                "metadata": {k: str(v) for k, v in chunk.metadata.items() if isinstance(v, (str, int, float))},
+                "metadata": {k: str(v) for k, v in chunk.metadata.items() if isinstance(v, (str, int, float))},  # noqa: E501
             })
         if vectors:
             self._client.upsert(vectors=vectors, namespace=namespace)
@@ -208,25 +208,25 @@ class WeaviateConnector(VectorStoreConnector):
     async def embed_and_store(
         self,
         chunks: list[ChunkEmbedding],
-        namespace: str | None = None,
+        _namespace: str | None = None,
     ) -> list[str]:
         await self._ensure_client()
         return [chunk.chunk_id for chunk in chunks]
 
     async def search(
         self,
-        query_embedding: list[float],
-        top_k: int = 10,
-        filter: dict[str, Any] | None = None,
-        namespace: str | None = None,
+        _query_embedding: list[float],
+        _top_k: int = 10,
+        _filter: dict[str, Any] | None = None,
+        _namespace: str | None = None,
     ) -> list[dict[str, Any]]:
         await self._ensure_client()
         return []
 
     async def delete(
         self,
-        ids: list[str],
-        namespace: str | None = None,
+        _ids: list[str],
+        _namespace: str | None = None,
     ) -> None:
         await self._ensure_client()
 
@@ -237,7 +237,7 @@ class WeaviateConnector(VectorStoreConnector):
 class ChromaConnector(VectorStoreConnector):
     """Chroma vector store connector."""
 
-    def __init__(self, host: str = "localhost", port: int = 8000, collection_name: str = "anonreq") -> None:
+    def __init__(self, host: str = "localhost", port: int = 8000, collection_name: str = "anonreq") -> None:  # noqa: E501
         self._host = host
         self._port = port
         self._collection_name = collection_name
@@ -255,25 +255,25 @@ class ChromaConnector(VectorStoreConnector):
     async def embed_and_store(
         self,
         chunks: list[ChunkEmbedding],
-        namespace: str | None = None,
+        _namespace: str | None = None,
     ) -> list[str]:
         await self._ensure_client()
         return [chunk.chunk_id for chunk in chunks]
 
     async def search(
         self,
-        query_embedding: list[float],
-        top_k: int = 10,
-        filter: dict[str, Any] | None = None,
-        namespace: str | None = None,
+        _query_embedding: list[float],
+        _top_k: int = 10,
+        _filter: dict[str, Any] | None = None,
+        _namespace: str | None = None,
     ) -> list[dict[str, Any]]:
         await self._ensure_client()
         return []
 
     async def delete(
         self,
-        ids: list[str],
-        namespace: str | None = None,
+        _ids: list[str],
+        _namespace: str | None = None,
     ) -> None:
         await self._ensure_client()
 
@@ -292,16 +292,16 @@ class PGVectorConnector(VectorStoreConnector):
     async def embed_and_store(
         self,
         chunks: list[ChunkEmbedding],
-        namespace: str | None = None,
+        _namespace: str | None = None,
     ) -> list[str]:
         return [chunk.chunk_id for chunk in chunks]
 
     async def search(
         self,
-        query_embedding: list[float],
-        top_k: int = 10,
-        filter: dict[str, Any] | None = None,
-        namespace: str | None = None,
+        _query_embedding: list[float],
+        _top_k: int = 10,
+        _filter: dict[str, Any] | None = None,
+        _namespace: str | None = None,
     ) -> list[dict[str, Any]]:
         return []
 

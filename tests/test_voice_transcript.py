@@ -46,8 +46,8 @@ async def test_transcript_buffer_ignores_empty_chunks():
 
 
 def test_transcript_buffer_rejects_invalid_window_parameters():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         TranscriptBuffer(max_chunks=0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError):  # noqa: PT011
         TranscriptBuffer(window_ms=500, overlap_ms=500)
 

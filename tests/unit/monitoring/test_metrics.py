@@ -9,7 +9,7 @@ Tests cover:
 - No PII or entity value appears in any label name (AG-15)
 """
 
-from prometheus_client import REGISTRY, Counter, Histogram, Gauge
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram
 
 from anonreq.monitoring import metrics as m
 
@@ -121,7 +121,7 @@ class TestFreshMetricInitialValues:
 
     def test_fresh_counter_starts_zero(self):
         c = Counter("_test_counter", "test")
-        child = c.labels() if c._labelnames else None
+        c.labels() if c._labelnames else None
         # For unlabeled counters, create and inc then check
         c.inc()
         assert c.collect()[0].samples[0].value == 1.0

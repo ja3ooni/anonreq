@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -24,7 +24,7 @@ def make_decision(action: PolicyAction, matched_rule_ids: list[str] | None = Non
     return PolicyDecision(
         action=action,
         matched_rule_ids=matched_rule_ids or [],
-        decision_ts=datetime.now(timezone.utc),
+        decision_ts=datetime.now(UTC),
         reason=reason,
         enforcement=enforcement,
     )
@@ -41,7 +41,7 @@ class TestEnforceBlock:
 
     @pytest.mark.asyncio
     async def test_classification_block_returns_451(self, pep, ctx):
-        decision = make_decision(PolicyAction.BLOCK, ["block_hr"], "Classification rule 'block_hr' matched level 'Highly Restricted'")
+        decision = make_decision(PolicyAction.BLOCK, ["block_hr"], "Classification rule 'block_hr' matched level 'Highly Restricted'")  # noqa: E501
         result = await pep.enforce(decision, ctx)
         assert result.status_code == 451
         assert result.body is not None
@@ -64,7 +64,7 @@ class TestEnforceBlock:
 
     @pytest.mark.asyncio
     async def test_residency_block_returns_451(self, pep, ctx):
-        decision = make_decision(PolicyAction.BLOCK, ["residency_block"], "Region cn-north-1 is blocked")
+        decision = make_decision(PolicyAction.BLOCK, ["residency_block"], "Region cn-north-1 is blocked")  # noqa: E501
         result = await pep.enforce(decision, ctx)
         assert result.status_code == 451
         assert result.body is not None
@@ -72,13 +72,13 @@ class TestEnforceBlock:
 
     @pytest.mark.asyncio
     async def test_fail_secure_returns_503(self, pep, ctx):
-        decision = make_decision(PolicyAction.BLOCK, ["classification_error"], "Classification evaluation failed", enforcement="503")
+        decision = make_decision(PolicyAction.BLOCK, ["classification_error"], "Classification evaluation failed", enforcement="503")  # noqa: E501
         result = await pep.enforce(decision, ctx)
         assert result.status_code == 503
 
     @pytest.mark.asyncio
     async def test_generic_error_returns_503(self, pep, ctx):
-        decision = make_decision(PolicyAction.BLOCK, ["some_error"], "Internal error", enforcement="503")
+        decision = make_decision(PolicyAction.BLOCK, ["some_error"], "Internal error", enforcement="503")  # noqa: E501
         result = await pep.enforce(decision, ctx)
         assert result.status_code == 503
 
@@ -138,7 +138,7 @@ class TestStructuredErrorBodies:
 
     @pytest.mark.asyncio
     async def test_body_includes_decision_reason(self, pep, ctx):
-        decision = make_decision(PolicyAction.BLOCK, ["rate_limit"], "RPM limit exceeded: 1001/1000")
+        decision = make_decision(PolicyAction.BLOCK, ["rate_limit"], "RPM limit exceeded: 1001/1000")  # noqa: E501
         result = await pep.enforce(decision, ctx)
         assert result.body is not None
         assert "RPM limit exceeded" in result.body["reason"]

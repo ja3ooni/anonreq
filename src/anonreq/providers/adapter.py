@@ -13,13 +13,15 @@ Per D-66 through D-69 and ARCHITECTURE.md:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, AsyncIterator
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from anonreq.models.processing_context import ProcessingContext
+    from anonreq.streaming.stream_event import StreamEvent
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +114,7 @@ class ProviderResult:
 
     streaming: bool
     response: ProviderResponse | None = None
-    stream: AsyncIterator["StreamEvent"] | None = None
+    stream: AsyncIterator[StreamEvent] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +183,7 @@ class ProviderAdapter(ABC):
     @abstractmethod
     async def stream_events(
         self, request: ProviderRequest
-    ) -> AsyncIterator["StreamEvent"]:
+    ) -> AsyncIterator[StreamEvent]:
         """Execute a streaming HTTP call and yield normalized events.
 
         Args:

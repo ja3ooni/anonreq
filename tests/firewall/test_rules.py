@@ -6,7 +6,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from anonreq.firewall.models import DetectionCategory, FirewallRule
+from anonreq.firewall.models import DetectionCategory
 from anonreq.firewall.rules import FirewallRuleLoader, load_firewall_rules
 
 
@@ -146,7 +146,7 @@ class TestFirewallRuleLoader:
         rules = loader.load()
         dup_ids = [r.rule_id for r in rules]
         assert dup_ids.count("dup-1") == 1
-        winning = [r for r in rules if r.rule_id == "dup-1"][0]
+        winning = next(r for r in rules if r.rule_id == "dup-1")
         assert winning.category == DetectionCategory.PROMPT_INJECTION
         assert winning.action.value == "MONITOR"
 

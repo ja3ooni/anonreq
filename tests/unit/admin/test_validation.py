@@ -9,8 +9,6 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
-
 from anonreq.admin.config import (
     AtomicConfigRegistry,
     CustomRecognizerRule,
@@ -95,7 +93,7 @@ class TestConfigValidation:
                     ExclusionEntry(value="test", match_type=match_type),
                 ],
             )
-            success, error = registry.validate_and_swap(config)
+            success, _error = registry.validate_and_swap(config)
             assert success is True, f"match_type '{match_type}' should be valid"
 
     def test_empty_config_passes(self):
@@ -109,7 +107,7 @@ class TestConfigValidation:
         registry = AtomicConfigRegistry()
         config = RulesConfig(
             custom_recognizers=[
-                CustomRecognizerRule(id="r1", entity_type="TYPE_1", patterns=[r"\d{3}-\d{2}-\d{4}"]),
+                CustomRecognizerRule(id="r1", entity_type="TYPE_1", patterns=[r"\d{3}-\d{2}-\d{4}"]),  # noqa: E501
                 CustomRecognizerRule(id="r2", entity_type="TYPE_2", patterns=[r"\w+@\w+\.\w+"]),
                 CustomRecognizerRule(id="r3", entity_type="TYPE_3", patterns=[r"\d{5}"]),
             ],

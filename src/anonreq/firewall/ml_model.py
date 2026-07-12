@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from anonreq.firewall.models import DetectionCategory, DetectionResult, FirewallAction, SeverityLevel
+from anonreq.firewall.models import (
+    DetectionCategory,
+    DetectionResult,
+    FirewallAction,
+    SeverityLevel,
+)
 
 
 class MLModel(Protocol):
@@ -20,7 +25,7 @@ class NoopMLModel:
     async def load(self, path: str) -> None:
         pass
 
-    async def predict(self, text: str) -> list[DetectionResult]:
+    async def predict(self, _text: str) -> list[DetectionResult]:
         return []
 
     async def predict_batch(self, texts: list[str]) -> list[list[DetectionResult]]:
@@ -92,10 +97,7 @@ class FirewallMLModel:
         results: list[DetectionResult] = []
 
         if isinstance(logits, (list, np.ndarray)) and len(logits) > 0:
-            if hasattr(logits, "shape") and len(logits.shape) == 2:
-                probs = logits[0]
-            else:
-                probs = logits
+            probs = logits[0] if hasattr(logits, "shape") and len(logits.shape) == 2 else logits
 
             probs = np.array(probs, dtype=np.float64)
             if len(probs.shape) > 0:

@@ -11,13 +11,12 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
 
 from anonreq.governance.incidents import IncidentManager
 from anonreq.models.governance import ServiceCriticality
-
 
 # In-memory store is module-level; these tests use unique tenant IDs
 # to avoid cross-test pollution.
@@ -155,7 +154,8 @@ class TestAutoEscalateOnSloBreach:
             threshold=0.995,
         )
         assert result is not None
-        assert isinstance(result.id, str) and len(result.id) > 0
+        assert isinstance(result.id, str)
+        assert len(result.id) > 0
         assert isinstance(result.created_at, datetime)
         assert result.created_at.tzinfo is not None, \
             "created_at must be timezone-aware"

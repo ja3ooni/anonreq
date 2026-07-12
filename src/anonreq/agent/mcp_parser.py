@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 
 from anonreq.agent.schema import ToolCall, ToolResult
 
-
 MCP_MESSAGE_TYPES = {
     "initialize",
     "tool_call",
@@ -158,7 +157,7 @@ class MCPParser:
             message_type=message_type,
             message_id=self._message_id(frame),
             payload=payload,
-            protocol_version=str(frame.get("protocolVersion") or payload.get("protocolVersion") or "unknown"),
+            protocol_version=str(frame.get("protocolVersion") or payload.get("protocolVersion") or "unknown"),  # noqa: E501
             raw_method=str(frame.get("method")) if frame.get("method") else None,
         )
 

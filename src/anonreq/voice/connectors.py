@@ -16,7 +16,6 @@ import structlog
 
 from anonreq.voice.config import VoiceConfig
 
-
 log = structlog.get_logger(__name__)
 
 AudioCallback = Callable[["AudioChunk"], Awaitable[None]]
@@ -170,7 +169,7 @@ class SIPConnector(BaseConnector):
         info["forked"] = True
         return info
 
-    async def extract_rtp_packet(self, packet: bytes, timestamp_ms: int | None = None) -> AudioChunk:
+    async def extract_rtp_packet(self, packet: bytes, timestamp_ms: int | None = None) -> AudioChunk:  # noqa: E501
         payload = packet[12:] if len(packet) >= 12 and self._looks_like_rtp_opus(packet) else packet
         return await self.deliver_audio(
             payload,
@@ -240,7 +239,7 @@ class WebSocketConnector(BaseConnector):
         headers: dict[str, str] | None = None,
         timestamp_ms: int | None = None,
     ) -> AudioChunk:
-        return await self.deliver_audio(frame, headers=headers, timestamp_ms=timestamp_ms, metadata={"source": "websocket"})
+        return await self.deliver_audio(frame, headers=headers, timestamp_ms=timestamp_ms, metadata={"source": "websocket"})  # noqa: E501
 
     async def receive_fragment(
         self,

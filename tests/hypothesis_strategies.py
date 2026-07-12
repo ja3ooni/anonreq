@@ -82,7 +82,7 @@ def pii_text_with_spans(draw):
             f"{draw(st.integers(1, 255))}"
         ),
         "URL": (
-            f"https://{draw(st.text(min_size=4, max_size=12, alphabet=st.characters(whitelist_categories=('L',))))}.com"
+            f"https://{draw(st.text(min_size=4, max_size=12, alphabet=st.characters(whitelist_categories=('L',))))}.com"  # noqa: E501
         ),
     }
     entity_type = draw(st.sampled_from(list(pii_values.keys())))

@@ -15,44 +15,46 @@ Per D-01, D-02, FAIL-01, FAIL-02, FAIL-03, FAIL-04, AUTH-MINIMAL-01:
 - Health endpoint exposes component status
 """
 
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import Any
 from uuid import uuid4
 
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
+from prometheus_client import REGISTRY, Counter, generate_latest
+from sqlalchemy.ext.asyncio import create_async_engine
 from structlog import get_logger
 
-from prometheus_client import Counter, Histogram, generate_latest, REGISTRY
-
 from anonreq.__about__ import __version__
-from anonreq.cache.manager import CacheManager
-from anonreq.cache.health import check_cache_health
-from anonreq.config import settings
-from anonreq.compliance.engine import PresetEngine
-from anonreq.services.audit_chain import AuditChainService, AuditConfig
-from anonreq.services.chain_anchor import ChainAnchorService, AnchorConfig
-from sqlalchemy.ext.asyncio import create_async_engine
 from anonreq.admin.routes import admin_router
-from anonreq.proxy.ca_manager import CAManager
-from anonreq.proxy.pipeline_dispatcher import PipelineContentDispatcher
-from anonreq.proxy.mitm_handler import MITMHandler, mitm_middleware
-from anonreq.proxy.modes import (
-    ProxyMode,
-    get_pipeline_for_mode,
-    mode_from_env,
-    requires_detection,
-    requires_mitm,
-    proxy_mode_description,
-)
-from anonreq.proxy.tls import TLSInterceptor, ConfigurationError
+from anonreq.api.v1.admin.audit import router as admin_audit_router
+from anonreq.cache.health import check_cache_health
+from anonreq.cache.manager import CacheManager
+from anonreq.compliance.engine import PresetEngine
+from anonreq.config import settings
 from anonreq.dependencies import auth_context
+from anonreq.deployment.modes import DeploymentMode, TopologyConfig, get_deployment_config
 from anonreq.detection.presidio_client import PresidioClient
+from anonreq.discovery.admin_router import router as discovery_admin_router
+from anonreq.discovery.flow_analyzer import FlowAnalyzer
+from anonreq.discovery.hostname_allowlist import HostnameAllowlist
+from anonreq.discovery.inventory import AssetInventory
 from anonreq.exceptions import (
     DependencyUnavailableError,
     global_exception_handler,
     http_exception_handler,
+)
+from anonreq.firewall.pipeline import FirewallPipeline
+from anonreq.gateway.detector import AIDetector
+from anonreq.gateway.passthrough import GatewayStatus
+from anonreq.gateway.router import RouteTable
+from anonreq.governance.router import (
+    approval_router as approval_record_router,
+)
+from anonreq.governance.router import (
+    governance_router as governance_record_router,
 )
 from anonreq.health import router as health_router
 from anonreq.locale.checksum import ChecksumValidatorRegistry
@@ -61,44 +63,52 @@ from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.registry import LocaleRegistry
 from anonreq.logging_config import setup_logging
 from anonreq.middleware.classification import ClassificationMiddleware
-from anonreq.middleware.response_headers import ClassificationResponseMiddleware
-from anonreq.middleware.policy import PolicyMiddleware
-from anonreq.monitoring.middleware import MetricsMiddleware
-from anonreq.models.request_context import RequestContext
-from anonreq.providers.registry import ProviderRegistry
-from anonreq.routing.chat import build_pipeline, router as chat_router
-from anonreq.routes.compliance import router as compliance_router
-from anonreq.governance.router import (
-    approval_router as approval_record_router,
-    governance_router as governance_record_router,
-)
-from anonreq.routes.governance import router as governance_router
-from anonreq.routes.oversight import router as oversight_router
-from anonreq.routes.models import router as models_router
-from anonreq.api.v1.admin.audit import router as admin_audit_router
-from anonreq.routing.alias_registry import AliasRegistry
-from anonreq.startup_checks import run_startup_checks
-from anonreq.gateway.passthrough import GatewayStatus
-from anonreq.gateway.detector import AIDetector
-from anonreq.gateway.router import RouteTable
-from anonreq.discovery.hostname_allowlist import HostnameAllowlist
-from anonreq.soc.config import SOCConfig
-from anonreq.soc.mitre import MITREMapper
-from anonreq.soc.normalizer import SOCNormalizer
-from anonreq.discovery.flow_analyzer import FlowAnalyzer
-from anonreq.proxy.pac import PACGenerator, router as pac_router
-from anonreq.deployment.modes import DeploymentMode, TopologyConfig, get_deployment_config
-from anonreq.proxy.detection import AITrafficDetector
-from anonreq.proxy.reverse_proxy import ReverseProxy
-from anonreq.proxy.tls_interceptor import TLSInterceptor as DynamicTLSInterceptor
-from anonreq.proxy.transparent_proxy import TransparentProxy
-from anonreq.firewall.pipeline import FirewallPipeline
 from anonreq.middleware.content_type import ContentTypeMiddleware
+from anonreq.middleware.policy import PolicyMiddleware
+from anonreq.middleware.response_headers import ClassificationResponseMiddleware
+from anonreq.models.request_context import RequestContext
+from anonreq.monitoring.middleware import MetricsMiddleware
 from anonreq.multimodal.dispatcher import ContentTypeDispatcher
 from anonreq.multimodal.json_analyzer import JsonAnalyzer
 from anonreq.multimodal.multipart_analyzer import MultipartAnalyzer
-from anonreq.discovery.admin_router import router as discovery_admin_router
-from anonreq.discovery.inventory import AssetInventory
+from anonreq.providers.registry import ProviderRegistry
+from anonreq.proxy.ca_manager import CAManager
+from anonreq.proxy.detection import AITrafficDetector
+from anonreq.proxy.mitm_handler import MITMHandler, mitm_middleware
+from anonreq.proxy.modes import (
+    ProxyMode,
+    get_pipeline_for_mode,
+    mode_from_env,
+    proxy_mode_description,
+    requires_detection,
+    requires_mitm,
+)
+from anonreq.proxy.pac import PACGenerator
+from anonreq.proxy.pac import router as pac_router
+from anonreq.trust_center.config import TrustCenterSettings as TrustCenterConfig
+from anonreq.trust_center.router import router as trust_center_router
+from anonreq.trust_center.service import TrustCenterService, TrustCenterRateLimiter
+from anonreq.proxy.pipeline_dispatcher import PipelineContentDispatcher
+from anonreq.proxy.reverse_proxy import ReverseProxy
+from anonreq.proxy.tls import ConfigurationError, TLSInterceptor
+from anonreq.proxy.tls_interceptor import TLSInterceptor as DynamicTLSInterceptor
+from anonreq.proxy.transparent_proxy import TransparentProxy
+from anonreq.routes.compliance import router as compliance_router
+from anonreq.routes.governance import router as governance_router
+from anonreq.routes.models import router as models_router
+from anonreq.routes.oversight import router as oversight_router
+from anonreq.routing.alias_registry import AliasRegistry
+from anonreq.license.router import router as license_router
+from anonreq.license.validator import LicenseValidator, require_license
+from anonreq.services.compliance_evidence import ComplianceEvidenceService
+from anonreq.routing.chat import build_pipeline
+from anonreq.routing.chat import router as chat_router
+from anonreq.services.audit_chain import AuditChainService, AuditConfig
+from anonreq.services.chain_anchor import AnchorConfig, ChainAnchorService
+from anonreq.soc.config import SOCConfig
+from anonreq.soc.mitre import MITREMapper
+from anonreq.soc.normalizer import SOCNormalizer
+from anonreq.startup_checks import run_startup_checks
 
 log = get_logger()
 
@@ -315,14 +325,14 @@ def create_app() -> FastAPI:
         # Phase 8: Enterprise Policy Engine
         try:
             from anonreq.policy.config import load_policy_config
+            from anonreq.policy.forwarding_guard import ForwardingGuard
             from anonreq.policy.models import RateLimitConfig
-            from anonreq.policy.store import PolicyStore
-            from anonreq.policy.usage_limiter import UsageLimiter
-            from anonreq.policy.spend_controller import SpendController
-            from anonreq.policy.residency_router import ResidencyRouter
             from anonreq.policy.pdp import PolicyDecisionPoint
             from anonreq.policy.pep import PolicyEnforcementPoint
-            from anonreq.policy.forwarding_guard import ForwardingGuard
+            from anonreq.policy.residency_router import ResidencyRouter
+            from anonreq.policy.spend_controller import SpendController
+            from anonreq.policy.store import PolicyStore
+            from anonreq.policy.usage_limiter import UsageLimiter
 
             policy_config = load_policy_config(settings.POLICY_CONFIG_PATH)
             policy_store = PolicyStore(cache_manager, policy_config)
@@ -382,7 +392,7 @@ def create_app() -> FastAPI:
             app.state.mitm_handler = mitm_handler
 
             @app.middleware("http")
-            async def proxy_middleware(request: Request, call_next):
+            async def proxy_middleware(request: Request, call_next: Callable) -> Response:
                 return await mitm_middleware(request, call_next)
 
             log.info("MITM proxy middleware registered", component="lifespan")
@@ -401,9 +411,10 @@ def create_app() -> FastAPI:
         app.state.chain_anchor = chain_anchor
 
         # Phase 11: Initialize SLO Engine and Breach Detector
-        from anonreq.services.slo_engine import SLOEngine
-        from anonreq.services.breach_detector import BreachDetector
         import httpx
+
+        from anonreq.services.breach_detector import BreachDetector
+        from anonreq.services.slo_engine import SLOEngine
 
         slo_engine = SLOEngine(cache_manager, "config/slo.yaml")
         app.state.slo_engine = slo_engine
@@ -420,10 +431,10 @@ def create_app() -> FastAPI:
         app.state.breach_detector = breach_detector
 
         # Phase 14: AI Governance & Oversight services
-        from anonreq.services.oversight import OversightService
         from anonreq.services.lifecycle import LifecycleService
-        from anonreq.services.transparency import TransparencyService
         from anonreq.services.notifications import NotificationService
+        from anonreq.services.oversight import OversightService
+        from anonreq.services.transparency import TransparencyService
 
         app.state.oversight_service = OversightService(cache_manager)
         app.state.lifecycle_service = LifecycleService(cache_manager)
@@ -438,7 +449,7 @@ def create_app() -> FastAPI:
             oversight_service=app.state.oversight_service,
             ttl=settings.CACHE_TTL_SECONDS,
         )
-        log.info("ApprovalManager initialized", component="lifespan", ttl=settings.CACHE_TTL_SECONDS)
+        log.info("ApprovalManager initialized", component="lifespan", ttl=settings.CACHE_TTL_SECONDS)  # noqa: E501
 
         # Phase 17: Universal AI Traffic Gateway
         app.state.gateway_status = GatewayStatus()
@@ -509,7 +520,6 @@ def create_app() -> FastAPI:
         try:
             from anonreq.soc.sink_config import SinkConfigLoader
             from anonreq.soc.sink_factory import build_sinks
-            from anonreq.soc.api import create_soc_status_router
 
             sink_loader = SinkConfigLoader("config/soc-sinks.yaml")
             sink_definitions = sink_loader.load()
@@ -556,7 +566,8 @@ def create_app() -> FastAPI:
                     app_state=app.state,
                 )
             else:
-                dispatcher = lambda request: b""
+                def dispatcher(_request: Any) -> bytes:
+                    return b""
             app.state.deployment_proxy = create_deployment_proxy(
                 app.state.deployment_config,
                 dispatcher,
@@ -581,6 +592,59 @@ def create_app() -> FastAPI:
             )
             await cache_manager.close()
             raise
+
+        # Phase 24: Trust Center — public compliance evidence portal
+        try:
+            import yaml
+            trust_config_path = "config/trust_center.yaml"
+            with open(trust_config_path) as f:
+                trust_yaml = yaml.safe_load(f) or {}
+            trust_settings = TrustCenterConfig(**trust_yaml)
+            app.state.trust_center_settings = trust_settings
+            app.state.trust_center_enabled = trust_settings.enabled
+
+            trust_center_service = TrustCenterService(
+                slo_engine=app.state.slo_engine,
+                preset_engine=getattr(app.state, "preset_engine", None),
+                settings=trust_settings,
+            )
+            app.state.trust_center_service = trust_center_service
+
+            trust_rate_limiter = TrustCenterRateLimiter(cache_manager)
+            app.state.trust_center_rate_limiter = trust_rate_limiter
+
+            log.info(
+                "Trust Center initialised",
+                component="lifespan",
+                enabled=trust_settings.enabled,
+            )
+        except Exception as exc:
+            log.error(
+                "Trust Center initialisation failed",
+                component="lifespan",
+                error=str(exc),
+            )
+            app.state.trust_center_enabled = False
+
+        # Phase 26: Initialize compliance evidence service
+        compliance_evidence_service = ComplianceEvidenceService(
+            slo_engine=app.state.slo_engine,
+            audit_chain=app.state.audit_chain,
+            governance_service=None,  # wired when governance service available
+            incident_service=None,
+        )
+        app.state.compliance_evidence_service = compliance_evidence_service
+
+        # Phase 26: Startup license validation
+        license_status = await LicenseValidator.validate_license()
+        log.info(
+            "License validation complete",
+            component="lifespan",
+            valid=license_status.valid,
+            tier=license_status.tier.value if license_status.tier else None,
+            features=[f.value for f in license_status.features],
+            organization=license_status.organization,
+        )
 
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
@@ -652,7 +716,7 @@ def create_app() -> FastAPI:
     # Add /metrics endpoint for Prometheus scraping (no auth — scrapers
     # connect on internal networks; secured at network level)
     @app.get("/metrics")
-    async def metrics():
+    async def metrics() -> Response:
         return Response(
             content=generate_latest(REGISTRY),
             media_type="text/plain; charset=utf-8",
@@ -661,7 +725,7 @@ def create_app() -> FastAPI:
     # Middleware: set request_id BEFORE auth runs so it's available in
     # 401 error responses (per RESEARCH Open Question 4).
     @app.middleware("http")
-    async def set_request_context(request: Request, call_next) -> Response:
+    async def set_request_context(request: Request, call_next: Callable) -> Response:
         request_id = f"req_{uuid4().hex[:24]}"
         request.state.request_id = request_id
         request.state.context = RequestContext(request_id=request_id)
@@ -687,25 +751,35 @@ def create_app() -> FastAPI:
     # Phase 22: Discovery inventory admin routes
     app.include_router(discovery_admin_router, dependencies=[Depends(auth_context)])
 
+    # Phase 26: License router
+    app.include_router(license_router)
+
     # PAC file endpoint — public (no auth, used by browsers/proxies)
     app.include_router(pac_router)
 
+    # Trust Center router — public (no auth), config-gated, rate-limited
+    app.include_router(trust_center_router)
+    log.info("Trust Center router registered", component="lifespan")
+
     # Phase 17: Gateway status endpoint
     @app.get("/v1/gateway/status")
-    async def gateway_status(ctx=Depends(auth_context)):
+    async def gateway_status(_ctx: Any = Depends(auth_context)) -> dict[str, Any]:
         gs: GatewayStatus = app.state.gateway_status
         return gs.get_status()
 
     # Phase 20-05: SOC integration status endpoint
     @app.get("/v1/admin/soc/integration/status")
-    async def soc_integration_status(ctx=Depends(auth_context)):
+    async def soc_integration_status(
+        _ctx: Any = Depends(auth_context),
+        _license: None = Depends(require_license("soc_integration")),
+    ) -> Any:
         from anonreq.soc.api import create_soc_status_response
         return create_soc_status_response(
             app.state.soc_sink_health_monitor
         )
 
     @app.get("/")
-    async def root(ctx=Depends(auth_context)):
+    async def root(_ctx: Any = Depends(auth_context)) -> dict[str, str]:
         return {"service": "AnonReq", "version": __version__}
 
     return app

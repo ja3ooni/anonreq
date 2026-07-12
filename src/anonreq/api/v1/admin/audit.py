@@ -49,7 +49,7 @@ async def get_config_history(
     limit: int = Query(default=100, le=1000),
     offset: int = Query(default=0),
     request: Request = None,
-    auth: Annotated[bool, Depends(require_admin_role)] = None,
+    _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> ConfigHistoryResponse:
     """Return paginated, filterable config change audit trail."""
     service = getattr(request.app.state, "audit_chain", None)
@@ -138,7 +138,7 @@ async def export_config_history(
     date_from: datetime = Query(default=None),
     date_to: datetime = Query(default=None),
     request: Request = None,
-    auth: Annotated[bool, Depends(require_admin_role)] = None,
+    _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> StreamingResponse:
     """Stream filtered audit events as JSONL."""
     service = getattr(request.app.state, "audit_chain", None)

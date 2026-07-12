@@ -13,9 +13,9 @@ from __future__ import annotations
 import logging
 
 from anonreq.models.classification import (
+    ENTITY_CLASSIFICATION_MAP,
     ClassificationLevel,
     ClassificationResult,
-    ENTITY_CLASSIFICATION_MAP,
 )
 
 logger = logging.getLogger(__name__)

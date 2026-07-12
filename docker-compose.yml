@@ -82,6 +82,8 @@ services:
       - "8080:8080"
     environment:
       ANONREQ_API_KEY: ${ANONREQ_API_KEY:?err}
+      PROVIDER_API_KEY: ${PROVIDER_API_KEY:?err}
+      PROVIDER_BASE_URL: ${PROVIDER_BASE_URL:-https://api.openai.com}
       ANONREQ_VALKEY_URL: redis://valkey:6379/0
       ANONREQ_PRESIDIO_URL: http://presidio-analyzer:3000
       ANONREQ_POLICY_CONFIG_PATH: config/enterprise-policy.yaml

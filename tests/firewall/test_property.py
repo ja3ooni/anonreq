@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from hypothesis import assume, given, settings, strategies as st
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.firewall.engine import FirewallRuleEngine
 from anonreq.firewall.models import (
@@ -10,8 +11,6 @@ from anonreq.firewall.models import (
     FirewallAction,
     FirewallRule,
     RuleCategoryConfig,
-    SeverityActionMapping,
-    SeverityLevel,
 )
 from anonreq.firewall.rules import load_firewall_rules
 from anonreq.firewall.streaming import SlidingWindowDetector
@@ -30,10 +29,10 @@ def _make_engine() -> FirewallRuleEngine:
         DetectionCategory.SYSTEM_PROMPT_EXTRACTION.value: RuleCategoryConfig(
             enabled=True, threshold=0.3
         ),
-        DetectionCategory.INSTRUCTION_OVERRIDE.value: RuleCategoryConfig(enabled=True, threshold=0.3),
+        DetectionCategory.INSTRUCTION_OVERRIDE.value: RuleCategoryConfig(enabled=True, threshold=0.3),  # noqa: E501
         DetectionCategory.ROLE_ESCALATION.value: RuleCategoryConfig(enabled=True, threshold=0.3),
-        DetectionCategory.HIDDEN_TOOL_INVOCATION.value: RuleCategoryConfig(enabled=True, threshold=0.3),
-        DetectionCategory.SECRET_EXFILTRATION.value: RuleCategoryConfig(enabled=True, threshold=0.3),
+        DetectionCategory.HIDDEN_TOOL_INVOCATION.value: RuleCategoryConfig(enabled=True, threshold=0.3),  # noqa: E501
+        DetectionCategory.SECRET_EXFILTRATION.value: RuleCategoryConfig(enabled=True, threshold=0.3),  # noqa: E501
     }
     return FirewallRuleEngine(rules, category_config=cat_cfg)
 

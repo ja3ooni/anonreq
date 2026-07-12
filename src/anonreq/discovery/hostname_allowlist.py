@@ -224,7 +224,7 @@ class HostnameAllowlist:
             for hostname in sig.get("hostnames", []):
                 domains.add(hostname)
         # Also include overrides
-        for provider, override in self._overrides.items():
+        for _provider, override in self._overrides.items():
             for hostname in override.get("hostnames", []):
                 domains.add(hostname)
         return sorted(domains)

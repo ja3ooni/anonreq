@@ -4,7 +4,6 @@ Covers env var loading, validation (types, required fields, defaults),
 and the provider registry loader.
 """
 
-import re
 
 import pytest
 from pydantic import ValidationError

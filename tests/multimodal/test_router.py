@@ -13,7 +13,6 @@ import pytest
 
 from anonreq.multimodal.router import LocalRouter, RouteDecision, RouteDecisionType
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────────
 
 
@@ -220,7 +219,7 @@ class TestEdgeCases:
 
 
 class TestConfigSources:
-    def test_from_env_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_from_env_override(self) -> None:
         """Config from environment variable (simulated)."""
         config_dict = {"application/xml": "FORWARD"}
         router = LocalRouter(config_dict)

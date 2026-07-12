@@ -18,7 +18,7 @@ from anonreq.services.lineage import LineageService
 from anonreq.services.retention import RetentionService
 
 
-class eDiscoveryService:
+class eDiscoveryService:  # noqa: N801
     """eDiscovery search and export across compliance data sources.
 
     Queries lineage records, DSAR requests, and retention policies
@@ -113,6 +113,4 @@ class eDiscoveryService:
             dt = datetime.fromisoformat(dt)
         if date_from and dt < date_from:
             return False
-        if date_to and dt > date_to:
-            return False
-        return True
+        return not (date_to and dt > date_to)

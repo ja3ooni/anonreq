@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pydantic import BaseModel, field_validator
 
 from anonreq.cache.manager import CacheManager
-
 
 VALID_REQUEST_TYPES = {"access", "erasure", "rectification", "portability", "restriction"}
 VALID_STATUSES = {"pending", "processing", "completed", "rejected"}
@@ -82,7 +81,7 @@ class DSARService:
             tenant_id=tenant_id,
             subject_id=subject_id,
             requested_by=requested_by,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             notes=notes,
         )
         await self._redis.set(
@@ -93,7 +92,7 @@ class DSARService:
             f"{TENANT_DSAR_PREFIX}:{tenant_id}",
             req.request_id,
         )
-        await self._append_audit(req.request_id, "created", f"DSAR {request_type} created by {requested_by}")
+        await self._append_audit(req.request_id, "created", f"DSAR {request_type} created by {requested_by}")  # noqa: E501
         return req
 
     async def get_request(self, request_id: str) -> DSARRequest | None:
@@ -123,7 +122,7 @@ class DSARService:
         req = await self._get_request_or_raise(request_id)
         if req.request_type != "erasure":
             raise ValueError(f"Cannot process erasure for {req.request_type} request")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         req.status = "completed"
         req.completed_at = now
         req.processed_by = processed_by
@@ -141,7 +140,7 @@ class DSARService:
         req = await self._get_request_or_raise(request_id)
         if req.request_type != "rectification":
             raise ValueError(f"Cannot process rectification for {req.request_type} request")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         req.status = "completed"
         req.completed_at = now
         req.processed_by = processed_by
@@ -158,7 +157,7 @@ class DSARService:
         req = await self._get_request_or_raise(request_id)
         if req.request_type != "portability":
             raise ValueError(f"Cannot process portability for {req.request_type} request")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         req.status = "completed"
         req.completed_at = now
         req.processed_by = processed_by
@@ -176,7 +175,7 @@ class DSARService:
         req = await self._get_request_or_raise(request_id)
         if req.request_type != "restriction":
             raise ValueError(f"Cannot process restriction for {req.request_type} request")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         req.status = "completed"
         req.completed_at = now
         req.processed_by = processed_by
@@ -193,7 +192,7 @@ class DSARService:
     ) -> DSARRequest:
         req = await self._get_request_or_raise(request_id)
         req.status = "rejected"
-        req.completed_at = datetime.now(timezone.utc)
+        req.completed_at = datetime.now(UTC)
         req.result = reason
         await self._save_and_audit(req, "rejected", f"DSAR rejected: {reason}")
         return req
@@ -225,7 +224,7 @@ class DSARService:
 
     async def _append_audit(self, request_id: str, action: str, description: str) -> None:
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "action": action,
             "description": description,
         }

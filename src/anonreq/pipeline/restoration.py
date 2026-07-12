@@ -15,11 +15,8 @@ Instrumentation (D-141, D-161):
 
 from __future__ import annotations
 
-import re
 import time
-from typing import Any
 
-import structlog
 from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError
@@ -124,12 +121,21 @@ class RestorationStage(PipelineStage):
         except PipelineAbortError:
             fail_secure_events.labels(failure_type="restoration_error").inc()
             raise
+        except (KeyError, TypeError, ValueError) as exc:
+            fail_secure_events.labels(failure_type="restoration_error").inc()
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=500,
+                    message=f"Restoration stage failed: {type(exc).__name__}: {exc}",
+                    request_id=ctx.request_id,
+                )
+            )
         except Exception as exc:
             fail_secure_events.labels(failure_type="restoration_error").inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message="Restoration stage failed",
+                    message=f"Restoration stage failed: {type(exc).__name__}",
                     request_id=ctx.request_id,
                 )
             )

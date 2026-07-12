@@ -22,10 +22,10 @@ class SSEEmitter:
             payload = {"choices": [{"delta": {"content": event.delta_text or ""}, "index": 0}]}
         elif event.event_type == EventType.FINISH:
             reason = event.finish_reason or FinishReason.STOP
-            reason_value = reason.value.lower() if isinstance(reason, FinishReason) else str(reason).lower()
+            reason_value = reason.value.lower() if isinstance(reason, FinishReason) else str(reason).lower()  # noqa: E501
             payload = {"choices": [{"delta": {}, "finish_reason": reason_value, "index": 0}]}
         elif event.event_type == EventType.ERROR:
-            payload = {"error": {"message": event.metadata.get("message", "stream error"), "type": event.metadata.get("type", "provider_error")}}
+            payload = {"error": {"message": event.metadata.get("message", "stream error"), "type": event.metadata.get("type", "provider_error")}}  # noqa: E501
         else:
             payload = {"choices": [{"delta": {}, "index": 0}]}
         return f"data: {json.dumps(payload, separators=(',', ':'))}\n\n"

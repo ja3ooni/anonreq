@@ -72,7 +72,7 @@ class TranscriptBuffer:
         return " ".join(part for part in parts if part).strip()
 
     def clear_before(self, timestamp_ms: int) -> None:
-        self._segments = [segment for segment in self._segments if segment.timestamp_ms >= timestamp_ms]
+        self._segments = [segment for segment in self._segments if segment.timestamp_ms >= timestamp_ms]  # noqa: E501
 
     def as_list(self) -> list[TranscriptSegment]:
         return list(self._segments)

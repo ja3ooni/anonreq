@@ -9,7 +9,7 @@ Per D-013, D-014:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -44,7 +44,7 @@ class ToolAuditEvent:
         session_id: Session identifier for correlation.
         timestamp: When the event occurred.
         risk_level: Risk classification (low, medium, high, critical).
-        reconstruction_confidence: Confidence score 0.0–1.0 for
+        reconstruction_confidence: Confidence score 0.0-1.0 for
             reconstruction detection events.
         decision_reason: Human-readable reason for the decision.
         approved_by: Operator who approved/denied (for approval events).
@@ -63,7 +63,7 @@ class ToolAuditEvent:
     permission: str = ""
     tenant_id: str = "default"
     session_id: str = ""
-    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     risk_level: str | None = None
     reconstruction_confidence: float | None = None
     decision_reason: str | None = None

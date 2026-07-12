@@ -92,8 +92,8 @@ def pii_text_strategy(draw: Any) -> tuple[str, str, str]:
         "URL": url_strategy,
     }
     entity_value = draw(prefixes[entity_type])
-    prefix = draw(st.text(min_size=0, max_size=20, alphabet=st.characters(min_codepoint=32, max_codepoint=126)))
-    suffix = draw(st.text(min_size=0, max_size=20, alphabet=st.characters(min_codepoint=32, max_codepoint=126)))
+    prefix = draw(st.text(min_size=0, max_size=20, alphabet=st.characters(min_codepoint=32, max_codepoint=126)))  # noqa: E501
+    suffix = draw(st.text(min_size=0, max_size=20, alphabet=st.characters(min_codepoint=32, max_codepoint=126)))  # noqa: E501
     original_text = f"{prefix} {entity_value} {suffix}"
     return original_text.strip(), entity_value, entity_type
 

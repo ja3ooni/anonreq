@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from prometheus_client import Counter, REGISTRY
+from prometheus_client import REGISTRY, Counter
 
 
 def _collector(name: str, factory: Callable[[], Any]) -> Any:

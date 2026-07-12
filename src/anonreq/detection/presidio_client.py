@@ -23,7 +23,7 @@ if not hasattr(httpx.Request, "json"):
 
         return json.loads(self.content.decode())
 
-    httpx.Request.json = _request_json  # type: ignore[attr-defined]
+    httpx.Request.json = _request_json
 
 
 class PresidioTimeoutError(Exception):
@@ -183,8 +183,14 @@ class PresidioClient:
             response = await self._http_client.get(f"{self._base_url}/health")
             response.raise_for_status()
             return {"reachable": True}
+        except httpx.TimeoutException as exc:
+            return {"reachable": False, "error": f"timeout: {exc}"}
+        except httpx.HTTPStatusError as exc:
+            return {"reachable": False, "error": f"HTTP {exc.response.status_code}"}
+        except httpx.RequestError as exc:
+            return {"reachable": False, "error": f"request_error: {type(exc).__name__}"}
         except Exception as exc:
-            return {"reachable": False, "error": str(exc)}
+            return {"reachable": False, "error": f"unexpected: {type(exc).__name__}: {exc}"}
 
     async def close(self) -> None:
         """Close the underlying HTTP client session."""

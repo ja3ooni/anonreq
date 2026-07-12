@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from datetime import date, datetime, timezone, timedelta
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from anonreq.models.audit import AuditEvent, Base, DailyAnchor
+from anonreq.models.audit import AuditEvent, Base
 from anonreq.services.audit_chain import AuditChainService, AuditConfig
-from anonreq.services.chain_anchor import ChainAnchorService, AnchorConfig
+from anonreq.services.chain_anchor import AnchorConfig, ChainAnchorService
 
 
 @pytest.fixture
@@ -64,7 +64,7 @@ def make_event(
 ) -> AuditEvent:
     """Helper to create an AuditEvent with defaults."""
     if timestamp is None:
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
     return AuditEvent(
         event_id=event_id,
         prev_hash=None,
@@ -93,8 +93,8 @@ class TestDailyAnchorComputation:
         """Daily anchor is computed as SHA-384 of concatenated event hashes."""
         today = date.today()
 
-        evt1 = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
-        evt2 = make_event("evt_002", timestamp=datetime(today.year, today.month, today.day, 13, 0, tzinfo=timezone.utc))
+        evt1 = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
+        evt2 = make_event("evt_002", timestamp=datetime(today.year, today.month, today.day, 13, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt1)
         await audit_service.store_event(evt2)
 
@@ -107,7 +107,7 @@ class TestDailyAnchorComputation:
     async def test_anchor_has_signature(self, anchor_service, audit_service):
         """Anchor is signed with HMAC-SHA384."""
         today = date.today()
-        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
+        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt)
 
         anchor = await anchor_service.compute_daily_anchor(today)
@@ -129,7 +129,7 @@ class TestDailyAnchorComputation:
         config = AnchorConfig(signing_key=None)
         svc = ChainAnchorService(audit_service, engine, config)
         today = date.today()
-        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
+        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt)
         anchor = await svc.compute_daily_anchor(today)
         assert anchor.signature == ""
@@ -141,14 +141,14 @@ class TestAnchorStorage:
     async def test_store_and_retrieve_anchor(self, anchor_service, audit_service, engine):
         """Stored anchor can be retrieved."""
         today = date.today()
-        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
+        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt)
         anchor = await anchor_service.compute_daily_anchor(today)
         await anchor_service.store_anchor(anchor)
 
         async with async_sessionmaker(engine, class_=AsyncSession)() as session:
             result = await session.execute(
-                text("SELECT anchor_date, daily_root_hash, signature, event_count FROM audit_anchor")
+                text("SELECT anchor_date, daily_root_hash, signature, event_count FROM audit_anchor")  # noqa: E501
             )
             row = result.mappings().one()
             assert row["daily_root_hash"] == anchor.daily_root_hash
@@ -161,7 +161,7 @@ class TestAnchorVerification:
     async def test_verify_intact_anchor(self, anchor_service, audit_service):
         """Verification succeeds for an intact anchor."""
         today = date.today()
-        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
+        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt)
         anchor = await anchor_service.compute_daily_anchor(today)
         await anchor_service.store_anchor(anchor)
@@ -172,7 +172,7 @@ class TestAnchorVerification:
     async def test_verify_fails_tampered_events(self, anchor_service, audit_service, engine):
         """Verification fails when events have been tampered with."""
         today = date.today()
-        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
+        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt)
         anchor = await anchor_service.compute_daily_anchor(today)
         await anchor_service.store_anchor(anchor)
@@ -198,7 +198,7 @@ class TestRunDailyAnchor:
     async def test_run_daily_anchor_with_date(self, anchor_service, audit_service):
         """run_daily_anchor computes, signs, and stores in one call."""
         today = date.today()
-        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
+        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt)
 
         anchor = await anchor_service.run_daily_anchor(today)
@@ -223,7 +223,7 @@ class TestGetAnchorStatus:
     async def test_get_status_with_anchor(self, anchor_service, audit_service):
         """Status returns anchor info when anchors exist."""
         today = date.today()
-        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=timezone.utc))
+        evt = make_event("evt_001", timestamp=datetime(today.year, today.month, today.day, 12, 0, tzinfo=UTC))  # noqa: E501
         await audit_service.store_event(evt)
         await anchor_service.run_daily_anchor(today)
 

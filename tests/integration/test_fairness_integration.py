@@ -11,7 +11,7 @@ Covers:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import text
@@ -22,11 +22,10 @@ from anonreq.ediscovery.export import EDiscoveryExporter
 from anonreq.fairness.evaluation import FairnessEvaluator
 from anonreq.models.ediscovery import ExportFormat
 
-
 _TENANT = "tenant-fairness-int"
-_T0 = datetime(2025, 8, 1, 12, 0, 0, tzinfo=timezone.utc)
-_T1 = datetime(2025, 8, 15, 12, 0, 0, tzinfo=timezone.utc)
-_T2 = datetime(2025, 9, 1, 12, 0, 0, tzinfo=timezone.utc)
+_T0 = datetime(2025, 8, 1, 12, 0, 0, tzinfo=UTC)
+_T1 = datetime(2025, 8, 15, 12, 0, 0, tzinfo=UTC)
+_T2 = datetime(2025, 9, 1, 12, 0, 0, tzinfo=UTC)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────

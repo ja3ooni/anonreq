@@ -17,14 +17,14 @@ Properties per REQUIREMENTS.md (LOCL-07, TEST-05):
 
 from __future__ import annotations
 
-from hypothesis import HealthCheck, assume, given, settings, strategies as st
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
 
 from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
 from anonreq.locale.checksums.codice_fiscale import CodiceFiscaleValidator
 from anonreq.locale.checksums.iso7064 import ISO7064Mod11_2Validator
 from anonreq.locale.checksums.luhn import CNPJValidator, CPFValidator, LuhnValidator
 from anonreq.locale.checksums.nir import NIRValidator
-
 
 # ── Shared Hypothesis settings per TEST-PLAN.md ──────────────────────────────
 
@@ -70,7 +70,7 @@ def invalid_bsn(draw: st.DrawFn) -> str:
     while True:
         digits = [draw(st.integers(min_value=0, max_value=9)) for _ in range(8)]
         # Calculate correct Luhn check digit
-        all_digits = digits + [0]
+        all_digits = [*digits, 0]
         checksum = 0
         double = False
         for digit in reversed(all_digits):
@@ -123,12 +123,12 @@ def invalid_cpf(draw: st.DrawFn) -> str:
         if len(set(base)) == 1:
             continue
         # Calculate first check digit (correct)
-        first_total = sum(d * w for d, w in zip(base, range(10, 1, -1)))
+        first_total = sum(d * w for d, w in zip(base, range(10, 1, -1), strict=False))
         first_check = 0 if first_total % 11 < 2 else 11 - (first_total % 11)
         # Use wrong check digit
         first_wrong = (first_check + 1) % 10
-        ten_digits = base + [first_wrong]
-        second_total = sum(d * w for d, w in zip(ten_digits, range(11, 1, -1)))
+        ten_digits = [*base, first_wrong]
+        second_total = sum(d * w for d, w in zip(ten_digits, range(11, 1, -1), strict=False))
         second_check = 0 if second_total % 11 < 2 else 11 - (second_total % 11)
         second_wrong = (second_check + 1) % 10
         result = "".join(str(d) for d in base) + str(first_wrong) + str(second_wrong)
@@ -145,13 +145,13 @@ def invalid_cnpj(draw: st.DrawFn) -> str:
             continue
         # First check digit
         first_weights = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
-        first_total = sum(d * w for d, w in zip(base, first_weights))
+        first_total = sum(d * w for d, w in zip(base, first_weights, strict=False))
         first_check = 0 if first_total % 11 < 2 else 11 - (first_total % 11)
         first_wrong = (first_check + 1) % 10
         # Second check digit
-        thirteen = base + [first_wrong]
+        thirteen = [*base, first_wrong]
         second_weights = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
-        second_total = sum(d * w for d, w in zip(thirteen, second_weights))
+        second_total = sum(d * w for d, w in zip(thirteen, second_weights, strict=False))
         second_check = 0 if second_total % 11 < 2 else 11 - (second_total % 11)
         second_wrong = (second_check + 1) % 10
         result = "".join(str(d) for d in base) + str(first_wrong) + str(second_wrong)
@@ -318,7 +318,7 @@ def test_05_invalid_codice_fiscale_validator_returns_false(codice: str) -> None:
 
 
 @HYP_SETTINGS
-@given(st.text(alphabet=st.characters(min_codepoint=48, max_codepoint=57), min_size=11, max_size=11))
+@given(st.text(alphabet=st.characters(min_codepoint=48, max_codepoint=57), min_size=11, max_size=11))  # noqa: E501
 def test_05_valid_steuer_id_can_be_detected(digits: str) -> None:
     """A random 11-digit number may be valid — but the validator should not crash."""
     validator = ISO7064Mod11_2Validator()
@@ -334,7 +334,7 @@ def test_05_valid_steuer_id_can_be_detected(digits: str) -> None:
 
 
 @HYP_SETTINGS
-@given(st.text(alphabet=st.characters(min_codepoint=48, max_codepoint=57), min_size=11, max_size=11))
+@given(st.text(alphabet=st.characters(min_codepoint=48, max_codepoint=57), min_size=11, max_size=11))  # noqa: E501
 def test_invalid_steuer_id_checksum_is_dropped(digits: str) -> None:
     """Existing: invalid Steuer-ID checksum is dropped from detections."""
     validator = ISO7064Mod11_2Validator()
@@ -346,7 +346,7 @@ def test_invalid_steuer_id_checksum_is_dropped(digits: str) -> None:
 
 
 @HYP_SETTINGS
-@given(st.text(alphabet=st.characters(min_codepoint=48, max_codepoint=57), min_size=11, max_size=14))
+@given(st.text(alphabet=st.characters(min_codepoint=48, max_codepoint=57), min_size=11, max_size=14))  # noqa: E501
 def test_invalid_brazilian_checksum_ids_are_dropped(digits: str) -> None:
     """Existing: invalid CPF/CNPJ checksums are dropped from detections."""
     registry = ChecksumValidatorRegistry()

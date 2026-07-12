@@ -15,10 +15,9 @@ from anonreq.detection.recognizers.mnpi import (
     create_mnpi_bundle,
 )
 from anonreq.models.detection import (
-    MNPI_POLICY_ACTION,
     MNPI_ENTITY_TYPES,
+    MNPI_POLICY_ACTION,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -64,7 +63,7 @@ class TestMNPIConfig:
         assert config.min_ticker_length == 2
         assert config.score == 0.85
 
-    def test_config_from_yaml(self, tmp_path):
+    def test_config_from_yaml(self):
         """Can load MNPIConfig from YAML dict."""
         data = {
             "ticker_pattern": r"\b[A-Z]{1,4}\b",
@@ -194,7 +193,6 @@ class TestPolicyAction:
 
     def test_policy_action_literal(self):
         """MNPI_POLICY_ACTION is a Literal with expected values."""
-        valid_actions = {"anonymize", "flag", "block", "quarantine"}
         assert MNPI_POLICY_ACTION is not None
 
 

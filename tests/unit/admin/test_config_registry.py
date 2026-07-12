@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import threading
 
-import pytest
-
 from anonreq.admin.config import (
     AtomicConfigRegistry,
     CustomRecognizerRule,
@@ -133,7 +131,7 @@ class TestAtomicConfigRegistryInvalidConfig:
         success, error = registry.validate_and_swap(config)
         assert success is False
         assert error is not None
-        assert "unterminated character set" in error.lower() or "bad escape" in error.lower() or "invalid" in error.lower()
+        assert "unterminated character set" in error.lower() or "bad escape" in error.lower() or "invalid" in error.lower()  # noqa: E501
 
     def test_version_not_incremented_on_invalid_regex(self):
         registry = AtomicConfigRegistry()

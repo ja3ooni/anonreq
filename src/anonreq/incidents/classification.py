@@ -9,6 +9,7 @@ Severity tiers:
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any
 
 from anonreq.models.fairness import INCIDENT_RESPONSE_TIMES, IncidentSeverity
@@ -105,7 +106,7 @@ class IncidentClassifier:
         Returns:
             Incident record as a dict suitable for audit logging.
         """
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         return {
             "incident_id": incident_id,
@@ -117,7 +118,7 @@ class IncidentClassifier:
             "drift_amount": drift_amount,
             "baseline_recall": baseline_recall,
             "production_recall": production_recall,
-            "detected_at": datetime.now(timezone.utc).isoformat(),
+            "detected_at": datetime.now(UTC).isoformat(),
             "notify_immediate": severity == IncidentSeverity.CRITICAL,
             "metadata": metadata or {},
         }

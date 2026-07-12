@@ -21,7 +21,7 @@ TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,49}_\d+\]")
 - ``[A-Z][A-Z_]{0,49}`` uppercase type (1-50 chars, may include underscore)
 - ``_`` literal separator
 - ``\\d+`` one or more digits
-- ``\]`` literal closing bracket
+- ``\\]`` literal closing bracket
 
 Reused by the restoration engine (SSE-04 case-insensitive matching) and
 the post-restoration verification scan (METR-01).

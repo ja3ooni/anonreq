@@ -5,29 +5,16 @@ Uses SQLite in-memory with aiosqlite matching Phase 11 test patterns.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 
-from anonreq.models.audit import Base
-from anonreq.models.governance import (
-    RISK_DIMENSIONS_CORE,
-    RiskAssessment,
-    RiskDimensionScore,
-    RiskAssessmentModel,
-    GovernanceRecordModel,
-    ReviewCycleModel,
-    dimensions_to_json,
-    json_to_dimensions,
-)
 from anonreq.governance.risk import (
-    RISK_DIMENSIONS_CORE as CORE_DIMS,
     check_config_triggers_reassessment,
     compute_dimension_score,
     compute_overall_risk_score,
@@ -35,6 +22,13 @@ from anonreq.governance.risk import (
     flag_reassessment,
     get_risk_assessment,
     update_risk_assessment,
+)
+from anonreq.models.audit import Base
+from anonreq.models.governance import (
+    RISK_DIMENSIONS_CORE,
+    GovernanceRecordModel,
+    ReviewCycleModel,
+    RiskDimensionScore,
 )
 
 
@@ -65,7 +59,7 @@ async def seeded_tenant(session: AsyncSession) -> str:
         tenant_id="risk-tenant",
         interval_days=90,
         last_review_date=None,
-        next_review_date=datetime.now(timezone.utc),
+        next_review_date=datetime.now(UTC),
         status="active",
     )
     session.add(rc)
@@ -75,8 +69,8 @@ async def seeded_tenant(session: AsyncSession) -> str:
         tenant_id="risk-tenant",
         officers='[{"role": "governance", "name": "A", "email": "a@b.com"}]',
         review_cycle_id=rc.id,
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
         status="active",
     )
     session.add(gr)
@@ -158,14 +152,14 @@ class TestRiskDimensions:
 
     def test_risk_dimension_score_validation(self):
         """Severity/likelihood outside 1-5 raises ValueError."""
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError):  # noqa: PT011
             RiskDimensionScore(
                 dimension="privacy",
                 severity=0,
                 likelihood=2,
                 overall_score=0.0,
             )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError):  # noqa: PT011
             RiskDimensionScore(
                 dimension="privacy",
                 severity=3,

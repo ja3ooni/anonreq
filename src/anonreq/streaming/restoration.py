@@ -33,7 +33,7 @@ class StreamingRestorationStage:
 
         token_cores = sorted(self._lookup.keys(), key=len, reverse=True)
         pattern = re.compile(
-            r"(?<![A-Za-z0-9_])\[?(" + "|".join(re.escape(t) for t in token_cores) + r")\]?(?![A-Za-z0-9_])",
+            r"(?<![A-Za-z0-9_])\[?(" + "|".join(re.escape(t) for t in token_cores) + r")\]?(?![A-Za-z0-9_])",  # noqa: E501
             re.IGNORECASE,
         )
 

@@ -17,11 +17,11 @@ import re
 import pytest
 import yaml
 
+from anonreq.config.restricted_names import RestrictedNamesManager
 from anonreq.detection.recognizers.mnpi import (
     MNPIConfig,
     MNPIRecognizer,
 )
-from anonreq.config.restricted_names import RestrictedNamesManager
 
 _CONFIG_PATH = "config/mnpi_recognizers.yaml"
 

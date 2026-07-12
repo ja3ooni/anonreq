@@ -15,11 +15,11 @@ from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class ToolPermission(str, Enum):
+class ToolPermission(StrEnum):
     """Four-tier tool permission model.
 
     Per D-002:
@@ -35,7 +35,7 @@ class ToolPermission(str, Enum):
     BLOCK = "block"
 
 
-class ToolRiskLevel(str, Enum):
+class ToolRiskLevel(StrEnum):
     """Four-tier tool risk classification.
 
     Per D-017:

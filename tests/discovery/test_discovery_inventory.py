@@ -10,20 +10,18 @@ Tests:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
-import pytest
+from datetime import UTC, datetime
 
 from anonreq.discovery.inventory import (
     AssetInventory,
-    InventoryRecord,
     InventoryFilter,
+    InventoryRecord,
 )
 from anonreq.discovery.risk import (
-    RiskScoreEngine,
-    RiskDimension,
     DimensionScore,
     RiskBand,
+    RiskDimension,
+    RiskScoreEngine,
 )
 
 
@@ -32,7 +30,7 @@ class TestInventoryRecord:
 
     def test_inventory_record_creation(self):
         """InventoryRecord stores all required fields."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = InventoryRecord(
             service_name="api.openai.com",
             provider="openai",
@@ -54,7 +52,7 @@ class TestInventoryRecord:
 
     def test_inventory_record_defaults(self):
         """InventoryRecord uses sensible defaults."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = InventoryRecord(
             service_name="test.ai",
             provider="unknown",
@@ -66,7 +64,7 @@ class TestInventoryRecord:
 
     def test_inventory_record_to_dict(self):
         """InventoryRecord serializes to dict."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = InventoryRecord(
             service_name="api.openai.com",
             provider="openai",
@@ -83,7 +81,7 @@ class TestAssetInventory:
 
     def setup_method(self):
         self.inventory = AssetInventory()
-        self.now = datetime.now(timezone.utc)
+        self.now = datetime.now(UTC)
 
     def test_add_record(self):
         """Add record to inventory."""
@@ -119,8 +117,8 @@ class TestAssetInventory:
 
     def test_add_duplicate_keeps_latest_timestamp(self):
         """Duplicate merge keeps the latest last_seen."""
-        earlier = datetime(2024, 1, 1, tzinfo=timezone.utc)
-        later = datetime(2024, 6, 1, tzinfo=timezone.utc)
+        earlier = datetime(2024, 1, 1, tzinfo=UTC)
+        later = datetime(2024, 6, 1, tzinfo=UTC)
         r1 = InventoryRecord(service_name="api.openai.com", provider="openai", last_seen=earlier)
         r2 = InventoryRecord(service_name="api.openai.com", provider="openai", last_seen=later)
         self.inventory.add_record(r1)

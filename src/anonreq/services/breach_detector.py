@@ -10,10 +10,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import httpx
 import structlog
 import yaml
@@ -65,7 +65,7 @@ class BreachDetector:
         self._audit_chain = audit_chain
         self._redis = cache_manager._redis
         self._http_client = http_client
-        
+
         self._webhook_url = os.environ.get("ANONREQ_BREACH_WEBHOOK_URL", "")
         self._retry_max = 3
         self._retry_backoff_base = 2.0
@@ -75,7 +75,7 @@ class BreachDetector:
             "Content-Type": "application/json",
             "X-AnonReq-Event-Type": "slo_breach",
         }
-        
+
         try:
             with open(config_path) as f:
                 data = yaml.safe_load(f) or {}
@@ -95,7 +95,7 @@ class BreachDetector:
         """Evaluate all SLOs for breaches. Returns list of new breaches."""
         compliance_list = await self._slo_engine.compute_compliance(tenant_id)
         new_breaches = []
-        now_dt = datetime.now(timezone.utc)
+        now_dt = datetime.now(UTC)
 
         for comp in compliance_list:
             if not comp.compliant:
@@ -105,13 +105,13 @@ class BreachDetector:
                 is_cooldown_active = False
                 if raw:
                     try:
-                        last_b_dt = datetime.fromisoformat(raw.decode() if isinstance(raw, bytes) else raw)
+                        last_b_dt = datetime.fromisoformat(raw.decode() if isinstance(raw, bytes) else raw)  # noqa: E501
                         elapsed = (now_dt - last_b_dt).total_seconds()
                         if elapsed < self._slo_engine._cooldown:
                             is_cooldown_active = True
                     except Exception:
                         pass
-                
+
                 if is_cooldown_active:
                     continue
 
@@ -164,7 +164,7 @@ class BreachDetector:
                         logger.error("breach_detector.audit_failed", error=str(e))
 
                 # Fire webhook
-                asyncio.create_task(self._fire_webhook(event))
+                _ = asyncio.create_task(self._fire_webhook(event))  # noqa: RUF006
 
         return new_breaches
 
@@ -247,7 +247,7 @@ class BreachDetector:
         key = f"breach_dlq:{tenant_id}"
         raw_list = await self._redis.lrange(key, 0, -1)
         delivered_count = 0
-        
+
         for raw in raw_list:
             raw_str = raw.decode() if isinstance(raw, bytes) else raw
             try:
@@ -255,7 +255,7 @@ class BreachDetector:
                 dt = datetime.fromisoformat(data["detected_at"])
                 data["detected_at"] = dt
                 event = BreachEvent(**data)
-                
+
                 success = await self._fire_webhook_directly(event)
                 if success:
                     await self._redis.lrem(key, 0, raw)

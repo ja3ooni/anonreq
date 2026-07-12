@@ -8,8 +8,6 @@ Provides:
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from anonreq.middleware.rbac import Role, require_role

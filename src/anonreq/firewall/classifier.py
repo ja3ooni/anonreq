@@ -8,7 +8,6 @@ from typing import Any
 
 import numpy as np
 
-
 InferenceSessionFactory = Callable[[str], Any]
 
 
@@ -114,7 +113,7 @@ class StructuralClassifier:
     )
 
     def __init__(self) -> None:
-        self._compiled = [(rid, dtype, re.compile(pattern), score) for rid, dtype, pattern, score in self._RULES]
+        self._compiled = [(rid, dtype, re.compile(pattern), score) for rid, dtype, pattern, score in self._RULES]  # noqa: E501
 
     def classify(self, text: str) -> StructuralClassification:
         for rule_id, detection_type, pattern, score in self._compiled:

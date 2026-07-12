@@ -19,7 +19,7 @@ Per D-013, D-014, and Req 10 (No PII in logs):
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -38,7 +38,7 @@ class DLPAuditLogger:
         ALLOWED_FIELDS: Set of field names permitted in DLP audit events.
     """
 
-    ALLOWED_FIELDS = {
+    ALLOWED_FIELDS: set[str] = {  # noqa: RUF012
         "dlp_category",
         "dlp_action",
         "dlp_detection_count",
@@ -121,7 +121,7 @@ class DLPAuditLogger:
             mitre = self._get_mitre_mapping(detection.category.value)
             entry = {
                 "event_type": "dlp_violation",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "tenant_id": ctx.tenant_id,
                 "request_id": ctx.request_id,
                 "dlp_category": detection.category.value,
@@ -151,7 +151,7 @@ class DLPAuditLogger:
         mitre = self._get_mitre_mapping("Exfiltration")
         entry = {
             "event_type": "dlp_exfiltration_detected",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "tenant_id": ctx.tenant_id,
             "request_id": ctx.request_id,
             "dlp_exfiltration_method": ",".join(exf_summary.methods),
@@ -177,7 +177,7 @@ class DLPAuditLogger:
         mitre = self._get_mitre_mapping("Exfiltration")
         entry = {
             "event_type": "dlp_outbound_suppressed",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "tenant_id": ctx.tenant_id,
             "request_id": ctx.request_id,
             "dlp_outbound_suppressed": True,

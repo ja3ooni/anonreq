@@ -17,8 +17,6 @@ from anonreq.governance.forwarding_guard import (
     check_model_approval,
     check_provider_active,
 )
-from anonreq.models.governance import ModelRiskClassification
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────────
 

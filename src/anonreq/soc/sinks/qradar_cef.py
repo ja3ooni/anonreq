@@ -15,7 +15,7 @@ from typing import Any
 from prometheus_client import Counter
 
 from anonreq.soc.event import SeverityLevel
-from anonreq.soc.sinks import SinkBase, SinkStatus
+from anonreq.soc.sinks import SinkStatus
 
 logger = logging.getLogger("anonreq.soc.sinks.qradar_cef")
 
@@ -70,12 +70,12 @@ class QRadarCEFSink:
         """Open the TCP/UDP connection (lazy open on first send for TCP)."""
         if self._use_tcp:
             try:
-                reader, writer = await asyncio.wait_for(
+                _reader, writer = await asyncio.wait_for(
                     asyncio.open_connection(self._host, self._port),
                     timeout=5,
                 )
                 self._writer = writer
-            except (OSError, asyncio.TimeoutError) as exc:
+            except (TimeoutError, OSError) as exc:
                 logger.warning(
                     "QRadar CEF sink start: connection to %s:%d failed: %s",
                     self._host,
@@ -171,7 +171,7 @@ class QRadarCEFSink:
             )
             self._writer = writer
             return True
-        except (OSError, asyncio.TimeoutError):
+        except (TimeoutError, OSError):
             self._writer = None
             return False
 
@@ -198,7 +198,7 @@ class QRadarCEFSink:
     async def _send_udp(self, line: str) -> bool:
         """Send a CEF line over UDP syslog."""
         try:
-            transport, protocol = await asyncio.get_running_loop().create_datagram_endpoint(
+            transport, _protocol = await asyncio.get_running_loop().create_datagram_endpoint(
                 lambda: asyncio.DatagramProtocol(),
                 remote_addr=(self._host, self._port),
             )
@@ -233,7 +233,7 @@ class QRadarCEFSink:
             writer.close()
             await writer.wait_closed()
             return SinkStatus(healthy=True, reachable=True)
-        except (OSError, asyncio.TimeoutError) as exc:
+        except (TimeoutError, OSError) as exc:
             return SinkStatus(
                 healthy=False,
                 reachable=False,

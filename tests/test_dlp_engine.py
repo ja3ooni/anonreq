@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
-import yaml
 import pytest
+import yaml
 
-from anonreq.models.dlp import DLPCategory, DLPAction, DLPResult, DLPDetection
-from anonreq.services.dlp_engine import DLPEngine
+from anonreq.models.dlp import DLPAction, DLPCategory
 from anonreq.models.processing_context import ProcessingContext
+from anonreq.services.dlp_engine import DLPEngine
 
 
 @pytest.fixture
 def dlp_config():
-    with open("config/dlp.yaml", "r") as f:
+    with open("config/dlp.yaml") as f:
         data = yaml.safe_load(f)
     return data["dlp"]
 
@@ -34,7 +34,7 @@ def test_dlp_categories_and_actions_exist():
 async def test_dlp_engine_detects_pii(dlp_engine):
     # Test Email
     res = await dlp_engine.inspect("Contact john.doe@example.com for info")
-    emails = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_email"]
+    emails = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_email"]  # noqa: E501
     assert len(emails) == 1
     assert emails[0].action == DLPAction.BLOCK
     assert res.max_action == DLPAction.BLOCK
@@ -42,12 +42,12 @@ async def test_dlp_engine_detects_pii(dlp_engine):
 
     # Test Phone
     res = await dlp_engine.inspect("Call me at +15551234567")
-    phones = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_phone"]
+    phones = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_phone"]  # noqa: E501
     assert len(phones) == 1
 
     # Test SSN
     res = await dlp_engine.inspect("My SSN is 123-45-6789")
-    ssns = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_ssn"]
+    ssns = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_ssn"]  # noqa: E501
     assert len(ssns) == 1
 
 
@@ -55,18 +55,18 @@ async def test_dlp_engine_detects_pii(dlp_engine):
 async def test_dlp_engine_detects_financial(dlp_engine):
     # Test Credit Card
     res = await dlp_engine.inspect("Card number: 1234-5678-9012-3456")
-    cards = [d for d in res.detections if d.category == DLPCategory.FINANCIAL and d.pattern_id == "fin_credit_card"]
+    cards = [d for d in res.detections if d.category == DLPCategory.FINANCIAL and d.pattern_id == "fin_credit_card"]  # noqa: E501
     assert len(cards) == 1
     assert res.max_action == DLPAction.BLOCK
 
     # Test IBAN
     res = await dlp_engine.inspect("My IBAN is DE89370400440532013000")
-    ibans = [d for d in res.detections if d.category == DLPCategory.FINANCIAL and d.pattern_id == "fin_iban"]
+    ibans = [d for d in res.detections if d.category == DLPCategory.FINANCIAL and d.pattern_id == "fin_iban"]  # noqa: E501
     assert len(ibans) == 1
 
     # Test SWIFT
     res = await dlp_engine.inspect("SWIFT code is AAAABBCC")
-    swifts = [d for d in res.detections if d.category == DLPCategory.FINANCIAL and d.pattern_id == "fin_swift"]
+    swifts = [d for d in res.detections if d.category == DLPCategory.FINANCIAL and d.pattern_id == "fin_swift"]  # noqa: E501
     assert len(swifts) == 1
 
 
@@ -179,5 +179,5 @@ async def test_dlp_engine_inspect_request(dlp_engine):
         {"value": "No secrets here"},
     ]
     res = await dlp_engine.inspect_request(ctx)
-    emails = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_email"]
+    emails = [d for d in res.detections if d.category == DLPCategory.PII and d.pattern_id == "pii_email"]  # noqa: E501
     assert len(emails) == 1

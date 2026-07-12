@@ -12,13 +12,14 @@ Per D-011, D-012, D-021:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from datetime import datetime, timezone
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from prometheus_client import Counter
 
-from anonreq.soc.event import NormalizedEvent, SeverityLevel, RawSecurityEvent
+from anonreq.soc.event import NormalizedEvent, RawSecurityEvent, SeverityLevel
 
 logger = logging.getLogger("anonreq.soc.normalizer")
 
@@ -67,7 +68,7 @@ class SOCNormalizer:
         mitre_mapper: Any,
         config: Any,
         audit_logger: Any | None = None,
-        metrics_registry: Any | None = None,
+        _metrics_registry: Any | None = None,
     ) -> None:
         self._mitre_mapper = mitre_mapper
         self._config = config
@@ -119,10 +120,8 @@ class SOCNormalizer:
         """Cancel the background consume loop and drain pending events."""
         if self._task is not None:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         self._drain()
 
     async def _consume_loop(self) -> None:

@@ -14,7 +14,6 @@ from typing import Any
 
 from anonreq.multimodal.json_analyzer import JsonAnalyzer
 
-
 # ---------------------------------------------------------------------------
 # Result types
 # ---------------------------------------------------------------------------
