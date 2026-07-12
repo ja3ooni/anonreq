@@ -1,289 +1,97 @@
-# Domain Pitfalls — AnonReq v1.5 Enterprise Hardening
+# Pitfalls, Security Risks, and Warnings: Milestone v2.0 (Enterprise & Deployment Moat)
 
-**Domain:** Self-hosted AI security & anonymization gateway
-**Researched:** 2026-07-07
-**Confidence:** HIGH
-
-## Critical Pitfalls
-
-### Pitfall 1: Trust Center Routes Behind Auth Middleware
-
-**What goes wrong:**
-Trust Center is designed as a **public** compliance evidence portal. If routes are registered with `Depends(auth_context)` or placed before/within auth-protected router groups, every request returns 401 Unauthorized. Users cannot view compliance evidence, SLO status, or security posture without logging in — defeating the entire purpose of a public Trust Center.
-
-**Why it happens:**
-The existing codebase registers all routers with `Depends(auth_context)` (lines 674-688 in `main.py`). It's the default pattern. It's easy to add Trust Center routes in the same `include_router()` block and inherit auth protection automatically.
-
-**Consequences:**
-- Anyone clicking "View Trust Center" from the website gets an auth error
-- Enterprise prospects evaluating AnonReq cannot see compliance evidence
-- Vanta/Trust Center baseline requirement is not met
-- Bug gets reported, requiring urgent fix and redeployment
-
-**Prevention:**
-Register Trust Center router as a separate `include_router()` call **after** all auth-protected routers, with **no** `dependencies=[Depends(auth_context)]`:
-
-```python
-# WRONG — inherits auth from being in the same block:
-# app.include_router(trust_center_router, dependencies=[Depends(auth_context)])
-
-# RIGHT — standalone registration, no auth:
-if trust_center_settings.enabled:
-    app.include_router(trust_center_router)
-```
-
-**Detection:**
-Test that `GET /v1/trust/status` returns 200 (not 401 or 403) without any `Authorization` header.
-
-**Phase to address:** Phase 2
+This document analyzes the common pitfalls, security vulnerabilities, and architectural warnings associated with implementing the enterprise features of Milestone v2.0 in the **AnonReq** gateway: **SSO/RBAC**, **Multi-Tenancy**, **High Availability (HA) & Scaling**, and **Secrets Management**.
 
 ---
 
-### Pitfall 2: Custom Recognizers Registered Through Presidio Sidecar
+## 1. Single Sign-On (SSO) & Role-Based Access Control (RBAC)
 
-**What goes wrong:**
-Custom recognizers (API keys, AWS access keys, GitHub tokens) are sent to the Presidio Analyzer HTTP API for analysis. Presidio's `/analyze` endpoint only recognizes built-in NER entities (PERSON, EMAIL_ADDRESS, etc.) and filters by entity types — it does NOT accept custom regex patterns. The custom recognizers silently detect nothing, and developers wonder why secret detection isn't working.
+Implementing enterprise SSO and fine-grained authorization within a high-throughput, low-latency API gateway like AnonReq presents major security and performance risks.
 
-**Why it happens:**
-Presidio's documentation mentions "custom recognizers" but via the Python `presidio-analyzer` library API (in-process). The HTTP API does not support custom recognizer injection. Developers who know Presidio by name assume it handles custom patterns.
+### Pitfalls & Security Risks
+1. **Identity vs. Authorization Conflation (Cross-Tenant Escalation)**
+   * *Risk*: Relying solely on identity provider (IdP) groups or claims to determine resource access. In a multi-tenant environment, if Tenant A's user possesses an `administrator` role claim, a naive endpoint check (`if user.role == 'administrator'`) could grant them admin privileges over Tenant B's configuration if the tenant context is not strictly bound to the authorization check.
+   * *Warning*: Never perform authorization checks without passing the current validated `tenant_id` context.
+2. **Cryptographic Overhead and Unvalidated JWTs**
+   * *Risk*: Validating JWT signatures on every inbound request requires fetching and parsing JWKS (JSON Web Key Sets) from the IdP. Doing this synchronously or per-request introduces massive latency and risks blocking the event loop. Conversely, failing to validate JWT signatures, expiration (`exp`), audience (`aud`), or issuer (`iss`) to "save performance" permits token-forgery attacks.
+3. **Hardcoded Authorization Rules**
+   * *Risk*: Embedding RBAC logic directly in route functions (e.g., `if role in ['admin', 'operator']`) makes compliance audits (such as ISO 42001 or DORA) extremely difficult, increases code fragility, and fails to handle dynamic governance requirements like Chinese Wall policies (Req 46).
 
-**Consequences:**
-- API keys and tokens pass through undetected
-- False sense of security ("we have Presidio-based detection")
-- DLP requirements are not met
-- Requires emergency rework when discovered
-
-**Prevention:**
-Route all pattern-based custom recognizers through the `RegexDetector` pipeline, NOT through `PresidioClient.analyze_text_nodes()`. The existing `DetectionStage.execute()` already merges regex patterns from entity configs and hot-reloaded custom rules. Add custom recognizer patterns to the `extra_patterns` dict:
-
-```python
-# WRONG — sending to Presidio sidecar that can't handle custom entities:
-custom_entities = ["API_KEY", "AWS_ACCESS_KEY"]
-ner_results = await presidio_client.analyze(text, entities=custom_entities)
-
-# RIGHT — compile regex patterns and add to RegexDetector:
-patterns = compile_custom_recognizer_patterns(config)
-regex_results = regex_detector.detect(text, extra_patterns=patterns)
-```
-
-**Detection:**
-Write tests with known API key patterns (e.g., `sk-proj-fakekey123`) and verify they produce detection results with the correct entity type and confidence score.
-
-**Phase to address:** Phase 4.1
+### Opinionated Stack & Architecture Decisions
+* **Use `PyJWT` (with `cryptography`) & LRU Cache for JWKS**: Do not use heavy all-in-one OIDC frameworks that introduce unnecessary middleware overhead. Parse JWTs using `PyJWT` and implement an in-memory, TTL-cached JWKS client with a background refresher thread (or async task) to avoid hitting the IdP on every request.
+* **Use `OpenFGA` (via `openfga-sdk`) for Fine-Grained Authorization**: To implement complex relationship-based access controls (ReBAC) like business unit segregation (Req 46) and Chinese Wall policies, delegate authorization to an OpenFGA sidecar. This decouples policy rules from FastAPI code and satisfies the auditability requirements of ISO 42001 and DORA.
+* **Use FastAPI Dependencies for Enforcement**: Enforce authentication and authorization using FastAPI’s dependency injection hierarchy. Define a `get_current_tenant_admin` dependency that resolves the tenant context and verifies the user's role before routing execution.
 
 ---
 
-### Pitfall 3: License Check Implemented Inside Route Handlers
+## 2. Multi-Tenancy
 
-**What goes wrong:**
-License validation logic is copied into each gated route handler or called as a helper method. New routes are added without the check. Some routes check, others don't. The license gate has holes.
+AnonReq requires strict data isolation between tenants, especially since it intercepts and tokenizes highly sensitive PII/PHI in financial and regulated sectors.
 
-**Why it happens:**
-It's the most obvious approach — "call `LicenseValidator.has_feature()` at the top of the handler." Developers working on new features may not know about the license requirement or forget to add it.
+### Pitfalls & Security Risks
+1. **Implicit Data Leakage in Shared Schemas**
+   * *Risk*: When using a shared database with a `tenant_id` column, the omission of a `WHERE tenant_id = :tenant_id` clause in a single query results in catastrophic cross-tenant data leakage. Relying on developer vigilance to write this clause on every database operation is a known failure mode.
+2. **Session Variable Contamination in Connection Pools**
+   * *Risk*: In shared-database, separate-schema architectures, routing is typically achieved by setting a session-level parameter (e.g., `SET search_path TO tenant_schema`). If a connection is returned to the connection pool without resetting this parameter, the next tenant using that connection will execute queries against the previous tenant's schema.
+3. **Connection Pool Exhaustion (Isolated DB Strategy)**
+   * *Risk*: Maintaining an isolated database per tenant means the gateway must maintain a separate connection pool for every tenant. As the tenant count scales to hundreds or thousands, the gateway will exhaust the maximum connection limits of the database servers, leading to service degradation.
+4. **Linear Migration Bottlenecks**
+   * *Risk*: Running migrations sequentially across all tenant schemas during deployment blocks deployment pipelines, violates maintenance windows, and risks partial-failures where some tenants are migrated and others fail.
 
-**Consequences:**
-- Unlicensed users access Appliance-tier features
-- Revenue leakage for commercial licensing model
-- Patchwork of checks that's hard to audit
-- Each new route requires manual license integration
-
-**Prevention:**
-Use FastAPI's dependency injection system. Define a dependency factory once, apply at the **router** level (not per-handler):
-
-```python
-# WRONG — per-handler:
-@router.get("/admin/evidence")
-async def get_evidence(request: Request):
-    if not await LicenseValidator.has_feature("compliance_monitoring"):
-        raise HTTPException(402)
-    ...
-
-# RIGHT — router-level dependency:
-router = APIRouter(
-    prefix="/v1/admin",
-    dependencies=[
-        Depends(auth_context),
-        Depends(require_license("compliance_monitoring")),
-    ]
-)
-```
-
-**Detection:**
-Review each `include_router()` call in `main.py`. Any route that should be gated must have the license dependency at the router level, not in individual handler signatures.
-
-**Phase to address:** Phase 4.3
+### Opinionated Stack & Architecture Decisions
+* **Use PostgreSQL Schema-based Isolation via SQLAlchemy `execution_options`**: Implement a shared database with tenant-specific schemas. Use SQLAlchemy’s `schema_translate_map` or dynamic engine connection routing combined with FastAPI's `ContextVar`-based middleware to set the correct schema dynamically.
+* **Enforce Row-Level Security (RLS) as a Fail-Safe**: Even if using separate schemas or tenant filters, configure PostgreSQL Row-Level Security (RLS) on all multi-tenant tables. This ensures the database itself rejects queries that violate tenant boundaries.
+* **Mandate `pool_pre_ping=True` and Dynamic Connection Cleanups**: Configure SQLAlchemy engines to verify connection health and explicitly reset connection parameters (like `search_path` or active transactions) upon returning connections to the pool.
+* **Implement Asynchronous, Parallelized Alembic Migrations**: Parallelize database schema migrations using a task runner or custom orchestration script that runs migrations across tenant schemas in chunks, ensuring idempotency and transaction safety.
 
 ---
 
-### Pitfall 4: Phone-Home License Validation
+## 3. High Availability (HA) & Scaling
 
-**What goes wrong:**
-License validator makes an HTTP request to an external licensing server to verify the license key. When the server is unreachable (network partition, DNS failure, maintenance, air-gapped deployment), all gated features become unavailable. In the worst case, the core anonymization pipeline could also be blocked if the license check is in the wrong place.
+AnonReq must remain resilient and maintain high availability while processing streaming payloads (SSE) and managing ephemeral token mappings in-memory.
 
-**Why it happens:**
-SaaS licensing models are the default expectation. "How will you validate licenses without calling home?" is the first question asked. Phone-home feels natural.
+### Pitfalls & Security Risks
+1. **Event Loop Blocking in NER Pipeline**
+   * *Risk*: Microsoft Presidio Analyzer and local Regex matching engines perform heavy CPU-bound operations. If these operations are run directly in FastAPI's main async event loop, the loop will freeze, causing timeouts for all concurrent requests and breaching processing overhead SLOs (Req 24).
+2. **SSE Connection and File Descriptor Exhaustion**
+   * *Risk*: Server-Sent Events (SSE) keep HTTP connections open for the duration of the LLM stream. Naive server configurations will quickly exhaust OS file descriptors. Furthermore, standard reverse proxies (like Nginx) buffer responses by default, which breaks SSE streams by accumulating chunks instead of forwarding them immediately.
+3. **Redis/Valkey Failover Latency & Connection Flooding**
+   * *Risk*: If the primary Valkey node fails, a Sentinel failover takes time. During this failover window, a naive Redis client will throw connection errors, causing the gateway to fail closed and return 5xx errors to clients (Req 22). When Valkey recovers, a "thundering herd" of reconnecting FastAPI instances can overwhelm the database.
 
-**Consequences:**
-- Air-gapped and sovereign deployments cannot use Appliance-tier features
-- Network blips cause license validation failures and 402 errors
-- Single point of failure for enterprise deployments
-- Deployment complexity increases (needs egress to licensing server)
-
-**Prevention:**
-HMAC-SHA256 symmetric signing with a local key. The license payload (org, tier, features, expiry) is signed with a secret known to both the license generator and the AnonReq instance. Validation is pure computation — no network calls:
-
-```python
-# WRONG — phone-home:
-async def validate():
-    async with httpx.AsyncClient() as client:
-        resp = await client.post("https://license.anonreq.dev/verify", json={"key": key})
-        return resp.json()
-
-# RIGHT — local HMAC:
-def validate(payload: str, signature: str, secret: str) -> bool:
-    expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
-```
-
-**Detection:**
-`strace` or network logging shows no outbound connections during license validation. Deploy in air-gapped network — license validation still works.
-
-**Phase to address:** Phase 4.3
+### Opinionated Stack & Architecture Decisions
+* **Offload NER to Worker Pools (`asyncio.to_thread` or Process Pools)**: Execute Microsoft Presidio and Regex scanning inside a ProcessPoolExecutor or via `asyncio.to_thread` to ensure CPU-bound tokenization does not block FastAPI's ASGI event loop.
+* **Use `redis.asyncio.sentinel.Sentinel` with Exponential Backoff and Jitter**: Connect to Valkey using a Sentinel-aware connection pool. Implement explicit retry logic with exponential backoff and randomized jitter to handle connection errors gracefully during failover, preventing a thundering herd on Valkey.
+* **Disable Reverse Proxy Buffering for SSE Paths**: Configure Nginx/ingress rules specifically for the gateway streaming routes to use `proxy_buffering off;`, `proxy_cache off;`, and set high `proxy_read_timeout` thresholds.
+* **Synchronize State via Valkey Pub/Sub**: To support features like the emergency kill-switch (Req 29) across horizontally scaled gateway instances, use Valkey Pub/Sub to broadcast state changes to all instances, avoiding in-memory state desynchronization.
 
 ---
 
-### Pitfall 5: PII Leaked in Trust Center Responses
+## 4. Secrets Management
 
-**What goes wrong:**
-Trust Center `/v1/trust/status` includes tenant-level SLO breakdowns, session counts, or other data that could identify individual usage patterns. The Trust Center becomes a PII liability.
+AnonReq handles highly sensitive API keys (OpenAI, Anthropic, Gemini) and tenant-specific database encryption keys. Compromise of these secrets violates DORA and compliance policies.
 
-**Why it happens:**
-The SLO engine stores data per `tenant_id`. It's easy to iterate over all tenants and return per-tenant breakdowns — that's the simplest query path. The SLO data includes operational details that could be used to infer usage.
+### Pitfalls & Security Risks
+1. **Global Environment Variable Leakage**
+   * *Risk*: Storing secrets in standard environment variables makes them globally accessible to any subprocess spawned by the Python process. If a third-party dependency is compromised (e.g., supply chain vulnerability), an attacker can easily read `os.environ` and exfiltrate all secrets.
+2. **Accidental Logging of Configuration and Secret Objects**
+   * *Risk*: Standard logging frameworks and crash reporters (like Sentry or local logs) print configuration objects or variables when exceptions occur. Raw API keys or connection strings can easily slip into structured logs.
+3. **Static Secrets and Lack of Rotation**
+   * *Risk*: Hardcoded secrets or configurations that require a service restart to rotate cause downtime and increase the window of opportunity for leaked credentials.
 
-**Consequences:**
-- PII/data protection violation
-- Trust Center no longer safe for public access
-- May need auth or data redaction, defeating purpose
-- Regulatory compliance exposure
-
-**Prevention:**
-- Use `get_all_compliance("*")` with a wildcard tenant ID → returns aggregated metrics
-- Do NOT iterate over tenants or return tenant-specific breakdowns
-- Only return aggregate counters (total requests, overall uptime, global compliance rate)
-- For Prometheus metrics, use `REGISTRY.get_sample_value()` for aggregate counters, not per-label breakdown
-- Add a test that validates no tenant_id field appears in any Trust Center response
-
-```python
-# WRONG — exposes tenant data:
-async def get_status():
-    tenants = list_tenants()
-    return {t: await slo_engine.get_all_compliance(t) for t in tenants}
-
-# RIGHT — aggregate only:
-async def get_status():
-    compliance = await slo_engine.get_all_compliance("*")
-    # Return summary stats, not per-tenant breakdown
-    return {
-        "overall_compliance": calculate_average(compliance),
-        "window_count": len(compliance),
-    }
-```
-
-**Detection:**
-Search Trust Center response models for any field containing `tenant_id` or similar identifiers.
-
-**Phase to address:** Phase 2
+### Opinionated Stack & Architecture Decisions
+* **Use HashiCorp Vault Agent Sidecar Pattern**: Do not implement complex Vault client code directly inside FastAPI. Deploy the Vault Agent as a sidecar container in Kubernetes. The agent authenticates, retrieves secrets, handles token renewal, and writes secrets to a shared, memory-backed volume (`emptyDir`).
+* **Leverage `pydantic-settings` with File Watcher for Hot-Reloading**: Configure AnonReq to read secrets from the shared volume. Use a background file watcher (such as `watchdog`) to detect when the Vault Agent updates secret files and trigger an atomic, in-memory config reload (Req 11) without restarting the gateway.
+* **Enforce Pydantic `SecretStr` for Sensitive Fields**: Declare all secrets, database credentials, and tokenization keys as `SecretStr` instead of plain `str` in configuration models. This automatically redacts the values (replacing them with `**********`) when serialized, printed, or logged.
+* **Isolate Subprocesses**: Ensure any external processes (like Presidio Analyzer) run as isolated containers with their own least-privilege service accounts, preventing them from accessing the Gateway container's secrets.
 
 ---
 
-## Moderate Pitfalls
+## Summary Checklist for Milestone v2.0 Architecture
 
-### Pitfall 6: Translation Files Drift From Source English
-
-**What goes wrong:**
-`docs/en/getting-started.md` is updated with new content. `docs/fr/getting-started.md` still shows old content. Prospects reading the French docs see outdated or incorrect information.
-
-**Prevention:**
-Maintain `docs/TRANSLATION_MANIFEST.md` with per-file per-language status (`draft` / `reviewed` / `published` / `—`). Add a CI step that checks translation status when source files change.
-
-**Phase to address:** Phase 3
-
-### Pitfall 7: Trust Center Not Rate Limited
-
-**What goes wrong:**
-Public endpoints with no rate limiting. An attacker hits `/v1/trust/status` at high volume, causing SLO engine reads from Valkey and Prometheus metric scraping to degrade request processing for the main gateway.
-
-**Prevention:**
-Add IP-based rate limiting (60 RPM per IP) using Valkey with sliding window. This is the same Valkey instance used for cache — no new infrastructure.
-
-**Phase to address:** Phase 2
-
-### Pitfall 8: License Check Slowing Down Request Processing
-
-**What goes wrong:**
-Every gated route call reads the license file from disk, parses the license key, and recomputes the HMAC. Adds 10-50ms to every gated request.
-
-**Prevention:**
-Validate and parse the license at startup (in the `lifespan` context manager). Store the parsed `LicensePayload` on `app.state`. Per-request check is a single `has_feature()` call checking an in-memory set — O(1), no I/O.
-
-**Phase to address:** Phase 4.3
-
-## Minor Pitfalls
-
-### Pitfall 9: Config File Path Assumptions
-
-**What:** `config/trust_center.yaml` hardcoded as `config/trust_center.yaml` but Docker deploys might use a different config mount path.
-**Prevention:** Accept config path as an environment variable (`ANONREQ_TRUST_CENTER_CONFIG_PATH`) with a sensible default. Follow existing pattern from `POLICY_CONFIG_PATH`.
-
-### Pitfall 10: Arabic Doc Rendering
-
-**What:** Arabic docs in `docs/ar/` render with left-to-right text alignment, making them unreadable.
-**Prevention:** Add RTL note to README. Use appropriate HTML/Bidi markers if needed. Verify with a browser before publishing.
-
-### Pitfall 11: Duplicate License Validation on Admin Route
-
-**What:** License admin endpoint (`GET /v1/admin/license`) is itself license-gated, creating a catch-22 where you can't check license status without a license.
-**Prevention:** The license admin endpoint must NOT be behind `require_license()`. It should only require auth (`Depends(auth_context)`). This is the debugging/status endpoint.
-
-## "Looks Done But Isn't" Checklist
-
-- [ ] **Trust Center:** Tested WITHOUT auth header — returns 200, not 401
-- [ ] **Trust Center:** Tested WITH config toggle disabled — returns 404
-- [ ] **Trust Center:** Response JSON scanned — no `tenant_id` field present
-- [ ] **Custom recognizers:** Known API key patterns (`sk-...`, `AKIA...`, `ghp_...`) detected correctly
-- [ ] **Custom recognizers:** Pipeline detection tests pass with recognized keys in request text
-- [ ] **License gate:** Core pipeline (`POST /v1/chat/completions`) works WITHOUT any license
-- [ ] **License gate:** Gated features return 402 WITH missing/expired license
-- [ ] **License gate:** Gated features work WITH valid license
-- [ ] **License admin:** `GET /v1/admin/license` accessible with auth (not behind license gate)
-- [ ] **Translation manifest:** All 6 languages have entries for all source files
-- [ ] **Docker:** `ANONREQ_LICENSE_SECRET` and `ANONREQ_LICENSE_KEY` documented in `.env.example`
-
-## Pitfall-to-Phase Mapping
-
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| Trust Center behind auth | Phase 2 | Test without auth header |
-| Custom recognizers through Presidio | Phase 4.1 | Test known patterns produce detections |
-| License check in handler body | Phase 4.3 | Code review — router-level dependencies |
-| Phone-home license validation | Phase 4.3 | Verify no HTTP calls during license check |
-| PII in Trust Center | Phase 2 | Test response contains no tenant_id |
-| Translation drift | Phase 3 | CI step checks manifest vs source |
-| Trust Center rate limiting | Phase 2 | Load test — >60 RPM returns 429 |
-| License check overhead | Phase 4.3 | Benchmark — per-request check <1µs |
-| Config path assumptions | Phase 2, 4 | Docker test with non-default config path |
-| Arabic rendering | Phase 3 | Visual verification in browser |
-| License admin gate catch-22 | Phase 4.3 | Test admin/license without license |
-
-## Sources
-
-- `src/anonreq/main.py` — Existing router registration pattern (auth on all routers)
-- `src/anonreq/pipeline/detection.py` — Custom regex integration via AtomicConfigRegistry
-- `src/anonreq/detection/presidio_client.py` — Presidio HTTP API (no custom recognizer support)
-- `.planning/v1.5-SPEC.md` — License mechanism, config gates, rate limiting requirements
-- Python stdlib docs: `hmac.compare_digest()` for constant-time comparison (timing attack prevention)
-- Common pitfalls observed in: air-gapped deployments, license enforcement patterns, public API design
-
----
-*Pitfalls research for: AnonReq v1.5 Enterprise Hardening*
-*Researched: 2026-07-07*
+| Category | High-Risk Pitfall | Mitigation / Architecture Standard |
+| :--- | :--- | :--- |
+| **SSO/RBAC** | Cross-tenant admin privileges via fake claims | Enforce `tenant_id` context validation on every AuthZ check; offload fine-grained rules to `OpenFGA`. |
+| **Multi-Tenancy** | Developer omission of tenant filters | Use PostgreSQL Schema isolation with SQLAlchemy routing; configure Row-Level Security (RLS) as a database-level safety net. |
+| **HA/Scaling** | Presidio blocking the main ASGI thread | Offload CPU-bound PII analysis to worker threads or a dedicated process pool. |
+| **HA/Scaling** | Interrupted SSE streams | Disable proxy buffering and configure Sentinel-aware Redis client with backoff retries. |
+| **Secrets** | Leaked env vars in logs/subprocess memory | Use Vault Agent sidecar to mount secrets as files; bind settings to Pydantic `SecretStr` for auto-redaction. |
