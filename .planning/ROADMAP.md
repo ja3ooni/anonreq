@@ -163,3 +163,13 @@
 | **Total** | **26** | **101/111** | **In progress** |
 
 *Archived from consolidated roadmaps. See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.*
+
+### Phase 27: v1.5 Tech Debt Cleanup
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 26
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 27 to break down)
