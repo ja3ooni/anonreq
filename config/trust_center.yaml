@@ -1,0 +1,15 @@
+enabled: false
+display_name: "AnonReq Trust Center"
+contact_email: "security@example.com"
+logo_url: ""
+supported_frameworks:
+  - soc2
+  - iso27001
+  - gdpr
+  - hipaa
+feature_summary:
+  anonymization: true
+  dlp: false
+  firewall: false
+security_contact: "security@example.com"
+certifications: []
