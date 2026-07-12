@@ -20,11 +20,11 @@ current_phase_name: v1.5 Tech Debt Cleanup
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-07 for v1.5)
-See: .planning/ROADMAP.md (v1.0 complete — Phases 1-22; v1.5 planned — Phases 23-26)
+See: .planning/PROJECT.md (updated 2026-07-12)
+See: .planning/ROADMAP.md (v1.0 and v1.5 complete)
 
 **Core value:** Raw PII never crosses the network boundary.
-**Current focus:** Phase 27 — v1.5 Tech Debt Cleanup
+**Current focus:** Awaiting next milestone
 
 ## Current Position
 
@@ -32,6 +32,7 @@ Phase: Milestone v1.5 complete
 Plan: —
 Status: Awaiting next milestone
 Last activity: 2026-07-12 — Milestone v1.5 completed and archived
+
 
 ## Performance Metrics
 
