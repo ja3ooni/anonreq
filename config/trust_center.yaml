@@ -1,4 +1,4 @@
-enabled: false
+enabled: true
 display_name: "AnonReq Trust Center"
 contact_email: "security@example.com"
 logo_url: ""
