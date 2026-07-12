@@ -42,4 +42,19 @@
 
 ## Traceability
 
-[To be populated by roadmapper]
+| Requirement | Description | Phase |
+|-------------|-------------|-------|
+| **SSO-01** | User authentication via OpenID Connect (OIDC) JWT signature verification against cached JWKS. | Phase 30 |
+| **SSO-02** | Enforce predefined enterprise roles (`administrator`, `security_officer`, `operator`, `read_only_auditor`) on endpoints. | Phase 30 |
+| **SSO-03** | Support Mutual TLS (mTLS) machine-to-machine authentication validation. | Phase 30 |
+| **TEN-01** | Require and validate `X-AnonReq-Tenant-ID` header on client requests. | Phase 31 |
+| **TEN-02** | Enforce strict namespace partitioning in Valkey (`anonreq:tenant_{tenant_id}:{session_id}`). | Phase 31 |
+| **TEN-03** | Dynamically encrypt Valkey token mappings using tenant-specific KMS keys. | Phase 31 |
+| **TEN-04** | Scope structured logs and custom Prometheus metrics with active `tenant_id`. | Phase 31 |
+| **HA-01** | Support Valkey Sentinel and Valkey Cluster connection factories in `CacheManager`. | Phase 28 |
+| **HA-02** | Create Helm v3 deployment package supporting HPA and node anti-affinity. | Phase 32 |
+| **HA-03** | Handle Valkey failover reelection latency via exponential retry backoffs and fail-closed guards. | Phase 28 |
+| **SEC-01** | Retrieve credentials dynamically from HashiCorp Vault or cloud KMS at startup. | Phase 29 |
+| **SEC-02** | Watch secret volumes and reload configurations dynamically in-memory. | Phase 29 |
+| **SEC-03** | Redact secret substrings in log serializations with `[REDACTED]` formatter. | Phase 29 |
+| **SEC-04** | Maintain previous keys in read-only buffer during rotation for active streams. | Phase 29 |
