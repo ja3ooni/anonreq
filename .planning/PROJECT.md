@@ -8,17 +8,15 @@ v1.0 ships as a comprehensive platform covering core anonymization, enterprise p
 
 v1.5 shifts focus to enterprise hardening: engineering hygiene (CI/CD, code quality, secure defaults), public Trust Center portal, documentation parity across 8 languages, and enterprise guardrails with commercial licensing.
 
-## Current Milestone: v1.5 Enterprise Hardening & Trust Center
+## Current Milestone: v2.0 Enterprise & Deployment Moat
 
-**Goal:** Transform the codebase review feedback (the "MOTE") into production-ready enterprise
-practices — fix foundational engineering gaps, ship the Trust Center, achieve documentation
-parity, and build commercial licensing with enterprise detection capabilities.
+**Goal:** Hardening AnonReq with enterprise-grade SSO/RBAC, multi-tenant isolation, high availability scaling, and secure cloud secrets management.
 
 **Target features:**
-- Engineering Hygiene — CI/CD test workflow, ruff/mypy enforcement, secure Docker defaults
-- Trust Center — public compliance evidence portal per Vanta baseline
-- Documentation Parity — docs in FR, ES, PT, IT, AR, NL (8 total languages)
-- Enterprise Guardrails — secret detection, continuous compliance monitoring, commercial licensing
+- SSO, RBAC & API Gateways — OIDC, SAML, mTLS, API keys, and audit logging
+- Multi-Tenant Isolation — partition cache, config, metrics, and logs per tenant
+- HA, Scaling & DR — Kubernetes Helm chart, Valkey cluster, replica failover
+- Secrets Management — HashiCorp Vault integration, Cloud KMS, secure rotation
 
 ## Core Value
 
@@ -71,25 +69,30 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 
 ### Active
 
-- None (all v1.5 features validated)
+- [ ] **SSO-01**: OAuth2/OIDC/SAML integration for user and application authentication
+- [ ] **SSO-02**: RBAC policy engine mapping permissions to client requests
+- [ ] **SSO-03**: mTLS certificate-based authentication for client traffic
+- [ ] **TEN-01**: Tenant namespacing across cache, config, metrics, and audit logs
+- [ ] **TEN-02**: Tenant isolation partitioning in the gateway and database layers
+- [ ] **HA-01**: Valkey Sentinel/Cluster support for database scaling and replication
+- [ ] **HA-02**: Kubernetes Helm chart and HA deployment profiles
+- [ ] **SEC-01**: HashiCorp Vault and cloud secrets manager integration
+- [ ] **SEC-02**: Automated cryptographic key rotation
 
 ### Out of Scope
 
-- Enterprise Authentication & Auth (Req 17) — OAuth/JWT/mTLS, RBAC, OIDC/SAML — deferred post-v1.5
-- Secrets Management & Network Security (Req 18) — HashiCorp Vault, AWS/Azure/GCP secret stores, mTLS between internal components — deferred post-v1.5
-- Multi-Tenant Isolation (Req 19) — tenant namespacing, per-tenant config, tenant provisioning API — deferred post-v1.5
-- High Availability / Scalability / DR (Req 20) — Valkey Sentinel/Cluster, Kubernetes Helm chart, HA deployment — deferred post-v1.5
-- Data Sovereignty & Compliance Assurance (Req 21) — geographic routing, detection quality benchmarks, SLO dashboards — deferred post-v1.5
+- Post-v2.0 enhancements (hardware HSM integration, customer-managed evidence storage, federated control planes)
 
 ## Context
 
 - **v1.0 shipped**: 2026-07-07. All 22 phases complete with 101 plans, 179 tasks, ~49,500 lines of Python, 768+ tests.
 - **v1.5 shipped**: 2026-07-12. All 5 phases complete with 11 plans, 11 summaries, all technical debt cleaned up.
+- **v2.0 started**: 2026-07-12. Enterprise platform and deployment moat development.
 - **Tech stack**: Python 3.12, FastAPI, Pydantic Settings, httpx, Redis/Valkey, Presidio Analyzer, prometheus-client, structlog, SQLAlchemy/Alembic, MinIO, pyarrow, reportlab, cryptography, ONNX Runtime, Docker Compose.
 - **Test framework**: pytest, Hypothesis (property-based), fakeredis, respx, aioresponses, pytest-asyncio.
 - **Deployment**: Multi-stage Dockerfile, docker-compose.yml with anonreq + presidio-analyzer + valkey. Optional observability profile (PostgreSQL, MinIO, Grafana, Prometheus).
 - **Governance persistence**: PostgreSQL via SQLAlchemy/Alembic (optional, for audit trail, governance records, lineage).
-- **Deferred**: Enterprise auth (OAuth/JWT/mTLS), secrets management, HA/scalability, multi-tenant isolation, data sovereignty dashboards — documented in Out of Scope.
+- **Deferred**: Post-v2.0 enhancements (HSM integration, customer-managed evidence storage, federated control planes).
 
 ## Constraints
 
@@ -135,5 +138,5 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-12 after Phase 27 (v1.5 Tech Debt Cleanup) completion*
+*Last updated: 2026-07-12 after Milestone v2.0 initialization*
 

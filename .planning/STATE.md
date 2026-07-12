@@ -1,19 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.5
-milestone_name: Tech Debt Cleanup
-current_phase: 5
-status: Awaiting next milestone
-last_updated: "2026-07-12T11:10:31.216Z"
+milestone: v2.0
+milestone_name: Enterprise & Deployment Moat
+status: planning
+last_updated: "2026-07-12T11:15:28.940Z"
 last_activity: 2026-07-12
-last_activity_desc: Milestone v1.5 completed and archived
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 11
-  completed_plans: 11
-  percent: 100
-current_phase_name: v1.5 Tech Debt Cleanup
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -28,11 +25,10 @@ See: .planning/ROADMAP.md (v1.0 and v1.5 complete)
 
 ## Current Position
 
-Phase: Milestone v1.5 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-12 — Milestone v1.5 completed and archived
-
+Status: Defining requirements
+Last activity: 2026-07-12 — Milestone v2.0 started
 
 ## Performance Metrics
 
