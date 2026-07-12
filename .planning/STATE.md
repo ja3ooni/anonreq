@@ -2,17 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Enterprise Hardening & Trust Center
-current_phase: 26
-current_phase_name: Enterprise Guardrails
-status: planning
-last_updated: "2026-07-08T12:31:41.004Z"
-last_activity: 2026-07-08
+status: Awaiting next milestone
+last_updated: "2026-07-12T06:53:50.883Z"
+last_activity: 2026-07-09 — Milestone v1.5 completed and archived
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 7
-  percent: 70
+  completed_plans: 10
+  percent: 100
 ---
 
 # Project State
@@ -27,11 +25,10 @@ See: .planning/ROADMAP.md (v1.0 complete — Phases 1-22; v1.5 planned — Phase
 
 ## Current Position
 
-- **Milestone:** v1.5 — Enterprise Hardening & Trust Center
-- **Phase:** 26 — Enterprise Guardrails
-- **Plan:** Not started
-- **Status:** Ready to plan
-- **Last activity:** 2026-07-08
+Phase: Milestone v1.5 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-09 — Milestone v1.5 completed and archived
 
 ## Performance Metrics
 
@@ -105,8 +102,10 @@ Phase 23: Engineering Hygiene (foundation — no deps)
 - **2026-07-07:** v1.0 shipped (Phase 22 complete)
 - **2026-07-07:** v1.5 milestone started
 - **2026-07-07:** v1.5 roadmap created — Phases 23-26 defined
-- **Next step:** Plan Phase 23 — Engineering Hygiene
+- **2026-07-12:** Milestone v1.5 summary generated — see `.planning/reports/MILESTONE_SUMMARY-v1.5.md`
+- **Next step:** Commit outstanding Phase 26 work, then start next milestone with /gsd-new-milestone
 
 ## Operator Next Steps
 
-- `/gsd-plan-phase 23` to begin Phase 23 (Engineering Hygiene)
+- **Commit outstanding work first:** 484 modified files and 29 untracked paths are uncommitted, including all of Phase 26 (`src/anonreq/license/`, `src/anonreq/trust_center/`, enterprise recognizers, all 6 translated-doc language directories, `.github/workflows/test.yml`). `git log` HEAD stops at "Complete Phase 25" — Phase 26 has no commits. See the Tech Debt section of `.planning/reports/MILESTONE_SUMMARY-v1.5.md` for details.
+- Start the next milestone with /gsd-new-milestone
