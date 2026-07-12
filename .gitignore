@@ -82,3 +82,6 @@ out/
 tmp/
 temp/
 .cache/
+
+# Runtime-generated data (e.g. compliance evidence filesystem fallback)
+data/
