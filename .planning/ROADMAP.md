@@ -3,7 +3,7 @@
 ## Milestones
 
 - ✅ **v1.0 MVP** — Phases 1-22 (shipped 2026-07-07)
-- 🚧 **v1.5 Enterprise Hardening & Trust Center** — Phases 23-26 (in progress)
+- ✅ **v1.5 Enterprise Hardening & Trust Center** — Phases 23-27 (shipped 2026-07-12)
 
 ## Phases
 
@@ -36,89 +36,16 @@
 
 </details>
 
-### v1.5 (Enterprise Hardening & Trust Center)
+<details>
+<summary>✅ v1.5 Enterprise Hardening & Trust Center (Phases 23-27) — SHIPPED 2026-07-12</summary>
 
-- [x] **Phase 23: Engineering Hygiene** - CI/CD, code quality enforcement, secure Docker defaults (completed 2026-07-08)
-- [x] **Phase 24: Trust Center** - Public compliance evidence portal (completed 2026-07-08)
-- [x] **Phase 25: Documentation Parity** - Multi-language documentation (8 languages) (completed 2026-07-08)
-- [x] **Phase 26: Enterprise Guardrails** - Secret detection, compliance monitoring, commercial licensing (completed 2026-07-09)
+- [x] Phase 23: Engineering Hygiene (3/3 plans) — completed 2026-07-08
+- [x] Phase 24: Trust Center (2/2 plans) — completed 2026-07-08
+- [x] Phase 25: Documentation Parity (2/2 plans) — completed 2026-07-08
+- [x] Phase 26: Enterprise Guardrails (3/3 plans) — completed 2026-07-09
+- [x] Phase 27: v1.5 Tech Debt Cleanup (1/1 plan) — completed 2026-07-12
 
-## Phase Details
-
-### Phase 23: Engineering Hygiene
-
-**Goal**: Development workflow enforces code quality and secure defaults automatically on every change
-**Depends on**: Nothing (foundation phase)
-**Requirements**: HYG-01, HYG-02, HYG-03
-**Success Criteria** (what must be TRUE):
-
-  1. Every push/PR to main triggers GitHub Actions running the full pytest suite and reporting pass/fail
-  2. Ruff and mypy violations cause CI failure (staged rollout with pre-existing violations baseline)
-  3. Docker Compose exposes only gateway port 8080 by default; Grafana anonymous auth is disabled
-   4. Developers can run the same lint/type-check commands locally via `uv run` with identical configuration
-
-**Plans**: 3 plans
-**Plan list:**
-
-- [x] 23-01-PLAN.md — ruff/mypy configuration and auto-fix sweep
-- [x] 23-02-PLAN.md — Docker secure defaults (remove host ports, disable Grafana anonymous auth)
-- [x] 23-03-PLAN.md — CI/CD test workflow (ruff, mypy, pytest, coverage)
-
-### Phase 24: Trust Center
-
-**Goal**: Enterprises can publicly demonstrate security posture, compliance, and operational health
-**Depends on**: Phase 23
-**Requirements**: TRUST-01, TRUST-02
-**Success Criteria** (what must be TRUE):
-
-   1. Public `/v1/trust/status`, `/v1/trust/compliance`, `/v1/trust/metrics`, `/v1/trust/security` endpoints return aggregate metadata without authentication
-   2. Trust Center can be enabled/disabled via YAML configuration toggle (returns 404 when disabled)
-   3. Trust Center endpoints are rate-limited (60 RPM) and return no PII, tenant-level data, or raw metrics
-   4. SLO and compliance data is publicly accessible as aggregate metadata for enterprise evaluations
-
-**Plans**: 2 plans
-**Plan list:**
-
-- [x] 24-01-PLAN.md — Trust Center package scaffold (config, schemas, service, rate limiter, router, main.py wiring)
-- [x] 24-02-PLAN.md — Unit and integration tests (config, schemas, rate limiter, fail-closed, TestClient)
-
-### Phase 25: Documentation Parity
-
-**Goal**: Global enterprises can evaluate and deploy AnonReq in their preferred language
-**Depends on**: Phase 23
-**Requirements**: DOCS-01, DOCS-02
-**Success Criteria** (what must be TRUE):
-
-  1. Documentation available in FR, ES, PT, IT, AR, NL (8 total languages including existing EN/DE)
-  2. Translation manifest (`docs/TRANSLATION_MANIFEST.md`) tracks every source→target mapping with per-file review status
-  3. Glossary of technical terms maintained with translations across all 8 languages
-  4. Arabic documentation includes RTL rendering guidance note
-
-**Plans**: 2 plans
-**Plan list:**
-
-- [x] 25-01-PLAN.md — Translation infrastructure (glossary, manifest, English source docs, language directories)
-- [x] 25-02-PLAN.md — Translation content (translate 9 docs to 6 languages, update manifest, validate links)
-
-### Phase 26: Enterprise Guardrails
-
-**Goal**: Enterprise-grade secret detection, compliance automation, and commercial licensing are operational
-**Depends on**: Phase 23, Phase 24
-**Requirements**: GUARD-01, GUARD-02, GUARD-03
-**Success Criteria** (what must be TRUE):
-
-  1. Custom Presidio recognizers detect API keys, AWS tokens, GitHub tokens, and internal hostnames through the existing RegexDetector pipeline (not Presidio sidecar)
-  2. Continuous compliance monitoring endpoint collects and serves automated evidence snapshots from SLO engine and governance records
-  3. Commercial licensing enforces HMAC-SHA256 validation with router-level feature gating for Appliance-tier capabilities
-  4. License validation works entirely offline (no phone-home) with in-memory caching for application lifetime
-  5. Router-level `require_license("feature")` dependency prevents access to gated endpoints without a valid license key
-
-**Plans**: 3 plans
-**Plan list:**
-
-- [x] 26-01-PLAN.md — Custom recognizers (API keys, AWS tokens, GitHub tokens, internal hostnames)
-- [x] 26-02-PLAN.md — Compliance evidence endpoint + HMAC-SHA256 commercial licensing
-- [x] 26-03-PLAN.md — Tests for all enterprise guardrails components
+</details>
 
 ## Progress
 
@@ -147,10 +74,11 @@
 | 20. AI SOC/SIEM Integration | v1.0 | 6/6 | Complete | 2026-07-05 |
 | 21. Endpoint Visibility & Sovereign Control | v1.0 | 7/7 | Complete | 2026-07-06 |
 | 22. Close Milestone Audit Gaps | v1.0 | 4/4 | Complete | 2026-07-07 |
-| 23. Engineering Hygiene | v1.5 | 3/3 | Complete    | 2026-07-08 |
-| 24. Trust Center | v1.5 | 2/2 | Complete    | 2026-07-08 |
-| 25. Documentation Parity | v1.5 | 2/2 | Complete    | 2026-07-08 |
-| 26. Enterprise Guardrails | v1.5 | 3/3 | Complete    | 2026-07-09 |
+| 23. Engineering Hygiene | v1.5 | 3/3 | Complete | 2026-07-08 |
+| 24. Trust Center | v1.5 | 2/2 | Complete | 2026-07-08 |
+| 25. Documentation Parity | v1.5 | 2/2 | Complete | 2026-07-08 |
+| 26. Enterprise Guardrails | v1.5 | 3/3 | Complete | 2026-07-09 |
+| 27. v1.5 Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-07-12 |
 
 ## Summary
 
@@ -159,19 +87,7 @@
 | 1. Prove the Problem | 7 (1–7) | 26/26 | Complete |
 | 2. Build the Enterprise Platform | 9 (8–16) | 44/44 | Complete |
 | 3. Build the Moat | 6 (17–22) | 31/31 | Complete |
-| 4. Enterprise Hardening | 4 (23–26) | 0/10 | In progress |
-| **Total** | **26** | **101/111** | **In progress** |
+| 4. Enterprise Hardening | 5 (23–27) | 11/11 | Complete |
+| **Total** | **27** | **112/112** | **Complete** |
 
-*Archived from consolidated roadmaps. See `.planning/milestones/v1.0-ROADMAP.md` for full phase details.*
-
-### Phase 27: v1.5 Tech Debt Cleanup
-
-**Goal:** [To be planned]
-**Requirements**: TBD
-**Depends on:** Phase 26
-**Plans:** 1/1 plans complete
-
-Plans:
-
-- [x] 27-01-PLAN.md
-- [x] TBD (run /gsd-plan-phase 27 to break down) (completed 2026-07-12)
+*Archived from consolidated roadmaps. See `.planning/milestones/v1.0-ROADMAP.md` and `.planning/milestones/v1.5-ROADMAP.md` for full phase details.*

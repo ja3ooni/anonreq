@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Tech Debt Cleanup
-current_phase: 27
-current_phase_name: v1.5 Tech Debt Cleanup
-status: complete
-last_updated: "2026-07-12T13:07:00.000Z"
+current_phase: 5
+status: Awaiting next milestone
+last_updated: "2026-07-12T11:10:31.216Z"
 last_activity: 2026-07-12
-last_activity_desc: Phase 27 complete (v1.5 Tech Debt Cleanup)
+last_activity_desc: Milestone v1.5 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 11
   completed_plans: 11
   percent: 100
+current_phase_name: v1.5 Tech Debt Cleanup
 ---
 
 # Project State
@@ -28,10 +28,10 @@ See: .planning/ROADMAP.md (v1.0 complete — Phases 1-22; v1.5 planned — Phase
 
 ## Current Position
 
-Phase: 27 — v1.5 Tech Debt Cleanup
-Plan: 01 (complete)
-Status: Complete
-Last activity: 2026-07-12 — Phase 27 completed; all technical debt cleaned up.
+Phase: Milestone v1.5 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-12 — Milestone v1.5 completed and archived
 
 ## Performance Metrics
 
@@ -116,6 +116,4 @@ Phase 23: Engineering Hygiene (foundation — no deps)
 
 ## Operator Next Steps
 
-- Run /gsd-complete-milestone to properly archive v1.5 (collapse ROADMAP.md, delete REQUIREMENTS.md, update PROJECT.md, tag v1.5)
-- Then start the next milestone with /gsd-new-milestone
-
+- Start the next milestone with /gsd-new-milestone
