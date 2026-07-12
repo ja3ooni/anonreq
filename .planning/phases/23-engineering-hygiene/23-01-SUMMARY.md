@@ -51,6 +51,8 @@ status: complete
 - Verified ruff check passes with zero violations across `src/` and `tests/`.
 - Resolved type-checking error in `src/anonreq/cache/health.py` by introducing type-safe handling of `save_value` as a string or list of strings.
 - Fixed `tests/test_cache.py` cache manager fixture to mock config operations and closure state in `FakeRedis` so the pytest suite passes successfully.
+- Documented quality enforcement strategy: Ruff applies a global rule set (`E, F, I, N, W, UP, B, SIM, ARG, PT, RUF`) uniformly; Mypy enforces `strict = true` globally on `src/`, with selective `[[tool.mypy.overrides]]` blocks in `pyproject.toml` to permanently suppress specific error codes or ignore missing third-party imports for pragmatic backward compatibility (no incremental staged rollout mechanism is used).
+
 
 ## Task Commits
 
