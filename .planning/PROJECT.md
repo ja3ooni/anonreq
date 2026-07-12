@@ -58,19 +58,20 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 - ✓ Network Discovery, CASB & Secure RAG — shadow AI detection, AI SaaS governance, RAG pipeline inspection — v1.0
 - ✓ AI SOC/SIEM Integration — Splunk, QRadar, Sentinel, Elastic, Datadog, webhook sinks — v1.0
 - ✓ Endpoint Visibility & Sovereign AI Control Plane — desktop agents, local model routing, hybrid AI architecture, air-gapped mode — v1.0
+- ✓ CI/CD Test Workflow (HYG-01) — PR testing and automated verification — v1.5
+- ✓ Code Quality Enforcement (HYG-02) — global ruff rules and strict mypy verification — v1.5
+- ✓ Secure Compose Defaults (HYG-03) — port restriction and Grafana authentication — v1.5
+- ✓ Public Trust Center Portal (TRUST-01) — SLO, compliance evidence, and security metrics endpoints — v1.5
+- ✓ Trust Center Configuration (TRUST-02) — config-gated access and YAML properties — v1.5
+- ✓ Multilingual Documentation (DOCS-01) — docs in FR, ES, PT, IT, AR, NL — v1.5
+- ✓ Translation Manifest Tracking (DOCS-02) — manifest-tracked doc review status — v1.5
+- ✓ Advanced Secret Detection (GUARD-01) — custom Presidio recognizers for enterprise secrets — v1.5
+- ✓ Continuous Compliance Monitoring (GUARD-02) — automated evidence collection snapshots — v1.5
+- ✓ Commercial Licensing (GUARD-03) — feature gating and license signature verification — v1.5
 
 ### Active
 
-- [ ] **HYG-01**: CI/CD test workflow runs pytest suite on every PR
-- [ ] **HYG-02**: ruff + mypy enforce code quality in CI
-- [ ] **HYG-03**: Docker Compose exposes only gateway port 8080 by default; Grafana auth required
-- [ ] **TRUST-01**: Public `/v1/trust/*` endpoints for SLO, compliance, metrics, security posture
-- [ ] **TRUST-02**: Trust Center config-gated with YAML configuration
-- [ ] **DOCS-01**: Documentation available in FR, ES, PT, IT, AR, NL
-- [ ] **DOCS-02**: Translation manifest tracks review status
-- [ ] **GUARD-01**: Advanced secret detection with custom Presidio recognizers
-- [ ] **GUARD-02**: Continuous compliance monitoring with automated evidence collection
-- [ ] **GUARD-03**: Commercial licensing enforcement with feature gating
+- None (all v1.5 features validated)
 
 ### Out of Scope
 
@@ -83,7 +84,7 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 ## Context
 
 - **v1.0 shipped**: 2026-07-07. All 22 phases complete with 101 plans, 179 tasks, ~49,500 lines of Python, 768+ tests.
-- **v1.5 started**: 2026-07-07. Enterprise hardening — CI/CD, Trust Center, docs parity, guardrails.
+- **v1.5 shipped**: 2026-07-12. All 5 phases complete with 11 plans, 11 summaries, all technical debt cleaned up.
 - **Tech stack**: Python 3.12, FastAPI, Pydantic Settings, httpx, Redis/Valkey, Presidio Analyzer, prometheus-client, structlog, SQLAlchemy/Alembic, MinIO, pyarrow, reportlab, cryptography, ONNX Runtime, Docker Compose.
 - **Test framework**: pytest, Hypothesis (property-based), fakeredis, respx, aioresponses, pytest-asyncio.
 - **Deployment**: Multi-stage Dockerfile, docker-compose.yml with anonreq + presidio-analyzer + valkey. Optional observability profile (PostgreSQL, MinIO, Grafana, Prometheus).
@@ -112,6 +113,9 @@ Raw PII never crosses the network boundary. Every other concern is secondary to 
 | Property-based tests (Hypothesis) | Required by Req 16 for generative proof of correctness | ✓ Good — 50+ property tests proving invariants |
 | Phase 22 gap-closure approach | Wired 6 audit-blocked enterprise/appliance modules into runtime paths | ✓ Good — all critical integration gaps closed, 27 integration tests |
 | Proxy-to-pipeline dispatcher adapter | Bridge proxy dispatch() contract to PipelineManager.run() | ✓ Good — 9 unit tests, fail-closed on all error paths |
+| Delete non-functional test files (D-01/D-02) | Restores CI collection cleanliness without cluttering workspace | ✓ Good — pytest collections clean |
+| Default-enable Trust Center config (D-04/D-05) | Exposing Trust Center public endpoints by default aligns with its no-auth design | ✓ Good — public portal active |
+| Correct hygiene summary doc (D-07) | Reflects the global ruff rules and mypy override model in project reality | ✓ Good — docs match reality |
 
 ## Evolution
 
@@ -131,4 +135,5 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-07 after v1.5 milestone start*
+*Last updated: 2026-07-12 after Phase 27 (v1.5 Tech Debt Cleanup) completion*
+
