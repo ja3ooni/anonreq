@@ -8,6 +8,7 @@ from fastapi import Header, HTTPException, Request
 
 from anonreq.auth.oidc import OIDCVerificationError, build_oidc_verifier
 from anonreq.config import settings
+from anonreq.state import get_app_state
 
 
 def _oidc_configured() -> bool:
@@ -25,7 +26,8 @@ def _legacy_admin_auth_enabled() -> bool:
 
 
 def _get_oidc_verifier(request: Request):
-    verifier = getattr(request.app.state, "oidc_verifier", None)
+    state = get_app_state(request.app)
+    verifier = state.oidc_verifier
     if verifier is None:
         verifier = build_oidc_verifier(
             issuer=settings.OIDC_ISSUER or "",
@@ -34,7 +36,7 @@ def _get_oidc_verifier(request: Request):
             role_claim=settings.OIDC_ROLE_CLAIM,
             cache_ttl_seconds=settings.OIDC_JWKS_CACHE_SECONDS,
         )
-        request.app.state.oidc_verifier = verifier
+        state.oidc_verifier = verifier
     return verifier
 
 

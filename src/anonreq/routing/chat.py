@@ -56,6 +56,7 @@ from anonreq.pipeline.tool_governance import ToolGovernanceStage
 from anonreq.providers.registry import ProviderNotFoundError, ProviderRegistry, resolve_api_key
 from anonreq.routing.alias_registry import AliasNotFoundError, AliasRegistry
 from anonreq.secrets.store import push_runtime_secret_store, reset_runtime_secret_store
+from anonreq.state import get_app_state
 from anonreq.streaming.cleanup import SessionCleanup
 from anonreq.streaming.emitter import SSEEmitter
 from anonreq.streaming.restoration import StreamingRestorationStage
@@ -226,7 +227,7 @@ def _new_processing_context(
     if request is not None:
         proc_ctx.locale_header = request.headers.get("X-AnonReq-Locale")
         proc_ctx.client_classification = getattr(request.state, "client_classification", None)
-        active_presets = getattr(request.app.state, "active_compliance_presets", [])
+        active_presets = get_app_state(request.app).active_compliance_presets
         if active_presets:
             proc_ctx.audit_metadata["compliance_preset"] = ",".join(active_presets)
     return proc_ctx
@@ -237,24 +238,24 @@ async def _stream_chat_completions(
     request: Request,
     ctx: RequestContext,
 ) -> StreamingResponse:
-    cache_manager: CacheManager = request.app.state.cache_manager
-    presidio_client: PresidioClient = request.app.state.presidio_client
-    alias_registry: AliasRegistry = request.app.state.alias_registry
-    provider_registry: ProviderRegistry = request.app.state.provider_registry
-    locale_negotiator: LocaleNegotiator = request.app.state.locale_negotiator
-    recognizer_merger: RecognizerMerger = request.app.state.recognizer_merger
-    checksum_registry: ChecksumValidatorRegistry = request.app.state.checksum_registry
+    cache_manager: CacheManager = get_app_state(request.app).cache_manager
+    presidio_client: PresidioClient = get_app_state(request.app).presidio_client
+    alias_registry: AliasRegistry = get_app_state(request.app).alias_registry
+    provider_registry: ProviderRegistry = get_app_state(request.app).provider_registry
+    locale_negotiator: LocaleNegotiator = get_app_state(request.app).locale_negotiator
+    recognizer_merger: RecognizerMerger = get_app_state(request.app).recognizer_merger
+    checksum_registry: ChecksumValidatorRegistry = get_app_state(request.app).checksum_registry
 
     proc_ctx = _new_processing_context(body, ctx, request=request)
     request.state.ctx = proc_ctx
-    secret_rotation_buffer = getattr(request.app.state, "secret_rotation_buffer", None)
+    secret_rotation_buffer = get_app_state(request.app).secret_rotation_buffer
     if secret_rotation_buffer is not None:
         stream_secret_store = secret_rotation_buffer.begin_session(proc_ctx.context_id)
     else:
-        stream_secret_store = getattr(request.app.state, "secret_store", None)
+        stream_secret_store = get_app_state(request.app).secret_store
 
     # Reuse cached pipeline from app.state to avoid rebuilding per request
-    pre_provider = getattr(request.app.state, "_cached_pre_provider_pipeline", None)
+    pre_provider = get_app_state(request.app)._cached_pre_provider_pipeline
     if pre_provider is None:
         pre_provider = build_pre_provider_pipeline(
             cache_manager,
@@ -263,7 +264,7 @@ async def _stream_chat_completions(
             recognizer_merger=recognizer_merger,
             checksum_registry=checksum_registry,
         )
-        request.app.state._cached_pre_provider_pipeline = pre_provider
+        get_app_state(request.app)._cached_pre_provider_pipeline = pre_provider
     proc_ctx = await pre_provider.run(proc_ctx)
     _raise_for_pipeline_errors(proc_ctx)
 
@@ -433,7 +434,7 @@ async def chat_completions(
         return await _stream_chat_completions(body, request, ctx)
 
     # Access pipeline from app state
-    pipeline: PipelineManager = request.app.state.pipeline
+    pipeline: PipelineManager = get_app_state(request.app).pipeline
     proc_ctx = _new_processing_context(body, ctx, request=request)
     request.state.ctx = proc_ctx
 

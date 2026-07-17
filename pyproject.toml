@@ -33,10 +33,6 @@ dependencies = [
     "prometheus-client>=0.25.0",
     "cryptography>=42.0.0",
     "watchdog>=4.0.0",
-    "minio>=7.2.0",
-    "pyarrow>=15.0.0",
-    "reportlab>=4.3.0,<5.0.0",
-    "onnxruntime>=1.17.0",
     "soundfile>=0.12.1",
     "presidio-analyzer>=2.2.35",
     "sqlalchemy>=2.0.0",
@@ -47,6 +43,22 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+storage = [
+    "minio>=7.2.0",
+]
+exports = [
+    "pyarrow>=15.0.0",
+    "reportlab>=4.3.0,<5.0.0",
+]
+ml = [
+    "onnxruntime>=1.17.0",
+]
+all = [
+    "minio>=7.2.0",
+    "pyarrow>=15.0.0",
+    "reportlab>=4.3.0,<5.0.0",
+    "onnxruntime>=1.17.0",
+]
 dev = [
     "pytest>=9.0",
     "pytest-asyncio>=1.4.0",

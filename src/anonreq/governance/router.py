@@ -38,13 +38,14 @@ from anonreq.models.governance import (
     GovernanceOfficerUpdate,
     RiskAssessment,
 )
+from anonreq.state import get_app_state
 
 governance_router = APIRouter(prefix="/v1/governance", tags=["governance"])
 approval_router = APIRouter(prefix="/v1/oversight/approvals", tags=["approvals"])
 
 
 async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
-    engine: AsyncEngine = request.app.state.audit_engine
+    engine: AsyncEngine = get_app_state(request.app).audit_engine
     async with async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )() as session:
@@ -64,7 +65,7 @@ def _emit_sync(
     """
     import asyncio
 
-    chain = getattr(request.app.state, "audit_chain", None)
+    chain = get_app_state(request.app).audit_chain
     if chain is None:
         return
 
@@ -555,7 +556,7 @@ async def erase_subject_data(
     """POST /v1/governance/dsar/erasure/{subject_id} — erase subject data."""
     from anonreq.dsar.erasure import DataErasureService
 
-    cache = _request.app.state.cache_manager
+    cache = get_app_state(_request.app).cache_manager
     service = DataErasureService(cache)
     erased = await service.erase_subject_data(subject_id)
     return {"subject_id": subject_id, "erased": erased, "erased_at": datetime.now(UTC).isoformat()}
@@ -569,7 +570,7 @@ async def check_subject_erasure(
     """GET /v1/governance/dsar/erasure/{subject_id} — check erasure status."""
     from anonreq.dsar.erasure import DataErasureService
 
-    cache = _request.app.state.cache_manager
+    cache = get_app_state(_request.app).cache_manager
     service = DataErasureService(cache)
     erased = await service.has_been_erased(subject_id)
     return {"subject_id": subject_id, "erased": erased}
@@ -585,7 +586,7 @@ async def restrict_subject(
     from anonreq.dsar.restriction import DataRestrictionService
 
     body = await request.json()
-    cache = request.app.state.cache_manager
+    cache = get_app_state(request.app).cache_manager
     service = DataRestrictionService(db=db, cache_manager=cache)
     tenant_id = body.get("tenant_id", "default")
     await service.restrict_subject(
@@ -605,7 +606,7 @@ async def check_subject_restriction(
     """GET /v1/governance/dsar/restriction/{subject_id} — check restriction."""
     from anonreq.dsar.restriction import DataRestrictionService
 
-    cache = request.app.state.cache_manager
+    cache = get_app_state(request.app).cache_manager
     service = DataRestrictionService(db=db, cache_manager=cache)
     restricted = await service.is_subject_restricted(subject_id)
     return {"subject_id": subject_id, "restricted": restricted}
@@ -620,7 +621,7 @@ async def remove_subject_restriction(
     """DELETE /v1/governance/dsar/restriction/{subject_id} — remove restriction."""
     from anonreq.dsar.restriction import DataRestrictionService
 
-    cache = request.app.state.cache_manager
+    cache = get_app_state(request.app).cache_manager
     service = DataRestrictionService(db=db, cache_manager=cache)
     removed = await service.remove_restriction(subject_id)
     return {"subject_id": subject_id, "removed": removed}
@@ -634,7 +635,7 @@ async def list_restricted_subjects(
     """GET /v1/governance/dsar/restrictions — list restricted subjects."""
     from anonreq.dsar.restriction import DataRestrictionService
 
-    cache = request.app.state.cache_manager
+    cache = get_app_state(request.app).cache_manager
     service = DataRestrictionService(db=db, cache_manager=cache)
     subjects = await service.list_restricted_subjects()
     return {"object": "list", "data": subjects}
@@ -733,7 +734,7 @@ async def set_breach_custom_template(
 
 
 def _get_approval_manager(request: Request) -> ApprovalManager:
-    mgr = getattr(request.app.state, "approval_manager", None)
+    mgr = get_app_state(request.app).approval_manager
     if mgr is None:
         raise HTTPException(status_code=503, detail="Approval manager not initialized")
     return mgr

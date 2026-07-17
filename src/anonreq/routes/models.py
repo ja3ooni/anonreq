@@ -7,6 +7,8 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
+from anonreq.state import get_app_state
+
 router = APIRouter(prefix="/v1", tags=["models"])
 
 
@@ -14,7 +16,7 @@ router = APIRouter(prefix="/v1", tags=["models"])
 async def list_models(request: Request) -> dict[str, Any]:
     """Return configured aliases in OpenAI-compatible list format."""
 
-    alias_registry = request.app.state.alias_registry
+    alias_registry = get_app_state(request.app).alias_registry
     created = int(time.time())
     data = []
     for alias_name, alias in alias_registry.list_aliases().items():

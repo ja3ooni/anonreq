@@ -28,9 +28,15 @@ import logging
 from datetime import UTC, timedelta
 from typing import Any
 
-from minio import Minio
-from minio.error import S3Error
-from minio.retention import Retention
+try:
+    from minio import Minio
+    from minio.error import S3Error
+    from minio.retention import Retention
+except ImportError:
+    raise ImportError(
+        "minio is required for storage features. "
+        "Install with: pip install 'anonreq[storage]'"
+    ) from None
 
 from anonreq.models.audit import MnpiAuditEvent
 

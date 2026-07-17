@@ -40,7 +40,13 @@ class FirewallMLModel:
         self._output_name: str | None = None
 
     async def load(self, path: str) -> None:
-        import onnxruntime
+        try:
+            import onnxruntime
+        except ImportError:
+            raise ImportError(
+                "onnxruntime is required for ML firewall models. "
+                "Install with: pip install 'anonreq[ml]'"
+            ) from None
 
         try:
             self._session = onnxruntime.InferenceSession(path)

@@ -112,6 +112,7 @@ from anonreq.soc.config import SOCConfig
 from anonreq.soc.mitre import MITREMapper
 from anonreq.soc.normalizer import SOCNormalizer
 from anonreq.startup_checks import run_startup_checks
+from anonreq.state import get_app_state
 from anonreq.trust_center.config import TrustCenterSettings as TrustCenterConfig
 from anonreq.trust_center.router import router as trust_center_router
 from anonreq.trust_center.service import TrustCenterRateLimiter, TrustCenterService
@@ -174,9 +175,12 @@ def create_deployment_proxy(
 
 def bootstrap_runtime_secrets(app: FastAPI) -> None:
     """Load provider secrets into app state and the runtime secret store."""
+    state = get_app_state(app)
+    state.settings = settings
     app.state.settings = settings
     if settings.SECRET_BACKEND.strip().casefold() in {"volume", "file"}:
-        app.state.secret_volume_path = f"{settings.SECRET_VOLUME_DIR}/{settings.SECRET_VOLUME_FILE}"
+        state.secret_volume_path = f"{settings.SECRET_VOLUME_DIR}/{settings.SECRET_VOLUME_FILE}"
+        app.state.secret_volume_path = state.secret_volume_path
     secret_source = getattr(app.state, "secret_backend_client", None)
     if secret_source is None:
         if (
@@ -184,21 +188,24 @@ def bootstrap_runtime_secrets(app: FastAPI) -> None:
             and os.environ.get("VAULT_ADDR")
             and os.environ.get("VAULT_TOKEN")
         ):
-            app.state.secret_store = bootstrap_runtime_secret_store(settings)
+            state.secret_store = bootstrap_runtime_secret_store(settings)
         else:
-            app.state.secret_store = RuntimeSecretStore()
-            set_runtime_secret_store(app.state.secret_store)
+            state.secret_store = RuntimeSecretStore()
+            set_runtime_secret_store(state.secret_store)
     else:
-        app.state.secret_store = bootstrap_runtime_secret_store(
+        state.secret_store = bootstrap_runtime_secret_store(
             settings,
             source=secret_source,
         )
-    app.state.provider_registry = ProviderRegistry(
-        secret_store=app.state.secret_store,
+    app.state.secret_store = state.secret_store
+    state.provider_registry = ProviderRegistry(
+        secret_store=state.secret_store,
     )
-    app.state.secret_rotation_buffer = SecretRotationBuffer(
-        app.state.secret_store.snapshot(),
+    app.state.provider_registry = state.provider_registry
+    state.secret_rotation_buffer = SecretRotationBuffer(
+        state.secret_store.snapshot(),
     )
+    app.state.secret_rotation_buffer = state.secret_rotation_buffer
 
 
 def bootstrap_secret_volume_reloader(app: FastAPI):
@@ -250,17 +257,19 @@ def create_app() -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         log.info("Starting pre-flight checks", component="lifespan")
 
+        state = get_app_state(app)
+
         # Store active mode on app state
-        app.state.proxy_mode = active_mode
-        app.state.deployment_config = get_deployment_config()
-        app.state.deployment_proxy = None
+        state.proxy_mode = active_mode
+        state.deployment_config = get_deployment_config()
+        state.deployment_proxy = None
 
         if (
             settings.OIDC_ISSUER
             and settings.OIDC_AUDIENCE
             and settings.OIDC_JWKS_URL
         ):
-            app.state.oidc_verifier = build_oidc_verifier(
+            state.oidc_verifier = build_oidc_verifier(
                 issuer=settings.OIDC_ISSUER,
                 audience=settings.OIDC_AUDIENCE,
                 jwks_url=settings.OIDC_JWKS_URL,
@@ -285,21 +294,21 @@ def create_app() -> FastAPI:
             raise
 
         # Store cache_manager on app state for route handlers
-        app.state.cache_manager = cache_manager
-        app.state.secret_reloader = bootstrap_secret_volume_reloader(app)
-        app.state.alias_registry = AliasRegistry(
-            provider_registry=app.state.provider_registry
+        state.cache_manager = cache_manager
+        state.secret_reloader = bootstrap_secret_volume_reloader(app)
+        state.alias_registry = AliasRegistry(
+            provider_registry=state.provider_registry
         )
 
         # Detection/anonymization setup — only for modes that need it
-        app.state.presidio_client = None
-        app.state.pipeline = None
-        app.state.checksum_registry = None
-        app.state.locale_registry = None
-        app.state.locale_negotiator = None
-        app.state.recognizer_merger = None
-        app.state.preset_engine = None
-        app.state.active_compliance_presets = []
+        state.presidio_client = None
+        state.pipeline = None
+        state.checksum_registry = None
+        state.locale_registry = None
+        state.locale_negotiator = None
+        state.recognizer_merger = None
+        state.preset_engine = None
+        state.active_compliance_presets = []
 
         if requires_detection(active_mode):
             checksum_registry = ChecksumValidatorRegistry()
@@ -308,10 +317,10 @@ def create_app() -> FastAPI:
             if universal_bundle is None:
                 await cache_manager.close()
                 raise RuntimeError("Universal locale bundle 'en' is required")
-            app.state.checksum_registry = checksum_registry
-            app.state.locale_registry = locale_registry
-            app.state.locale_negotiator = LocaleNegotiator(locale_registry)
-            app.state.recognizer_merger = RecognizerMerger(universal_bundle)
+            state.checksum_registry = checksum_registry
+            state.locale_registry = locale_registry
+            state.locale_negotiator = LocaleNegotiator(locale_registry)
+            state.recognizer_merger = RecognizerMerger(universal_bundle)
             preset_engine = PresetEngine()
             active_presets = [
                 preset.strip()
@@ -330,8 +339,8 @@ def create_app() -> FastAPI:
             }
             if active_presets:
                 preset_engine.assert_startup_checks(active_presets, base_config)
-            app.state.preset_engine = preset_engine
-            app.state.active_compliance_presets = active_presets
+            state.preset_engine = preset_engine
+            state.active_compliance_presets = active_presets
 
             # Create Presidio client for the application lifetime
             presidio_client = PresidioClient(
@@ -339,19 +348,19 @@ def create_app() -> FastAPI:
                 timeout=settings.REQUEST_TIMEOUT_SECONDS,
                 max_concurrency=settings.PRESIDIO_MAX_CONCURRENCY,
             )
-            app.state.presidio_client = presidio_client
+            state.presidio_client = presidio_client
 
             # Build and store the pipeline manager
             pipeline = build_pipeline(
                 cache_manager=cache_manager,
                 presidio_client=presidio_client,
-                alias_registry=app.state.alias_registry,
-                locale_negotiator=app.state.locale_negotiator,
-                recognizer_merger=app.state.recognizer_merger,
-                checksum_registry=app.state.checksum_registry,
-                app_state=app.state,
+                alias_registry=state.alias_registry,
+                locale_negotiator=state.locale_negotiator,
+                recognizer_merger=state.recognizer_merger,
+                checksum_registry=state.checksum_registry,
+                app_state=state,
             )
-            app.state.pipeline = pipeline
+            state.pipeline = pipeline
         else:
             log.info(
                 "Skipping detection/anonymization setup — proxy-only mode",
@@ -359,10 +368,10 @@ def create_app() -> FastAPI:
             )
 
         # Phase 22: Discovery inventory service
-        app.state.inventory_service = AssetInventory()
+        state.inventory_service = AssetInventory()
 
         # Phase 22: ContentTypeDispatcher reference on app state
-        app.state.content_type_dispatcher = _content_type_dispatcher
+        state.content_type_dispatcher = _content_type_dispatcher
 
         # Phase 8: Enterprise Policy Engine
         try:
@@ -391,10 +400,10 @@ def create_app() -> FastAPI:
             pep = PolicyEnforcementPoint()
             forwarding_guard = ForwardingGuard()
 
-            app.state.pdp = pdp
-            app.state.pep = pep
-            app.state.forwarding_guard = forwarding_guard
-            app.state.policy_store = policy_store
+            state.pdp = pdp
+            state.pep = pep
+            state.forwarding_guard = forwarding_guard
+            state.policy_store = policy_store
             log.info("Policy engine initialised", component="lifespan")
         except Exception as exc:
             log.error("Failed to initialise policy engine", component="lifespan", error=str(exc))
@@ -403,7 +412,7 @@ def create_app() -> FastAPI:
 
         # Phase 17: MITM proxy setup
         ca_manager = CAManager(ca_dir=settings.CA_DIR)
-        app.state.ca_manager = ca_manager
+        state.ca_manager = ca_manager
 
         ca_info = await ca_manager.get_ca_info()
         if ca_info is None and requires_mitm(active_mode):
@@ -431,7 +440,7 @@ def create_app() -> FastAPI:
                 tls_interceptor=tls_interceptor,
                 ca_manager=ca_manager,
             )
-            app.state.mitm_handler = mitm_handler
+            state.mitm_handler = mitm_handler
 
             @app.middleware("http")
             async def proxy_middleware(request: Request, call_next: Callable) -> Response:
@@ -441,16 +450,16 @@ def create_app() -> FastAPI:
 
         # Phase 11: Initialize audit database and services
         audit_engine = create_async_engine(settings.DATABASE_URL)
-        app.state.audit_engine = audit_engine
+        state.audit_engine = audit_engine
         audit_config = AuditConfig(retention_days=2557)
         audit_chain = AuditChainService(audit_engine, audit_config)
-        app.state.audit_chain = audit_chain
+        state.audit_chain = audit_chain
 
         anchor_config = AnchorConfig(
             signing_key=settings.ANCHOR_SIGNING_KEY,
         )
         chain_anchor = ChainAnchorService(audit_chain, audit_engine, anchor_config)
-        app.state.chain_anchor = chain_anchor
+        state.chain_anchor = chain_anchor
 
         # Phase 11: Initialize SLO Engine and Breach Detector
         import httpx
@@ -459,10 +468,10 @@ def create_app() -> FastAPI:
         from anonreq.services.slo_engine import SLOEngine
 
         slo_engine = SLOEngine(cache_manager, "config/slo.yaml")
-        app.state.slo_engine = slo_engine
+        state.slo_engine = slo_engine
 
         webhook_client = httpx.AsyncClient(follow_redirects=False)
-        app.state.webhook_client = webhook_client
+        state.webhook_client = webhook_client
         breach_detector = BreachDetector(
             slo_engine=slo_engine,
             audit_chain=audit_chain,
@@ -470,7 +479,7 @@ def create_app() -> FastAPI:
             http_client=webhook_client,
             config_path="config/webhook.yaml"
         )
-        app.state.breach_detector = breach_detector
+        state.breach_detector = breach_detector
 
         # Phase 14: AI Governance & Oversight services
         from anonreq.services.lifecycle import LifecycleService
@@ -478,31 +487,31 @@ def create_app() -> FastAPI:
         from anonreq.services.oversight import OversightService
         from anonreq.services.transparency import TransparencyService
 
-        app.state.oversight_service = OversightService(cache_manager)
-        app.state.lifecycle_service = LifecycleService(cache_manager)
-        app.state.transparency_service = TransparencyService(cache_manager)
-        app.state.notification_service = NotificationService(cache_manager)
+        state.oversight_service = OversightService(cache_manager)
+        state.lifecycle_service = LifecycleService(cache_manager)
+        state.transparency_service = TransparencyService(cache_manager)
+        state.notification_service = NotificationService(cache_manager)
 
         # Phase 18: ApprovalManager for tool call governance
         from anonreq.governance.approval import ApprovalManager
 
-        app.state.approval_manager = ApprovalManager(
+        state.approval_manager = ApprovalManager(
             cache_manager=cache_manager,
-            oversight_service=app.state.oversight_service,
+            oversight_service=state.oversight_service,
             ttl=settings.CACHE_TTL_SECONDS,
         )
         log.info("ApprovalManager initialized", component="lifespan", ttl=settings.CACHE_TTL_SECONDS)  # noqa: E501
 
         # Phase 17: Universal AI Traffic Gateway
-        app.state.gateway_status = GatewayStatus()
-        app.state.ai_detector = AIDetector()
-        app.state.route_table = RouteTable()
+        state.gateway_status = GatewayStatus()
+        state.ai_detector = AIDetector()
+        state.route_table = RouteTable()
 
         # Phase 17-02: AI traffic detection and MCP inspection
         allowlist = HostnameAllowlist()
         flow_analyzer = FlowAnalyzer()
-        app.state.allowlist = allowlist
-        app.state.flow_analyzer = flow_analyzer
+        state.allowlist = allowlist
+        state.flow_analyzer = flow_analyzer
 
         # Create PACGenerator with all known AI provider domains
         pac_domains = allowlist.get_all_proxy_domains()
@@ -511,7 +520,7 @@ def create_app() -> FastAPI:
             settings.HOST,
             settings.PORT,
         )
-        app.state.pac_generator = pac_generator
+        state.pac_generator = pac_generator
         log.info(
             "PAC generator initialized",
             component="lifespan",
@@ -523,7 +532,7 @@ def create_app() -> FastAPI:
             from anonreq.mcp.inspector import MCPInspector as MCPInspectorCls
 
             mcp_inspector = MCPInspectorCls(flow_analyzer, allowlist)
-            app.state.mcp_inspector = mcp_inspector
+            state.mcp_inspector = mcp_inspector
             log.info("MCP inspector initialized", component="lifespan")
         except Exception as exc:
             log.warning(
@@ -543,8 +552,8 @@ def create_app() -> FastAPI:
                 config=soc_config,
             )
             await soc_normalizer.start()
-            app.state.soc_normalizer = soc_normalizer
-            app.state.soc_mitre_mapper = mitre_mapper
+            state.soc_normalizer = soc_normalizer
+            state.soc_mitre_mapper = mitre_mapper
             log.info(
                 "SOC Integration Service initialized",
                 component="lifespan",
@@ -573,8 +582,8 @@ def create_app() -> FastAPI:
             # Start periodic health monitor
             await sink_health_monitor.start()
 
-            app.state.soc_sink_router = sink_router
-            app.state.soc_sink_health_monitor = sink_health_monitor
+            state.soc_sink_router = sink_router
+            state.soc_sink_health_monitor = sink_health_monitor
 
             log.info(
                 "SIEM sinks initialized",
@@ -590,10 +599,10 @@ def create_app() -> FastAPI:
             )
 
         # Phase 22: Register SOC normalizer fan-out to sink router
-        if hasattr(app.state, 'soc_normalizer') and hasattr(app.state, 'soc_sink_router'):
-            app.state.soc_normalizer.register_sink_callback(
+        if state.soc_normalizer is not None and state.soc_sink_router is not None:
+            state.soc_normalizer.register_sink_callback(
                 "sink_router",
-                app.state.soc_sink_router.fan_out,
+                state.soc_sink_router.fan_out,
             )
             log.info(
                 "SOC normalizer fan-out registered to sink router",
@@ -602,34 +611,34 @@ def create_app() -> FastAPI:
 
         # Phase 21/22: Endpoint visibility deployment topology with PipelineContentDispatcher.
         try:
-            if app.state.pipeline is not None:
+            if state.pipeline is not None:
                 dispatcher = PipelineContentDispatcher(
-                    app.state.pipeline,
-                    app_state=app.state,
+                    state.pipeline,
+                    app_state=state,
                 )
             else:
                 def dispatcher(_request: Any) -> bytes:
                     return b""
-            app.state.deployment_proxy = create_deployment_proxy(
-                app.state.deployment_config,
+            state.deployment_proxy = create_deployment_proxy(
+                state.deployment_config,
                 dispatcher,
             )
-            if _network_proxy_autostart_enabled() and hasattr(app.state.deployment_proxy, "start"):
-                await app.state.deployment_proxy.start(
-                    app.state.deployment_config.listen_host,
-                    app.state.deployment_config.listen_port,
+            if _network_proxy_autostart_enabled() and hasattr(state.deployment_proxy, "start"):
+                await state.deployment_proxy.start(
+                    state.deployment_config.listen_host,
+                    state.deployment_config.listen_port,
                 )
             log.info(
                 "Deployment proxy initialized",
                 component="lifespan",
-                deployment_mode=app.state.deployment_config.mode.value,
+                deployment_mode=state.deployment_config.mode.value,
                 listener_started=_network_proxy_autostart_enabled(),
             )
         except Exception as exc:
             log.error(
                 "Failed to initialize deployment proxy",
                 component="lifespan",
-                deployment_mode=app.state.deployment_config.mode.value,
+                deployment_mode=state.deployment_config.mode.value,
                 error=str(exc),
             )
             await cache_manager.close()
@@ -642,18 +651,18 @@ def create_app() -> FastAPI:
             with open(trust_config_path) as f:
                 trust_yaml = yaml.safe_load(f) or {}
             trust_settings = TrustCenterConfig(**trust_yaml)
-            app.state.trust_center_settings = trust_settings
-            app.state.trust_center_enabled = trust_settings.enabled
+            state.trust_center_settings = trust_settings
+            state.trust_center_enabled = trust_settings.enabled
 
             trust_center_service = TrustCenterService(
-                slo_engine=app.state.slo_engine,
-                preset_engine=getattr(app.state, "preset_engine", None),
+                slo_engine=state.slo_engine,
+                preset_engine=state.preset_engine,
                 settings=trust_settings,
             )
-            app.state.trust_center_service = trust_center_service
+            state.trust_center_service = trust_center_service
 
             trust_rate_limiter = TrustCenterRateLimiter(cache_manager)
-            app.state.trust_center_rate_limiter = trust_rate_limiter
+            state.trust_center_rate_limiter = trust_rate_limiter
 
             log.info(
                 "Trust Center initialised",
@@ -666,16 +675,16 @@ def create_app() -> FastAPI:
                 component="lifespan",
                 error=str(exc),
             )
-            app.state.trust_center_enabled = False
+            state.trust_center_enabled = False
 
         # Phase 26: Initialize compliance evidence service
         compliance_evidence_service = ComplianceEvidenceService(
-            slo_engine=app.state.slo_engine,
-            audit_chain=app.state.audit_chain,
+            slo_engine=state.slo_engine,
+            audit_chain=state.audit_chain,
             governance_service=None,  # wired when governance service available
             incident_service=None,
         )
-        app.state.compliance_evidence_service = compliance_evidence_service
+        state.compliance_evidence_service = compliance_evidence_service
 
         # Phase 26: Startup license validation
         license_status = await LicenseValidator.validate_license()
@@ -693,29 +702,29 @@ def create_app() -> FastAPI:
 
         # Clean shutdown
         log.info("Shutting down", component="lifespan")
-        if hasattr(app.state, "deployment_proxy") and hasattr(app.state.deployment_proxy, "stop"):
-            await app.state.deployment_proxy.stop()
-        if hasattr(app.state, "soc_sink_health_monitor"):
-            await app.state.soc_sink_health_monitor.stop()
+        if state.deployment_proxy is not None and hasattr(state.deployment_proxy, "stop"):
+            await state.deployment_proxy.stop()
+        if state.soc_sink_health_monitor is not None:
+            await state.soc_sink_health_monitor.stop()
             log.info("Sink health monitor stopped", component="lifespan")
-        if hasattr(app.state, "soc_sink_router"):
-            await app.state.soc_sink_router.stop_all()
+        if state.soc_sink_router is not None:
+            await state.soc_sink_router.stop_all()
             log.info("Sink router stopped", component="lifespan")
-        if hasattr(app.state, "soc_normalizer"):
-            await app.state.soc_normalizer.stop()
+        if state.soc_normalizer is not None:
+            await state.soc_normalizer.stop()
             log.info("SOC normalizer stopped", component="lifespan")
-        if hasattr(app.state, "webhook_client"):
-            await app.state.webhook_client.aclose()
-        if getattr(app.state, "secret_reloader", None) is not None:
-            app.state.secret_reloader.close()
-        if hasattr(app.state, "audit_engine"):
-            await app.state.audit_engine.dispose()
-        if hasattr(app.state, "mitm_handler"):
-            await app.state.mitm_handler.close()
-        if hasattr(app.state, "ca_manager"):
-            await app.state.ca_manager.close()
-        if app.state.presidio_client is not None:
-            await app.state.presidio_client.close()
+        if state.webhook_client is not None:
+            await state.webhook_client.aclose()
+        if state.secret_reloader is not None:
+            state.secret_reloader.close()
+        if state.audit_engine is not None:
+            await state.audit_engine.dispose()
+        if state.mitm_handler is not None:
+            await state.mitm_handler.close()
+        if state.ca_manager is not None:
+            await state.ca_manager.close()
+        if state.presidio_client is not None:
+            await state.presidio_client.close()
         await cache_manager.close()
 
     app = FastAPI(
@@ -810,7 +819,7 @@ def create_app() -> FastAPI:
     # Phase 17: Gateway status endpoint
     @app.get("/v1/gateway/status")
     async def gateway_status(_ctx: Any = Depends(auth_context)) -> dict[str, Any]:
-        gs: GatewayStatus = app.state.gateway_status
+        gs: GatewayStatus = get_app_state(app).gateway_status
         return gs.get_status()
 
     # Phase 20-05: SOC integration status endpoint
@@ -821,7 +830,7 @@ def create_app() -> FastAPI:
     ) -> Any:
         from anonreq.soc.api import create_soc_status_response
         return create_soc_status_response(
-            app.state.soc_sink_health_monitor
+            get_app_state(app).soc_sink_health_monitor
         )
 
     @app.get("/")

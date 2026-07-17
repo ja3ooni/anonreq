@@ -15,12 +15,26 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-import pyarrow as pa
-import pyarrow.parquet as pq
+try:
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+except ImportError:
+    raise ImportError(
+        "pyarrow is required for Parquet export. "
+        "Install with: pip install 'anonreq[exports]'"
+    ) from None
+
 import structlog
 import yaml
-from minio import Minio
-from minio.retention import Retention
+
+try:
+    from minio import Minio
+    from minio.retention import Retention
+except ImportError:
+    raise ImportError(
+        "minio is required for MinIO upload. "
+        "Install with: pip install 'anonreq[storage]'"
+    ) from None
 from sqlalchemy import text
 
 from anonreq.models.audit import AuditEvent, ExportResult

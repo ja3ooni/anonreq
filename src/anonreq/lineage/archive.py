@@ -13,8 +13,14 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from minio import Minio
-from minio.error import S3Error
+try:
+    from minio import Minio
+    from minio.error import S3Error
+except ImportError:
+    raise ImportError(
+        "minio is required for lineage archival. "
+        "Install with: pip install 'anonreq[storage]'"
+    ) from None
 
 from anonreq.models.lineage import LineageRecord
 

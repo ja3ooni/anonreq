@@ -14,6 +14,7 @@ from anonreq.__about__ import __version__
 from anonreq.cache.health import check_cache_health
 from anonreq.config import settings
 from anonreq.startup_checks import check_presidio
+from anonreq.state import get_app_state
 
 router = APIRouter(prefix="", tags=["health"])
 logger = structlog.get_logger()
@@ -58,7 +59,7 @@ async def health(response: Response) -> dict:
 async def health_ready(request: Request, response: Response) -> dict:
     """Readiness probe endpoint for Docker HEALTHCHECK."""
 
-    cache_manager = request.app.state.cache_manager
+    cache_manager = get_app_state(request.app).cache_manager
     cache_health = await check_cache_health(cache_manager)
     presidio_ok = await check_presidio(settings.PRESIDIO_URL)
 

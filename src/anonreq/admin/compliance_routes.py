@@ -20,6 +20,7 @@ from anonreq.governance.reports import (
 from anonreq.license.validator import require_license
 from anonreq.middleware.rbac import Role, require_role
 from anonreq.services.compliance_evidence import ComplianceEvidenceService
+from anonreq.state import get_app_state
 
 router = APIRouter(
     prefix="/compliance/report",
@@ -87,5 +88,5 @@ async def get_compliance_evidence(
     Per D-04: Aggregates evidence from SLO engine, audit chain,
     governance records, and incident history.
     """
-    service: ComplianceEvidenceService = request.app.state.compliance_evidence_service
+    service: ComplianceEvidenceService = get_app_state(request.app).compliance_evidence_service
     return await service.collect_evidence(framework=framework)

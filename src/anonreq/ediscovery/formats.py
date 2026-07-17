@@ -62,17 +62,23 @@ def to_pdf_summary(
     Returns:
         PDF content as a byte string (decoded to latin-1 for transport).
     """
-    from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-    from reportlab.lib.units import inch
-    from reportlab.platypus import (
-        Paragraph,
-        SimpleDocTemplate,
-        Spacer,
-        Table,
-        TableStyle,
-    )
+    try:
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.units import inch
+        from reportlab.platypus import (
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+        )
+    except ImportError:
+        raise ImportError(
+            "reportlab is required for PDF export. "
+            "Install with: pip install 'anonreq[exports]'"
+        ) from None
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(

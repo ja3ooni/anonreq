@@ -38,8 +38,8 @@ COPY pyproject.toml .
 COPY src/ src/
 COPY config/ config/
 
-# Install the package itself (editable install not needed in Docker)
-RUN pip install --no-cache-dir .
+# Install the package itself with all optional extras
+RUN pip install --no-cache-dir ".[all]"
 
 # ---------------------------------------------------------------------------
 # STAGE 2 — Runtime

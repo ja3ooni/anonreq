@@ -43,7 +43,13 @@ class ONNXClassifier:
             raise FileNotFoundError(f"ONNX firewall model not found: {self.model_path}")
         factory = self._session_factory
         if factory is None:
-            import onnxruntime as ort
+            try:
+                import onnxruntime as ort
+            except ImportError:
+                raise ImportError(
+                    "onnxruntime is required for ML firewall classifier. "
+                    "Install with: pip install 'anonreq[ml]'"
+                ) from None
 
             factory = ort.InferenceSession
         self._bind_session(factory(self.model_path))
