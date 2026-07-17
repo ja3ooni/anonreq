@@ -461,7 +461,7 @@ def create_app() -> FastAPI:
         slo_engine = SLOEngine(cache_manager, "config/slo.yaml")
         app.state.slo_engine = slo_engine
 
-        webhook_client = httpx.AsyncClient()
+        webhook_client = httpx.AsyncClient(follow_redirects=False)
         app.state.webhook_client = webhook_client
         breach_detector = BreachDetector(
             slo_engine=slo_engine,

@@ -76,7 +76,7 @@ class AmlWebhookManager:
         emit_audit: Callable[..., Any] | None = None,
     ) -> None:
         self._db = db
-        self._http_client = http_client or httpx.AsyncClient(timeout=5.0)
+        self._http_client = http_client or httpx.AsyncClient(timeout=5.0, follow_redirects=False)
         self._emit_audit = emit_audit or _noop_audit
 
     async def get_config(self, tenant_id: str) -> AmlWebhookConfig | None:

@@ -86,6 +86,7 @@ class SentinelDCRSink:
         self._client = httpx.AsyncClient(
             verify=self._tls_verify,
             timeout=httpx.Timeout(self._timeout),
+            follow_redirects=False,
         )
 
     async def stop(self) -> None:

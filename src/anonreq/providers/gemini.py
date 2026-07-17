@@ -57,7 +57,7 @@ class GeminiAdapter(ProviderAdapter):
     def _client(self) -> httpx.AsyncClient:
         """Lazy-initialised shared HTTP client."""
         if self._http_client is None:
-            self._http_client = httpx.AsyncClient(timeout=30.0)
+            self._http_client = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
         return self._http_client
 
     # ------------------------------------------------------------------

@@ -158,6 +158,14 @@ class CacheManager:
         self._redis = self._build_client(topology)
         self._ttl = ttl
 
+    @classmethod
+    def _from_client(cls, redis_client: Any, ttl: int = 300) -> CacheManager:
+        """Create a CacheManager from an existing Redis client (for testing)."""
+        instance = cls.__new__(cls)
+        instance._redis = redis_client
+        instance._ttl = ttl
+        return instance
+
     def _build_client(self, topology: _ParsedTopology) -> Any:
         if topology.standalone_url is not None:
             return redis.from_url(

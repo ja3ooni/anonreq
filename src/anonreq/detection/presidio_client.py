@@ -67,7 +67,7 @@ class PresidioClient:
     def _http_client(self) -> httpx.AsyncClient:
         """Lazy-initialized shared HTTP client with connection pooling."""
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=self._timeout)
+            self._client = httpx.AsyncClient(timeout=self._timeout, follow_redirects=False)
         return self._client
 
     async def analyze(

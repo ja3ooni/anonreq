@@ -252,13 +252,18 @@ async def _stream_chat_completions(
         stream_secret_store = secret_rotation_buffer.begin_session(proc_ctx.context_id)
     else:
         stream_secret_store = getattr(request.app.state, "secret_store", None)
-    pre_provider = build_pre_provider_pipeline(
-        cache_manager,
-        presidio_client,
-        locale_negotiator=locale_negotiator,
-        recognizer_merger=recognizer_merger,
-        checksum_registry=checksum_registry,
-    )
+
+    # Reuse cached pipeline from app.state to avoid rebuilding per request
+    pre_provider = getattr(request.app.state, "_cached_pre_provider_pipeline", None)
+    if pre_provider is None:
+        pre_provider = build_pre_provider_pipeline(
+            cache_manager,
+            presidio_client,
+            locale_negotiator=locale_negotiator,
+            recognizer_merger=recognizer_merger,
+            checksum_registry=checksum_registry,
+        )
+        request.app.state._cached_pre_provider_pipeline = pre_provider
     proc_ctx = await pre_provider.run(proc_ctx)
     _raise_for_pipeline_errors(proc_ctx)
 

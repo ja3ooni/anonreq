@@ -89,9 +89,7 @@ async def cache_manager():
     from anonreq.cache.manager import CacheManager
 
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    manager = CacheManager.__new__(CacheManager)
-    manager._redis = fake_redis
-    manager._ttl = 300
+    manager = CacheManager._from_client(fake_redis, ttl=300)
     yield manager
     await fake_redis.aclose()
 

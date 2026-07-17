@@ -55,7 +55,10 @@ class ProviderStage(PipelineStage):
     def _client(self) -> httpx.AsyncClient:
         """Lazy-initialised shared HTTP client with connection pooling."""
         if self._http_client is None:
-            self._http_client = httpx.AsyncClient(timeout=self._timeout)
+            self._http_client = httpx.AsyncClient(
+                timeout=self._timeout,
+                follow_redirects=False,
+            )
         return self._http_client
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
