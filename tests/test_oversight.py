@@ -125,7 +125,7 @@ class TestKillSwitch:
 
     async def test_deactivate_kill_switch(self, oversight_service):
         await oversight_service.activate_kill_switch("admin", "test")
-        await oversight_service.deactivate_kill_switch(operator_id="admin")
+        await oversight_service.deactivate_kill_switch("admin")
         status = await oversight_service.get_kill_switch_status()
         assert status.active is False
 

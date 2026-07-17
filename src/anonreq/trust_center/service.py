@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import time
+
 import structlog
 from fastapi import HTTPException, Request
 from prometheus_client import REGISTRY
 
 from anonreq.cache.manager import CacheManager
-from anonreq.services.slo_engine import SLOEngine
 from anonreq.compliance.engine import PresetEngine
+from anonreq.services.slo_engine import SLOEngine
 from anonreq.trust_center.config import TrustCenterSettings
 from anonreq.trust_center.schemas import (
     FrameworkInfo,
@@ -66,9 +67,10 @@ class TrustCenterService:
             if is_compliant:
                 compliant_slos += 1
             for c in compliance_list:
-                if c.last_breach:
-                    if last_breach is None or c.last_breach > last_breach:
-                        last_breach = c.last_breach
+                if c.last_breach and (
+                    last_breach is None or c.last_breach > last_breach
+                ):
+                    last_breach = c.last_breach
 
         overall_percentage = (
             (compliant_slos / total_slos * 100.0) if total_slos > 0 else 100.0

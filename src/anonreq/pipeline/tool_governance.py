@@ -51,20 +51,32 @@ class ToolGovernanceStage(PipelineStage):
             try:
                 calls = self._extractor.extract_calls(msg, tool_format)
             except (KeyError, TypeError, ValueError) as exc:
-                ctx.fail_secure(ToolBlockedError(f"Failed to extract tool calls: {type(exc).__name__}: {exc}"))
+                ctx.fail_secure(ToolBlockedError(
+                    f"Failed to extract tool calls: "
+                    f"{type(exc).__name__}: {exc}"
+                ))
                 return ctx
             except Exception as exc:
-                ctx.fail_secure(ToolBlockedError(f"Failed to extract tool calls: {type(exc).__name__}"))
+                ctx.fail_secure(ToolBlockedError(
+                    f"Failed to extract tool calls: "
+                    f"{type(exc).__name__}"
+                ))
                 return ctx
 
             for call in calls:
                 try:
                     await tool_evaluator.evaluate(call, ctx)
                 except (KeyError, TypeError, ValueError) as exc:
-                    ctx.fail_secure(ToolBlockedError(f"Tool evaluation failed for {call.name}: {type(exc).__name__}: {exc}"))
+                    ctx.fail_secure(ToolBlockedError(
+                        f"Tool evaluation failed for {call.name}: "
+                        f"{type(exc).__name__}: {exc}"
+                    ))
                     return ctx
                 except Exception as exc:
-                    ctx.fail_secure(ToolBlockedError(f"Tool evaluation failed for {call.name}: {type(exc).__name__}"))
+                    ctx.fail_secure(ToolBlockedError(
+                        f"Tool evaluation failed for {call.name}: "
+                        f"{type(exc).__name__}"
+                    ))
                     return ctx
 
                 if ctx.has_errors():

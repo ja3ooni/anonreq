@@ -13,13 +13,13 @@ import hashlib
 import hmac
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 
 from anonreq.license.config import license_settings
-from anonreq.license.models import FeatureGate, LicensePayload, LicenseStatus, LicenseTier
+from anonreq.license.models import FeatureGate, LicensePayload, LicenseStatus
 
 logger = logging.getLogger(__name__)
 
@@ -91,10 +91,10 @@ class LicenseValidator:
             payload_dict = json.loads(data)
             payload = LicensePayload(**payload_dict)
 
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             expires_at = payload.expires_at
             if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(timezone.utc)
+                expires_at = expires_at.replace(UTC)
 
             if now > expires_at:
                 return LicenseStatus(
@@ -119,7 +119,7 @@ class LicenseValidator:
             logger.error("Error during license validation: %s", exc)
             return LicenseStatus(
                 valid=False,
-                message=f"License validation failed: {str(exc)}",
+                message=f"License validation failed: {exc!s}",
             )
 
     @classmethod
@@ -136,7 +136,7 @@ class LicenseValidator:
 def require_license(feature: FeatureGate | str) -> Any:
     """Dependency that gates access to endpoints requiring a valid license."""
 
-    async def _check(request: Request) -> None:
+    async def _check(request: Request) -> None:  # noqa: ARG001
         if not await LicenseValidator.check_feature(feature):
             feature_name = feature if isinstance(feature, str) else feature.value
             raise HTTPException(

@@ -10,7 +10,7 @@ from __future__ import annotations
 import io
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -98,7 +98,7 @@ class ComplianceEvidenceService:
 
         evidence = {
             "framework": framework.upper(),
-            "collected_at": datetime.now(timezone.utc).isoformat(),
+            "collected_at": datetime.now(UTC).isoformat(),
             "tenant_id": tenant_id,
             "controls": controls,
             "summary": {
@@ -142,7 +142,7 @@ class ComplianceEvidenceService:
                 "name": "SLO Compliance Status",
                 "status": "compliant" if is_compliant else "non_compliant",
                 "evidence": compliance,
-                "last_checked": datetime.now(timezone.utc).isoformat(),
+                "last_checked": datetime.now(UTC).isoformat(),
                 "source": "SLOEngine",
             }
         except Exception as exc:
@@ -161,9 +161,18 @@ class ComplianceEvidenceService:
             else:
                 result = res
 
-            is_intact = result.is_intact if hasattr(result, "is_intact") else result.get("is_intact", False)
-            broken_at = result.broken_at if hasattr(result, "broken_at") else result.get("broken_at")
-            checked_count = result.checked_count if hasattr(result, "checked_count") else result.get("checked_count", 0)
+            is_intact = (
+                result.is_intact if hasattr(result, "is_intact")
+                else result.get("is_intact", False)
+            )
+            broken_at = (
+                result.broken_at if hasattr(result, "broken_at")
+                else result.get("broken_at")
+            )
+            checked_count = (
+                result.checked_count if hasattr(result, "checked_count")
+                else result.get("checked_count", 0)
+            )
 
             return {
                 "id": "audit_chain_integrity",
@@ -174,14 +183,14 @@ class ComplianceEvidenceService:
                     "broken_at": broken_at,
                     "checked_count": checked_count,
                 },
-                "last_checked": datetime.now(timezone.utc).isoformat(),
+                "last_checked": datetime.now(UTC).isoformat(),
                 "source": "AuditChainService",
             }
         except Exception as exc:
             logger.warning("Failed to collect audit evidence: %s", exc)
             return None
 
-    async def _collect_governance_evidence(self, tenant_id: str) -> dict[str, Any] | None:
+    async def _collect_governance_evidence(self, tenant_id: str) -> dict[str, Any] | None:  # noqa: ARG002
         """Collect governance records as evidence."""
         if self._governance_service is None:
             return None
@@ -196,14 +205,14 @@ class ComplianceEvidenceService:
                     "policy_count": 0,
                     "last_review": None,
                 },
-                "last_checked": datetime.now(timezone.utc).isoformat(),
+                "last_checked": datetime.now(UTC).isoformat(),
                 "source": "GovernanceService",
             }
         except Exception as exc:
             logger.warning("Failed to collect governance evidence: %s", exc)
             return None
 
-    async def _collect_incident_evidence(self, tenant_id: str) -> dict[str, Any] | None:
+    async def _collect_incident_evidence(self, tenant_id: str) -> dict[str, Any] | None:  # noqa: ARG002
         """Collect incident history as evidence."""
         if self._incident_service is None:
             return None
@@ -217,7 +226,7 @@ class ComplianceEvidenceService:
                     "open_incidents": 0,
                     "resolved_incidents": 0,
                 },
-                "last_checked": datetime.now(timezone.utc).isoformat(),
+                "last_checked": datetime.now(UTC).isoformat(),
                 "source": "IncidentService",
             }
         except Exception as exc:
@@ -238,7 +247,7 @@ class ComplianceEvidenceService:
                 if not self._minio_client.bucket_exists(self._bucket):
                     self._minio_client.make_bucket(self._bucket)
 
-                timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+                timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
                 framework = evidence.get("framework", "unknown").lower()
                 filename = f"evidence_{framework}_{timestamp}.jsonl"
 
@@ -252,11 +261,15 @@ class ComplianceEvidenceService:
                 logger.info("Evidence snapshot stored in MinIO: %s/%s", self._bucket, filename)
                 return f"minio://{self._bucket}/{filename}"
             except Exception as exc:
-                logger.warning("Failed to store evidence in MinIO, falling back to filesystem: %s", exc)
+                logger.warning(
+                    "Failed to store evidence in MinIO, "
+                    "falling back to filesystem: %s",
+                    exc,
+                )
 
         # Filesystem fallback
         EVIDENCE_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         framework = evidence.get("framework", "unknown").lower()
         filename = f"evidence_{framework}_{timestamp}.jsonl"
         filepath = EVIDENCE_STORAGE_DIR / filename

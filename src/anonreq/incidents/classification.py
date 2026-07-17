@@ -24,7 +24,7 @@ class IncidentClassifier:
 
     @staticmethod
     def classify(
-        incident_type: str,
+        incident_type: str,  # noqa: ARG004 — used by callers for classification context
         impact: str = "low",
         data_exposure: bool = False,
         slo_breach: bool = False,

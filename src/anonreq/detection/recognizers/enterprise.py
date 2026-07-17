@@ -40,7 +40,7 @@ class EnterpriseRecognizerConfig:
     def from_dict(cls, data: dict[str, Any]) -> EnterpriseRecognizerConfig:
         """Create config from a dictionary."""
         patterns = []
-        if "pattern" in data and data["pattern"]:
+        if data.get("pattern"):
             patterns.append(data["pattern"])
         elif "patterns" in data:
             patterns = list(data["patterns"])
@@ -53,10 +53,10 @@ class EnterpriseRecognizerConfig:
         )
 
 
-class AnonReq_APIKeyRecognizer:
+class AnonReqApiKeyRecognizer:
     """Detects API keys (OpenAI-style sk-, pk-, sk-proj-) in text."""
 
-    name = "AnonReq_APIKeyRecognizer"
+    name = "AnonReqApiKeyRecognizer"
 
     def __init__(self, config: EnterpriseRecognizerConfig) -> None:
         self._config = config
@@ -66,7 +66,7 @@ class AnonReq_APIKeyRecognizer:
         ]
         self._regexes = [re.compile(p) for p in patterns]
 
-    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:  # noqa: ARG002
         """Scan text for API keys."""
         results: list[dict[str, Any]] = []
         for regex in self._regexes:
@@ -99,10 +99,10 @@ class AnonReq_APIKeyRecognizer:
         return deduped
 
 
-class AnonReq_AWSAccessKeyRecognizer:
+class AnonReqAwsAccessKeyRecognizer:
     """Detects AWS Access Keys (AKIA...) in text."""
 
-    name = "AnonReq_AWSAccessKeyRecognizer"
+    name = "AnonReqAwsAccessKeyRecognizer"
 
     def __init__(self, config: EnterpriseRecognizerConfig) -> None:
         self._config = config
@@ -111,7 +111,7 @@ class AnonReq_AWSAccessKeyRecognizer:
         ]
         self._regexes = [re.compile(p) for p in patterns]
 
-    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:  # noqa: ARG002
         """Scan text for AWS keys."""
         results: list[dict[str, Any]] = []
         for regex in self._regexes:
@@ -144,10 +144,10 @@ class AnonReq_AWSAccessKeyRecognizer:
         return deduped
 
 
-class AnonReq_GitHubTokenRecognizer:
+class AnonReqGitHubTokenRecognizer:
     """Detects GitHub tokens (ghp_, ghs_, gho_, ghu_, ghr_, ghb_) in text."""
 
-    name = "AnonReq_GitHubTokenRecognizer"
+    name = "AnonReqGitHubTokenRecognizer"
 
     def __init__(self, config: EnterpriseRecognizerConfig) -> None:
         self._config = config
@@ -156,7 +156,7 @@ class AnonReq_GitHubTokenRecognizer:
         ]
         self._regexes = [re.compile(p) for p in patterns]
 
-    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:  # noqa: ARG002
         """Scan text for GitHub tokens."""
         results: list[dict[str, Any]] = []
         for regex in self._regexes:
@@ -189,10 +189,10 @@ class AnonReq_GitHubTokenRecognizer:
         return deduped
 
 
-class AnonReq_InternalHostnameRecognizer:
+class AnonReqInternalHostnameRecognizer:
     """Detects internal hostnames matching a configurable domain list in text."""
 
-    name = "AnonReq_InternalHostnameRecognizer"
+    name = "AnonReqInternalHostnameRecognizer"
 
     def __init__(self, config: EnterpriseRecognizerConfig) -> None:
         self._config = config
@@ -205,12 +205,15 @@ class AnonReq_InternalHostnameRecognizer:
 
         if cleaned_domains:
             domain_pattern = "|".join(cleaned_domains)
-            pattern_str = rf"\b([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+({domain_pattern})\b(?!\.[a-zA-Z0-9])"
+            pattern_str = (
+                r"\b([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)"
+                rf"+({domain_pattern})\b(?!\.[a-zA-Z0-9])"
+            )
             self._regex = re.compile(pattern_str)
         else:
             self._regex = None
 
-    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:
+    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:  # noqa: ARG002
         """Scan text for internal hostnames."""
         results: list[dict[str, Any]] = []
         if self._regex is None:
@@ -263,10 +266,10 @@ def create_enterprise_bundle(
     bundle: dict[str, Any] = {}
 
     recognizer_classes = {
-        "api_key": AnonReq_APIKeyRecognizer,
-        "aws_access_key": AnonReq_AWSAccessKeyRecognizer,
-        "github_token": AnonReq_GitHubTokenRecognizer,
-        "internal_hostname": AnonReq_InternalHostnameRecognizer,
+        "api_key": AnonReqApiKeyRecognizer,
+        "aws_access_key": AnonReqAwsAccessKeyRecognizer,
+        "github_token": AnonReqGitHubTokenRecognizer,
+        "internal_hostname": AnonReqInternalHostnameRecognizer,
     }
 
     for key, cls in recognizer_classes.items():

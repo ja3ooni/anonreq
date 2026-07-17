@@ -17,9 +17,9 @@ from anonreq.governance.reports import (
     generate_compliance_report,
     list_frameworks,
 )
+from anonreq.license.validator import require_license
 from anonreq.middleware.rbac import Role, require_role
 from anonreq.services.compliance_evidence import ComplianceEvidenceService
-from anonreq.license.validator import require_license
 
 router = APIRouter(
     prefix="/compliance/report",

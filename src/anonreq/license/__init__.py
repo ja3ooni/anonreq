@@ -10,11 +10,11 @@ from anonreq.license.validator import LicenseValidator, require_license
 __all__ = [
     "FeatureGate",
     "LicenseKey",
+    "LicenseSettings",
     "LicenseStatus",
     "LicenseTier",
-    "LicenseSettings",
-    "license_settings",
     "LicenseValidator",
+    "license_settings",
     "require_license",
     "router",
 ]

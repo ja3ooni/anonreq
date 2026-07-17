@@ -69,7 +69,7 @@ class TestUsageLimiterCheck:
 class TestUsageLimiterIncrement:
     @pytest.mark.asyncio
     async def test_increment_increases_counters(self, fake_cache, limiter):
-        await limiter.increment("tenant_incr", tokens=5)
+        await limiter.increment("tenant_incr", 5)
         conc = await fake_cache._redis.get("anonreq:ratelimit:tenant_incr:concurrent")
         assert conc == "1"
 

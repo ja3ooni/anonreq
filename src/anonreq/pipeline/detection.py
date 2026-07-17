@@ -34,7 +34,6 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import httpx
-
 from structlog import get_logger
 
 from anonreq.exceptions import PipelineAbortError

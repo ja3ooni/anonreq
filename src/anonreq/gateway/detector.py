@@ -167,7 +167,7 @@ class AIDetector:
 
     def classify_request(
         self,
-        method: str,
+        method: str,  # noqa: ARG002
         path: str,
         host: str,
         body: str | None = None,

@@ -11,7 +11,7 @@ from anonreq.trust_center.schemas import (
     TrustSecurity,
     TrustStatus,
 )
-from anonreq.trust_center.service import TrustCenterService, TrustCenterRateLimiter
+from anonreq.trust_center.service import TrustCenterRateLimiter, TrustCenterService
 
 logger = structlog.get_logger()
 

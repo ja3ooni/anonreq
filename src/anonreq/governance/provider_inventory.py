@@ -145,8 +145,8 @@ class ProviderInventory:
     async def suspend_provider(
         self,
         provider_id: str,
-        reason: str,
-        suspended_by: str,
+        reason: str,  # noqa: ARG002
+        suspended_by: str,  # noqa: ARG002
     ) -> ProviderRecord:
         """Suspend a provider, blocking all traffic.
 
@@ -179,7 +179,7 @@ class ProviderInventory:
     async def unsuspend_provider(
         self,
         provider_id: str,
-        unsuspended_by: str,
+        unsuspended_by: str,  # noqa: ARG002
     ) -> ProviderRecord:
         """Unsuspend a provider, restoring traffic.
 

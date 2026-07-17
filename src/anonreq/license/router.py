@@ -8,7 +8,7 @@ from anonreq.license.models import LicenseStatus
 from anonreq.license.validator import LicenseValidator
 
 
-async def _admin_auth(request: "Request") -> None:
+async def _admin_auth(request: Request) -> None:
     """Lazy-import require_auth to avoid circular dependency."""
     from anonreq.admin.router import require_auth
 

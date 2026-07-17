@@ -178,7 +178,7 @@ class OversightService:
 
     async def deactivate_kill_switch(
         self,
-        operator_id: str,
+        operator_id: str,  # noqa: ARG002
     ) -> None:
         await self._redis.delete(KILL_SWITCH_KEY)
 

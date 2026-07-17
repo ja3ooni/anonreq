@@ -10,24 +10,24 @@ with 4 policy actions: anonymize_and_forward, flag_and_forward, block, quarantin
 """
 
 from anonreq.detection.recognizers.enterprise import (
-    AnonReq_APIKeyRecognizer,
-    AnonReq_AWSAccessKeyRecognizer,
-    AnonReq_GitHubTokenRecognizer,
-    AnonReq_InternalHostnameRecognizer,
+    AnonReqApiKeyRecognizer,
+    AnonReqAwsAccessKeyRecognizer,
+    AnonReqGitHubTokenRecognizer,
+    AnonReqInternalHostnameRecognizer,
     EnterpriseRecognizerConfig,
     create_enterprise_bundle,
 )
 from anonreq.detection.recognizers.mnpi import MNPIConfig, MNPIRecognizer, create_mnpi_bundle
 
 __all__ = [
+    "AnonReqApiKeyRecognizer",
+    "AnonReqAwsAccessKeyRecognizer",
+    "AnonReqGitHubTokenRecognizer",
+    "AnonReqInternalHostnameRecognizer",
+    "EnterpriseRecognizerConfig",
     "MNPIConfig",
     "MNPIRecognizer",
-    "create_mnpi_bundle",
-    "AnonReq_APIKeyRecognizer",
-    "AnonReq_AWSAccessKeyRecognizer",
-    "AnonReq_GitHubTokenRecognizer",
-    "AnonReq_InternalHostnameRecognizer",
-    "EnterpriseRecognizerConfig",
     "create_enterprise_bundle",
+    "create_mnpi_bundle",
 ]
 

@@ -71,7 +71,7 @@ class UsageLimiter:
                 enforcement="503",
             )
 
-    async def increment(self, tenant_id: str, tokens: int = 0) -> None:
+    async def increment(self, tenant_id: str, tokens: int = 0) -> None:  # noqa: ARG002
         try:
             conc_key = self._concurrent_key(tenant_id)
             async with self._cache._redis.pipeline(transaction=True) as pipe:

@@ -11,11 +11,12 @@ Per GUARD-03:
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
+
 from pydantic import BaseModel
 
 
-class FeatureGate(str, Enum):
+class FeatureGate(StrEnum):
     """Supported commercial/appliance features."""
 
     TRUST_CENTER = "trust_center"
@@ -31,7 +32,7 @@ class LicenseKey(str):
     pass
 
 
-class LicenseTier(str, Enum):
+class LicenseTier(StrEnum):
     """License tiers."""
 
     FREE = "free"

@@ -1,7 +1,7 @@
 """Tests for enterprise secret detection recognizers (Phase 26, GUARD-01).
 
-Covers AnonReq_APIKeyRecognizer, AnonReq_AWSAccessKeyRecognizer,
-AnonReq_GitHubTokenRecognizer, and AnonReq_InternalHostnameRecognizer.
+Covers AnonReqApiKeyRecognizer, AnonReqAwsAccessKeyRecognizer,
+AnonReqGitHubTokenRecognizer, and AnonReqInternalHostnameRecognizer.
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ import yaml
 from anonreq.detection.recognizers.enterprise import (
     EnterpriseRecognizerConfig,
     create_enterprise_bundle,
-    AnonReq_APIKeyRecognizer,
-    AnonReq_AWSAccessKeyRecognizer,
-    AnonReq_GitHubTokenRecognizer,
-    AnonReq_InternalHostnameRecognizer,
+    AnonReqApiKeyRecognizer,
+    AnonReqAwsAccessKeyRecognizer,
+    AnonReqGitHubTokenRecognizer,
+    AnonReqInternalHostnameRecognizer,
 )
 
 
@@ -47,7 +47,7 @@ def default_hostname_config() -> EnterpriseRecognizerConfig:
 
 class TestAPIKeyRecognizer:
     def test_api_key_valid_patterns(self, default_api_key_config):
-        recognizer = AnonReq_APIKeyRecognizer(default_api_key_config)
+        recognizer = AnonReqApiKeyRecognizer(default_api_key_config)
         # OpenAI style sk-
         results = recognizer.analyze("My key is sk-1234567890abcdefghijklmnopqrstuvwxyz")
         assert len(results) == 1
@@ -63,38 +63,38 @@ class TestAPIKeyRecognizer:
         assert len(results) == 1
 
     def test_api_key_invalid_patterns(self, default_api_key_config):
-        recognizer = AnonReq_APIKeyRecognizer(default_api_key_config)
+        recognizer = AnonReqApiKeyRecognizer(default_api_key_config)
         assert len(recognizer.analyze("sk-too-short")) == 0
         assert len(recognizer.analyze("mykey-without-prefix")) == 0
 
     def test_api_key_confidence(self, default_api_key_config):
-        recognizer = AnonReq_APIKeyRecognizer(default_api_key_config)
+        recognizer = AnonReqApiKeyRecognizer(default_api_key_config)
         results = recognizer.analyze("sk-1234567890abcdefghijklmnopqrstuvwxyz")
         assert results[0]["score"] == 0.85
 
 
 class TestAWSAccessKeyRecognizer:
     def test_aws_key_valid_patterns(self, default_aws_key_config):
-        recognizer = AnonReq_AWSAccessKeyRecognizer(default_aws_key_config)
+        recognizer = AnonReqAwsAccessKeyRecognizer(default_aws_key_config)
         results = recognizer.analyze("AWS: AKIAIOSFODNN7EXAMPLE")
         assert len(results) == 1
         assert results[0]["start"] == 5
         assert results[0]["end"] == 25
 
     def test_aws_key_invalid_patterns(self, default_aws_key_config):
-        recognizer = AnonReq_AWSAccessKeyRecognizer(default_aws_key_config)
+        recognizer = AnonReqAwsAccessKeyRecognizer(default_aws_key_config)
         assert len(recognizer.analyze("AKIAtoo-short")) == 0
         assert len(recognizer.analyze("BKIAIOSFODNN7EXAMPLE")) == 0
 
     def test_aws_key_confidence(self, default_aws_key_config):
-        recognizer = AnonReq_AWSAccessKeyRecognizer(default_aws_key_config)
+        recognizer = AnonReqAwsAccessKeyRecognizer(default_aws_key_config)
         results = recognizer.analyze("AKIAIOSFODNN7EXAMPLE")
         assert results[0]["score"] == 0.90
 
 
 class TestGitHubTokenRecognizer:
     def test_github_token_valid_patterns(self, default_github_token_config):
-        recognizer = AnonReq_GitHubTokenRecognizer(default_github_token_config)
+        recognizer = AnonReqGitHubTokenRecognizer(default_github_token_config)
         # ghp_
         assert len(recognizer.analyze("ghp_1234567890abcdefghijklmnopqrstuvwxyz")) == 1
         # ghs_
@@ -109,32 +109,32 @@ class TestGitHubTokenRecognizer:
         assert len(recognizer.analyze("ghb_1234567890abcdefghijklmnopqrstuvwxyz")) == 1
 
     def test_github_token_invalid_patterns(self, default_github_token_config):
-        recognizer = AnonReq_GitHubTokenRecognizer(default_github_token_config)
+        recognizer = AnonReqGitHubTokenRecognizer(default_github_token_config)
         assert len(recognizer.analyze("ghp_too-short")) == 0
         assert len(recognizer.analyze("ghx_1234567890abcdefghijklmnopqrstuvwxyz")) == 0
 
     def test_github_token_confidence(self, default_github_token_config):
-        recognizer = AnonReq_GitHubTokenRecognizer(default_github_token_config)
+        recognizer = AnonReqGitHubTokenRecognizer(default_github_token_config)
         results = recognizer.analyze("ghp_1234567890abcdefghijklmnopqrstuvwxyz")
         assert results[0]["score"] == 0.95
 
 
 class TestInternalHostnameRecognizer:
     def test_internal_hostname_valid(self, default_hostname_config):
-        recognizer = AnonReq_InternalHostnameRecognizer(default_hostname_config)
+        recognizer = AnonReqInternalHostnameRecognizer(default_hostname_config)
         assert len(recognizer.analyze("db.internal")) == 1
         assert len(recognizer.analyze("api.prod.corp.local")) == 1
         assert len(recognizer.analyze("app.company.com")) == 1
 
     def test_internal_hostname_invalid(self, default_hostname_config):
-        recognizer = AnonReq_InternalHostnameRecognizer(default_hostname_config)
+        recognizer = AnonReqInternalHostnameRecognizer(default_hostname_config)
         assert len(recognizer.analyze("google.com")) == 0
         assert len(recognizer.analyze("github.com")) == 0
         assert len(recognizer.analyze("company.com")) == 0 # requires subdomain subdomain.company.com
         assert len(recognizer.analyze("my.company.com.external")) == 0
 
     def test_internal_hostname_confidence(self, default_hostname_config):
-        recognizer = AnonReq_InternalHostnameRecognizer(default_hostname_config)
+        recognizer = AnonReqInternalHostnameRecognizer(default_hostname_config)
         results = recognizer.analyze("db.internal")
         assert results[0]["score"] == 0.80
 
@@ -148,10 +148,10 @@ class TestRecognizerGeneral:
         default_hostname_config,
     ):
         text = "Hello world, this is a normal sentence with no secrets and no internal hostnames."
-        assert len(AnonReq_APIKeyRecognizer(default_api_key_config).analyze(text)) == 0
-        assert len(AnonReq_AWSAccessKeyRecognizer(default_aws_key_config).analyze(text)) == 0
-        assert len(AnonReq_GitHubTokenRecognizer(default_github_token_config).analyze(text)) == 0
-        assert len(AnonReq_InternalHostnameRecognizer(default_hostname_config).analyze(text)) == 0
+        assert len(AnonReqApiKeyRecognizer(default_api_key_config).analyze(text)) == 0
+        assert len(AnonReqAwsAccessKeyRecognizer(default_aws_key_config).analyze(text)) == 0
+        assert len(AnonReqGitHubTokenRecognizer(default_github_token_config).analyze(text)) == 0
+        assert len(AnonReqInternalHostnameRecognizer(default_hostname_config).analyze(text)) == 0
 
     def test_entity_types_match(
         self,
@@ -160,10 +160,10 @@ class TestRecognizerGeneral:
         default_github_token_config,
         default_hostname_config,
     ):
-        assert AnonReq_APIKeyRecognizer(default_api_key_config).analyze("sk-1234567890abcdefghijklmnopqrstuvwxyz")[0]["entity_type"] == "ENTERPRISE_API_KEY"
-        assert AnonReq_AWSAccessKeyRecognizer(default_aws_key_config).analyze("AKIAIOSFODNN7EXAMPLE")[0]["entity_type"] == "ENTERPRISE_AWS_KEY"
-        assert AnonReq_GitHubTokenRecognizer(default_github_token_config).analyze("ghp_1234567890abcdefghijklmnopqrstuvwxyz")[0]["entity_type"] == "ENTERPRISE_GITHUB_TOKEN"
-        assert AnonReq_InternalHostnameRecognizer(default_hostname_config).analyze("db.internal")[0]["entity_type"] == "ENTERPRISE_INTERNAL_HOST"
+        assert AnonReqApiKeyRecognizer(default_api_key_config).analyze("sk-1234567890abcdefghijklmnopqrstuvwxyz")[0]["entity_type"] == "ENTERPRISE_API_KEY"
+        assert AnonReqAwsAccessKeyRecognizer(default_aws_key_config).analyze("AKIAIOSFODNN7EXAMPLE")[0]["entity_type"] == "ENTERPRISE_AWS_KEY"
+        assert AnonReqGitHubTokenRecognizer(default_github_token_config).analyze("ghp_1234567890abcdefghijklmnopqrstuvwxyz")[0]["entity_type"] == "ENTERPRISE_GITHUB_TOKEN"
+        assert AnonReqInternalHostnameRecognizer(default_hostname_config).analyze("db.internal")[0]["entity_type"] == "ENTERPRISE_INTERNAL_HOST"
 
     def test_create_bundle_from_config(self):
         config_data = {
