@@ -68,6 +68,20 @@ ALLOWLIST: frozenset[str] = frozenset({
     "reset_at",
     "stage",
     "error",
+    # Fields used across pipeline, proxy, locale, and middleware modules
+    "path",
+    "tenant_id",
+    "content_type",
+    "elapsed_ms",
+    "count",
+    "attempt",
+    "bucket",
+    "extra",
+    "file_name",
+    "max_locales",
+    "part_name",
+    "data",
+    "ttl",
 })
 
 _SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -96,6 +110,14 @@ def _redact_value(value: Any) -> Any:
         return tuple(_redact_value(item) for item in value)
     if isinstance(value, set):
         return {_redact_value(item) for item in value}
+    # Handle Pydantic models and dataclasses via dict conversion
+    if hasattr(value, "model_dump"):
+        return {key: _redact_value(inner) for key, inner in value.model_dump().items()}
+    if hasattr(value, "__dataclass_fields__"):
+        return {
+            key: _redact_value(getattr(value, key))
+            for key in value.__dataclass_fields__
+        }
     return value
 
 

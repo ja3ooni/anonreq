@@ -121,8 +121,8 @@ class TestLoggingAllowlist:
         entry = json.loads(lines[0])
         assert entry.get("request_id") == "req_xyz789"
 
-    def test_nested_dict_limitation(self, capsys):
-        """Test 4: Nested dict values are NOT recursively checked (documented limitation)."""
+    def test_nested_dict_redaction(self, capsys):
+        """Test 4: Nested dict values under allowlisted keys are recursively redacted."""
         import structlog
 
         from anonreq.logging_config import setup_logging
@@ -130,16 +130,19 @@ class TestLoggingAllowlist:
         setup_logging(level="DEBUG")
         log = structlog.get_logger()
 
-        # Nested dict with sensitive key — top-level filter passes it through
-        log.info("test_nested", component="test", data={"sensitive": "value"})
+        # Nested dict under an allowlisted key — redact_secret_substrings_processor
+        # should recursively scan and redact sensitive values
+        log.info("test_nested", component="test", data={"api_key": "sk-abc123def456"})
 
         captured = capsys.readouterr()
         lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
 
         assert len(lines) >= 1
         entry = json.loads(lines[0])
-        # The top-level key "data" is not in ALLOWLIST, so it should be dropped
-        assert "data" not in entry
+        # "data" is now in ALLOWLIST, so it should be present
+        assert "data" in entry
+        # The nested sensitive value should be redacted
+        assert entry["data"]["api_key"] == "[REDACTED]"
 
     def test_log_level_respected(self, capsys):
         """Test 5: Log level respects settings.LOG_LEVEL."""

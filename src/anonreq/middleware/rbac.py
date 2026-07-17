@@ -20,7 +20,6 @@ class Role(StrEnum):
     SECURITY_OFFICER = "security_officer"
     OPERATOR = "operator"
     READ_ONLY_AUDITOR = "read_only_auditor"
-    READ_ONLY = "read_only_auditor"
 
 
 ROLE_HIERARCHY: dict[Role, int] = {

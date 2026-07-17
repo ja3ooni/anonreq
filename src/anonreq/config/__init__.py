@@ -57,6 +57,7 @@ class Settings(BaseSettings):
     PORT: int = 8080
     LOG_LEVEL: str = "INFO"
     REQUEST_TIMEOUT_SECONDS: int = 30
+    PRESIDIO_MAX_CONCURRENCY: int = 10
     CACHE_TTL_SECONDS: int = 300
     PROVIDER_BASE_URL: str = Field(
         default="https://api.openai.com",

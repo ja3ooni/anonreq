@@ -337,7 +337,7 @@ def create_app() -> FastAPI:
             presidio_client = PresidioClient(
                 base_url=settings.PRESIDIO_URL,
                 timeout=settings.REQUEST_TIMEOUT_SECONDS,
-                max_concurrency=10,
+                max_concurrency=settings.PRESIDIO_MAX_CONCURRENCY,
             )
             app.state.presidio_client = presidio_client
 
@@ -797,8 +797,8 @@ def create_app() -> FastAPI:
     # Phase 22: Discovery inventory admin routes
     app.include_router(discovery_admin_router, dependencies=[Depends(auth_context)])
 
-    # Phase 26: License router
-    app.include_router(license_router)
+    # Phase 26: License router (requires auth)
+    app.include_router(license_router, dependencies=[Depends(auth_context)])
 
     # PAC file endpoint — public (no auth, used by browsers/proxies)
     app.include_router(pac_router)
