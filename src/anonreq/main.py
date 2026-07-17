@@ -25,22 +25,30 @@ import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from prometheus_client import REGISTRY, Counter, generate_latest
-from sqlalchemy.ext.asyncio import create_async_engine
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
 from anonreq.admin.routes import admin_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
 from anonreq.auth.oidc import build_oidc_verifier
+from anonreq.bootstrap.services import (
+    bootstrap_audit_services,
+    bootstrap_compliance_services,
+    bootstrap_deployment_proxy,
+    bootstrap_gateway_services,
+    bootstrap_governance_services,
+    bootstrap_locale_detection,
+    bootstrap_mitm_proxy,
+    bootstrap_policy_engine,
+    bootstrap_slo_services,
+    bootstrap_soc_services,
+    bootstrap_trust_center,
+)
 from anonreq.cache.manager import CacheManager
-from anonreq.compliance.engine import PresetEngine
 from anonreq.config import settings
 from anonreq.dependencies import auth_context
 from anonreq.deployment.modes import DeploymentMode, TopologyConfig, get_deployment_config
-from anonreq.detection.presidio_client import PresidioClient
 from anonreq.discovery.admin_router import router as discovery_admin_router
-from anonreq.discovery.flow_analyzer import FlowAnalyzer
-from anonreq.discovery.hostname_allowlist import HostnameAllowlist
 from anonreq.discovery.inventory import AssetInventory
 from anonreq.exceptions import (
     DependencyUnavailableError,
@@ -48,9 +56,7 @@ from anonreq.exceptions import (
     http_exception_handler,
 )
 from anonreq.firewall.pipeline import FirewallPipeline
-from anonreq.gateway.detector import AIDetector
 from anonreq.gateway.passthrough import GatewayStatus
-from anonreq.gateway.router import RouteTable
 from anonreq.governance.router import (
     approval_router as approval_record_router,
 )
@@ -59,11 +65,7 @@ from anonreq.governance.router import (
 )
 from anonreq.health import router as health_router
 from anonreq.license.router import router as license_router
-from anonreq.license.validator import LicenseValidator, require_license
-from anonreq.locale.checksum import ChecksumValidatorRegistry
-from anonreq.locale.merger import RecognizerMerger
-from anonreq.locale.negotiator import LocaleNegotiator
-from anonreq.locale.registry import LocaleRegistry
+from anonreq.license.validator import require_license
 from anonreq.logging_config import setup_logging
 from anonreq.middleware.classification import ClassificationMiddleware
 from anonreq.middleware.content_type import ContentTypeMiddleware
@@ -76,22 +78,15 @@ from anonreq.multimodal.dispatcher import ContentTypeDispatcher
 from anonreq.multimodal.json_analyzer import JsonAnalyzer
 from anonreq.multimodal.multipart_analyzer import MultipartAnalyzer
 from anonreq.providers.registry import ProviderRegistry
-from anonreq.proxy.ca_manager import CAManager
 from anonreq.proxy.detection import AITrafficDetector
-from anonreq.proxy.mitm_handler import MITMHandler, mitm_middleware
 from anonreq.proxy.modes import (
     ProxyMode,
     get_pipeline_for_mode,
     mode_from_env,
     proxy_mode_description,
-    requires_detection,
-    requires_mitm,
 )
-from anonreq.proxy.pac import PACGenerator
 from anonreq.proxy.pac import router as pac_router
-from anonreq.proxy.pipeline_dispatcher import PipelineContentDispatcher
 from anonreq.proxy.reverse_proxy import ReverseProxy
-from anonreq.proxy.tls import ConfigurationError, TLSInterceptor
 from anonreq.proxy.tls_interceptor import TLSInterceptor as DynamicTLSInterceptor
 from anonreq.proxy.transparent_proxy import TransparentProxy
 from anonreq.routes.compliance import router as compliance_router
@@ -99,23 +94,14 @@ from anonreq.routes.governance import router as governance_router
 from anonreq.routes.models import router as models_router
 from anonreq.routes.oversight import router as oversight_router
 from anonreq.routing.alias_registry import AliasRegistry
-from anonreq.routing.chat import build_pipeline
 from anonreq.routing.chat import router as chat_router
 from anonreq.secrets.bootstrap import bootstrap_runtime_secret_store
 from anonreq.secrets.reloader import bootstrap_runtime_secret_reloader
 from anonreq.secrets.rotation import SecretRotationBuffer
 from anonreq.secrets.store import RuntimeSecretStore, set_runtime_secret_store
-from anonreq.services.audit_chain import AuditChainService, AuditConfig
-from anonreq.services.chain_anchor import AnchorConfig, ChainAnchorService
-from anonreq.services.compliance_evidence import ComplianceEvidenceService
-from anonreq.soc.config import SOCConfig
-from anonreq.soc.mitre import MITREMapper
-from anonreq.soc.normalizer import SOCNormalizer
 from anonreq.startup_checks import run_startup_checks
 from anonreq.state import get_app_state
-from anonreq.trust_center.config import TrustCenterSettings as TrustCenterConfig
 from anonreq.trust_center.router import router as trust_center_router
-from anonreq.trust_center.service import TrustCenterRateLimiter, TrustCenterService
 
 log = get_logger()
 
@@ -300,432 +286,30 @@ def create_app() -> FastAPI:
             provider_registry=state.provider_registry
         )
 
-        # Detection/anonymization setup — only for modes that need it
-        state.presidio_client = None
-        state.pipeline = None
-        state.checksum_registry = None
-        state.locale_registry = None
-        state.locale_negotiator = None
-        state.recognizer_merger = None
-        state.preset_engine = None
-        state.active_compliance_presets = []
-
-        if requires_detection(active_mode):
-            checksum_registry = ChecksumValidatorRegistry()
-            locale_registry = LocaleRegistry(checksum_registry=checksum_registry)
-            universal_bundle = locale_registry.get("en")
-            if universal_bundle is None:
-                await cache_manager.close()
-                raise RuntimeError("Universal locale bundle 'en' is required")
-            state.checksum_registry = checksum_registry
-            state.locale_registry = locale_registry
-            state.locale_negotiator = LocaleNegotiator(locale_registry)
-            state.recognizer_merger = RecognizerMerger(universal_bundle)
-            preset_engine = PresetEngine()
-            active_presets = [
-                preset.strip()
-                for preset in settings.ACTIVE_PRESETS.split(",")
-                if preset.strip()
-            ]
-            base_config = {
-                "entity_types": {
-                    entity.name: {
-                        "tier": entity.tier,
-                        "confidence_threshold": entity.confidence_threshold,
-                    }
-                    for entity in universal_bundle.entity_types
-                },
-                "requires_checksum": list(checksum_registry.registered_entity_types()),
-            }
-            if active_presets:
-                preset_engine.assert_startup_checks(active_presets, base_config)
-            state.preset_engine = preset_engine
-            state.active_compliance_presets = active_presets
-
-            # Create Presidio client for the application lifetime
-            presidio_client = PresidioClient(
-                base_url=settings.PRESIDIO_URL,
-                timeout=settings.REQUEST_TIMEOUT_SECONDS,
-                max_concurrency=settings.PRESIDIO_MAX_CONCURRENCY,
-            )
-            state.presidio_client = presidio_client
-
-            # Build and store the pipeline manager
-            pipeline = build_pipeline(
-                cache_manager=cache_manager,
-                presidio_client=presidio_client,
-                alias_registry=state.alias_registry,
-                locale_negotiator=state.locale_negotiator,
-                recognizer_merger=state.recognizer_merger,
-                checksum_registry=state.checksum_registry,
-                app_state=state,
-            )
-            state.pipeline = pipeline
-        else:
-            log.info(
-                "Skipping detection/anonymization setup — proxy-only mode",
-                component="lifespan",
-            )
-
-        # Phase 22: Discovery inventory service
+        # Discovery inventory service
         state.inventory_service = AssetInventory()
 
-        # Phase 22: ContentTypeDispatcher reference on app state
+        # ContentTypeDispatcher reference on app state
         state.content_type_dispatcher = _content_type_dispatcher
 
-        # Phase 8: Enterprise Policy Engine
-        try:
-            from anonreq.policy.config import load_policy_config
-            from anonreq.policy.forwarding_guard import ForwardingGuard
-            from anonreq.policy.models import RateLimitConfig
-            from anonreq.policy.pdp import PolicyDecisionPoint
-            from anonreq.policy.pep import PolicyEnforcementPoint
-            from anonreq.policy.residency_router import ResidencyRouter
-            from anonreq.policy.spend_controller import SpendController
-            from anonreq.policy.store import PolicyStore
-            from anonreq.policy.usage_limiter import UsageLimiter
-
-            policy_config = load_policy_config(settings.POLICY_CONFIG_PATH)
-            policy_store = PolicyStore(cache_manager, policy_config)
-            rate_limits = policy_config.rate_limits or RateLimitConfig()
-            usage_limiter = UsageLimiter(cache_manager, rate_limits)
-            spend_controller = SpendController(cache_manager, policy_config.spend_budgets)
-            residency_router = ResidencyRouter(policy_config.residency_rules)
-            pdp = PolicyDecisionPoint(
-                policy_store=policy_store,
-                usage_limiter=usage_limiter,
-                spend_controller=spend_controller,
-                residency_router=residency_router,
-            )
-            pep = PolicyEnforcementPoint()
-            forwarding_guard = ForwardingGuard()
-
-            state.pdp = pdp
-            state.pep = pep
-            state.forwarding_guard = forwarding_guard
-            state.policy_store = policy_store
-            log.info("Policy engine initialised", component="lifespan")
-        except Exception as exc:
-            log.error("Failed to initialise policy engine", component="lifespan", error=str(exc))
-            await cache_manager.close()
-            raise
-
-        # Phase 17: MITM proxy setup
-        ca_manager = CAManager(ca_dir=settings.CA_DIR)
-        state.ca_manager = ca_manager
-
-        ca_info = await ca_manager.get_ca_info()
-        if ca_info is None and requires_mitm(active_mode):
-            log.warning(
-                "No CA certificate loaded in transparent proxy mode",
-                component="lifespan",
-                ca_dir=settings.CA_DIR,
-            )
-
-        tls_interceptor: TLSInterceptor | None = None
-        if ca_info is not None:
-            try:
-                serial = ca_info["serial"]
-                cert_path = f"{settings.CA_DIR}/{serial}.pem"
-                key_path = f"{settings.CA_DIR}/{serial}.key"
-                tls_interceptor = TLSInterceptor(
-                    ca_cert_path=cert_path,
-                    ca_key_path=key_path,
-                )
-            except ConfigurationError as exc:
-                log.error("Failed to create TLS interceptor", component="lifespan", error=str(exc))
-
-        if tls_interceptor is not None:
-            mitm_handler = MITMHandler(
-                tls_interceptor=tls_interceptor,
-                ca_manager=ca_manager,
-            )
-            state.mitm_handler = mitm_handler
-
-            @app.middleware("http")
-            async def proxy_middleware(request: Request, call_next: Callable) -> Response:
-                return await mitm_middleware(request, call_next)
-
-            log.info("MITM proxy middleware registered", component="lifespan")
-
-        # Phase 11: Initialize audit database and services
-        audit_engine = create_async_engine(settings.DATABASE_URL)
-        state.audit_engine = audit_engine
-        audit_config = AuditConfig(retention_days=2557)
-        audit_chain = AuditChainService(audit_engine, audit_config)
-        state.audit_chain = audit_chain
-
-        anchor_config = AnchorConfig(
-            signing_key=settings.ANCHOR_SIGNING_KEY,
-        )
-        chain_anchor = ChainAnchorService(audit_chain, audit_engine, anchor_config)
-        state.chain_anchor = chain_anchor
-
-        # Phase 11: Initialize SLO Engine and Breach Detector
-        import httpx
-
-        from anonreq.services.breach_detector import BreachDetector
-        from anonreq.services.slo_engine import SLOEngine
-
-        slo_engine = SLOEngine(cache_manager, "config/slo.yaml")
-        state.slo_engine = slo_engine
-
-        webhook_client = httpx.AsyncClient(follow_redirects=False)
-        state.webhook_client = webhook_client
-        breach_detector = BreachDetector(
-            slo_engine=slo_engine,
-            audit_chain=audit_chain,
-            cache_manager=cache_manager,
-            http_client=webhook_client,
-            config_path="config/webhook.yaml"
-        )
-        state.breach_detector = breach_detector
-
-        # Phase 14: AI Governance & Oversight services
-        from anonreq.services.lifecycle import LifecycleService
-        from anonreq.services.notifications import NotificationService
-        from anonreq.services.oversight import OversightService
-        from anonreq.services.transparency import TransparencyService
-
-        state.oversight_service = OversightService(cache_manager)
-        state.lifecycle_service = LifecycleService(cache_manager)
-        state.transparency_service = TransparencyService(cache_manager)
-        state.notification_service = NotificationService(cache_manager)
-
-        # Phase 18: ApprovalManager for tool call governance
-        from anonreq.governance.approval import ApprovalManager
-
-        state.approval_manager = ApprovalManager(
-            cache_manager=cache_manager,
-            oversight_service=state.oversight_service,
-            ttl=settings.CACHE_TTL_SECONDS,
-        )
-        log.info("ApprovalManager initialized", component="lifespan", ttl=settings.CACHE_TTL_SECONDS)  # noqa: E501
-
-        # Phase 17: Universal AI Traffic Gateway
-        state.gateway_status = GatewayStatus()
-        state.ai_detector = AIDetector()
-        state.route_table = RouteTable()
-
-        # Phase 17-02: AI traffic detection and MCP inspection
-        allowlist = HostnameAllowlist()
-        flow_analyzer = FlowAnalyzer()
-        state.allowlist = allowlist
-        state.flow_analyzer = flow_analyzer
-
-        # Create PACGenerator with all known AI provider domains
-        pac_domains = allowlist.get_all_proxy_domains()
-        pac_generator = PACGenerator(
-            pac_domains,
-            settings.HOST,
-            settings.PORT,
-        )
-        state.pac_generator = pac_generator
-        log.info(
-            "PAC generator initialized",
-            component="lifespan",
-            domain_count=len(pac_domains),
-        )
-
-        # Create MCP inspector for protocol detection
-        try:
-            from anonreq.mcp.inspector import MCPInspector as MCPInspectorCls
-
-            mcp_inspector = MCPInspectorCls(flow_analyzer, allowlist)
-            state.mcp_inspector = mcp_inspector
-            log.info("MCP inspector initialized", component="lifespan")
-        except Exception as exc:
-            log.warning(
-                "MCP inspector not available",
-                component="lifespan",
-                error=str(exc),
-            )
-
-        log.info("Phase 17 gateway services initialized", component="lifespan")
-
-        # Phase 20: SOC Integration Service
-        try:
-            soc_config = SOCConfig()
-            mitre_mapper = MITREMapper("config/mitre-mapping.yaml")
-            soc_normalizer = SOCNormalizer(
-                mitre_mapper=mitre_mapper,
-                config=soc_config,
-            )
-            await soc_normalizer.start()
-            state.soc_normalizer = soc_normalizer
-            state.soc_mitre_mapper = mitre_mapper
-            log.info(
-                "SOC Integration Service initialized",
-                component="lifespan",
-                gateway_version=soc_config.gateway_version,
-                appliance_instance_id=soc_config.appliance_instance_id,
-            )
-        except Exception as exc:
-            log.warning(
-                "SOC Integration Service not available",
-                component="lifespan",
-                error=str(exc),
-            )
-
-        # Phase 20-05: SIEM sink infrastructure (config-driven)
-        try:
-            from anonreq.soc.sink_config import SinkConfigLoader
-            from anonreq.soc.sink_factory import build_sinks
-
-            sink_loader = SinkConfigLoader("config/soc-sinks.yaml")
-            sink_definitions = sink_loader.load()
-            sink_router, sink_health_monitor = build_sinks(sink_definitions)
-
-            # Start all enabled sinks
-            await sink_router.start_all()
-
-            # Start periodic health monitor
-            await sink_health_monitor.start()
-
-            state.soc_sink_router = sink_router
-            state.soc_sink_health_monitor = sink_health_monitor
-
-            log.info(
-                "SIEM sinks initialized",
-                component="lifespan",
-                sink_count=len(sink_definitions),
-                enabled_count=sum(1 for d in sink_definitions if d.enabled),
-            )
-        except Exception as exc:
-            log.warning(
-                "SIEM sinks not available — SOC events will not be forwarded",
-                component="lifespan",
-                error=str(exc),
-            )
-
-        # Phase 22: Register SOC normalizer fan-out to sink router
-        if state.soc_normalizer is not None and state.soc_sink_router is not None:
-            state.soc_normalizer.register_sink_callback(
-                "sink_router",
-                state.soc_sink_router.fan_out,
-            )
-            log.info(
-                "SOC normalizer fan-out registered to sink router",
-                component="lifespan",
-            )
-
-        # Phase 21/22: Endpoint visibility deployment topology with PipelineContentDispatcher.
-        try:
-            if state.pipeline is not None:
-                dispatcher = PipelineContentDispatcher(
-                    state.pipeline,
-                    app_state=state,
-                )
-            else:
-                def dispatcher(_request: Any) -> bytes:
-                    return b""
-            state.deployment_proxy = create_deployment_proxy(
-                state.deployment_config,
-                dispatcher,
-            )
-            if _network_proxy_autostart_enabled() and hasattr(state.deployment_proxy, "start"):
-                await state.deployment_proxy.start(
-                    state.deployment_config.listen_host,
-                    state.deployment_config.listen_port,
-                )
-            log.info(
-                "Deployment proxy initialized",
-                component="lifespan",
-                deployment_mode=state.deployment_config.mode.value,
-                listener_started=_network_proxy_autostart_enabled(),
-            )
-        except Exception as exc:
-            log.error(
-                "Failed to initialize deployment proxy",
-                component="lifespan",
-                deployment_mode=state.deployment_config.mode.value,
-                error=str(exc),
-            )
-            await cache_manager.close()
-            raise
-
-        # Phase 24: Trust Center — public compliance evidence portal
-        try:
-            import yaml
-            trust_config_path = "config/trust_center.yaml"
-            with open(trust_config_path) as f:
-                trust_yaml = yaml.safe_load(f) or {}
-            trust_settings = TrustCenterConfig(**trust_yaml)
-            state.trust_center_settings = trust_settings
-            state.trust_center_enabled = trust_settings.enabled
-
-            trust_center_service = TrustCenterService(
-                slo_engine=state.slo_engine,
-                preset_engine=state.preset_engine,
-                settings=trust_settings,
-            )
-            state.trust_center_service = trust_center_service
-
-            trust_rate_limiter = TrustCenterRateLimiter(cache_manager)
-            state.trust_center_rate_limiter = trust_rate_limiter
-
-            log.info(
-                "Trust Center initialised",
-                component="lifespan",
-                enabled=trust_settings.enabled,
-            )
-        except Exception as exc:
-            log.error(
-                "Trust Center initialisation failed",
-                component="lifespan",
-                error=str(exc),
-            )
-            state.trust_center_enabled = False
-
-        # Phase 26: Initialize compliance evidence service
-        compliance_evidence_service = ComplianceEvidenceService(
-            slo_engine=state.slo_engine,
-            audit_chain=state.audit_chain,
-            governance_service=None,  # wired when governance service available
-            incident_service=None,
-        )
-        state.compliance_evidence_service = compliance_evidence_service
-
-        # Phase 26: Startup license validation
-        license_status = await LicenseValidator.validate_license()
-        log.info(
-            "License validation complete",
-            component="lifespan",
-            valid=license_status.valid,
-            tier=license_status.tier.value if license_status.tier else None,
-            features=[f.value for f in license_status.features],
-            organization=license_status.organization,
-        )
+        # Domain-specific bootstrap sequence
+        await bootstrap_locale_detection(app, cache_manager)
+        await bootstrap_policy_engine(app, cache_manager)
+        await bootstrap_mitm_proxy(app)
+        await bootstrap_audit_services(app)
+        await bootstrap_slo_services(app, cache_manager)
+        await bootstrap_governance_services(app, cache_manager)
+        await bootstrap_gateway_services(app)
+        await bootstrap_soc_services(app)
+        await bootstrap_deployment_proxy(app, cache_manager)
+        await bootstrap_trust_center(app, cache_manager)
+        await bootstrap_compliance_services(app)
 
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
         # Clean shutdown
-        log.info("Shutting down", component="lifespan")
-        if state.deployment_proxy is not None and hasattr(state.deployment_proxy, "stop"):
-            await state.deployment_proxy.stop()
-        if state.soc_sink_health_monitor is not None:
-            await state.soc_sink_health_monitor.stop()
-            log.info("Sink health monitor stopped", component="lifespan")
-        if state.soc_sink_router is not None:
-            await state.soc_sink_router.stop_all()
-            log.info("Sink router stopped", component="lifespan")
-        if state.soc_normalizer is not None:
-            await state.soc_normalizer.stop()
-            log.info("SOC normalizer stopped", component="lifespan")
-        if state.webhook_client is not None:
-            await state.webhook_client.aclose()
-        if state.secret_reloader is not None:
-            state.secret_reloader.close()
-        if state.audit_engine is not None:
-            await state.audit_engine.dispose()
-        if state.mitm_handler is not None:
-            await state.mitm_handler.close()
-        if state.ca_manager is not None:
-            await state.ca_manager.close()
-        if state.presidio_client is not None:
-            await state.presidio_client.close()
-        await cache_manager.close()
+        await _shutdown(state, cache_manager)
 
     app = FastAPI(
         title="AnonReq",
@@ -838,6 +422,35 @@ def create_app() -> FastAPI:
         return {"service": "AnonReq", "version": __version__}
 
     return app
+
+
+async def _shutdown(state: Any, cache_manager: Any) -> None:
+    """Ordered teardown of all lifespan-managed services."""
+    log.info("Shutting down", component="lifespan")
+    if state.deployment_proxy is not None and hasattr(state.deployment_proxy, "stop"):
+        await state.deployment_proxy.stop()
+    if state.soc_sink_health_monitor is not None:
+        await state.soc_sink_health_monitor.stop()
+        log.info("Sink health monitor stopped", component="lifespan")
+    if state.soc_sink_router is not None:
+        await state.soc_sink_router.stop_all()
+        log.info("Sink router stopped", component="lifespan")
+    if state.soc_normalizer is not None:
+        await state.soc_normalizer.stop()
+        log.info("SOC normalizer stopped", component="lifespan")
+    if state.webhook_client is not None:
+        await state.webhook_client.aclose()
+    if state.secret_reloader is not None:
+        state.secret_reloader.close()
+    if state.audit_engine is not None:
+        await state.audit_engine.dispose()
+    if state.mitm_handler is not None:
+        await state.mitm_handler.close()
+    if state.ca_manager is not None:
+        await state.ca_manager.close()
+    if state.presidio_client is not None:
+        await state.presidio_client.close()
+    await cache_manager.close()
 
 
 app = create_app()
