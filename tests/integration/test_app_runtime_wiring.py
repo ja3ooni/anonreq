@@ -9,6 +9,7 @@ Tests verify:
 from __future__ import annotations
 
 from datetime import UTC
+from unittest.mock import MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -22,6 +23,7 @@ from anonreq.main import create_app
 def app():
     _app = create_app()
     _app.dependency_overrides[auth_context] = lambda: None
+    _app.state.cache_manager = MagicMock()
     return _app
 
 

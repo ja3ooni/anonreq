@@ -1,7 +1,7 @@
 """Pre-flight dependency validation for startup.
 
-Provides ``run_startup_checks()`` which verifies Valkey and Presidio
-are reachable before the application starts accepting traffic.
+Provides ``run_startup_checks()`` which verifies cache health and
+Presidio reachability before the application starts accepting traffic.
 
 Per FAIL-04: Pre-flight health check prevents startup until all
 components pass. The application refuses to start if any dependency
@@ -21,6 +21,8 @@ from urllib.parse import urlparse
 
 import structlog
 
+from anonreq.cache.health import check_cache_health
+from anonreq.cache.manager import CacheManager
 from anonreq.config import Settings
 
 logger = structlog.get_logger()
@@ -139,32 +141,44 @@ async def _check_with_retry(
     return False
 
 
-async def run_startup_checks(settings: Settings) -> None:
+async def run_startup_checks(settings: Settings, cache_manager: CacheManager) -> None:
     """Run all pre-flight dependency checks with retries.
 
-    Checks Valkey and Presidio reachability sequentially with retries
-    to handle container startup races in Docker Compose. If either check
-    exhausts its retry budget, raises ``DependencyUnavailableError``.
+    Checks cache health and Presidio reachability sequentially with
+    retries to handle container startup races in Docker Compose. If
+    either check exhausts its retry budget, raises
+    ``DependencyUnavailableError``.
 
     Args:
         settings: The application settings instance providing dependency URLs.
+        cache_manager: Lifespan-created cache manager for topology-aware
+            health checks.
 
     Raises:
         DependencyUnavailableError: If Valkey or Presidio is unreachable.
     """
-    # Check Valkey
-    logger.info("Checking Valkey connectivity", component="startup_checks")
-    valkey_ok = await _check_with_retry(
-        "Valkey",
-        lambda: check_valkey(settings.VALKEY_URL),
-    )
-    if not valkey_ok:
-        logger.error("Valkey unreachable", component="startup_checks")
+    # Check cache health via the lifespan-owned CacheManager instance.
+    logger.info("Checking cache health", component="startup_checks")
+    try:
+        cache_health = await check_cache_health(cache_manager)
+    except Exception:
+        cache_health = {
+            "reachable": False,
+            "persistence_disabled": False,
+            "healthy": False,
+        }
+    if not cache_health.get("healthy", False):
+        logger.error(
+            "Cache unhealthy",
+            component="startup_checks",
+            reachable=cache_health.get("reachable", False),
+            persistence_disabled=cache_health.get("persistence_disabled", False),
+        )
         from anonreq.exceptions import DependencyUnavailableError
 
         raise DependencyUnavailableError(dependency="valkey")
 
-    logger.info("Valkey reachable", component="startup_checks")
+    logger.info("Cache healthy", component="startup_checks")
 
     # Check Presidio
     logger.info("Checking Presidio connectivity", component="startup_checks")

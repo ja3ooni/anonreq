@@ -12,7 +12,133 @@ Per D-13, D-14, D-15 and CACH-01 through CACH-06:
 
 from __future__ import annotations
 
+import asyncio
+import random
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any, TypeVar
+from urllib.parse import urlparse
+
 import redis.asyncio as redis
+from redis.asyncio.cluster import ClusterNode, RedisCluster
+from redis.asyncio.sentinel import Sentinel
+from tenacity import retry, retry_if_exception, stop_after_delay, wait_exponential
+
+from anonreq.exceptions import DependencyUnavailableError
+
+T = TypeVar("T")
+
+_RETRY_STOP_SECONDS = 30.0
+_RETRY_WAIT_MIN = 0.1
+_RETRY_WAIT_MAX = 2.0
+_RETRY_WAIT_MULTIPLIER = 0.1
+_RETRY_JITTER_LOW = 0.8
+_RETRY_JITTER_HIGH = 1.2
+
+
+@dataclass(frozen=True)
+class _ParsedTopology:
+    scheme: str
+    url: str
+    standalone_url: str | None = None
+    sentinel_nodes: tuple[tuple[str, int], ...] = ()
+    cluster_nodes: tuple[ClusterNode, ...] = ()
+    service_name: str | None = None
+
+
+def _is_retryable_cache_error(exc: BaseException) -> bool:
+    from redis import exceptions as redis_exceptions
+
+    retryable = (
+        redis_exceptions.ConnectionError,
+        redis_exceptions.TimeoutError,
+        redis_exceptions.ReadOnlyError,
+        redis_exceptions.ClusterDownError,
+        redis_exceptions.MasterDownError,
+    )
+    return isinstance(exc, retryable)
+
+
+def _cache_retry_wait(retry_state: Any) -> float:
+    base_wait = wait_exponential(
+        multiplier=_RETRY_WAIT_MULTIPLIER,
+        min=_RETRY_WAIT_MIN,
+        max=_RETRY_WAIT_MAX,
+    )(retry_state)
+    jitter = random.uniform(_RETRY_JITTER_LOW, _RETRY_JITTER_HIGH)
+    bounded = base_wait * jitter
+    return max(_RETRY_WAIT_MIN, min(_RETRY_WAIT_MAX, bounded))
+
+
+def _parse_host_port_list(raw_authority: str) -> tuple[tuple[str, int], ...]:
+    hosts: list[tuple[str, int]] = []
+    for entry in raw_authority.split(","):
+        node = entry.strip()
+        if not node or "@" in node:
+            raise ValueError("invalid cache topology")
+        host, sep, port_text = node.rpartition(":")
+        if not sep or not host or not port_text or ":" in host:
+            raise ValueError("invalid cache topology")
+        try:
+            port = int(port_text)
+        except ValueError as exc:
+            raise ValueError("invalid cache topology") from exc
+        if port < 1 or port > 65535:
+            raise ValueError("invalid cache topology")
+        hosts.append((host, port))
+    if not hosts:
+        raise ValueError("invalid cache topology")
+    return tuple(hosts)
+
+
+def _parse_topology(redis_url: str) -> _ParsedTopology:
+    raw_url = redis_url.strip()
+    if not raw_url:
+        raise ValueError("cache url is required")
+
+    parsed = urlparse(raw_url)
+    scheme = parsed.scheme.lower()
+    if scheme in {"redis", "rediss"}:
+        return _ParsedTopology(scheme=scheme, url=raw_url, standalone_url=raw_url)
+
+    if scheme == "redis+sentinel":
+        if parsed.query or parsed.fragment or parsed.params or parsed.username or parsed.password:
+            raise ValueError("invalid cache topology")
+        service_name = parsed.path.lstrip("/")
+        if not service_name or "/" in service_name:
+            raise ValueError("invalid cache topology")
+        return _ParsedTopology(
+            scheme=scheme,
+            url=raw_url,
+            sentinel_nodes=_parse_host_port_list(parsed.netloc),
+            service_name=service_name,
+        )
+
+    if scheme == "redis+cluster":
+        if parsed.query or parsed.fragment or parsed.params or parsed.username or parsed.password:
+            raise ValueError("invalid cache topology")
+        if parsed.path:
+            raise ValueError("invalid cache topology")
+        return _ParsedTopology(
+            scheme=scheme,
+            url=raw_url,
+            cluster_nodes=tuple(
+                ClusterNode(host, port) for host, port in _parse_host_port_list(parsed.netloc)
+            ),
+        )
+
+    raise ValueError("unsupported cache topology")
+
+
+def _cache_retry_decorator(
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
+    return retry(
+        retry=retry_if_exception(_is_retryable_cache_error),
+        wait=_cache_retry_wait,
+        stop=stop_after_delay(_RETRY_STOP_SECONDS),
+        reraise=True,
+        sleep=asyncio.sleep,
+    )
 
 
 class CacheManager:
@@ -27,29 +153,56 @@ class CacheManager:
     """
 
     def __init__(self, redis_url: str, ttl: int = 300) -> None:
-        """Create a new CacheManager with a Valkey connection pool.
-
-        Args:
-            redis_url: Valkey/Redis connection URL (e.g.
-                ``redis://valkey:6379/0``).
-            ttl: Default TTL in seconds for stored mappings. Must be
-                between 60 and 3600 per CACH-02. Defaults to 300.
-        """
-        self._redis = redis.from_url(
-            redis_url,
-            decode_responses=True,
-            health_check_interval=5,
-            socket_connect_timeout=3,
-        )
+        """Create a new CacheManager with a Valkey connection pool."""
+        topology = _parse_topology(redis_url)
+        self._redis = self._build_client(topology)
         self._ttl = ttl
 
-    def _key(self, tenant_id: str, session_id: str) -> str:
-        """Build the Valkey key for a tenant-scoped session mapping.
+    def _build_client(self, topology: _ParsedTopology) -> Any:
+        if topology.standalone_url is not None:
+            return redis.from_url(
+                topology.standalone_url,
+                decode_responses=True,
+                health_check_interval=5,
+                socket_connect_timeout=3,
+            )
+        if topology.sentinel_nodes:
+            sentinel = Sentinel(
+                list(topology.sentinel_nodes),
+                decode_responses=True,
+                health_check_interval=5,
+                socket_connect_timeout=3,
+            )
+            return sentinel.master_for(
+                topology.service_name or "",
+                decode_responses=True,
+                health_check_interval=5,
+                socket_connect_timeout=3,
+            )
+        if topology.cluster_nodes:
+            return RedisCluster(
+                startup_nodes=list(topology.cluster_nodes),
+                decode_responses=True,
+                health_check_interval=5,
+                socket_connect_timeout=3,
+            )
+        raise ValueError("unsupported cache topology")
 
-        Per D-13, the key format provides namespace isolation:
-        ``anonreq:{tenant_id}:{session_id}``
-        """
+    def _key(self, tenant_id: str, session_id: str) -> str:
+        """Build the Valkey key for a tenant-scoped session mapping."""
         return f"anonreq:{tenant_id}:{session_id}"
+
+    async def _execute_with_retry(self, operation: Callable[[], Awaitable[T]]) -> T:
+        @_cache_retry_decorator()
+        async def _run() -> T:
+            return await operation()
+
+        try:
+            return await _run()
+        except Exception as exc:
+            if _is_retryable_cache_error(exc):
+                raise DependencyUnavailableError(dependency="valkey") from None
+            raise
 
     async def store_mapping(
         self,
@@ -57,67 +210,37 @@ class CacheManager:
         session_id: str,
         mapping: dict[str, str],
     ) -> None:
-        """Atomically store token → value mappings with TTL.
+        """Atomically store token → value mappings with TTL."""
 
-        Uses ``pipeline(transaction=True)`` to execute HSET + EXPIRE
-        in a single atomic operation per D-14. This prevents orphaned
-        mappings if the gateway crashes between the two commands.
-
-        Args:
-            tenant_id: Tenant namespace for the key.
-            session_id: Session identifier (UUIDv7 hex).
-            mapping: Dict of ``{token: original_value}`` pairs.
-        """
         key = self._key(tenant_id, session_id)
-        async with self._redis.pipeline(transaction=True) as pipe:
-            await (
-                pipe.hset(key, mapping=mapping)
-                .expire(key, self._ttl)
-                .execute()
-            )
+
+        async def _operation() -> None:
+            async with self._redis.pipeline(transaction=True) as pipe:
+                await pipe.hset(key, mapping=mapping).expire(key, self._ttl).execute()
+
+        await self._execute_with_retry(_operation)
 
     async def get_mapping(
         self,
         tenant_id: str,
         session_id: str,
     ) -> dict[str, str]:
-        """Retrieve all token → value pairs for a session.
+        """Retrieve all token → value pairs for a session."""
 
-        Uses HGETALL per D-15. Returns an empty dict if no mapping
-        exists for the given tenant/session combination.
-
-        Args:
-            tenant_id: Tenant namespace for the key.
-            session_id: Session identifier.
-
-        Returns:
-            Dict of ``{token: original_value}`` pairs, or empty dict.
-        """
         key = self._key(tenant_id, session_id)
-        return await self._redis.hgetall(key)
+        return await self._execute_with_retry(lambda: self._redis.hgetall(key))
 
     async def delete_mapping(
         self,
         tenant_id: str,
         session_id: str,
     ) -> None:
-        """Delete the mapping key for a session.
+        """Delete the mapping key for a session."""
 
-        Per CACH-04, the mapping is deleted asynchronously after the
-        response is sent.  The TTL serves as a fallback cleanup
-        mechanism if the DEL fails.
-
-        Args:
-            tenant_id: Tenant namespace for the key.
-            session_id: Session identifier.
-        """
         key = self._key(tenant_id, session_id)
-        await self._redis.delete(key)
+        await self._execute_with_retry(lambda: self._redis.delete(key))
 
     async def close(self) -> None:
-        """Close the underlying Valkey connection.
+        """Close the underlying Valkey connection."""
 
-        Should be called during application shutdown to release the
-        connection pool.
-        """
         await self._redis.aclose()

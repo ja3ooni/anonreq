@@ -11,7 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 
 from anonreq.governance.webhooks.aml import AmlWebhookManager
-from anonreq.middleware.rbac import require_role
+from anonreq.middleware.rbac import Role, require_role
 from anonreq.models.governance import AmlEventPayload, AmlWebhookConfig
 
 router = APIRouter(prefix="/aml/webhook", tags=["admin-aml"])
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/aml/webhook", tags=["admin-aml"])
 @router.get("/{tenant_id}")
 async def get_aml_webhook_config(
     tenant_id: str,
-    _: None = Depends(require_role("admin")),
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),
 ) -> AmlWebhookConfig | dict[str, str]:
     """Get AML webhook configuration for a tenant."""
     manager = AmlWebhookManager()
@@ -34,7 +34,7 @@ async def get_aml_webhook_config(
 async def set_aml_webhook_config(
     tenant_id: str,
     config: AmlWebhookConfig,
-    _: None = Depends(require_role("admin")),
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),
 ) -> AmlWebhookConfig:
     """Set or update AML webhook configuration for a tenant."""
     manager = AmlWebhookManager()
@@ -45,7 +45,7 @@ async def set_aml_webhook_config(
 @router.post("/{tenant_id}/test")
 async def test_aml_webhook(
     tenant_id: str,
-    _: None = Depends(require_role("admin")),  # noqa: PT019, PT028
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),  # noqa: PT019, PT028
 ) -> dict[str, str]:
     """Send a test AML webhook event for a tenant."""
     from anonreq.governance.webhooks.aml import AmlWebhookManager

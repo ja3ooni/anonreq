@@ -92,6 +92,66 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_ADMIN_ROLE",
         description="Default role assigned to admin API key users.",
     )
+    OIDC_ISSUER: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_OIDC_ISSUER",
+        description="OIDC issuer used to validate admin identity tokens.",
+    )
+    OIDC_AUDIENCE: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_OIDC_AUDIENCE",
+        description="Expected OIDC audience for admin identity tokens.",
+    )
+    OIDC_JWKS_URL: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_OIDC_JWKS_URL",
+        description="JWKS endpoint used to verify OIDC JWT signatures.",
+    )
+    OIDC_ROLE_CLAIM: str = Field(
+        default="role",
+        validation_alias="ANONREQ_OIDC_ROLE_CLAIM",
+        description="Claim name used to project validated OIDC identity into role_principal.",
+    )
+    OIDC_JWKS_CACHE_SECONDS: int = Field(
+        default=300,
+        validation_alias="ANONREQ_OIDC_JWKS_CACHE_SECONDS",
+        description="JWKS cache lifetime in seconds.",
+    )
+    MTLS_ENFORCE: bool = Field(
+        default=False,
+        validation_alias="ANONREQ_MTLS_ENFORCE",
+        description="Enable ingress-forwarded mTLS validation at the gateway boundary.",
+    )
+    MTLS_TRUSTED_PROXY_CIDRS: str = Field(
+        default="",
+        validation_alias="ANONREQ_MTLS_TRUSTED_PROXY_CIDRS",
+        description="Comma-separated CIDR allowlist for trusted ingress proxies.",
+    )
+    MTLS_FORWARD_CERT_HEADER: str = Field(
+        default="X-Forwarded-Client-Cert",
+        validation_alias="ANONREQ_MTLS_FORWARD_CERT_HEADER",
+        description="Header carrying the forwarded client certificate.",
+    )
+    SECRET_BACKEND: str = Field(
+        default="vault",
+        validation_alias="ANONREQ_SECRET_BACKEND",
+        description="Secret backend used to bootstrap provider credentials at startup.",
+    )
+    SECRET_BACKEND_PATH: str = Field(
+        default="anonreq/provider-api-keys",
+        validation_alias="ANONREQ_SECRET_BACKEND_PATH",
+        description="Logical path inside the secret backend for provider credentials.",
+    )
+    SECRET_VOLUME_DIR: str = Field(
+        default="config/secrets",
+        validation_alias="ANONREQ_SECRET_VOLUME_DIR",
+        description="Mounted directory for secret volume reloads.",
+    )
+    SECRET_VOLUME_FILE: str = Field(
+        default="provider-api-keys.json",
+        validation_alias="ANONREQ_SECRET_VOLUME_FILE",
+        description="Filename inside the secret volume that stores provider credentials.",
+    )
 
     # Phase 17: Universal AI Traffic Gateway settings
     CA_DIR: str = Field(
@@ -108,7 +168,10 @@ class Settings(BaseSettings):
     LICENSE_SECRET: str | None = Field(
         default=None,
         validation_alias="ANONREQ_LICENSE_SECRET",
-        description="HMAC-SHA256 signing key for license validation. Required for Appliance-tier features.",
+        description=(
+            "HMAC-SHA256 signing key for license validation. Required for "
+            "Appliance-tier features."
+        ),
     )
     LICENSE_KEY: str | None = Field(
         default=None,

@@ -17,21 +17,21 @@ from anonreq.governance.reports import (
     generate_compliance_report,
     list_frameworks,
 )
-from anonreq.middleware.rbac import require_role
+from anonreq.middleware.rbac import Role, require_role
 from anonreq.services.compliance_evidence import ComplianceEvidenceService
 from anonreq.license.validator import require_license
 
 router = APIRouter(
     prefix="/compliance/report",
     tags=["admin-compliance"],
-    dependencies=[Depends(require_role("admin"))],
+    dependencies=[Depends(require_role(Role.ADMINISTRATOR))],
 )
 
 # New router for other compliance endpoints to map directly to /v1/admin/compliance
 evidence_router = APIRouter(
     prefix="/compliance",
     tags=["admin-compliance"],
-    dependencies=[Depends(require_role("admin"))],
+    dependencies=[Depends(require_role(Role.ADMINISTRATOR))],
 )
 
 

@@ -35,8 +35,8 @@ def _make_app_with_principal(role: str | None = None) -> FastAPI:
     async def security_officer_endpoint(_=Depends(require_role(Role.SECURITY_OFFICER))):
         return {"status": "ok"}
 
-    @app.get("/test/read_only")
-    async def readonly_endpoint(_=Depends(require_role(Role.READ_ONLY))):
+    @app.get("/test/read_only_auditor")
+    async def readonly_endpoint(_=Depends(require_role(Role.READ_ONLY_AUDITOR))):
         return {"status": "ok"}
 
     if role is not None:
@@ -78,7 +78,7 @@ class TestRequireRole:
 
     def test_missing_role_raises_403(self):
         """Missing role raises HTTP 403 with structured error body."""
-        app = _make_app_with_principal("read_only")
+        app = _make_app_with_principal("read_only_auditor")
         client = TestClient(app)
         response = client.get("/test/admin")
         assert response.status_code == 403
@@ -96,24 +96,24 @@ class TestRequireRole:
         assert response.status_code == 401
 
     def test_roles_are_hierarchical(self):
-        """Roles are hierarchical: admin > security_officer > operator > read_only."""
+        """Roles are hierarchical: admin > security_officer > operator > read_only_auditor."""
         test_cases = [
             ("administrator", "admin", True),
             ("administrator", "operator", True),
-            ("administrator", "read_only", True),
+            ("administrator", "read_only_auditor", True),
             ("administrator", "security_officer", True),
             ("security_officer", "admin", False),
             ("security_officer", "operator", True),
-            ("security_officer", "read_only", True),
+            ("security_officer", "read_only_auditor", True),
             ("security_officer", "security_officer", True),
             ("operator", "admin", False),
             ("operator", "operator", True),
-            ("operator", "read_only", True),
+            ("operator", "read_only_auditor", True),
             ("operator", "security_officer", False),
-            ("read_only", "admin", False),
-            ("read_only", "operator", False),
-            ("read_only", "read_only", True),
-            ("read_only", "security_officer", False),
+            ("read_only_auditor", "admin", False),
+            ("read_only_auditor", "operator", False),
+            ("read_only_auditor", "read_only_auditor", True),
+            ("read_only_auditor", "security_officer", False),
         ]
         for user_role, endpoint, should_pass in test_cases:
             app = _make_app_with_principal(user_role)
@@ -137,12 +137,12 @@ class TestRequireRole:
         async def admin_endpoint(_=Depends(rbac_check)):
             return {"status": "ok"}
 
-        # Inject a read_only principal (would normally fail without override)
+        # Inject a read_only_auditor principal (would normally fail without override)
         @app.middleware("http")
         async def inject_principal(request, call_next):
             request.state.role_principal = {
                 "principal_id": "test_user",
-                "role": "read_only",
+                "role": "read_only_auditor",
                 "tenant_id": "test_tenant",
             }
             return await call_next(request)

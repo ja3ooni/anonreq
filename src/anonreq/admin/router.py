@@ -1,7 +1,7 @@
 """Admin API router with authentication and RBAC protection.
 
 Aggregates policy management routes under a single router with:
-- Router-level admin API key authentication
+- Router-level OIDC/legacy admin authentication
 - Per-endpoint RBAC via require_role dependencies
 
 Usage in main.py::
@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, Request
 
 from anonreq.admin.aml_webhook_routes import router as aml_webhook_router
 from anonreq.admin.auth import verify_admin_api_key
-from anonreq.admin.compliance_routes import router as compliance_router, evidence_router
+from anonreq.admin.compliance_routes import evidence_router
+from anonreq.admin.compliance_routes import router as compliance_router
 from anonreq.admin.incident_routes import router as incident_router
 from anonreq.admin.policy_routes import router as policy_router
 from anonreq.admin.provider_routes import router as provider_router
@@ -32,31 +33,33 @@ async def require_auth(
     request: Request,
     _authorized: bool = Depends(verify_admin_api_key),
 ) -> None:
-    """Verify admin API key and populate principal for RBAC.
+    """Verify admin auth and populate principal for RBAC.
 
     This dependency:
-    1. Verifies the Bearer token against ANONREQ_ADMIN_API_KEY
-    2. Populates ``request.state.role_principal`` with the configured
-       admin role, unless a principal has already been set (e.g., by
+    1. Verifies the Bearer token via OIDC JWKS or the legacy API-key
+       fallback when OIDC is not configured.
+    2. Populates ``request.state.role_principal`` with the validated
+       principal, unless a principal has already been set (e.g., by
        test middleware or an upstream auth layer)
 
     Args:
         request: The incoming FastAPI request.
-        authorized: Whether the admin API key is valid.
+        authorized: Whether the admin credentials are valid.
             Provided by verify_admin_api_key dependency.
 
     Raises:
         HTTPException: If the admin API key is invalid.
     """
-    # Only set principal if not already present (allows test injection
-    # or upstream auth to provide the role)
     if getattr(request.state, "role_principal", None) is None:
-        role = settings.ADMIN_ROLE
-        request.state.role_principal = {
-            "principal_id": "admin",
-            "role": role,
-            "tenant_id": "*",
-        }
+        oidc_principal = getattr(request.state, "oidc_principal", None)
+        if oidc_principal is not None:
+            request.state.role_principal = oidc_principal
+        else:
+            request.state.role_principal = {
+                "principal_id": "admin",
+                "role": settings.ADMIN_ROLE,
+                "tenant_id": "*",
+            }
 
 
 admin_router = APIRouter(

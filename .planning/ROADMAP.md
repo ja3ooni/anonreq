@@ -52,41 +52,64 @@
 
 **Milestone Goal:** Hardening AnonReq with enterprise-grade SSO/RBAC, multi-tenant isolation, high availability scaling, and secure cloud secrets management.
 
+**Verified implementation baseline (2026-07-13):** `CacheManager` supports standalone
+`redis://`/`rediss://`, Sentinel, and Cluster clients with a health check interval and bounded
+retry handling. Phase 29 added startup secret bootstrap, hot reload, log redaction, and stream-safe
+rotation. Phase 30 adds OIDC/JWKS-backed admin authentication, enterprise RBAC normalization, and
+trusted-ingress mTLS validation. Tenant-specific keys, policy data, and metrics already exist in
+several services, but there is no gateway-wide tenant context, KMS encryption, or Helm chart. The
+phases below must migrate these partial mechanisms into the required end-to-end controls; none
+count as v2.0 acceptance.
+
 #### Phase 28: High Availability Cache & Resilience
+
 **Goal**: Resilient, HA-aware Valkey connection caching logic that is fail-safe during reelection.
 **Depends on**: Phase 27
 **Requirements**: [HA-01, HA-03]
 **Success Criteria** (what must be TRUE):
+
   1. Gateway dynamically routes requests using Valkey Sentinel or Cluster connection factories based on the configured connection scheme.
   2. Valkey connection failures or master reelections fail closed, returning HTTP 5xx errors to the client rather than routing un-anonymized data.
   3. Cache operations successfully recover from transient reelection failover latency via exponential retry backoffs within 30 seconds.
+
 **Plans**: 2 plans
 
 Plans:
-- [ ] 28-01: Implement Valkey Sentinel & Cluster connection factories in CacheManager
-- [ ] 28-02: Implement exponential backoff retries with fail-closed security guards for reelection failovers
+**Wave 1**
+
+- [x] 28-01: Implement Valkey Sentinel & Cluster connection factories in CacheManager
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 28-02: Implement exponential backoff retries with fail-closed security guards for reelection failovers
 
 #### Phase 29: Secure Configuration & Secrets Management
+
 **Goal**: Safe, dynamic secrets retrieval and hot-reloading from HashiCorp Vault / Cloud KMS without env or disk persistence, including secure rotation buffering and logs redaction.
 **Depends on**: Phase 28
 **Requirements**: [SEC-01, SEC-02, SEC-03, SEC-04]
 **Success Criteria** (what must be TRUE):
+
   1. Gateway successfully retrieves credentials dynamically from HashiCorp Vault or Cloud KMS at startup without environment variable or disk persistence.
   2. Modified configurations and rotated secrets are dynamically reloaded in-memory without service disruption when secret volumes change.
   3. Sensitive secret substrings are automatically replaced with `[REDACTED]` in all structured logs.
   4. Active SSE streams continue to function using previous cryptographic keys stored in a read-only rotation buffer during key rotation.
+
 **Plans**: 3 plans
 
 Plans:
-- [ ] 29-01: Integrate hvac and dynamic secret retrieval from Vault/cloud KMS
-- [ ] 29-02: Implement watchdog volume monitor and config hot-reload
-- [ ] 29-03: Implement log formatter secret redaction and rotation buffer grace window
+
+- [x] 29-01: Integrate hvac and dynamic secret retrieval from Vault/cloud KMS
+- [x] 29-02: Implement watchdog volume monitor and config hot-reload
+- [x] 29-03: Implement log formatter secret redaction and rotation buffer grace window
 
 #### Phase 30: Enterprise Authentication & RBAC
+
 **Goal**: Secure administrative and gateway access using OIDC JWT signature verification, predefined enterprise roles, and ingress-forwarded mTLS validation.
 **Depends on**: Phase 29
 **Requirements**: [SSO-01, SSO-02, SSO-03]
 **Success Criteria** (what must be TRUE):
+
   1. Admin and gateway requests are authenticated via OIDC JWT signature verification against cached JWKS endpoints.
   2. Route decorators enforce roles (`administrator`, `security_officer`, `operator`, `read_only_auditor`), blocking unauthorized role access with HTTP 403.
   3. Machine-to-machine requests are verified using mTLS client certificates forwarded by trusted ingress proxies.
@@ -94,36 +117,45 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 30-01: Implement authlib-based OIDC token verification with local JWKS caching
-- [ ] 30-02: Implement role-based authorization decorator and access control checks
-- [ ] 30-03: Implement mTLS client certificate verification middleware
+
+- [x] 30-01: Replace static API-key principal construction with authlib-based OIDC verification and local JWKS caching
+- [x] 30-02: Normalize the existing RBAC dependencies to enterprise roles and apply them consistently to gateway and admin access
+- [x] 30-03: Implement mTLS client certificate verification middleware
 
 #### Phase 31: Multi-Tenant Segregation & Isolation
+
 **Goal**: Rigid request namespacing, tenant-scoped cache partitioning with dynamic KMS encryption, and tenant-scoped logging/metrics.
 **Depends on**: Phase 30
 **Requirements**: [TEN-01, TEN-02, TEN-03, TEN-04]
 **Success Criteria** (what must be TRUE):
+
   1. Gateway rejects requests missing or failing validation of the `X-AnonReq-Tenant-ID` header.
   2. Valkey cache keys are isolated using tenant-prefixed namespaces (`anonreq:tenant_{tenant_id}:{session_id}`).
   3. Cached token mappings are dynamically encrypted and decrypted in-memory using tenant-specific KMS keys.
   4. Structured logs and custom Prometheus metrics are partitioned/labeled with the corresponding active `tenant_id`.
+
 **Plans**: 3 plans
 
 Plans:
-- [ ] 31-01: Implement TenantContextMiddleware and Valkey prefix isolation
+
+- [ ] 31-01: Implement TenantContextMiddleware and migrate existing tenant-scoped cache usage to a validated, uniform Valkey prefix
 - [ ] 31-02: Implement dynamic key-based encryption for cached token mappings
 - [ ] 31-03: Implement tenant-scoped logging interceptors and labeled Prometheus metrics
 
 #### Phase 32: Kubernetes Deployment & Scaling
+
 **Goal**: Package the enterprise-grade HA, multi-tenant, and secret-managed gateway into an official Helm v3 deployment.
 **Depends on**: Phase 31
 **Requirements**: [HA-02]
 **Success Criteria** (what must be TRUE):
+
   1. Deploy the gateway using an official Helm v3 chart with replica controls and node anti-affinity rules.
   2. Pod count scales dynamically via Horizontal Pod Autoscaler (HPA) based on CPU and memory usage metrics.
+
 **Plans**: 1 plan
 
 Plans:
+
 - [ ] 32-01: Create Helm v3 chart with replica controls and HPA / anti-affinity rules
 
 ## Progress
@@ -158,9 +190,9 @@ Plans:
 | 25. Documentation Parity | v1.5 | 2/2 | Complete | 2026-07-08 |
 | 26. Enterprise Guardrails | v1.5 | 3/3 | Complete | 2026-07-09 |
 | 27. v1.5 Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-07-12 |
-| 28. High Availability Cache & Resilience | v2.0 | 0/2 | Not started | - |
-| 29. Secure Configuration & Secrets Management | v2.0 | 0/3 | Not started | - |
-| 30. Enterprise Authentication & RBAC | v2.0 | 0/3 | Not started | - |
+| 28. High Availability Cache & Resilience | v2.0 | 2/2 | Complete    | 2026-07-12 |
+| 29. Secure Configuration & Secrets Management | v2.0 | 3/3 | Complete    | 2026-07-12 |
+| 30. Enterprise Authentication & RBAC | v2.0 | 3/3 | Complete    | 2026-07-13 |
 | 31. Multi-Tenant Segregation & Isolation | v2.0 | 0/3 | Not started | - |
 | 32. Kubernetes Deployment & Scaling | v2.0 | 0/1 | Not started | - |
 
@@ -172,7 +204,7 @@ Plans:
 | 2. Build the Enterprise Platform | 9 (8–16) | 44/44 | Complete |
 | 3. Build the Moat | 6 (17–22) | 31/31 | Complete |
 | 4. Enterprise Hardening | 5 (23–27) | 11/11 | Complete |
-| 5. Enterprise & Deployment Moat | 5 (28–32) | 0/12 | In progress |
-| **Total** | **32** | **112/124** | **In progress** |
+| 5. Enterprise & Deployment Moat | 5 (28–32) | 3/12 | In progress |
+| **Total** | **32** | **115/124** | **In progress** |
 
 *Archived from consolidated roadmaps. See `.planning/milestones/v1.0-ROADMAP.md` and `.planning/milestones/v1.5-ROADMAP.md` for full phase details.*

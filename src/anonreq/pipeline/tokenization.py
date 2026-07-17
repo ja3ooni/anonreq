@@ -16,7 +16,7 @@ from typing import Any
 
 from structlog import get_logger
 
-from anonreq.exceptions import PipelineAbortError
+from anonreq.exceptions import DependencyUnavailableError, PipelineAbortError
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.base import PipelineStage
 
@@ -150,6 +150,8 @@ class TokenizationStage(PipelineStage):
             )
 
         except PipelineAbortError:
+            raise
+        except DependencyUnavailableError:
             raise
         except (KeyError, TypeError, ValueError, IndexError) as exc:
             ctx.fail_secure(

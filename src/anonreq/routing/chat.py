@@ -29,7 +29,7 @@ from anonreq.detection.pipeline import load_enterprise_recognizers, load_mnpi_re
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
-from anonreq.exceptions import PipelineAbortError
+from anonreq.exceptions import DependencyUnavailableError, PipelineAbortError
 from anonreq.locale.checksum import ChecksumValidatorRegistry
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
@@ -53,8 +53,9 @@ from anonreq.pipeline.stages import (
 )
 from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.pipeline.tool_governance import ToolGovernanceStage
-from anonreq.providers.registry import ProviderNotFoundError, ProviderRegistry
+from anonreq.providers.registry import ProviderNotFoundError, ProviderRegistry, resolve_api_key
 from anonreq.routing.alias_registry import AliasNotFoundError, AliasRegistry
+from anonreq.secrets.store import push_runtime_secret_store, reset_runtime_secret_store
 from anonreq.streaming.cleanup import SessionCleanup
 from anonreq.streaming.emitter import SSEEmitter
 from anonreq.streaming.restoration import StreamingRestorationStage
@@ -143,15 +144,43 @@ def build_pipeline(
     recognizer_merger: RecognizerMerger | None = None,
     checksum_registry: ChecksumValidatorRegistry | None = None,
     app_state: Any = None,
+    secret_store: Any | None = None,
 ) -> PipelineManager:
     """Construct the full anonymization pipeline with all stages."""
     # Determine provider config
     provider_base_url = settings.PROVIDER_BASE_URL
-    provider_api_key = settings.PROVIDER_API_KEY or settings.API_KEY
+    runtime_secret_store = secret_store
+    if runtime_secret_store is None and app_state is not None:
+        runtime_secret_store = getattr(app_state, "secret_store", None)
+    try:
+        provider_api_key = resolve_api_key(
+            "openai",
+            secret_store=runtime_secret_store,
+        )
+    except ValueError:
+        provider_api_key = settings.PROVIDER_API_KEY or settings.API_KEY
     provider_timeout = settings.REQUEST_TIMEOUT_SECONDS
 
     # Create pipeline stages
-    stages = [*build_pre_provider_pipeline(cache_manager, presidio_client, locale_negotiator=locale_negotiator, recognizer_merger=recognizer_merger, checksum_registry=checksum_registry, app_state=app_state).stages, ProviderStage(openai_base_url=provider_base_url, api_key=provider_api_key, timeout=provider_timeout, alias_registry=alias_registry), OutboundDLPStage(app_state=app_state), RestorationStage(), CleanupStage(cache_manager=cache_manager)]  # noqa: E501
+    stages = [
+        *build_pre_provider_pipeline(
+            cache_manager,
+            presidio_client,
+            locale_negotiator=locale_negotiator,
+            recognizer_merger=recognizer_merger,
+            checksum_registry=checksum_registry,
+            app_state=app_state,
+        ).stages,
+        ProviderStage(
+            openai_base_url=provider_base_url,
+            api_key=provider_api_key,
+            timeout=provider_timeout,
+            alias_registry=alias_registry,
+        ),
+        OutboundDLPStage(app_state=app_state),
+        RestorationStage(),
+        CleanupStage(cache_manager=cache_manager),
+    ]
 
     manager = PipelineManager()
     for stage in stages:
@@ -165,6 +194,8 @@ def _raise_for_pipeline_errors(proc_ctx: ProcessingContext) -> None:
         return
 
     last_error = proc_ctx.errors[-1]
+    if isinstance(last_error, DependencyUnavailableError):
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     if isinstance(last_error, PipelineAbortError):
         if last_error.status_code in (400, 403, 404, 501, 451):
             raise HTTPException(
@@ -216,6 +247,11 @@ async def _stream_chat_completions(
 
     proc_ctx = _new_processing_context(body, ctx, request=request)
     request.state.ctx = proc_ctx
+    secret_rotation_buffer = getattr(request.app.state, "secret_rotation_buffer", None)
+    if secret_rotation_buffer is not None:
+        stream_secret_store = secret_rotation_buffer.begin_session(proc_ctx.context_id)
+    else:
+        stream_secret_store = getattr(request.app.state, "secret_store", None)
     pre_provider = build_pre_provider_pipeline(
         cache_manager,
         presidio_client,
@@ -274,6 +310,7 @@ async def _stream_chat_completions(
             audit_logger=logger,
         )
         terminal_state = "FINISH"
+        store_token = push_runtime_secret_store(stream_secret_store)
 
         await restoration.start_session(proc_ctx.tenant_id, proc_ctx.context_id)
 
@@ -340,6 +377,9 @@ async def _stream_chat_completions(
             restoration.close_session()
             proc_ctx.terminal_state = terminal_state
             await cleanup.cleanup(terminal_state)
+            reset_runtime_secret_store(store_token)
+            if secret_rotation_buffer is not None:
+                secret_rotation_buffer.end_session(proc_ctx.context_id)
 
     headers = {
         **emitter.get_headers(),

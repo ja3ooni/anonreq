@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from anonreq.governance.incidents import IncidentManager
-from anonreq.middleware.rbac import require_role
+from anonreq.middleware.rbac import Role, require_role
 from anonreq.models.governance import IncidentRecord, ServiceCriticality
 
 router = APIRouter(prefix="/incidents", tags=["admin-incidents"])
@@ -41,7 +41,7 @@ async def list_incidents(
     criticality: ServiceCriticality | None = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
-    _: None = Depends(require_role("admin")),
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),
 ) -> list[IncidentRecord]:
     """List incidents with optional filtering."""
     manager = IncidentManager()
@@ -57,7 +57,7 @@ async def list_incidents(
 @router.get("/{incident_id}")
 async def get_incident(
     incident_id: str,
-    _: None = Depends(require_role("admin")),
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),
 ) -> IncidentRecord:
     """Get a single incident by ID."""
     manager = IncidentManager()
@@ -71,7 +71,7 @@ async def get_incident(
 @router.post("")
 async def create_incident_manual(
     request: CreateIncidentRequestSchema,
-    _: None = Depends(require_role("admin")),
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),
 ) -> IncidentRecord:
     """Create an incident manually."""
     manager = IncidentManager()
@@ -91,7 +91,7 @@ async def create_incident_manual(
 async def resolve_incident(
     incident_id: str,
     request: ResolveIncidentRequestSchema,
-    _: None = Depends(require_role("admin")),
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),
 ) -> IncidentRecord:
     """Resolve an incident."""
     manager = IncidentManager()

@@ -1,7 +1,8 @@
 """RBAC middleware with role hierarchy verification.
 
 Provides:
-- Role enum with 4 levels: ADMINISTRATOR, SECURITY_OFFICER, OPERATOR, READ_ONLY
+- Role enum with 4 levels: ADMINISTRATOR, SECURITY_OFFICER, OPERATOR,
+  READ_ONLY_AUDITOR
 - Role hierarchy with numerical ordering for >= comparisons
 - require_role() FastAPI dependency that verifies minimum role from auth context
 """
@@ -18,15 +19,22 @@ class Role(StrEnum):
     ADMINISTRATOR = "administrator"
     SECURITY_OFFICER = "security_officer"
     OPERATOR = "operator"
-    READ_ONLY = "read_only"
+    READ_ONLY_AUDITOR = "read_only_auditor"
+    READ_ONLY = "read_only_auditor"
 
 
 ROLE_HIERARCHY: dict[Role, int] = {
     Role.ADMINISTRATOR: 4,
     Role.SECURITY_OFFICER: 3,
     Role.OPERATOR: 2,
-    Role.READ_ONLY: 1,
+    Role.READ_ONLY_AUDITOR: 1,
 }
+
+
+def _normalize_role_value(role: str) -> str:
+    if role == "read_only":
+        return Role.READ_ONLY_AUDITOR.value
+    return role
 
 
 def require_role(minimum_role: Role) -> Callable:
@@ -52,7 +60,7 @@ def require_role(minimum_role: Role) -> Callable:
                 detail={"error": "unauthorized", "message": "Authentication required"},
             )
 
-        user_role_str = principal.get("role", "")
+        user_role_str = _normalize_role_value(principal.get("role", ""))
         try:
             user_role = Role(user_role_str)
         except ValueError:

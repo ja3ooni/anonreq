@@ -21,7 +21,9 @@ Threat model coverage:
 """
 
 import logging
+import re
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 import structlog
@@ -67,6 +69,45 @@ ALLOWLIST: frozenset[str] = frozenset({
     "stage",
     "error",
 })
+
+_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)\bsk-[A-Za-z0-9]{8,}\b"),
+    re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._\-+/=]{8,}\b"),
+)
+_KEY_VALUE_PATTERN = re.compile(r"(?i)\b(api[_-]?key|secret|token|password)\s*[:=]\s*([^\s,'\"]+)")
+
+
+def _redact_text(value: str) -> str:
+    redacted = value
+    for pattern in _SECRET_PATTERNS:
+        redacted = pattern.sub("[REDACTED]", redacted)
+    redacted = _KEY_VALUE_PATTERN.sub(lambda match: f"{match.group(1)}=[REDACTED]", redacted)
+    return redacted
+
+
+def _redact_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return _redact_text(value)
+    if isinstance(value, Mapping):
+        return {key: _redact_value(inner) for key, inner in value.items()}
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_value(item) for item in value)
+    if isinstance(value, set):
+        return {_redact_value(item) for item in value}
+    return value
+
+
+def redact_secret_substrings_processor(
+    _logger: structlog.stdlib.BoundLogger,
+    _method_name: str,
+    event_dict: dict[str, Any],
+) -> dict[str, Any]:
+    """Redact secret-looking substrings from allowlisted log values."""
+    for key, value in list(event_dict.items()):
+        event_dict[key] = _redact_value(value)
+    return event_dict
 
 
 def allowlist_processor(
@@ -137,6 +178,7 @@ def setup_logging(level: str = "INFO") -> None:
             structlog.stdlib.PositionalArgumentsFormatter(),
             structlog.processors.TimeStamper(fmt="iso"),
             allowlist_processor,
+            redact_secret_substrings_processor,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         wrapper_class=structlog.stdlib.BoundLogger,

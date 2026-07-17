@@ -20,9 +20,11 @@ Design decisions:
 from __future__ import annotations
 
 from typing import Any
+from unittest.mock import AsyncMock
 
 from hypothesis import HealthCheck, given, settings
 
+from anonreq.exceptions import DependencyUnavailableError
 from tests.property.conftest import inject_failure
 from tests.property.strategies import FailureMode, PipelinePath, failure_mode_strategy
 
@@ -132,6 +134,38 @@ async def test_fail_secure_logs_output(
     assert len(captured) > 0, (
         f"No log output produced for {failure_mode.value} failure"
     )
+
+
+async def test_cache_dependency_unavailable_returns_503_before_provider(
+    test_app: Any,
+    property_client: Any,
+    provider_spy: Any,
+) -> None:
+    """Cache write failures return 503 and never reach ProviderStage."""
+    cache_manager = test_app.state.cache_manager
+    original_store = cache_manager.store_mapping
+    cache_manager.store_mapping = AsyncMock(
+        side_effect=DependencyUnavailableError(dependency="valkey"),
+    )
+    try:
+        response = await property_client.post(
+            "/v1/chat/completions",
+            json={
+                "model": "gpt-4",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "My email is john@example.com and my name is John",
+                    }
+                ],
+                "stream": False,
+            },
+        )
+    finally:
+        cache_manager.store_mapping = original_store
+
+    assert response.status_code == 503
+    assert provider_spy.called is False
 
 
 # ── Metrics verification ────────────────────────────────────────────────────

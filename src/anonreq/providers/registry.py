@@ -20,6 +20,7 @@ import structlog
 import yaml
 
 from anonreq.providers.adapter import ProviderAdapter
+from anonreq.secrets.store import RuntimeSecretStore, get_runtime_secret_store
 
 logger = structlog.get_logger("anonreq.providers.registry")
 
@@ -45,7 +46,11 @@ class ProviderRegistry:
         adapter = registry.get_adapter("anthropic")
     """
 
-    def __init__(self, config_path: str = "config/providers.yaml") -> None:
+    def __init__(
+        self,
+        config_path: str = "config/providers.yaml",
+        secret_store: RuntimeSecretStore | None = None,
+    ) -> None:
         """Initialise the registry from a YAML config file.
 
         Args:
@@ -57,6 +62,7 @@ class ProviderRegistry:
         """
         self._adapter_paths: dict[str, str] = {}
         self._adapter_cache: dict[str, type[ProviderAdapter]] = {}
+        self._secret_store = secret_store or get_runtime_secret_store()
         self._load_config(config_path)
 
     def _load_config(self, config_path: str) -> None:
@@ -138,10 +144,14 @@ class ProviderRegistry:
         return sorted(self._adapter_paths.keys())
 
 
-def resolve_api_key(provider_name: str) -> str:
+def resolve_api_key(
+    provider_name: str,
+    secret_store: RuntimeSecretStore | None = None,
+) -> str:
     """Resolve the API key for a provider from environment variables.
 
     Resolution order per D-88:
+    0. runtime secret store if bootstrap has populated it
     1. ``ANONREQ_{PROVIDER}_API_KEY`` (preferred)
     2. ``{PROVIDER}_API_KEY`` (fallback)
     3. Raise ``ValueError`` if neither is set
@@ -156,6 +166,12 @@ def resolve_api_key(provider_name: str) -> str:
     Raises:
         ValueError: If no API key is found for the provider.
     """
+    runtime_store = secret_store or get_runtime_secret_store()
+    if runtime_store is not None:
+        key = runtime_store.get_provider_api_key(provider_name)
+        if key:
+            return key
+
     prefix = provider_name.upper()
     env_var = f"ANONREQ_{prefix}_API_KEY"
     key = os.environ.get(env_var)

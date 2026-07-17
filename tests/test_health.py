@@ -1,13 +1,8 @@
-"""Tests for the health endpoint.
+"""Tests for the health endpoint."""
 
-Tests verify:
-- GET /health returns 200 with component status when all healthy
-- GET /health returns 503 when a component is unhealthy
-- Response includes valkey, presidio, and gateway status fields
-- GET /health/ready also works
-"""
+from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -18,9 +13,10 @@ from anonreq.health import router as health_router
 
 @pytest.fixture
 def health_app():
-    """Create a minimal app with only the health router."""
+    """Create a minimal app with the health router and cache state."""
     app = FastAPI()
     app.include_router(health_router)
+    app.state.cache_manager = MagicMock()
     return app
 
 
@@ -34,93 +30,105 @@ async def client(health_app: FastAPI):
 class TestHealthEndpoint:
     """Tests for the GET /health endpoint."""
 
-    @patch("anonreq.health.check_valkey", return_value=True)
-    @patch("anonreq.health.check_presidio", return_value=True)
-    async def test_health_returns_200_when_healthy(
-        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
+    @patch("anonreq.health.check_cache_health", new_callable=AsyncMock)
+    @patch("anonreq.health.check_presidio", new_callable=AsyncMock)
+    async def test_health_returns_200_without_dependency_checks(
+        self,
+        mock_presidio,
+        mock_cache_health,
+        client: AsyncClient,
     ):
-        """Test 1: GET /health returns 200 when all components healthy."""
+        """GET /health returns 200 and does not probe Valkey or Presidio."""
         response = await client.get("/health")
         assert response.status_code == 200
-
-    @patch("anonreq.health.check_valkey", return_value=True)
-    @patch("anonreq.health.check_presidio", return_value=True)
-    async def test_health_response_includes_component_status(
-        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
-    ):
-        """Test 2: /health response includes component status fields."""
-        response = await client.get("/health")
-        body = response.json()
-        assert "status" in body
-        assert "version" in body
-        assert "components" in body
-        assert "valkey" in body["components"]
-        assert "presidio" in body["components"]
-        assert "gateway" in body["components"]
-
-    @patch("anonreq.health.check_valkey", return_value=True)
-    @patch("anonreq.health.check_presidio", return_value=True)
-    async def test_health_healthy_status(
-        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
-    ):
-        """All components healthy → overall status 'healthy'."""
-        response = await client.get("/health")
         body = response.json()
         assert body["status"] == "healthy"
-        assert body["components"]["valkey"]["status"] == "healthy"
-        assert body["components"]["presidio"]["status"] == "healthy"
-        assert body["components"]["gateway"]["status"] == "healthy"
-
-    @patch("anonreq.health.check_valkey", return_value=False)
-    @patch("anonreq.health.check_presidio", return_value=True)
-    async def test_health_503_when_valkey_unhealthy(
-        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
-    ):
-        """Valkey unhealthy → 503 with degraded status."""
-        response = await client.get("/health")
-        assert response.status_code == 503
-        body = response.json()
-        assert body["status"] == "degraded"
-        assert body["components"]["valkey"]["status"] == "unhealthy"
-        assert body["components"]["presidio"]["status"] == "healthy"
-
-    @patch("anonreq.health.check_valkey", return_value=True)
-    @patch("anonreq.health.check_presidio", return_value=False)
-    async def test_health_503_when_presidio_unhealthy(
-        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
-    ):
-        """Presidio unhealthy → 503 with degraded status."""
-        response = await client.get("/health")
-        assert response.status_code == 503
-        body = response.json()
-        assert body["status"] == "degraded"
-        assert body["components"]["presidio"]["status"] == "unhealthy"
-        assert body["components"]["valkey"]["status"] == "healthy"
-
-    @patch("anonreq.health.check_valkey", return_value=False)
-    @patch("anonreq.health.check_presidio", return_value=False)
-    async def test_health_503_when_all_unhealthy(
-        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
-    ):
-        """All components unhealthy → 503 with degraded status."""
-        response = await client.get("/health")
-        assert response.status_code == 503
-        body = response.json()
-        assert body["status"] == "degraded"
-        assert body["components"]["valkey"]["status"] == "unhealthy"
-        assert body["components"]["presidio"]["status"] == "unhealthy"
+        assert body["components"] == {"gateway": {"status": "healthy"}}
+        mock_cache_health.assert_not_awaited()
+        mock_presidio.assert_not_awaited()
 
 
 class TestHealthReadyEndpoint:
     """Tests for the GET /health/ready endpoint."""
 
-    @patch("anonreq.health.check_valkey", return_value=True)
-    @patch("anonreq.health.check_presidio", return_value=True)
-    async def test_health_ready_returns_200(
-        self, _mock_presidio, _mock_valkey, client: AsyncClient  # noqa: PT019
+    @patch("anonreq.health.check_cache_health", new_callable=AsyncMock)
+    @patch("anonreq.health.check_presidio", new_callable=AsyncMock)
+    async def test_health_ready_returns_200_when_ready(
+        self,
+        mock_presidio,
+        mock_cache_health,
+        health_app: FastAPI,
+        client: AsyncClient,
     ):
-        """GET /health/ready returns 200 when healthy."""
+        """GET /health/ready returns 200 when cache and Presidio are healthy."""
+        mock_cache_health.return_value = {
+            "reachable": True,
+            "persistence_disabled": True,
+            "healthy": True,
+            "status": "healthy",
+        }
+        mock_presidio.return_value = True
+
         response = await client.get("/health/ready")
         assert response.status_code == 200
         body = response.json()
         assert body["status"] == "healthy"
+        assert body["components"]["gateway"]["status"] == "healthy"
+        assert body["components"]["valkey"]["status"] == "healthy"
+        assert body["components"]["presidio"]["status"] == "healthy"
+        mock_cache_health.assert_awaited_once_with(health_app.state.cache_manager)
+        mock_presidio.assert_awaited_once()
+
+    @patch("anonreq.health.check_cache_health", new_callable=AsyncMock)
+    @patch("anonreq.health.check_presidio", new_callable=AsyncMock)
+    async def test_health_ready_returns_503_when_cache_unhealthy(
+        self,
+        mock_presidio,
+        mock_cache_health,
+        health_app: FastAPI,
+        client: AsyncClient,
+    ):
+        """GET /health/ready returns 503 when cache health fails."""
+        mock_cache_health.return_value = {
+            "reachable": False,
+            "persistence_disabled": False,
+            "healthy": False,
+            "status": "unhealthy",
+        }
+        mock_presidio.return_value = True
+
+        response = await client.get("/health/ready")
+        assert response.status_code == 503
+        body = response.json()
+        assert body["status"] == "degraded"
+        assert body["components"]["valkey"]["status"] == "unhealthy"
+        assert body["components"]["presidio"]["status"] == "healthy"
+        mock_cache_health.assert_awaited_once_with(health_app.state.cache_manager)
+        mock_presidio.assert_awaited_once()
+
+    @patch("anonreq.health.check_cache_health", new_callable=AsyncMock)
+    @patch("anonreq.health.check_presidio", new_callable=AsyncMock)
+    async def test_health_ready_returns_503_when_presidio_unhealthy(
+        self,
+        mock_presidio,
+        mock_cache_health,
+        health_app: FastAPI,
+        client: AsyncClient,
+    ):
+        """GET /health/ready returns 503 when Presidio health fails."""
+        mock_cache_health.return_value = {
+            "reachable": True,
+            "persistence_disabled": True,
+            "healthy": True,
+            "status": "healthy",
+        }
+        mock_presidio.return_value = False
+
+        response = await client.get("/health/ready")
+        assert response.status_code == 503
+        body = response.json()
+        assert body["status"] == "degraded"
+        assert body["components"]["valkey"]["status"] == "healthy"
+        assert body["components"]["presidio"]["status"] == "unhealthy"
+        mock_cache_health.assert_awaited_once_with(health_app.state.cache_manager)
+        mock_presidio.assert_awaited_once()

@@ -189,3 +189,26 @@ class TestLoggingAllowlist:
         # stderr should have our log output
         lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
         assert len(lines) >= 1
+
+    def test_secret_substrings_are_redacted(self, capsys):
+        """Secret-looking substrings in allowlisted fields are redacted."""
+        import structlog
+
+        from anonreq.logging_config import setup_logging
+
+        setup_logging(level="INFO")
+        log = structlog.get_logger()
+        log.error(
+            "secret_event",
+            component="test",
+            error="failed with api_key=sk-test12345 and token=Bearer abcdefghijk",
+        )
+
+        captured = capsys.readouterr()
+        lines = [l for l in captured.err.split("\n") if l.strip()]  # noqa: E741
+
+        assert len(lines) >= 1
+        entry = json.loads(lines[0])
+        assert entry["error"].count("[REDACTED]") >= 2
+        assert "sk-test12345" not in entry["error"]
+        assert "abcdefghijk" not in entry["error"]

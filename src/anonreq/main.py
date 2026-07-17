@@ -15,6 +15,7 @@ Per D-01, D-02, FAIL-01, FAIL-02, FAIL-03, FAIL-04, AUTH-MINIMAL-01:
 - Health endpoint exposes component status
 """
 
+import os
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from typing import Any
@@ -30,7 +31,7 @@ from structlog import get_logger
 from anonreq.__about__ import __version__
 from anonreq.admin.routes import admin_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
-from anonreq.cache.health import check_cache_health
+from anonreq.auth.oidc import build_oidc_verifier
 from anonreq.cache.manager import CacheManager
 from anonreq.compliance.engine import PresetEngine
 from anonreq.config import settings
@@ -57,6 +58,8 @@ from anonreq.governance.router import (
     governance_router as governance_record_router,
 )
 from anonreq.health import router as health_router
+from anonreq.license.router import router as license_router
+from anonreq.license.validator import LicenseValidator, require_license
 from anonreq.locale.checksum import ChecksumValidatorRegistry
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
@@ -64,6 +67,7 @@ from anonreq.locale.registry import LocaleRegistry
 from anonreq.logging_config import setup_logging
 from anonreq.middleware.classification import ClassificationMiddleware
 from anonreq.middleware.content_type import ContentTypeMiddleware
+from anonreq.middleware.mtls import IngressMTLSMiddleware
 from anonreq.middleware.policy import PolicyMiddleware
 from anonreq.middleware.response_headers import ClassificationResponseMiddleware
 from anonreq.models.request_context import RequestContext
@@ -85,9 +89,6 @@ from anonreq.proxy.modes import (
 )
 from anonreq.proxy.pac import PACGenerator
 from anonreq.proxy.pac import router as pac_router
-from anonreq.trust_center.config import TrustCenterSettings as TrustCenterConfig
-from anonreq.trust_center.router import router as trust_center_router
-from anonreq.trust_center.service import TrustCenterService, TrustCenterRateLimiter
 from anonreq.proxy.pipeline_dispatcher import PipelineContentDispatcher
 from anonreq.proxy.reverse_proxy import ReverseProxy
 from anonreq.proxy.tls import ConfigurationError, TLSInterceptor
@@ -98,17 +99,22 @@ from anonreq.routes.governance import router as governance_router
 from anonreq.routes.models import router as models_router
 from anonreq.routes.oversight import router as oversight_router
 from anonreq.routing.alias_registry import AliasRegistry
-from anonreq.license.router import router as license_router
-from anonreq.license.validator import LicenseValidator, require_license
-from anonreq.services.compliance_evidence import ComplianceEvidenceService
 from anonreq.routing.chat import build_pipeline
 from anonreq.routing.chat import router as chat_router
+from anonreq.secrets.bootstrap import bootstrap_runtime_secret_store
+from anonreq.secrets.reloader import bootstrap_runtime_secret_reloader
+from anonreq.secrets.rotation import SecretRotationBuffer
+from anonreq.secrets.store import RuntimeSecretStore, set_runtime_secret_store
 from anonreq.services.audit_chain import AuditChainService, AuditConfig
 from anonreq.services.chain_anchor import AnchorConfig, ChainAnchorService
+from anonreq.services.compliance_evidence import ComplianceEvidenceService
 from anonreq.soc.config import SOCConfig
 from anonreq.soc.mitre import MITREMapper
 from anonreq.soc.normalizer import SOCNormalizer
 from anonreq.startup_checks import run_startup_checks
+from anonreq.trust_center.config import TrustCenterSettings as TrustCenterConfig
+from anonreq.trust_center.router import router as trust_center_router
+from anonreq.trust_center.service import TrustCenterRateLimiter, TrustCenterService
 
 log = get_logger()
 
@@ -166,6 +172,40 @@ def create_deployment_proxy(
     )
 
 
+def bootstrap_runtime_secrets(app: FastAPI) -> None:
+    """Load provider secrets into app state and the runtime secret store."""
+    app.state.settings = settings
+    if settings.SECRET_BACKEND.strip().casefold() in {"volume", "file"}:
+        app.state.secret_volume_path = f"{settings.SECRET_VOLUME_DIR}/{settings.SECRET_VOLUME_FILE}"
+    secret_source = getattr(app.state, "secret_backend_client", None)
+    if secret_source is None:
+        if (
+            settings.SECRET_BACKEND.strip().casefold() == "vault"
+            and os.environ.get("VAULT_ADDR")
+            and os.environ.get("VAULT_TOKEN")
+        ):
+            app.state.secret_store = bootstrap_runtime_secret_store(settings)
+        else:
+            app.state.secret_store = RuntimeSecretStore()
+            set_runtime_secret_store(app.state.secret_store)
+    else:
+        app.state.secret_store = bootstrap_runtime_secret_store(
+            settings,
+            source=secret_source,
+        )
+    app.state.provider_registry = ProviderRegistry(
+        secret_store=app.state.secret_store,
+    )
+    app.state.secret_rotation_buffer = SecretRotationBuffer(
+        app.state.secret_store.snapshot(),
+    )
+
+
+def bootstrap_secret_volume_reloader(app: FastAPI):
+    """Attach a secret volume reloader when the app exposes a secret path."""
+    return bootstrap_runtime_secret_reloader(app)
+
+
 def create_app() -> FastAPI:
     """Create and configure the AnonReq FastAPI application.
 
@@ -215,28 +255,30 @@ def create_app() -> FastAPI:
         app.state.deployment_config = get_deployment_config()
         app.state.deployment_proxy = None
 
+        if (
+            settings.OIDC_ISSUER
+            and settings.OIDC_AUDIENCE
+            and settings.OIDC_JWKS_URL
+        ):
+            app.state.oidc_verifier = build_oidc_verifier(
+                issuer=settings.OIDC_ISSUER,
+                audience=settings.OIDC_AUDIENCE,
+                jwks_url=settings.OIDC_JWKS_URL,
+                role_claim=settings.OIDC_ROLE_CLAIM,
+                cache_ttl_seconds=settings.OIDC_JWKS_CACHE_SECONDS,
+            )
+
+        # Bootstrap provider secrets before building provider-facing runtime state.
+        bootstrap_runtime_secrets(app)
+
         # Create cache manager for the application lifetime
         cache_manager = CacheManager(
             settings.VALKEY_URL,
             ttl=settings.CACHE_TTL_SECONDS,
         )
 
-        # Run pre-flight health checks on cache during startup
         try:
-            cache_health = await check_cache_health(cache_manager)
-            if not cache_health.get("healthy", False):
-                log.error(
-                    "Cache health check failed",
-                    component="lifespan",
-                    cache_health=cache_health,
-                )
-                raise DependencyUnavailableError(dependency="cache")
-        except Exception:
-            await cache_manager.close()
-            raise
-
-        try:
-            await run_startup_checks(settings)
+            await run_startup_checks(settings, cache_manager)
         except DependencyUnavailableError:
             await cache_manager.close()
             log.error("Pre-flight check failed", component="lifespan")
@@ -244,7 +286,7 @@ def create_app() -> FastAPI:
 
         # Store cache_manager on app state for route handlers
         app.state.cache_manager = cache_manager
-        app.state.provider_registry = ProviderRegistry()
+        app.state.secret_reloader = bootstrap_secret_volume_reloader(app)
         app.state.alias_registry = AliasRegistry(
             provider_registry=app.state.provider_registry
         )
@@ -664,6 +706,8 @@ def create_app() -> FastAPI:
             log.info("SOC normalizer stopped", component="lifespan")
         if hasattr(app.state, "webhook_client"):
             await app.state.webhook_client.aclose()
+        if getattr(app.state, "secret_reloader", None) is not None:
+            app.state.secret_reloader.close()
         if hasattr(app.state, "audit_engine"):
             await app.state.audit_engine.dispose()
         if hasattr(app.state, "mitm_handler"):
@@ -712,6 +756,8 @@ def create_app() -> FastAPI:
         ContentTypeMiddleware,
         dispatcher=_content_type_dispatcher,
     )
+
+    app.add_middleware(IngressMTLSMiddleware)
 
     # Add /metrics endpoint for Prometheus scraping (no auth — scrapers
     # connect on internal networks; secured at network level)

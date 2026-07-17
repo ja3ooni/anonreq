@@ -1,63 +1,87 @@
-"""Admin API key authentication middleware.
-
-Per D-151:
-- Admin API requires authentication via ANONREQ_ADMIN_API_KEY env var
-- Separate from ANONREQ_API_KEY (gateway API key)
-- If ANONREQ_ADMIN_API_KEY is unset, admin endpoints return 401
-"""
+"""Admin authentication for OIDC-backed identity verification."""
 
 from __future__ import annotations
 
-from fastapi import Header, HTTPException
+from fastapi import Header, HTTPException, Request
 
+from anonreq.auth.oidc import OIDCVerificationError, build_oidc_verifier
 from anonreq.config import settings
 
 
+def _oidc_configured() -> bool:
+    return all(
+        (
+            settings.OIDC_ISSUER,
+            settings.OIDC_AUDIENCE,
+            settings.OIDC_JWKS_URL,
+        )
+    )
+
+
+def _legacy_admin_auth_enabled() -> bool:
+    return not _oidc_configured() and bool(settings.ADMIN_API_KEY)
+
+
+def _get_oidc_verifier(request: Request):
+    verifier = getattr(request.app.state, "oidc_verifier", None)
+    if verifier is None:
+        verifier = build_oidc_verifier(
+            issuer=settings.OIDC_ISSUER or "",
+            audience=settings.OIDC_AUDIENCE or "",
+            jwks_url=settings.OIDC_JWKS_URL or "",
+            role_claim=settings.OIDC_ROLE_CLAIM,
+            cache_ttl_seconds=settings.OIDC_JWKS_CACHE_SECONDS,
+        )
+        request.app.state.oidc_verifier = verifier
+    return verifier
+
+
 async def verify_admin_api_key(
+    request: Request,
     authorization: str | None = Header(None),
 ) -> bool:
-    """Verify the admin API key from the Authorization header.
+    """Verify admin access using OIDC JWTs or a legacy API-key fallback.
 
-    The admin API key is configured via the ANONREQ_ADMIN_API_KEY env var.
-    If the env var is unset, all admin endpoints return 401.
-    If the header is missing or the token doesn't match, return 401.
-
-    Args:
-        authorization: The Authorization header value
-            (e.g. "Bearer <admin-key>").
-
-    Returns:
-        True if the key is valid.
-
-    Raises:
-        HTTPException: With 401 status if authentication fails.
+    The OIDC path is used whenever issuer, audience, and JWKS settings are
+    present. In environments that have not been migrated yet, the legacy
+    API-key path remains available as a compatibility fallback.
     """
-    if not settings.ADMIN_API_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail="Admin API not configured",
-        )
+    if _oidc_configured():
+        try:
+            verifier = _get_oidc_verifier(request)
+            principal = await verifier.verify_authorization(authorization)
+        except OIDCVerificationError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        request.state.oidc_principal = principal
+        return True
 
-    if authorization is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Missing Authorization header",
-        )
+    if _legacy_admin_auth_enabled():
+        if authorization is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Missing Authorization header",
+            )
 
-    scheme, _, token = authorization.partition(" ")
-    if scheme.lower() != "bearer" or token != settings.ADMIN_API_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid admin API key",
-        )
+        scheme, _, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or token != settings.ADMIN_API_KEY:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid admin API key",
+            )
+        principal = {
+            "principal_id": "admin",
+            "role": settings.ADMIN_ROLE,
+            "tenant_id": "*",
+        }
+        request.state.oidc_principal = principal
+        return True
 
-    return True
+    raise HTTPException(
+        status_code=401,
+        detail="Admin API not configured",
+    )
 
 
 async def get_admin_api_key() -> str | None:
-    """Return the configured admin API key or None.
-
-    Returns:
-        The admin API key string, or None if not configured.
-    """
+    """Return the configured legacy admin API key, if any."""
     return settings.ADMIN_API_KEY
