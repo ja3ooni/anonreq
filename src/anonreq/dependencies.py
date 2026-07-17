@@ -18,6 +18,8 @@ Per AUTH-MINIMAL-01, D-01, D-11, D-12:
   (request_id set before auth runs).
 """
 
+import hmac
+
 import structlog
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -64,7 +66,7 @@ async def verify_api_key(
             API key.
     """
     token = credentials.credentials
-    if token != settings.API_KEY:
+    if not hmac.compare_digest(token, settings.API_KEY or ""):
         raise AuthenticationError()
     return token
 

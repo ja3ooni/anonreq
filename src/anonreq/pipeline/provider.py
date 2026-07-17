@@ -131,10 +131,17 @@ class ProviderStage(PipelineStage):
                     error_detail = str(error_body)[:200]
                 except Exception:
                     error_detail = response.text[:200] if response.text else "no body"
+                logger.warning(
+                    "provider.error_response",
+                    stage=self.name,
+                    request_id=ctx.request_id,
+                    status_code=response.status_code,
+                    error_detail=error_detail,
+                )
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=502,
-                        message=f"Provider returned HTTP {response.status_code}: {error_detail}",
+                        message=f"Provider returned HTTP {response.status_code}",
                         request_id=ctx.request_id,
                     )
                 )

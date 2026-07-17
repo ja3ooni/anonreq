@@ -18,6 +18,14 @@ class PolicyMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp) -> None:
         super().__init__(app)
 
+    @staticmethod
+    def _extract_tenant_id(request: Request) -> str:
+        """Extract tenant_id from the authenticated principal, falling back to 'default'."""
+        principal = getattr(request.state, "oidc_principal", None)
+        if isinstance(principal, dict):
+            return principal.get("tenant_id", "default") or "default"
+        return "default"
+
     async def dispatch(
         self,
         request: Request,
@@ -34,7 +42,7 @@ class PolicyMiddleware(BaseHTTPMiddleware):
 
         ctx = ProcessingContext(
             request_id=getattr(request.state, "request_id", "unknown"),
-            tenant_id="default",
+            tenant_id=self._extract_tenant_id(request),
         )
 
         try:

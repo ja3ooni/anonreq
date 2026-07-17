@@ -88,11 +88,11 @@ services:
       ANONREQ_PRESIDIO_URL: http://presidio-analyzer:3000
       ANONREQ_POLICY_CONFIG_PATH: config/enterprise-policy.yaml
       ANONREQ_DATABASE_URL: ${ANONREQ_DATABASE_URL:-sqlite+aiosqlite:////app/data/anonreq.db}
-      ANONREQ_MINIO_ACCESS_KEY: ${ANONREQ_MINIO_ACCESS_KEY:-minioadmin}
-      ANONREQ_MINIO_SECRET_KEY: ${ANONREQ_MINIO_SECRET_KEY:-minioadmin}
+      ANONREQ_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?err}
+      ANONREQ_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?err}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
-      MINIO_ACCESS_KEY: ${ANONREQ_MINIO_ACCESS_KEY:-minioadmin}
-      MINIO_SECRET_KEY: ${ANONREQ_MINIO_SECRET_KEY:-minioadmin}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?err}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?err}
       MINIO_SECURE: "false"
       ANONREQ_BREACH_WEBHOOK_URL: ${ANONREQ_BREACH_WEBHOOK_URL:-}
       ANONREQ_ANCHOR_SIGNING_KEY: ${ANONREQ_ANCHOR_SIGNING_KEY:-}
@@ -128,9 +128,9 @@ services:
     image: postgres:16-alpine
     container_name: anonreq-postgres
     environment:
-      POSTGRES_USER: anonreq
-      POSTGRES_PASSWORD: anonreq
-      POSTGRES_DB: anonreq
+      POSTGRES_USER: ${POSTGRES_USER:?err}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
+      POSTGRES_DB: ${POSTGRES_DB:-anonreq}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -150,7 +150,7 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: anonreq-postgres-exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://anonreq:anonreq@postgres:5432/anonreq?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-anonreq}?sslmode=disable"
     depends_on:
       postgres:
         condition: service_healthy
@@ -167,8 +167,8 @@ services:
     container_name: anonreq-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?err}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?err}
     volumes:
       - minio_data:/data
     healthcheck:

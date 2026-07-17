@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hmac
+
 from fastapi import Header, HTTPException, Request
 
 from anonreq.auth.oidc import OIDCVerificationError, build_oidc_verifier
@@ -63,7 +65,9 @@ async def verify_admin_api_key(
             )
 
         scheme, _, token = authorization.partition(" ")
-        if scheme.lower() != "bearer" or token != settings.ADMIN_API_KEY:
+        if scheme.lower() != "bearer" or not hmac.compare_digest(
+            token, settings.ADMIN_API_KEY or ""
+        ):
             raise HTTPException(
                 status_code=401,
                 detail="Invalid admin API key",
