@@ -137,8 +137,12 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
+**Wave 1**
 
 - [ ] 31-01: Implement TenantContextMiddleware and migrate existing tenant-scoped cache usage to a validated, uniform Valkey prefix
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 31-02: Implement dynamic key-based encryption for cached token mappings
 - [ ] 31-03: Implement tenant-scoped logging interceptors and labeled Prometheus metrics
 
