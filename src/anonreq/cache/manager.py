@@ -16,7 +16,7 @@ import asyncio
 import random
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 from urllib.parse import urlparse
 
 import redis.asyncio as redis
@@ -25,6 +25,9 @@ from redis.asyncio.sentinel import Sentinel
 from tenacity import retry, retry_if_exception, stop_after_delay, wait_exponential
 
 from anonreq.exceptions import DependencyUnavailableError
+
+if TYPE_CHECKING:
+    from anonreq.kms.base import KMSClient
 
 T = TypeVar("T")
 
@@ -152,11 +155,14 @@ class CacheManager:
     mappings if the gateway crashes between operations.
     """
 
-    def __init__(self, redis_url: str, ttl: int = 300) -> None:
+    def __init__(
+        self, redis_url: str, ttl: int = 300, kms_client: KMSClient | None = None
+    ) -> None:
         """Create a new CacheManager with a Valkey connection pool."""
         topology = _parse_topology(redis_url)
         self._redis = self._build_client(topology)
         self._ttl = ttl
+        self._kms: KMSClient | None = kms_client
 
     @classmethod
     def _from_client(cls, redis_client: Any, ttl: int = 300) -> CacheManager:
@@ -175,7 +181,7 @@ class CacheManager:
                 socket_connect_timeout=3,
             )
         if topology.sentinel_nodes:
-            sentinel = Sentinel(
+            sentinel = Sentinel(  # type: ignore[no-untyped-call]
                 list(topology.sentinel_nodes),
                 decode_responses=True,
                 health_check_interval=5,
@@ -218,13 +224,26 @@ class CacheManager:
         session_id: str,
         mapping: dict[str, str],
     ) -> None:
-        """Atomically store token → value mappings with TTL."""
+        """Atomically store token → value mappings with TTL.
+
+        Per D-08, when KMS is configured, values are encrypted before
+        Valkey write. Ciphertext is stored; plaintext never touches storage.
+        """
+        import base64
 
         key = self._key(tenant_id, session_id)
 
+        # Per D-08: encrypt values before Valkey write when KMS is configured
+        store_mapping = mapping
+        if self._kms is not None:
+            store_mapping = {}
+            for token, value in mapping.items():
+                ciphertext = await self._kms.encrypt(tenant_id, value.encode())
+                store_mapping[token] = base64.b64encode(ciphertext).decode()
+
         async def _operation() -> None:
             async with self._redis.pipeline(transaction=True) as pipe:
-                await pipe.hset(key, mapping=mapping).expire(key, self._ttl).execute()
+                await pipe.hset(key, mapping=store_mapping).expire(key, self._ttl).execute()
 
         await self._execute_with_retry(_operation)
 
@@ -233,10 +252,30 @@ class CacheManager:
         tenant_id: str,
         session_id: str,
     ) -> dict[str, str]:
-        """Retrieve all token → value pairs for a session."""
+        """Retrieve all token → value pairs for a session.
+
+        Per D-08, when KMS is configured, ciphertext is decrypted
+        after Valkey read. Decryption failures raise
+        DependencyUnavailableError (fail-secure).
+        """
+        import base64
 
         key = self._key(tenant_id, session_id)
-        return await self._execute_with_retry(lambda: self._redis.hgetall(key))
+        raw = await self._execute_with_retry(lambda: self._redis.hgetall(key))
+
+        # Per D-08: decrypt values after Valkey read when KMS is configured
+        if self._kms is not None and raw:
+            try:
+                decrypted = {}
+                for token, ciphertext_b64 in raw.items():
+                    ciphertext = base64.b64decode(ciphertext_b64)
+                    plaintext = await self._kms.decrypt(tenant_id, ciphertext)
+                    decrypted[token] = plaintext.decode()
+                return decrypted
+            except Exception:
+                raise DependencyUnavailableError(dependency="kms") from None
+
+        return raw
 
     async def delete_mapping(
         self,

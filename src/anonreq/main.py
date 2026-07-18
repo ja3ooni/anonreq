@@ -282,6 +282,26 @@ def create_app() -> FastAPI:
 
         # Store cache_manager on app state for route handlers
         state.cache_manager = cache_manager
+
+        # Per D-07/D-08: Configure KMS backend for cache encryption
+        kms_backend = settings.KMS_BACKEND.strip().lower()
+        if kms_backend == "local":
+            from anonreq.kms.cache import InMemoryKeyCache
+            from anonreq.kms.local import LocalAES256GCM
+
+            master_key = os.environ.get("ANONREQ_KMS_MASTER_KEY", "")
+            if not master_key:
+                # Generate ephemeral master key for dev/testing (not for production)
+                master_key = LocalAES256GCM.generate_master_key()
+            key_cache = InMemoryKeyCache(ttl_seconds=settings.CACHE_TTL_SECONDS)
+            kms_client = LocalAES256GCM(master_key=master_key, key_cache=key_cache)
+            cache_manager._kms = kms_client
+            state.kms_client = kms_client
+        else:
+            log.warning(
+                "KMS backend '%s' not yet implemented, cache encryption disabled",
+                kms_backend,
+            )
         state.secret_reloader = bootstrap_secret_volume_reloader(app)
         state.alias_registry = AliasRegistry(
             provider_registry=state.provider_registry
