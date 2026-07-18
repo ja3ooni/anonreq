@@ -19,7 +19,7 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from anonreq.monitoring.metrics import requests_total
+from anonreq.monitoring.metrics import _tenant_label, requests_total
 
 
 class MetricsMiddleware(BaseHTTPMiddleware):
@@ -61,7 +61,12 @@ class MetricsMiddleware(BaseHTTPMiddleware):
         provider: str = getattr(request.state, "provider", "unknown")
         classification: str = getattr(request.state, "classification", "unknown")
 
+        # Per D-11/D-12: Read tenant_id from request.state and use bounded cardinality
+        tenant_id_raw: str = getattr(request.state, "tenant_id", "_unknown")
+        tenant_id_label: str = _tenant_label(tenant_id_raw)
+
         requests_total.labels(
+            tenant_id=tenant_id_label,
             endpoint=endpoint,
             status_code=status_code,
             provider=provider,

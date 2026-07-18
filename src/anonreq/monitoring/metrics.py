@@ -1,26 +1,50 @@
 """Prometheus metric definitions for the AnonReq gateway.
 
 Provides all 8 metrics required by D-139:
-- ``requests_total`` — Counter partitioned by endpoint, status_code, provider, classification
+- ``requests_total`` — Counter partitioned by endpoint, status_code, provider, classification, tenant_id
 - ``detection_latency`` — Histogram of detection engine latency in milliseconds
 - ``entities_detected`` — Counter partitioned by entity_type and locale
 - ``unrestored_tokens`` — Counter partitioned by entity_type
-- ``fail_secure_events`` — Counter partitioned by failure_type
+- ``fail_secure_events`` — Counter partitioned by failure_type and tenant_id
 - ``audit_failures`` — Counter (unlabeled)
 - ``processing_overhead`` — Histogram of gateway processing overhead in milliseconds
 - ``active_config_version`` — Gauge showing current custom rules config version
 
-All metrics use only low-cardinality labels per D-138. No per-request identifiers
-(tenant_id, request_id, session_id) appear in any label. See AG-15.
+Per D-11, per-request counters carry tenant_id label.
+Per D-12, bounded cardinality prevents metrics label explosion.
 """
 
 from prometheus_client import Counter, Gauge, Histogram
 
+# Per D-12: Bounded cardinality for tenant labels
+_known_tenants: set[str] = set()
+MAX_TENANTS: int = 100  # Default; overridden by Settings at runtime
+
+
+def _tenant_label(tenant_id: str) -> str:
+    """Return tenant_id or '_overflow' if cardinality limit exceeded per D-12."""
+    if tenant_id in _known_tenants:
+        return tenant_id
+    if len(_known_tenants) >= MAX_TENANTS:
+        return "_overflow"
+    _known_tenants.add(tenant_id)
+    return tenant_id
+
+
+def set_max_tenants(max_tenants: int) -> None:
+    """Configure the maximum unique tenant labels per D-12."""
+    global MAX_TENANTS
+    MAX_TENANTS = max_tenants
+
+
+# Per D-11: requests_total now carries tenant_id label
+# BREAKING: This is a breaking change for existing Prometheus scrapers
+# that do not expect the tenant_id label.
 requests_total = Counter(
     "anonreq_requests_total",
     "Total requests processed, partitioned by endpoint, status code, provider, "
-    "and classification action",
-    labelnames=["endpoint", "status_code", "provider", "classification"],
+    "classification, and tenant_id",
+    labelnames=["tenant_id", "endpoint", "status_code", "provider", "classification"],
 )
 
 detection_latency = Histogram(
@@ -41,10 +65,11 @@ unrestored_tokens = Counter(
     labelnames=["entity_type"],
 )
 
+# Per D-11: fail_secure_events now carries tenant_id label
 fail_secure_events = Counter(
     "anonreq_fail_secure_events_total",
-    "Fail-secure events triggered, partitioned by failure type",
-    labelnames=["failure_type"],
+    "Fail-secure events triggered, partitioned by failure type and tenant_id",
+    labelnames=["tenant_id", "failure_type"],
 )
 
 audit_failures = Counter(

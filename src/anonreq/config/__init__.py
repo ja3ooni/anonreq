@@ -189,6 +189,11 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_KMS_BACKEND",
         description="KMS backend for tenant encryption: local | aws | gcp.",
     )
+    METRICS_MAX_TENANTS: int = Field(
+        default=100,
+        validation_alias="ANONREQ_METRICS_MAX_TENANTS",
+        description="Maximum unique tenant labels for Prometheus metrics before _overflow fallback.",
+    )
 
     @field_validator("API_KEY", mode="before")
     @classmethod

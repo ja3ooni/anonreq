@@ -267,6 +267,10 @@ def create_app() -> FastAPI:
         # Bootstrap provider secrets before building provider-facing runtime state.
         bootstrap_runtime_secrets(app)
 
+        # Per D-12: Configure bounded cardinality for tenant metrics labels
+        from anonreq.monitoring.metrics import set_max_tenants
+        set_max_tenants(settings.METRICS_MAX_TENANTS)
+
         # Create cache manager for the application lifetime
         cache_manager = CacheManager(
             settings.VALKEY_URL,
