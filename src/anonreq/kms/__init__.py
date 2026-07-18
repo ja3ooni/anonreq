@@ -14,4 +14,4 @@ from anonreq.kms.base import KMSClient
 from anonreq.kms.cache import InMemoryKeyCache
 from anonreq.kms.local import LocalAES256GCM
 
-__all__ = ["KMSClient", "LocalAES256GCM", "InMemoryKeyCache"]
+__all__ = ["InMemoryKeyCache", "KMSClient", "LocalAES256GCM"]

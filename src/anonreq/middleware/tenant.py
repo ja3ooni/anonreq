@@ -22,7 +22,7 @@ from starlette.types import ASGIApp
 
 from anonreq.tenant.registry import TenantRegistry
 
-logger = get_logger("anonreq.middleware.tenant")
+logger = structlog.get_logger("anonreq.middleware.tenant")
 
 _SKIP_PATHS = {"/health", "/health/ready", "/metrics", "/"}
 

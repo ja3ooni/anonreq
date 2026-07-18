@@ -1,9 +1,8 @@
-"""Typed container for application state attached to FastAPI ``app.state``.
+"""Typed subsystem containers for application state.
 
-Provides:
-- ``AppState`` dataclass with typed fields for every attribute stored on
-  ``app.state`` during lifespan startup.
-- ``get_app_state(app)`` helper for typed access from request handlers.
+Provides typed groupings for logically related state fields, plus
+``AppState`` which composes them and maintains backward-compatible
+flat attribute access.
 """
 
 from __future__ import annotations
@@ -21,7 +20,6 @@ if TYPE_CHECKING:
 
     from anonreq.auth.oidc import OIDCVerifier
     from anonreq.cache.manager import CacheManager
-    from anonreq.tenant.registry import TenantRegistry
     from anonreq.compliance.engine import PresetEngine
     from anonreq.config import Settings
     from anonreq.deployment.modes import TopologyConfig as DeploymentConfig
@@ -67,28 +65,194 @@ if TYPE_CHECKING:
     from anonreq.services.transparency import TransparencyService
     from anonreq.soc.mitre import MITREMapper
     from anonreq.soc.normalizer import SOCNormalizer
+    from anonreq.tenant.registry import TenantRegistry
     from anonreq.trust_center.config import TrustCenterSettings
     from anonreq.trust_center.service import TrustCenterRateLimiter, TrustCenterService
 
 
+# ── Subsystem dataclasses ────────────────────────────────────────────────────
+
+
+@dataclass
+class SecretState:
+    """Secret management subsystem."""
+    volume_path: str | None = None
+    store: RuntimeSecretStore | None = None
+    rotation_buffer: SecretRotationBuffer | None = None
+    reloader: SecretVolumeReloader | None = None
+    provider_registry: ProviderRegistry | None = None
+
+
+@dataclass
+class ProxyState:
+    """Proxy / deployment subsystem."""
+    mode: ProxyMode | None = None
+    deployment_config: DeploymentConfig | None = None
+    deployment_proxy: ReverseProxy | TransparentProxy | None = None
+    ca_manager: CAManager | None = None
+    mitm_handler: MITMHandler | None = None
+    pac_generator: PACGenerator | None = None
+
+
+@dataclass
+class DetectionState:
+    """Detection / anonymization subsystem."""
+    presidio_client: PresidioClient | None = None
+    pipeline: PipelineManager | None = None
+    checksum_registry: ChecksumValidatorRegistry | None = None
+    locale_registry: LocaleRegistry | None = None
+    locale_negotiator: LocaleNegotiator | None = None
+    recognizer_merger: RecognizerMerger | None = None
+    preset_engine: PresetEngine | None = None
+    active_compliance_presets: list[str] = field(default_factory=list)
+    cached_pre_provider_pipeline: PipelineManager | None = None
+    firewall_pipeline: FirewallPipeline | None = None
+
+
+@dataclass
+class PolicyState:
+    """Policy engine subsystem."""
+    pdp: PolicyDecisionPoint | None = None
+    pep: PolicyEnforcementPoint | None = None
+    forwarding_guard: ForwardingGuard | None = None
+    policy_store: PolicyStore | None = None
+
+
+@dataclass
+class AuditState:
+    """Audit / compliance subsystem."""
+    engine: AsyncEngine | None = None
+    chain: AuditChainService | None = None
+    chain_anchor: ChainAnchorService | None = None
+    slo_engine: SLOEngine | None = None
+    webhook_client: httpx.AsyncClient | None = None
+    breach_detector: BreachDetector | None = None
+    evidence_service: ComplianceEvidenceService | None = None
+
+
+@dataclass
+class GovernanceState:
+    """Governance / oversight subsystem."""
+    oversight_service: OversightService | None = None
+    lifecycle_service: LifecycleService | None = None
+    transparency_service: TransparencyService | None = None
+    notification_service: NotificationService | None = None
+    approval_manager: ApprovalManager | None = None
+
+
+@dataclass
+class GatewayState:
+    """Gateway / AI detection subsystem."""
+    status: GatewayStatus | None = None
+    ai_detector: AIDetector | None = None
+    route_table: RouteTable | None = None
+    allowlist: HostnameAllowlist | None = None
+    flow_analyzer: FlowAnalyzer | None = None
+    mcp_inspector: MCPInspector | None = None
+
+
+@dataclass
+class SOCState:
+    """SOC / SIEM subsystem."""
+    normalizer: SOCNormalizer | None = None
+    mitre_mapper: MITREMapper | None = None
+    sink_router: Any = None
+    sink_health_monitor: Any = None
+
+
+@dataclass
+class TrustCenterState:
+    """Trust Center subsystem."""
+    settings: TrustCenterSettings | None = None
+    enabled: bool = False
+    service: TrustCenterService | None = None
+    rate_limiter: TrustCenterRateLimiter | None = None
+
+
+# ── Backward-compatible flat-name mapping ────────────────────────────────────
+# Maps old flat field names to (subsystem_attr, field_name) for __getattr__.
+
+_FLAT_MAP: dict[str, tuple[str, str]] = {
+    # Secret management
+    "secret_volume_path": ("secrets", "volume_path"),
+    "secret_store": ("secrets", "store"),
+    "secret_rotation_buffer": ("secrets", "rotation_buffer"),
+    "secret_reloader": ("secrets", "reloader"),
+    "provider_registry": ("secrets", "provider_registry"),
+    # Proxy / deployment
+    "proxy_mode": ("proxy", "mode"),
+    "deployment_config": ("proxy", "deployment_config"),
+    "deployment_proxy": ("proxy", "deployment_proxy"),
+    "ca_manager": ("proxy", "ca_manager"),
+    "mitm_handler": ("proxy", "mitm_handler"),
+    "pac_generator": ("proxy", "pac_generator"),
+    # Detection / anonymization
+    "presidio_client": ("detection", "presidio_client"),
+    "pipeline": ("detection", "pipeline"),
+    "checksum_registry": ("detection", "checksum_registry"),
+    "locale_registry": ("detection", "locale_registry"),
+    "locale_negotiator": ("detection", "locale_negotiator"),
+    "recognizer_merger": ("detection", "recognizer_merger"),
+    "preset_engine": ("detection", "preset_engine"),
+    "active_compliance_presets": ("detection", "active_compliance_presets"),
+    "_cached_pre_provider_pipeline": ("detection", "cached_pre_provider_pipeline"),
+    "firewall_pipeline": ("detection", "firewall_pipeline"),
+    # Policy engine
+    "pdp": ("policy", "pdp"),
+    "pep": ("policy", "pep"),
+    "forwarding_guard": ("policy", "forwarding_guard"),
+    "policy_store": ("policy", "policy_store"),
+    # Audit / compliance
+    "audit_engine": ("audit", "engine"),
+    "audit_chain": ("audit", "chain"),
+    "chain_anchor": ("audit", "chain_anchor"),
+    "slo_engine": ("audit", "slo_engine"),
+    "webhook_client": ("audit", "webhook_client"),
+    "breach_detector": ("audit", "breach_detector"),
+    "compliance_evidence_service": ("audit", "evidence_service"),
+    # Governance / oversight
+    "oversight_service": ("governance", "oversight_service"),
+    "lifecycle_service": ("governance", "lifecycle_service"),
+    "transparency_service": ("governance", "transparency_service"),
+    "notification_service": ("governance", "notification_service"),
+    "approval_manager": ("governance", "approval_manager"),
+    # Gateway / AI detection
+    "gateway_status": ("gateway", "status"),
+    "ai_detector": ("gateway", "ai_detector"),
+    "route_table": ("gateway", "route_table"),
+    "allowlist": ("gateway", "allowlist"),
+    "flow_analyzer": ("gateway", "flow_analyzer"),
+    "mcp_inspector": ("gateway", "mcp_inspector"),
+    # SOC / SIEM
+    "soc_normalizer": ("soc", "normalizer"),
+    "soc_mitre_mapper": ("soc", "mitre_mapper"),
+    "soc_sink_router": ("soc", "sink_router"),
+    "soc_sink_health_monitor": ("soc", "sink_health_monitor"),
+    # Trust Center
+    "trust_center_settings": ("trust_center", "settings"),
+    "trust_center_enabled": ("trust_center", "enabled"),
+    "trust_center_service": ("trust_center", "service"),
+    "trust_center_rate_limiter": ("trust_center", "rate_limiter"),
+}
+
+_DIRECT_FIELDS = frozenset({
+    "settings", "oidc_verifier", "cache_manager",
+    "tenant_registry", "alias_registry",
+    "inventory_service", "content_type_dispatcher",
+})
+
+
 @dataclass
 class AppState:
-    """Typed container for application state attached to FastAPI app."""
+    """Typed container for application state attached to FastAPI app.
+
+    Subsystem fields are accessible via typed attributes
+    (``state.audit.engine``) and via backward-compatible flat names
+    (``state.audit_engine``) through ``__getattr__``.
+    """
 
     # Core configuration
     settings: Settings | None = None
-
-    # Secret management
-    secret_volume_path: str | None = None
-    secret_store: RuntimeSecretStore | None = None
-    secret_rotation_buffer: SecretRotationBuffer | None = None
-    secret_reloader: SecretVolumeReloader | None = None
-    provider_registry: ProviderRegistry | None = None
-
-    # Proxy / deployment
-    proxy_mode: ProxyMode | None = None
-    deployment_config: DeploymentConfig | None = None
-    deployment_proxy: ReverseProxy | TransparentProxy | None = None
 
     # OIDC
     oidc_verifier: OIDCVerifier | None = None
@@ -102,72 +266,41 @@ class AppState:
     # Routing
     alias_registry: AliasRegistry | None = None
 
-    # Detection / anonymization
-    presidio_client: PresidioClient | None = None
-    pipeline: PipelineManager | None = None
-    checksum_registry: ChecksumValidatorRegistry | None = None
-    locale_registry: LocaleRegistry | None = None
-    locale_negotiator: LocaleNegotiator | None = None
-    recognizer_merger: RecognizerMerger | None = None
-    preset_engine: PresetEngine | None = None
-    active_compliance_presets: list[str] = field(default_factory=list)
-
     # Discovery / multimodal
     inventory_service: AssetInventory | None = None
     content_type_dispatcher: ContentTypeDispatcher | None = None
 
-    # Policy engine
-    pdp: PolicyDecisionPoint | None = None
-    pep: PolicyEnforcementPoint | None = None
-    forwarding_guard: ForwardingGuard | None = None
-    policy_store: PolicyStore | None = None
+    # Subsystems
+    secrets: SecretState = field(default_factory=SecretState)
+    proxy: ProxyState = field(default_factory=ProxyState)
+    detection: DetectionState = field(default_factory=DetectionState)
+    policy: PolicyState = field(default_factory=PolicyState)
+    audit: AuditState = field(default_factory=AuditState)
+    governance: GovernanceState = field(default_factory=GovernanceState)
+    gateway: GatewayState = field(default_factory=GatewayState)
+    soc: SOCState = field(default_factory=SOCState)
+    trust_center: TrustCenterState = field(default_factory=TrustCenterState)
 
-    # TLS / MITM
-    ca_manager: CAManager | None = None
-    mitm_handler: MITMHandler | None = None
+    def __getattr__(self, name: str) -> Any:
+        """Backward-compatible flat attribute access.
 
-    # Audit / compliance
-    audit_engine: AsyncEngine | None = None
-    audit_chain: AuditChainService | None = None
-    chain_anchor: ChainAnchorService | None = None
-    slo_engine: SLOEngine | None = None
-    webhook_client: httpx.AsyncClient | None = None
-    breach_detector: BreachDetector | None = None
-    compliance_evidence_service: ComplianceEvidenceService | None = None
+        Delegates to the appropriate subsystem for names in ``_FLAT_MAP``.
+        Raises ``AttributeError`` for unknown names.
+        """
+        if name in _FLAT_MAP:
+            subsystem_name, field_name = _FLAT_MAP[name]
+            subsystem = object.__getattribute__(self, subsystem_name)
+            return getattr(subsystem, field_name)
+        raise AttributeError(f"'AppState' object has no attribute '{name}'")
 
-    # Governance / oversight
-    oversight_service: OversightService | None = None
-    lifecycle_service: LifecycleService | None = None
-    transparency_service: TransparencyService | None = None
-    notification_service: NotificationService | None = None
-    approval_manager: ApprovalManager | None = None
-
-    # Gateway / AI detection
-    gateway_status: GatewayStatus | None = None
-    ai_detector: AIDetector | None = None
-    route_table: RouteTable | None = None
-    allowlist: HostnameAllowlist | None = None
-    flow_analyzer: FlowAnalyzer | None = None
-    pac_generator: PACGenerator | None = None
-    mcp_inspector: MCPInspector | None = None
-
-    # SOC / SIEM
-    soc_normalizer: SOCNormalizer | None = None
-    soc_mitre_mapper: MITREMapper | None = None
-    soc_sink_router: Any = None
-    soc_sink_health_monitor: Any = None
-
-    # Trust Center
-    trust_center_settings: TrustCenterSettings | None = None
-    trust_center_enabled: bool = False
-    trust_center_service: TrustCenterService | None = None
-    trust_center_rate_limiter: TrustCenterRateLimiter | None = None
-
-    # Internal cache (set dynamically, not part of public API)
-    _cached_pre_provider_pipeline: PipelineManager | None = None
-
-    # ForwardingGuard firewall pipeline
-    firewall_pipeline: FirewallPipeline | None = None
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Backward-compatible flat attribute setting."""
+        if name in _FLAT_MAP:
+            subsystem_name, field_name = _FLAT_MAP[name]
+            subsystem = object.__getattribute__(self, subsystem_name)
+            setattr(subsystem, field_name, value)
+        else:
+            object.__setattr__(self, name, value)
 
 
 def get_app_state(app: FastAPI) -> AppState:
@@ -185,9 +318,12 @@ def get_app_state(app: FastAPI) -> AppState:
     if state is None:
         state = AppState()
         # Sync raw attributes that tests / bootstrap already set
-        for fld in AppState.__dataclass_fields__:
-            if fld.startswith("_"):
-                continue
+        for fld in _FLAT_MAP:
+            raw_val = getattr(app.state, fld, _MISSING)
+            if raw_val is not _MISSING:
+                setattr(state, fld, raw_val)
+        # Sync direct fields
+        for fld in _DIRECT_FIELDS:
             raw_val = getattr(app.state, fld, _MISSING)
             if raw_val is not _MISSING:
                 setattr(state, fld, raw_val)

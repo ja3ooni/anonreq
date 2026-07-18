@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import Boolean, DateTime, Integer, String, Text
@@ -40,8 +40,8 @@ class TenantProfile:
     rate_limits: dict[str, Any] = field(default_factory=dict)
     allowed_providers: list[str] = field(default_factory=list)
     allowed_models: list[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
 class TenantRegistryModel(Base):
@@ -80,8 +80,14 @@ class TenantRegistryModel(Base):
             kms_key_arn=profile.kms_key_arn,
             spend_limits_json=json.dumps(profile.spend_limits) if profile.spend_limits else None,
             rate_limits_json=json.dumps(profile.rate_limits) if profile.rate_limits else None,
-            allowed_providers_json=json.dumps(profile.allowed_providers) if profile.allowed_providers else None,
-            allowed_models_json=json.dumps(profile.allowed_models) if profile.allowed_models else None,
+            allowed_providers_json=(
+                json.dumps(profile.allowed_providers)
+                if profile.allowed_providers else None
+            ),
+            allowed_models_json=(
+                json.dumps(profile.allowed_models)
+                if profile.allowed_models else None
+            ),
             created_at=profile.created_at,
             updated_at=profile.updated_at,
         )
@@ -95,8 +101,14 @@ class TenantRegistryModel(Base):
             kms_key_arn=self.kms_key_arn,
             spend_limits=json.loads(self.spend_limits_json) if self.spend_limits_json else {},
             rate_limits=json.loads(self.rate_limits_json) if self.rate_limits_json else {},
-            allowed_providers=json.loads(self.allowed_providers_json) if self.allowed_providers_json else [],
-            allowed_models=json.loads(self.allowed_models_json) if self.allowed_models_json else [],
+            allowed_providers=(
+                json.loads(self.allowed_providers_json)
+                if self.allowed_providers_json else []
+            ),
+            allowed_models=(
+                json.loads(self.allowed_models_json)
+                if self.allowed_models_json else []
+            ),
             created_at=self.created_at,
             updated_at=self.updated_at,
         )

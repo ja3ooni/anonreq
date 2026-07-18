@@ -10,7 +10,6 @@ dict is the authoritative store for middleware-layer lookups.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 import yaml
 from structlog import get_logger

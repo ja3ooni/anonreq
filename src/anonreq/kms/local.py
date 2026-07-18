@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import os
 
-from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from anonreq.kms.base import KMSClient
