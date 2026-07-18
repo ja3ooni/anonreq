@@ -6,12 +6,14 @@ risk assessment operations, and a governance status dashboard.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any, cast
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -41,6 +43,22 @@ from anonreq.models.governance import (
 )
 from anonreq.state import get_app_state
 
+logger = structlog.get_logger()
+
+
+def _log_task_exception(task: asyncio.Task[object]) -> None:
+    """Log exceptions from background tasks to prevent silent failures."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error(
+            "background_task_failed",
+            error=str(exc),
+            task_name=task.get_name(),
+        )
+
+
 governance_router = APIRouter(prefix="/v1/governance", tags=["governance"])
 approval_router = APIRouter(prefix="/v1/oversight/approvals", tags=["approvals"])
 
@@ -66,8 +84,6 @@ def _emit_sync(
 
     Runs in the background to avoid blocking the response.
     """
-    import asyncio
-
     chain = get_app_state(request.app).audit_chain
     if chain is None:
         return
@@ -94,7 +110,8 @@ def _emit_sync(
         with contextlib.suppress(Exception):
             await chain.store_event(event)
 
-        _ = asyncio.ensure_future(_emit())  # noqa: RUF006
+    _task = asyncio.ensure_future(_emit())
+    _task.add_done_callback(_log_task_exception)
 
 
 @governance_router.get("/status")

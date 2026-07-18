@@ -165,7 +165,8 @@ class BreachDetector:
                         logger.error("breach_detector.audit_failed", error=str(e))
 
                 # Fire webhook
-                _ = asyncio.create_task(self._fire_webhook(event))  # noqa: RUF006
+                task = asyncio.create_task(self._fire_webhook(event))
+                task.add_done_callback(self._log_task_exception)
 
         return new_breaches
 
@@ -207,6 +208,18 @@ class BreachDetector:
         # All retries failed
         await self._deliver_to_dlq(event)
         return False
+
+    @staticmethod
+    def _log_task_exception(task: asyncio.Task[object]) -> None:
+        """Log exceptions from background webhook tasks."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error(
+                "breach_webhook_task_failed",
+                error=str(exc),
+            )
 
     async def _deliver_to_dlq(self, event: BreachEvent) -> None:
         """Store failed delivery in Valkey DLQ list (LPUSH)."""

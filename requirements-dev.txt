@@ -6,4 +6,7 @@ pytest==9.1.1
 pytest-asyncio==1.4.0
 hypothesis==6.155.7
 respx==0.23.1
+fakeredis==2.30.0
+ruff==0.9.10
+mypy==1.15.0
 aiosqlite==0.22.1

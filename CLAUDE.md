@@ -52,7 +52,7 @@ Entry point is `create_app()` in `src/anonreq/main.py`, which wires everything: 
 
 **Configuration**: env vars via pydantic-settings (`ANONREQ_` prefix, see `.env.example`) for runtime settings; YAML files in `config/` (policy, classification, compliance presets, audit, export, model aliases, locales) for behavior. Alembic (`alembic/`) manages migrations for the audit database.
 
-**Dependency gotcha**: `sqlalchemy` (and alembic) are imported by `main.py` and the audit services but are *not* declared in `pyproject.toml`, `requirements.txt`, or `uv.lock`. If you touch dependencies, declare them in `pyproject.toml` and keep the pinned `requirements*.txt` files in sync (they are generated mirrors for reproducible builds).
+**Dependency gotcha**: `alembic` is imported by `main.py` and the audit services but was not declared in `pyproject.toml` — it is now declared as of Phase 31. `sqlalchemy` was always declared. If you touch dependencies, declare them in `pyproject.toml` and keep the pinned `requirements*.txt` files in sync (they are generated mirrors for reproducible builds).
 
 ## Planning docs
 

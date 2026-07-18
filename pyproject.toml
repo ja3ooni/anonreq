@@ -36,6 +36,7 @@ dependencies = [
     "soundfile>=0.12.1",
     "presidio-analyzer>=2.2.35",
     "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
     "asyncpg>=0.31.0",
     "aiosqlite>=0.20.0",
     "h11>=0.16.0",
