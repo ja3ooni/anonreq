@@ -135,7 +135,7 @@ class WebhookSink:
             "mitre_technique_id": event.mitre_technique_id,
             "metadata": event.metadata,
         }
-        return self._template.render(**context)
+        return str(self._template.render(**context))
 
     async def send_event(self, event: Any) -> bool:
         """Send a normalized event to the webhook endpoint.

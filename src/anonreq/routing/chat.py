@@ -10,6 +10,7 @@ Per PIPE-01:
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Any
 from uuid import uuid4
 
@@ -53,9 +54,13 @@ from anonreq.pipeline.stages import (
 )
 from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.pipeline.tool_governance import ToolGovernanceStage
-from anonreq.providers.registry import ProviderNotFoundError, ProviderRegistry, resolve_api_key
-from anonreq.routing.alias_registry import AliasNotFoundError, AliasRegistry
-from anonreq.secrets.store import push_runtime_secret_store, reset_runtime_secret_store
+from anonreq.providers.registry import ProviderNotFoundError, resolve_api_key
+from anonreq.routing.alias_registry import AliasNotFoundError
+from anonreq.secrets.store import (
+    RuntimeSecretStore,
+    push_runtime_secret_store,
+    reset_runtime_secret_store,
+)
 from anonreq.state import get_app_state
 from anonreq.streaming.cleanup import SessionCleanup
 from anonreq.streaming.emitter import SSEEmitter
@@ -238,25 +243,28 @@ async def _stream_chat_completions(
     request: Request,
     ctx: RequestContext,
 ) -> StreamingResponse:
-    cache_manager: CacheManager = get_app_state(request.app).cache_manager
-    presidio_client: PresidioClient = get_app_state(request.app).presidio_client
-    alias_registry: AliasRegistry = get_app_state(request.app).alias_registry
-    provider_registry: ProviderRegistry = get_app_state(request.app).provider_registry
-    locale_negotiator: LocaleNegotiator = get_app_state(request.app).locale_negotiator
-    recognizer_merger: RecognizerMerger = get_app_state(request.app).recognizer_merger
-    checksum_registry: ChecksumValidatorRegistry = get_app_state(request.app).checksum_registry
+    cache_manager = get_app_state(request.app).cache_manager
+    presidio_client = get_app_state(request.app).presidio_client
+    alias_registry = get_app_state(request.app).alias_registry
+    provider_registry = get_app_state(request.app).provider_registry
+    locale_negotiator = get_app_state(request.app).locale_negotiator
+    recognizer_merger = get_app_state(request.app).recognizer_merger
+    checksum_registry = get_app_state(request.app).checksum_registry
 
     proc_ctx = _new_processing_context(body, ctx, request=request)
     request.state.ctx = proc_ctx
     secret_rotation_buffer = get_app_state(request.app).secret_rotation_buffer
+    stream_secret_store: RuntimeSecretStore | None
     if secret_rotation_buffer is not None:
-        stream_secret_store = secret_rotation_buffer.begin_session(proc_ctx.context_id)
+        stream_secret_store = secret_rotation_buffer.begin_session(proc_ctx.context_id or "")
     else:
         stream_secret_store = get_app_state(request.app).secret_store
 
     # Reuse cached pipeline from app.state to avoid rebuilding per request
     pre_provider = get_app_state(request.app)._cached_pre_provider_pipeline
     if pre_provider is None:
+        if cache_manager is None or presidio_client is None:
+            raise HTTPException(status_code=503, detail="Service dependencies not initialized")
         pre_provider = build_pre_provider_pipeline(
             cache_manager,
             presidio_client,
@@ -283,11 +291,15 @@ async def _stream_chat_completions(
     provider_request_body["stream"] = True
 
     try:
+        if alias_registry is None:
+            raise HTTPException(status_code=503, detail="Alias registry not initialized")
         alias = alias_registry.resolve(provider_request_body["model"])
         provider_request_body["model"] = alias.model
         proc_ctx.provider = alias.provider
         proc_ctx.model = alias.model
 
+        if provider_registry is None:
+            raise HTTPException(status_code=503, detail="Provider registry not initialized")
         adapter = provider_registry.get_adapter(alias.provider)
         if not adapter.capabilities.streaming:
             raise HTTPException(status_code=400, detail=f"Provider '{alias.provider}' does not support streaming")  # noqa: E501
@@ -306,19 +318,21 @@ async def _stream_chat_completions(
 
     emitter = SSEEmitter()
 
-    async def stream_generator():
+    async def stream_generator() -> AsyncIterator[str]:
         tail_buffer = TailBuffer()
+        if cache_manager is None:
+            raise HTTPException(status_code=503, detail="Cache manager not initialized")
         restoration = StreamingRestorationStage(cache_manager)
         cleanup = SessionCleanup(
             cache_manager=cache_manager,
             tenant_id=proc_ctx.tenant_id,
-            session_id=proc_ctx.context_id,
+            session_id=proc_ctx.context_id or "",
             audit_logger=logger,
         )
         terminal_state = "FINISH"
         store_token = push_runtime_secret_store(stream_secret_store)
 
-        await restoration.start_session(proc_ctx.tenant_id, proc_ctx.context_id)
+        await restoration.start_session(proc_ctx.tenant_id, proc_ctx.context_id or "")
 
         try:
             async for event in adapter.stream_events(provider_request):
@@ -385,7 +399,7 @@ async def _stream_chat_completions(
             await cleanup.cleanup(terminal_state)
             reset_runtime_secret_store(store_token)
             if secret_rotation_buffer is not None:
-                secret_rotation_buffer.end_session(proc_ctx.context_id)
+                secret_rotation_buffer.end_session(proc_ctx.context_id or "")
 
     headers = {
         **emitter.get_headers(),
@@ -434,7 +448,9 @@ async def chat_completions(
         return await _stream_chat_completions(body, request, ctx)
 
     # Access pipeline from app state
-    pipeline: PipelineManager = get_app_state(request.app).pipeline
+    pipeline = get_app_state(request.app).pipeline
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
     proc_ctx = _new_processing_context(body, ctx, request=request)
     request.state.ctx = proc_ctx
 
@@ -471,7 +487,9 @@ async def chat_completions(
     response.headers["X-AnonReq-Entity-Count"] = str(entity_count)
     if proc_ctx.classification_result_v2:
         response.headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name  # noqa: E501
-        response.headers["X-AnonReq-Highest-Entity"] = proc_ctx.classification_result_v2.highest_entity or ""  # noqa: E501
+        response.headers["X-AnonReq-Highest-Entity"] = (
+            proc_ctx.classification_result_v2.highest_entity or ""
+        )
 
     # Serialize response
     validated = ChatCompletionResponse.model_validate(response_data)

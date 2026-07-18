@@ -71,7 +71,7 @@ class ExportConfig:
 class AuditExporter:
     def __init__(self, audit_chain: AuditChainService, config: ExportConfig | None = None, config_path: str = "config/export.yaml") -> None:  # noqa: E501
         self._audit_chain = audit_chain
-        self._minio_client = None
+        self._minio_client: Minio | None = None
 
         if config is not None:
             self._config = config
@@ -323,7 +323,7 @@ class AuditExporter:
         ])
 
         table = pa.Table.from_pydict(data, schema=schema)
-        pq.write_table(table, path)
+        pq.write_table(table, path)  # type: ignore[no-untyped-call]
 
         # Calculate checksum
         sha384 = hashlib.sha384()

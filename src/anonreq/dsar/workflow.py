@@ -13,9 +13,11 @@ from __future__ import annotations
 import contextlib
 import logging
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from anonreq.models.audit import AuditEvent
@@ -41,10 +43,10 @@ class DsarWorkflow:
     def __init__(
         self,
         db: AsyncSession,
-        erasure_service=None,
-        restriction_service=None,
-        legal_hold_manager=None,
-        audit_chain=None,
+        erasure_service: Any = None,
+        restriction_service: Any = None,
+        legal_hold_manager: Any = None,
+        audit_chain: Any = None,
     ) -> None:
         """Initialize the DSAR workflow.
 
@@ -69,7 +71,7 @@ class DsarWorkflow:
         tenant_id: str,
         subject_id: str,
         request_type: DsarRequestType,
-        verification_details: dict | None = None,
+        verification_details: dict[str, Any] | None = None,
         notes: str | None = None,
     ) -> DsarRequest:
         """Submit a new DSAR request.
@@ -184,7 +186,7 @@ class DsarWorkflow:
             await self._db.rollback()
             raise ValueError(f"Failed to verify DSAR request: {request_id}")  # noqa: B904
 
-        if result.rowcount == 0:
+        if cast(CursorResult[Any], result).rowcount == 0:
             raise ValueError(f"DSAR request not found: {request_id}")
 
         return DsarRequest(
@@ -354,7 +356,7 @@ class DsarWorkflow:
             List of matching DsarRequest instances.
         """
         conditions: list[str] = []
-        params: dict = {}
+        params: dict[str, Any] = {}
 
         if tenant_id:
             conditions.append("tenant_id = :tenant_id")
@@ -375,7 +377,7 @@ class DsarWorkflow:
 
         try:
             result = await self._db.execute(stmt, params)
-            rows = await result.fetchall()
+            rows = result.fetchall()
         except Exception:
             return []
 
@@ -395,7 +397,7 @@ class DsarWorkflow:
         )
         try:
             result = await self._db.execute(stmt, {"id": request_id})
-            row = await result.fetchone()
+            row = result.fetchone()
         except Exception:
             return None
 
@@ -434,7 +436,7 @@ class DsarWorkflow:
             await self._db.rollback()
 
     @staticmethod
-    def _row_to_request(row_dict: dict) -> DsarRequest:
+    def _row_to_request(row_dict: dict[str, Any]) -> DsarRequest:
         """Convert a DB row dict to a DsarRequest."""
         request_type_str = row_dict.get("request_type", "ACCESS")
         try:
@@ -467,7 +469,7 @@ class DsarWorkflow:
         self,
         event_type: str,
         tenant_id: str,
-        metadata: dict | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Emit an audit event if audit_chain is available."""
         if self._audit_chain is None:

@@ -10,9 +10,10 @@ import contextlib
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from anonreq.governance.approval import ApprovalManager
 from anonreq.governance.records import (
@@ -45,7 +46,9 @@ approval_router = APIRouter(prefix="/v1/oversight/approvals", tags=["approvals"]
 
 
 async def get_db(request: Request) -> AsyncGenerator[AsyncSession, None]:
-    engine: AsyncEngine = get_app_state(request.app).audit_engine
+    engine = get_app_state(request.app).audit_engine
+    if engine is None:
+        raise RuntimeError("Audit engine not initialized")
     async with async_sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )() as session:
@@ -69,7 +72,7 @@ def _emit_sync(
     if chain is None:
         return
 
-    async def _emit():
+    async def _emit() -> None:
         event = AuditEvent(
             event_id=f"gov_{uuid.uuid4().hex[:24]}",
             prev_hash=None,
@@ -98,7 +101,7 @@ def _emit_sync(
 async def governance_status(
     _request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/status — return governance record status.
 
     Returns total records, overdue reviews, upcoming reviews,
@@ -145,7 +148,7 @@ async def list_records(
     skip: int = 0,
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/records — paginated list of governance records."""
     records = await list_governance_records(db, skip=skip, limit=limit)
     return {"object": "list", "data": [r.model_dump() for r in records]}
@@ -156,7 +159,7 @@ async def get_record(
     tenant_id: str,
     _request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/records/{tenant_id} — get a specific record."""
     record = await get_governance_record(db, tenant_id)
     if record is None:
@@ -170,7 +173,7 @@ async def update_record(
     payload: GovernanceOfficerUpdate,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """PUT /v1/governance/records/{tenant_id} — update officers."""
     try:
         record = await update_governance_record(db, tenant_id, payload.officers)
@@ -191,7 +194,7 @@ async def complete_record_review(
     tenant_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/records/{tenant_id}/reviews — complete a review."""
     try:
         cycle = await complete_review(db, tenant_id)
@@ -213,7 +216,7 @@ async def create_record_risk_assessment(
     payload: RiskAssessment,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/records/{tenant_id}/risk — create risk assessment."""
     try:
         assessment = await create_risk_assessment(
@@ -240,7 +243,7 @@ async def get_record_risk_assessment(
     tenant_id: str,
     _request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/records/{tenant_id}/risk — get risk assessment."""
     assessment = await get_risk_assessment(db, tenant_id)
     if assessment is None:
@@ -254,7 +257,7 @@ async def update_record_risk_assessment(
     payload: RiskAssessment,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """PUT /v1/governance/records/{tenant_id}/risk — update risk assessment."""
     try:
         assessment = await update_risk_assessment(
@@ -277,7 +280,7 @@ async def flag_risk_reassessment(
     tenant_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/records/{tenant_id}/risk/reassess — flag reassessment."""
     try:
         body = await request.json()
@@ -303,7 +306,7 @@ async def flag_risk_reassessment(
 async def trigger_config_reassessment(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/config/trigger-reassessment — check config triggers.
 
     Accepts JSON body with ``tenant_id`` and ``changed_fields``.
@@ -336,7 +339,7 @@ async def list_legal_holds(
     _request: Request,
     tenant_id: str | None = None,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/legal-holds — list active legal holds."""
     from anonreq.retention.legal_hold import LegalHoldManager
 
@@ -349,7 +352,7 @@ async def list_legal_holds(
 async def create_legal_hold(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/legal-holds — create a legal hold."""
     from anonreq.retention.legal_hold import LegalHoldManager
 
@@ -371,7 +374,7 @@ async def release_legal_hold(
     hold_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/legal-holds/{hold_id}/release — release a hold."""
     from anonreq.retention.legal_hold import LegalHoldManager
 
@@ -395,7 +398,7 @@ async def list_suppliers(
     risk_status: str | None = None,
     contract_status: str | None = None,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/suppliers — list suppliers with optional filters."""
     from anonreq.governance.supplier import SupplierGovernance
 
@@ -410,7 +413,7 @@ async def list_suppliers(
 async def create_supplier(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/suppliers — create a supplier record."""
     from anonreq.governance.supplier import SupplierGovernance
 
@@ -429,7 +432,7 @@ async def create_supplier(
 async def get_supplier_overdue_reviews(
     _request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/suppliers/overdue-reviews — list overdue reviews."""
     from anonreq.governance.supplier import SupplierGovernance
 
@@ -443,7 +446,7 @@ async def trigger_supplier_risk_re_evaluation(
     supplier_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/suppliers/{supplier_id}/re-evaluate — trigger re-eval."""
     from anonreq.governance.supplier import SupplierGovernance
 
@@ -479,7 +482,7 @@ def _parse_optional_dt(value: str | None) -> datetime | None:
 async def submit_request(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/dsar/requests — submit a DSAR request."""
     from anonreq.dsar.workflow import DsarWorkflow
 
@@ -501,7 +504,7 @@ async def list_dsar_requests(
     tenant_id: str | None = None,
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/dsar/requests — list DSAR requests with filters."""
     from anonreq.dsar.workflow import DsarWorkflow
 
@@ -516,7 +519,7 @@ async def list_dsar_requests(
 async def get_dsar_request(
     request_id: str,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/dsar/requests/{request_id} — get request status."""
     from anonreq.dsar.workflow import DsarWorkflow
 
@@ -532,7 +535,7 @@ async def fulfill_dsar_request(
     request_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/dsar/requests/{request_id}/fulfill — fulfill."""
     from anonreq.dsar.workflow import DsarWorkflow
 
@@ -552,11 +555,12 @@ async def fulfill_dsar_request(
 async def erase_subject_data(
     subject_id: str,
     _request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/dsar/erasure/{subject_id} — erase subject data."""
     from anonreq.dsar.erasure import DataErasureService
 
     cache = get_app_state(_request.app).cache_manager
+    assert cache is not None
     service = DataErasureService(cache)
     erased = await service.erase_subject_data(subject_id)
     return {"subject_id": subject_id, "erased": erased, "erased_at": datetime.now(UTC).isoformat()}
@@ -566,11 +570,12 @@ async def erase_subject_data(
 async def check_subject_erasure(
     subject_id: str,
     _request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/dsar/erasure/{subject_id} — check erasure status."""
     from anonreq.dsar.erasure import DataErasureService
 
     cache = get_app_state(_request.app).cache_manager
+    assert cache is not None
     service = DataErasureService(cache)
     erased = await service.has_been_erased(subject_id)
     return {"subject_id": subject_id, "erased": erased}
@@ -581,12 +586,13 @@ async def restrict_subject(
     subject_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/dsar/restriction/{subject_id} — restrict processing."""
     from anonreq.dsar.restriction import DataRestrictionService
 
     body = await request.json()
     cache = get_app_state(request.app).cache_manager
+    assert cache is not None
     service = DataRestrictionService(db=db, cache_manager=cache)
     tenant_id = body.get("tenant_id", "default")
     await service.restrict_subject(
@@ -602,11 +608,12 @@ async def check_subject_restriction(
     subject_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/dsar/restriction/{subject_id} — check restriction."""
     from anonreq.dsar.restriction import DataRestrictionService
 
     cache = get_app_state(request.app).cache_manager
+    assert cache is not None
     service = DataRestrictionService(db=db, cache_manager=cache)
     restricted = await service.is_subject_restricted(subject_id)
     return {"subject_id": subject_id, "restricted": restricted}
@@ -617,11 +624,12 @@ async def remove_subject_restriction(
     subject_id: str,
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """DELETE /v1/governance/dsar/restriction/{subject_id} — remove restriction."""
     from anonreq.dsar.restriction import DataRestrictionService
 
     cache = get_app_state(request.app).cache_manager
+    assert cache is not None
     service = DataRestrictionService(db=db, cache_manager=cache)
     removed = await service.remove_restriction(subject_id)
     return {"subject_id": subject_id, "removed": removed}
@@ -631,11 +639,12 @@ async def remove_subject_restriction(
 async def list_restricted_subjects(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/dsar/restrictions — list restricted subjects."""
     from anonreq.dsar.restriction import DataRestrictionService
 
     cache = get_app_state(request.app).cache_manager
+    assert cache is not None
     service = DataRestrictionService(db=db, cache_manager=cache)
     subjects = await service.list_restricted_subjects()
     return {"object": "list", "data": subjects}
@@ -648,7 +657,7 @@ async def list_restricted_subjects(
 async def send_breach_notifications(
     request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/breach/notify — send breach notifications."""
     from anonreq.breach.notifications import BreachNotifier
     from anonreq.breach.templates import BreachTemplateManager
@@ -670,7 +679,7 @@ async def get_breach_notification_queue(
     _request: Request,
     status: str | None = None,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/breach/queue — get notification queue."""
     from anonreq.breach.notifications import BreachNotifier
     from anonreq.breach.templates import BreachTemplateManager
@@ -685,7 +694,7 @@ async def get_breach_notification_queue(
 async def retry_failed_notifications(
     _request: Request,
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/breach/retry — retry failed notifications."""
     from anonreq.breach.notifications import BreachNotifier
     from anonreq.breach.templates import BreachTemplateManager
@@ -699,7 +708,7 @@ async def retry_failed_notifications(
 @governance_router.get("/breach/templates")
 async def list_breach_templates(
     _request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/breach/templates — list available templates."""
     from anonreq.breach.templates import BreachTemplateManager
 
@@ -711,7 +720,7 @@ async def list_breach_templates(
 @governance_router.post("/breach/templates")
 async def set_breach_custom_template(
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/governance/breach/templates — set custom template."""
     from anonreq.breach.templates import BreachTemplateManager
     from anonreq.models.breach import BreachTemplate
@@ -734,16 +743,16 @@ async def set_breach_custom_template(
 
 
 def _get_approval_manager(request: Request) -> ApprovalManager:
-    mgr = get_app_state(request.app).approval_manager
+    mgr: Any = get_app_state(request.app).approval_manager
     if mgr is None:
         raise HTTPException(status_code=503, detail="Approval manager not initialized")
-    return mgr
+    return cast(ApprovalManager, mgr)
 
 
 @approval_router.post("")
 async def create_approval(
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/oversight/approvals — create a pending approval for a tool call.
 
     Creates a cryptographically random 256-bit token and stores the
@@ -785,7 +794,7 @@ async def create_approval(
 async def get_approval(
     token: str,
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/oversight/approvals/{token} — poll approval status.
 
     Returns::
@@ -800,7 +809,7 @@ async def get_approval(
 async def approve_tool_call(
     token: str,
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/oversight/approvals/{token}/approve — approve a pending
     approval token. Body: ``{"decided_by": "...", "note": "..."}``.
 
@@ -823,7 +832,7 @@ async def approve_tool_call(
 async def deny_tool_call(
     token: str,
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/oversight/approvals/{token}/deny — deny a pending
     approval token. Body: ``{"decided_by": "...", "note": "..."}``.
     """
@@ -841,7 +850,7 @@ async def deny_tool_call(
 @approval_router.post("/cleanup")
 async def cleanup_expired_approvals(
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/oversight/approvals/cleanup — scan and delete expired
     approval tokens.
     """

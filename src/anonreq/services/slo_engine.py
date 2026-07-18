@@ -185,14 +185,14 @@ class SLOEngine:
             if not cfg:
                 continue
 
-            target = cfg["target"]
+            target: float = cfg["target"]
 
             # Helper to check compliance Boolean
             def is_compliant(current_val: float) -> bool:
                 if sname == "success_rate" or sname == "audit_write_rate":  # noqa: B023
-                    return current_val >= target  # noqa: B023
+                    return bool(current_val >= target)  # noqa: B023
                 else:  # fail_secure_rate or p95_latency_ms
-                    return current_val <= target  # noqa: B023
+                    return bool(current_val <= target)  # noqa: B023
 
             # Helper to fetch last breach timestamp
             async def get_last_breach(wtype: str) -> datetime | None:
@@ -289,7 +289,7 @@ class SLOEngine:
     async def get_all_compliance(self, tenant_id: str) -> dict[str, list[SLOCompliance]]:
         """Get compliance for all configured SLOs keyed by slo_name."""
         compliance_list = await self.compute_compliance(tenant_id)
-        grouped = {}
+        grouped: dict[str, list[SLOCompliance]] = {}
         for comp in compliance_list:
             grouped.setdefault(comp.slo_name, []).append(comp)
         return grouped

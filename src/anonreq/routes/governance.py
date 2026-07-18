@@ -7,6 +7,7 @@ retrieval via the AuditChainService and ChainAnchorService.
 import contextlib
 import json
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/v1/governance", tags=["governance"])
 
 
 @router.get("/audit/status")
-async def governance_audit_status(request: Request) -> dict:
+async def governance_audit_status(request: Request) -> dict[str, Any]:
     """GET /v1/governance/audit/status — return audit chain and anchor status.
 
     Requires ``audit_chain`` and ``chain_anchor`` services to be
@@ -42,7 +43,7 @@ async def list_audit_events(
     limit: int = 100,
     offset: int = 0,
     event_type: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/governance/audit/events — paginated audit event list.
 
     Returns events with their hash chain metadata.
@@ -74,7 +75,7 @@ async def list_audit_events(
 
 
 @router.get("/audit/verify")
-async def verify_audit_chain(request: Request, tenant_id: str = "default") -> dict:
+async def verify_audit_chain(request: Request, tenant_id: str = "default") -> dict[str, Any]:
     """GET /v1/governance/audit/verify — verify hash chain integrity.
 
     Walks the entire chain and reports whether any tampering is detected.
@@ -95,7 +96,7 @@ async def verify_audit_chain(request: Request, tenant_id: str = "default") -> di
 async def get_governance_status(
     request: Request,
     tenant_id: str = "default",
-) -> dict:
+) -> dict[str, Any]:
     """Return SLO compliance for all configured SLOs."""
     slo_engine = getattr(request.app.state, "slo_engine", None)
     if slo_engine is None:
@@ -131,7 +132,7 @@ async def list_governance_breaches(
     tenant_id: str = "default",
     limit: int = 50,
     offset: int = 0,
-) -> dict:
+) -> dict[str, Any]:
     """Return recent SLO breach events from the audit chain."""
     chain = getattr(request.app.state, "audit_chain", None)
     if chain is None:

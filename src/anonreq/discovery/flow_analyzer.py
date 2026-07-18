@@ -26,7 +26,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 # Known AI API path patterns (case-insensitive substring match)
-AI_PATH_PATTERNS: list[re.Pattern] = [
+AI_PATH_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"/v\d/chat/completions", re.IGNORECASE),
     re.compile(r"/v\d/completions", re.IGNORECASE),
     re.compile(r"/v\d/messages", re.IGNORECASE),
@@ -41,7 +41,7 @@ AI_PATH_PATTERNS: list[re.Pattern] = [
 ]
 
 # AI API key header patterns
-AI_KEY_HEADER_PATTERNS: list[tuple[str, re.Pattern]] = [
+AI_KEY_HEADER_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("authorization", re.compile(r"Bearer\s+sk-[a-zA-Z0-9-]{10,}", re.IGNORECASE)),
     ("x-api-key", re.compile(r"sk-ant-[a-zA-Z0-9]{10,}", re.IGNORECASE)),
     ("x-api-key", re.compile(r"sk-[a-zA-Z0-9-]{10,}", re.IGNORECASE)),

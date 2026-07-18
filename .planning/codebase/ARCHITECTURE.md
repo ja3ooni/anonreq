@@ -1,345 +1,398 @@
-<!-- refreshed: 2026-07-06 -->
 # Architecture
 
-**Analysis Date:** 2026-07-06
+**Analysis Date:** 2026-07-18
 
 ## System Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          HTTP INGRESS (port 8080)                            │
-│                 FastAPI + Uvicorn + Middleware Stack                          │
-├──────────────────┬──────────────────┬──────────────────┬────────────────────┤
-│   Auth Layer     │  Proxy Modes     │  Middleware       │  Admin Routes      │
-│  `dependencies`  │  `proxy/modes`   │  `middleware/`    │  `admin/`          │
-│  Bearer token    │  proxy-only      │  Metrics → Class  │  /v1/admin/*       │
-│  validation      │  full            │  → Policy → Resp  │  Policy/Config     │
-└────────┬─────────┴────────┬─────────┴─────────┬────────┴─────────┬──────────┘
-         │                 │                   │                  │
-         ▼                 ▼                   ▼                  ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                         PIPELINE ORCHESTRATION                               │
-│                     `routing/chat.py` · `pipeline/manager.py`                │
-│                                                                              │
-│  ProcessingContext flows sequentially through registered PipelineStage(s):   │
-│                                                                              │
-│  [1] Classification ─ [2] LocaleNegotiation ─ [3] Detection ─ [4] Sensitivity│
-│  ─ [5] PolicyEnforcement ─ [6] Tokenization ─ [7] ForwardingGuard            │
-│  ─ [8] ProviderStage ─ [9] Restoration ─ [10] Cleanup                        │
-└──────────────────────────────┬──────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       EXTERNAL SYSTEMS / DATA STORES                         │
-│                                                                              │
-│  ┌──────────┐  ┌──────────────┐  ┌──────────┐  ┌────────────┐              │
-│  │ Valkey   │  │   Presidio   │  │PostgreSQL│  │   LLM      │              │
-│  │(ephemeral│  │  Analyzer    │  │ (audit   │  │ Providers  │              │
-│  │ cache)   │  │  (NER+PII)   │  │  chain)  │  │OpenAI/Anthrop│             │
-│  └──────────┘  └──────────────┘  └──────────┘  │ic/Gemini   │              │
-│                                                  │/Ollama    │              │
-│                                                  └────────────┘              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│                          Client Application                          │
+│              (OpenAI-compatible chat completions request)             │
+└───────────────────────────┬──────────────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Middleware Stack                              │
+│  IngressMTLS → MetricsMiddleware → ClassificationMiddleware          │
+│  → PolicyMiddleware → ClassificationResponseMiddleware               │
+│  → ContentTypeMiddleware → set_request_context (request_id)          │
+│  → auth_context (Bearer token validation)                            │
+└───────────────────────────┬──────────────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                    POST /v1/chat/completions                          │
+│                     (routing/chat.py)                                 │
+├───────────────────────────┬──────────────────────────────────────────┤
+│   Non-streaming path       │    Streaming path                       │
+│   (PipelineManager.run)    │    (pre_provider + adapter.stream_events)│
+└───────────────────────────┬──────────────────────────────────────────┘
+                            │
+                            ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                     Anonymization Pipeline                            │
+│                  (pipeline/manager.py — sequential)                   │
+├─────────────────────────────────────────────────────────────────────┤
+│ ClassificationStage → LocaleNegotiationStage → DetectionStage       │
+│ → SensitivityClassificationStage → PolicyEnforcementStage           │
+│ → InboundDLPStage → ToolGovernanceStage → TokenizationStage         │
+│ → ForwardingGuard → ProviderStage → OutboundDLPStage                │
+│ → RestorationStage → CleanupStage                                    │
+└───────────────────────────┬──────────────────────────────────────────┘
+                            │
+              ┌─────────────┴─────────────┐
+              │                           │
+              ▼                           ▼
+┌─────────────────────┐   ┌──────────────────────────────────┐
+│   Provider Adapter   │   │       Cache Manager (Valkey)      │
+│  (OpenAI/Anthropic/  │   │   anonreq:{tenant_id}:{session}  │
+│   Gemini/Ollama)     │   │   Token → original_value mapping  │
+└─────────────────────┘   └──────────────────────────────────┘
 ```
 
 ## Component Responsibilities
 
 | Component | Responsibility | File |
 |-----------|----------------|------|
-| Application Factory | Creates FastAPI app, wires middleware, exception handlers, lifespan, routes | `src/anonreq/main.py` |
-| Auth Dependencies | Bearer token validation, RequestContext creation | `src/anonreq/dependencies.py` |
-| Exception Hierarchy | Fail-secure error classes + global exception handler | `src/anonreq/exceptions.py` |
-| Config / Settings | Pydantic-settings env vars + YAML provider registry | `src/anonreq/config/__init__.py` |
-| Proxy Modes | Mode enum (proxy-only/full/transparent), mode-dependent pipeline | `src/anonreq/proxy/modes.py` |
-| Pipeline Manager | Sequential stage executor with fail-secure abort | `src/anonreq/pipeline/manager.py` |
-| Pipeline Stage Base | Abstract base for all pipeline stages | `src/anonreq/pipeline/base.py` |
-| Chat Route Handler | POST /v1/chat/completions — streaming + non-streaming | `src/anonreq/routing/chat.py` |
-| Detection Engine | Regex + Presidio NER + span arbitration + context boost | `src/anonreq/detection/pipeline.py`, `detection/` |
-| Tokenization Engine | PII→`[TYPE_N]` replacement, in-memory mapping store | `src/anonreq/tokenization/tokenizer.py` |
-| Restoration Engine | Token→original reverse in LLM responses | `src/anonreq/restore/engine.py`, `restore/path_tracker.py` |
-| Streaming Handler | SSE streaming with TailBuffer for split tokens | `src/anonreq/streaming/` |
-| Provider Adapters | OpenAI schema→Anthropic/Gemini/Ollama translation | `src/anonreq/providers/` |
-| Policy Engine | PDP/PEP for rate limits, spend control, residency routing | `src/anonreq/policy/` |
-| Governance | Agent tool call governance, approval, model/provider inventory | `src/anonreq/governance/` |
-| Compliance Engine | Preset-based compliance checks (GDPR, POPIA, etc.) | `src/anonreq/compliance/` |
-| Audit Chain | Immutable audit log with chain anchor | `src/anonreq/services/audit_chain.py` |
-| SLO Engine | Service level objective tracking and breach detection | `src/anonreq/services/slo_engine.py` |
-| Breach Detector | Webhook-based breach notification dispatch | `src/anonreq/services/breach_detector.py` |
-| AI Firewall | Injection detection, jailbreak detection, DLP pipeline | `src/anonreq/firewall/` |
-| SOC Integration | SIEM sink routing, MITRE ATT&CK mapping, event normalization | `src/anonreq/soc/` |
-| Discovery | AI traffic discovery, hostname allowlist, flow analysis | `src/anonreq/discovery/` |
-| Multimodal | Image/file content analysis for PII in non-text payloads | `src/anonreq/multimodal/` |
-| Voice Pipeline | Voice sanitization, STT engine, detector | `src/anonreq/voice/` |
-| Health Endpoints | GET /health, GET /health/ready for load balancers/Docker | `src/anonreq/health.py` |
-| Startup Checks | Pre-flight Valkey + Presidio connectivity | `src/anonreq/startup_checks.py` |
-| Logging Config | Structured JSON logging with strict field allowlist | `src/anonreq/logging_config.py` |
+| Application Factory | Wires middleware, routes, lifespan, exception handlers | `src/anonreq/main.py` |
+| PipelineManager | Sequential stage executor with fail-secure abort | `src/anonreq/pipeline/manager.py` |
+| PipelineStage (ABC) | Interface for all pipeline stages | `src/anonreq/pipeline/base.py` |
+| ProcessingContext | Shared state object flowing through all stages | `src/anonreq/models/processing_context.py` |
+| TextExtractor | Recursive JSON walker extracting text nodes from OpenAI payloads | `src/anonreq/pipeline/extraction.py` |
+| ClassificationStage | Rule-based action determination (BLOCK/PASS/ANONYMIZE/ROUTE_LOCAL) | `src/anonreq/pipeline/classification.py` |
+| LocaleNegotiationStage | Resolves locale header and prepares merged recognizer config | `src/anonreq/pipeline/stages.py` |
+| DetectionStage | Hybrid regex + Presidio NER + MNPI + enterprise detection | `src/anonreq/pipeline/detection.py` |
+| RegexDetector | Deterministic pattern matching with Luhn checksum validation | `src/anonreq/detection/regex_detector.py` |
+| PresidioClient | Async HTTP client for Presidio Analyzer sidecar (NER detection) | `src/anonreq/detection/presidio_client.py` |
+| SpanArbiter | Merges regex + NER results with overlap resolution (regex wins exact) | `src/anonreq/detection/span_arbiter.py` |
+| ExclusionList | Exact-match and wildcard false-positive suppression | `src/anonreq/detection/exclusion_list.py` |
+| ContextBooster | Confidence boosting for financial crime entities near high-risk words | `src/anonreq/detection/boost.py` |
+| SensitivityClassificationStage | Post-detection sensitivity-level classification (Phase 12) | `src/anonreq/pipeline/stages.py` |
+| PolicyEnforcementStage | PDP/PEP policy enforcement integration into pipeline | `src/anonreq/pipeline/stages.py` |
+| InboundDLPStage | Pre-forwarding DLP inspection of request text | `src/anonreq/pipeline/dlp.py` |
+| ToolGovernanceStage | Agent/tool call permission policy evaluation | `src/anonreq/pipeline/tool_governance.py` |
+| TokenizationStage | Replaces PII spans with `[TYPE_N]` tokens, stores mapping in Valkey | `src/anonreq/pipeline/tokenization.py` |
+| Tokenizer | Core token generator with deduplication and random seed offsets | `src/anonreq/tokenization/tokenizer.py` |
+| ForwardingGuard | Fail-secure gate verifying all prerequisites before provider call | `src/anonreq/pipeline/forwarding_guard.py` |
+| ProviderStage | Async HTTP passthrough to OpenAI-compatible upstream | `src/anonreq/pipeline/provider.py` |
+| OutboundDLPStage | Post-response DLP inspection before client delivery | `src/anonreq/pipeline/dlp.py` |
+| RestorationStage | Replaces `[TYPE_N]` tokens with original values in provider response | `src/anonreq/pipeline/restoration.py` |
+| Restorer | Case-insensitive token→value replacement (brackets optional) | `src/anonreq/tokenization/restorer.py` |
+| RestoreEngine | Path-aware token restoration with PathTracker integration | `src/anonreq/restore/engine.py` |
+| PathTracker | Records JSON paths where each token appeared | `src/anonreq/restore/path_tracker.py` |
+| CleanupStage | Deletes Valkey mapping and writes structured audit log | `src/anonreq/pipeline/cleanup.py` |
+| AliasRegistry | YAML-backed model alias → provider/model resolution | `src/anonreq/routing/alias_registry.py` |
+| ProviderRegistry | YAML-based adapter resolution with lazy import | `src/anonreq/providers/registry.py` |
+| ProviderAdapter (ABC) | Abstract base for provider-specific schema translation | `src/anonreq/providers/adapter.py` |
+| OpenAIAdapter | OpenAI Chat Completions API adapter | `src/anonreq/providers/openai.py` |
+| AnthropicAdapter | OpenAI→Anthropic Messages API translation | `src/anonreq/providers/anthropic.py` |
+| GeminiAdapter | OpenAI→Google Gemini translation | `src/anonreq/providers/gemini.py` |
+| OllamaAdapter | OpenAI→Ollama local inference translation | `src/anonreq/providers/ollama.py` |
+| CacheManager | Async Valkey-backed token mapping store with retry | `src/anonreq/cache/manager.py` |
+| TailBuffer | Streaming FSM for safe partial-token reassembly | `src/anonreq/streaming/tail_buffer.py` |
+| StreamingRestorationStage | In-stream token restoration for assembled chunks | `src/anonreq/streaming/restoration.py` |
+| SSEEmitter | Server-Sent Event formatting for streaming responses | `src/anonreq/streaming/emitter.py` |
+| SessionCleanup | Post-stream cleanup and audit logging | `src/anonreq/streaming/cleanup.py` |
+| PolicyDecisionPoint (PDP) | Evaluates classification, rate, spend, residency policies | `src/anonreq/policy/pdp.py` |
+| PolicyEnforcementPoint (PEP) | Enforces PDP decisions (ALLOW/BLOCK/FLAG_AND_FORWARD/ROUTE_LOCAL) | `src/anonreq/policy/pep.py` |
+| PolicyStore | Policy rule persistence and retrieval | `src/anonreq/policy/store.py` |
+| UsageLimiter | Rate limiting per tenant | `src/anonreq/policy/usage_limiter.py` |
+| SpendController | Cost/spend budget enforcement per tenant | `src/anonreq/policy/spend_controller.py` |
+| ResidencyRouter | Data residency/routing policy enforcement | `src/anonreq/policy/residency_router.py` |
+| ClassificationMiddleware | Parses X-AnonReq-Classification header, blocks HIGHLY_RESTRICTED | `src/anonreq/middleware/classification.py` |
+| PolicyMiddleware | Pre-route PDP/PEP evaluation on chat-completion routes | `src/anonreq/middleware/policy.py` |
+| MetricsMiddleware | Request timing and Prometheus counter increment | `src/anonreq/monitoring/middleware.py` |
+| IngressMTLSMiddleware | Forwarded mTLS client certificate validation | `src/anonreq/middleware/mtls.py` |
+| ContentTypeMiddleware | Content-Type enforcement for multimodal requests | `src/anonreq/middleware/content_type.py` |
+| AppState | Typed container for all lifespan-managed services | `src/anonreq/state.py` |
+| Settings | Pydantic Settings loaded from ANONREQ_* env vars | `src/anonreq/config/__init__.py` |
+| AnonReqError hierarchy | Exception types + global fail-secure exception handlers | `src/anonreq/exceptions.py` |
+| Bootstrap services | Lifespan startup wiring for all enterprise subsystems | `src/anonreq/bootstrap/services.py` |
 
 ## Pattern Overview
 
-**Overall:** Pipeline-based gateway architecture with sequential stage orchestration. The system is a FastAPI proxy that intercepts OpenAI-compatible chat requests, runs them through an anonymization pipeline, forwards to the target LLM provider, and restores tokens in the response.
+**Overall:** Staged Pipeline with Fail-Secure Abort
 
 **Key Characteristics:**
-- **Pipeline pattern** — request processing is decomposed into ordered stages (`PipelineStage`), each operating on a shared `ProcessingContext`
-- **Fail-secure** — any error in any pipeline stage aborts execution and returns HTTP 5xx; unsanitized data never reaches the provider
-- **OpenAI-compatible wire protocol** — single input schema (`POST /v1/chat/completions`), provider-specific adapters for Anthropic/Gemini/Ollama
-- **Proxy mode polymorphism** — three modes (proxy-only, full, transparent) determine which pipeline stages are active
-- **Middleware-layered ingress** — MetricsMiddleware → ClassificationMiddleware → PolicyMiddleware → ClassificationResponseMiddleware before routes
-- **In-memory tokenization** — PII→token mappings stored in Valkey/Redis with TTL, no persistent disk storage
-- **Provider adapter pattern** — each LLM provider implements `ProviderAdapter` with `translate_request()` and `translate_response()`
+- Sequential pipeline execution via `PipelineManager` — each stage reads from and writes to a shared `ProcessingContext`
+- **Fail-secure by default:** any stage failure appends to `ctx.errors`, and `has_errors()` prevents all downstream stages (especially the provider call) from executing
+- **Session-scoped ephemeral token mappings** stored in Valkey with TTL, deleted after response
+- **OpenAI-compatible wire protocol** maintained at the edge; provider adapters translate internally
+- **Hybrid detection engine** combining deterministic regex patterns with Presidio NER, merged via span arbitration (regex wins on exact overlap)
+- **Middleware stack** ordered for request_id → auth → metrics → classification → policy → content-type
 
 ## Layers
 
-**Ingress Layer:**
-- Purpose: HTTP entry point, authentication, middleware processing
-- Location: `src/anonreq/main.py`
-- Contains: FastAPI app factory, middleware registration, router inclusion, exception handler registration
-- Depends on: `config/`, `dependencies.py`, `exceptions.py`, `middleware/`
-- Used by: External HTTP clients
-
 **Middleware Layer:**
-- Purpose: Cross-cutting request processing before route handlers
-- Location: `src/anonreq/middleware/`
-- Contains: `MetricsMiddleware` (Prometheus), `ClassificationMiddleware` (data classification), `PolicyMiddleware` (PDP/PEP), `ClassificationResponseMiddleware` (response headers)
-- Depends on: `monitoring/`, `classification/`, `policy/`
-- Used by: All incoming HTTP requests
+- Purpose: Cross-cutting concerns executed before route handlers (auth, metrics, classification, policy enforcement, content-type, mTLS)
+- Location: `src/anonreq/middleware/`, `src/anonreq/monitoring/middleware.py`
+- Contains: ASGI middleware classes and FastAPI dependency injection
+- Depends on: `app.state` (AppState), structlog contextvars
+- Used by: FastAPI app in `main.py`
+
+**Routing Layer:**
+- Purpose: HTTP route handlers that create `ProcessingContext` and invoke the pipeline
+- Location: `src/anonreq/routing/chat.py`, `src/anonreq/routes/`
+- Contains: FastAPI `APIRouter` instances, pipeline construction helpers
+- Depends on: Pipeline layer, CacheManager, AppState, auth dependency
+- Used by: FastAPI app (registered in `main.py`)
 
 **Pipeline Layer:**
-- Purpose: Core request processing — extract, classify, detect, tokenize, forward, restore
+- Purpose: Staged orchestration of the anonymization flow
 - Location: `src/anonreq/pipeline/`
-- Contains: `PipelineManager` (orchestrator), `PipelineStage` (base), individual stages
-- Depends on: `detection/`, `tokenization/`, `classification/`, `providers/`, `restore/`, `streaming/`, `cache/`
-- Used by: Route handlers in `routing/chat.py`
+- Contains: `PipelineStage` implementations, `PipelineManager`, `TextExtractor`
+- Depends on: Detection, Tokenization, Restore, Providers, Cache, Policy layers
+- Used by: Routing layer
 
-**Domain Services Layer:**
-- Purpose: Business logic services — audit chain, SLO, breach detection, lifecycle, governance
-- Location: `src/anonreq/services/`
-- Contains: `AuditChainService`, `SLOEngine`, `BreachDetector`, `OversightService`, `LifecycleService`, `TransparencyService`
-- Depends on: `cache/`, `config/`, external DB
-- Used by: Lifespan (initialized at startup), pipeline stages
-
-**Detection Engine Layer:**
-- Purpose: PII/PHI/MNPI detection via regex + Presidio NER + context boosting
+**Detection Layer:**
+- Purpose: PII/entity detection via regex patterns, Presidio NER, MNPI recognizers, enterprise recognizers, and context boosting
 - Location: `src/anonreq/detection/`
-- Contains: `RegexDetector`, `PresidioClient`, `SpanArbiter`, `ExclusionList`, `ContextBooster`, MNPI recognizers
-- Depends on: `config/locales/`, external Presidio service
-- Used by: Pipeline `DetectionStage`
+- Contains: `RegexDetector`, `PresidioClient`, `SpanArbiter`, `ExclusionList`, `ContextBooster`, locale recognizers
+- Depends on: Locale bundles, Presidio sidecar HTTP API
+- Used by: DetectionStage in pipeline
 
-**Policy & Governance Layer:**
-- Purpose: Enterprise policy enforcement (PDP/PEP), agent governance, compliance presets
-- Location: `src/anonreq/policy/`, `src/anonreq/governance/`
-- Contains: `PolicyDecisionPoint`, `PolicyEnforcementPoint`, `UsageLimiter`, `SpendController`, `ResidencyRouter`, `ApprovalManager`
-- Depends on: `cache/`, `config/`
-- Used by: Pipeline `PolicyEnforcementStage`, admin routes
+**Tokenization Layer:**
+- Purpose: Replace detected PII spans with `[TYPE_N]` tokens; restore tokens in responses
+- Location: `src/anonreq/tokenization/`, `src/anonreq/restore/`
+- Contains: `Tokenizer`, `Restorer`, `RestoreEngine`, `PathTracker`
+- Depends on: Detection results, CacheManager for mapping storage
+- Used by: TokenizationStage, RestorationStage in pipeline
 
-**Provider Abstraction Layer:**
-- Purpose: Unified interface to multiple LLM providers
+**Streaming Layer:**
+- Purpose: Handle SSE streaming with safe partial-token reassembly and in-stream restoration
+- Location: `src/anonreq/streaming/`
+- Contains: `TailBuffer` FSM, `StreamingRestorationStage`, `SSEEmitter`, `SessionCleanup`
+- Depends on: CacheManager (for mapping retrieval), token pattern regex
+- Used by: `_stream_chat_completions()` in routing/chat.py
+
+**Provider Adapter Layer:**
+- Purpose: Translate OpenAI-compatible requests to provider-specific formats and normalize responses back
 - Location: `src/anonreq/providers/`
-- Contains: `ProviderAdapter` base, concrete adapters (OpenAI, Anthropic, Gemini, Ollama), `ProviderRegistry`
-- Depends on: `config/providers.yaml`
-- Used by: Pipeline `ProviderStage`
+- Contains: `ProviderAdapter` ABC, `OpenAIAdapter`, `AnthropicAdapter`, `GeminiAdapter`, `OllamaAdapter`, `ProviderRegistry`
+- Depends on: `ProcessingContext`, httpx for HTTP calls, `resolve_api_key()` for secrets
+- Used by: ProviderStage (legacy), streaming path via `adapter.stream_events()`
 
-**Security Layer:**
-- Purpose: AI firewall, DLP, exfiltration detection, SOC integration
-- Location: `src/anonreq/firewall/`, `src/anonreq/soc/`, `src/anonreq/casb/`, `src/anonreq/breach/`
-- Contains: `FirewallPipeline`, `DLPEngine`, `SINormalizer`, `MITREMapper`, `BreachDetector`
-- Depends on: `detection/`, `cache/`, external SIEM sinks
-- Used by: Pipeline, middleware, lifespan
+**Routing & Alias Layer:**
+- Purpose: Map client-visible model names to provider/model pairs
+- Location: `src/anonreq/routing/`
+- Contains: `AliasRegistry`, `ModelAlias`
+- Depends on: YAML config (`config/model_aliases.yaml`), `ProviderRegistry`
+- Used by: ProviderStage, streaming path
 
-**Admin Layer:**
-- Purpose: Configuration hot-reload, policy management, compliance routes
-- Location: `src/anonreq/admin/`, `src/anonreq/routes/`
-- Contains: Admin API routes, policy routes, compliance routes, governance routes
-- Depends on: `auth/`, `config/`, `policy/`
-- Used by: Administrative HTTP clients
+**Cache Layer:**
+- Purpose: Session-scoped ephemeral token mapping storage in Valkey (Redis-compatible)
+- Location: `src/anonreq/cache/`
+- Contains: `CacheManager` with standalone/sentinel/cluster topology support
+- Depends on: `redis.asyncio` (Valkey), tenacity retry
+- Used by: TokenizationStage (store), CleanupStage (delete), StreamingRestorationStage (fetch)
 
-**Storage Layer:**
-- Purpose: Data persistence abstractions
-- Location: `src/anonreq/cache/`, `src/anonreq/storage/`, Alembic migrations
-- Contains: `CacheManager` (Valkey/Redis), `MinioStorage` (MinIO), SQLAlchemy async engine
-- Depends on: External Valkey, PostgreSQL, MinIO
-- Used by: All layers via dependency injection
+**Policy Layer:**
+- Purpose: Enterprise policy decision and enforcement (PDP/PEP pattern)
+- Location: `src/anonreq/policy/`
+- Contains: `PolicyDecisionPoint`, `PolicyEnforcementPoint`, `PolicyStore`, `UsageLimiter`, `SpendController`, `ResidencyRouter`
+- Depends on: `ProcessingContext`, Redis (for rate/spend counters)
+- Used by: PolicyMiddleware (pre-route), PolicyEnforcementStage (in-pipeline)
+
+**Enterprise Services Layer:**
+- Purpose: Audit, compliance, governance, DLP, breach, SOC, SLO, lifecycle, and other enterprise capabilities
+- Location: `src/anonreq/services/`, `src/anonreq/governance/`, `src/anonreq/compliance/`, `src/anonreq/soc/`
+- Contains: Service classes bootstrapped during lifespan
+- Depends on: AppState, SQLAlchemy, webhooks
+- Used by: Bootstrap services, admin routes
+
+**Configuration Layer:**
+- Purpose: Application settings from environment variables + YAML files
+- Location: `src/anonreq/config/`
+- Contains: `Settings` (Pydantic BaseSettings), `RestrictedNamesManager`
+- Depends on: `pydantic-settings`, YAML files
+- Used by: Every layer
+
+**Exception Layer:**
+- Purpose: Fail-secure error handling with OpenAI-compatible error envelopes
+- Location: `src/anonreq/exceptions.py`
+- Contains: `AnonReqError` hierarchy, global exception handlers
+- Used by: Every layer (fail-secure abort pattern)
 
 ## Data Flow
 
 ### Primary Request Path (Non-Streaming)
 
-1. **HTTP Ingress** — Request arrives at `POST /v1/chat/completions` (`src/anonreq/routing/chat.py:361`)
-2. **Middleware chain** — MetricsMiddleware → ClassificationMiddleware → PolicyMiddleware (`src/anonreq/main.py:589-606`)
-3. **Auth** — `auth_context` dependency validates Bearer token, creates `RequestContext` (`src/anonreq/dependencies.py:96`)
-4. **ProcessingContext creation** — Route handler creates `ProcessingContext` with `TextExtractor.extract()` (`src/anonreq/routing/chat.py:195`)
-5. **Pipeline execution** — `PipelineManager.run(ctx)` executes registered stages sequentially (`src/anonreq/pipeline/manager.py:60`):
-   - `ClassificationStage` — determines action (PASS/ANONYMIZE/BLOCK)
-   - `LocaleNegotiationStage` — resolves locale header, merges recognizers
-   - `DetectionStage` — runs regex + Presidio NER + span arbitration + MNPI
-   - `SensitivityClassificationStage` — entity-based sensitivity scoring
-   - `PolicyEnforcementStage` — PDP/PEP evaluation
-   - `TokenizationStage` — replaces PII spans with `[TYPE_N]` tokens, stores in Valkey
-   - `ForwardingGuard` — blocks if `block_all_unintercepted_ai` is set
-   - `ProviderStage` — translates to provider schema, calls LLM, translates response
-   - `RestorationStage` — replaces `[TYPE_N]` tokens with original values from Valkey
-   - `CleanupStage` — deletes token mappings from Valkey
-6. **Error handling** — any error → `ctx.fail_secure()` → `_raise_for_pipeline_errors()` → HTTP 500/503/504 (`src/anonreq/routing/chat.py:175`)
-7. **Response** — validated `ChatCompletionResponse` with audit headers returned (`src/anonreq/routing/chat.py:433`)
+1. **Request arrives** → `set_request_context` middleware assigns `request_id` and creates `RequestContext` (`src/anonreq/main.py:365-375`)
+2. **Auth validates** → `auth_context` dependency checks Bearer token via constant-time comparison (`src/anonreq/dependencies.py:98-124`)
+3. **Route handler** creates `ProcessingContext` and extracts `text_nodes` via `TextExtractor.extract()` (`src/anonreq/routing/chat.py:220-238`)
+4. **PipelineManager.run()** iterates stages sequentially (`src/anonreq/pipeline/manager.py:59-117`)
+5. **ClassificationStage** determines action (BLOCK/PASS/ANONYMIZE/ROUTE_LOCAL) (`src/anonreq/pipeline/classification.py:41-88`)
+6. **DetectionStage** runs regex + Presidio + MNPI + enterprise detection, merges via SpanArbiter, applies exclusion list and context boosting (`src/anonreq/pipeline/detection.py:102-326`)
+7. **TokenizationStage** replaces PII spans with `[TYPE_N]` tokens, stores mapping in Valkey (`src/anonreq/pipeline/tokenization.py:46-172`)
+8. **ForwardingGuard** verifies all prerequisites before provider call (`src/anonreq/pipeline/forwarding_guard.py:42-133`)
+9. **ProviderStage** forwards sanitized request to upstream LLM (`src/anonreq/pipeline/provider.py:64-209`)
+10. **RestorationStage** replaces tokens with original values in provider response (`src/anonreq/pipeline/restoration.py:49-142`)
+11. **CleanupStage** deletes Valkey mapping and writes audit log entry (`src/anonreq/pipeline/cleanup.py:40-86`)
+12. **Response** returned with custom headers (`X-AnonReq-Request-ID`, `X-AnonReq-Processed`, `X-AnonReq-Entity-Count`)
 
-### Secondary Flow: Streaming
+### Streaming Path
 
-1. Same middleware + auth + pre-provider pipeline stages 1–7
-2. `ProviderAdapter.stream_events()` yields SSE `StreamEvent`s (`src/anonreq/routing/chat.py:293`)
-3. `TailBuffer` ingests chunks, splits on token boundaries (`src/anonreq/streaming/tail_buffer.py`)
-4. `StreamingRestorationStage` restores tokens in-flight (`src/anonreq/streaming/restoration.py`)
-5. `SSEEmitter` formats SSE frames (`src/anonreq/streaming/emitter.py`)
-6. `SessionCleanup` deletes mappings on stream end (`src/anonreq/streaming/cleanup.py`)
-
-### Proxy-Only Mode Flow
-
-1. HTTP ingress → minimal middleware → auth → route handler
-2. No detection/anonymization pipeline — `ProxyOnlyHandler.passthrough()` (`src/anonreq/gateway/passthrough.py:69`)
-3. Target latency: P50 < 2ms / P95 < 5ms / P99 < 10ms
-
-### Transparent Proxy Flow
-
-1. MITM TLS interception intercepts outbound AI traffic (`src/anonreq/proxy/mitm_handler.py`)
-2. `TLSInterceptor` terminates TLS, re-originates to destination (`src/anonreq/proxy/tls_interceptor.py`)
-3. Content parsed, routed through full pipeline, then forwarded
+1. **Pre-provider pipeline** runs stages 1-8 above via `build_pre_provider_pipeline()` (`src/anonreq/routing/chat.py:76-142`)
+2. **Alias resolution** maps model name to provider/model pair (`src/anonreq/routing/alias_registry.py:64-68`)
+3. **Adapter selection** via `ProviderRegistry.get_adapter()` (`src/anonreq/providers/registry.py:123-140`)
+4. **`adapter.translate_request()`** converts to provider-specific format (`src/anonreq/providers/adapter.py:151-163`)
+5. **`adapter.stream_events()`** yields `StreamEvent` instances (`src/anonreq/providers/adapter.py:184-200`)
+6. **TailBuffer FSM** reassembles chunks ensuring no partial tokens (`src/anonreq/streaming/tail_buffer.py:86-117`)
+7. **StreamingRestorationStage** restores tokens in assembled text chunks (`src/anonreq/streaming/restoration.py:30-44`)
+8. **SSEEmitter** formats restored text as SSE events (`src/anonreq/streaming/emitter.py`)
+9. **SessionCleanup** deletes mapping and writes audit log after stream ends (`src/anonreq/streaming/cleanup.py`)
 
 **State Management:**
-- **Request-scoped**: `ProcessingContext` dataclass created per request, flows through pipeline stages, discarded after response
-- **Session-scoped**: Token mappings stored in Valkey with `anonreq:{Session_ID}` key, TTL 60–3600s, deleted post-response
-- **Application-scoped**: `app.state` on FastAPI holds long-lived singletons (CacheManager, ProviderRegistry, PDP, etc.)
-- **No disk writes**: All tokenization state is in-memory via Valkey with `save ""` (persistence disabled)
+- Request-scoped: `ProcessingContext` flows through pipeline stages, created per-request, destroyed after response
+- Session-scoped: Valkey HASH key `anonreq:{tenant_id}:{session_id}` with TTL, holds `token → original_value` mapping
+- Application-scoped: `AppState` dataclass on `app.state` holds all lifespan-managed services (cache, presidio, policy, etc.)
+- No global mutable state beyond `AppState` singletons
 
 ## Key Abstractions
 
-**`PipelineStage` (Abstract Base):**
-- Purpose: Interface for all pipeline processing stages
-- Files: `src/anonreq/pipeline/base.py`
-- Pattern: Abstract class with `execute(ctx: ProcessingContext) -> ProcessingContext` method
-- Implementations: ClassificationStage, DetectionStage, TokenizationStage, ProviderStage, RestorationStage, CleanupStage, LocaleNegotiationStage, SensitivityClassificationStage, PolicyEnforcementStage, ForwardingGuard
+**PipelineStage:**
+- Purpose: Interface for all stages in the anonymization pipeline
+- Examples: `src/anonreq/pipeline/classification.py`, `src/anonreq/pipeline/detection.py`, `src/anonreq/pipeline/tokenization.py`
+- Pattern: Template method — `execute(ctx) → ctx`; stages read/write `ProcessingContext` fields
 
-**`ProcessingContext` (Dataclass):**
-- Purpose: Shared state container flowing through all pipeline stages
-- Files: `src/anonreq/models/processing_context.py`
-- Pattern: Single mutable dataclass — each stage reads and writes its fields
+**ProcessingContext:**
+- Purpose: Single shared state object carrying request data, intermediate results, and final response through all stages
+- Examples: `src/anonreq/models/processing_context.py`
+- Pattern: Dataclass with `fail_secure(error)` method for pipeline abort
 
-**`ProxyMode` (Enum):**
-- Purpose: Determines operating mode and active pipeline stages
-- Files: `src/anonreq/proxy/modes.py`
-- Values: `PROXY_ONLY`, `FULL`, `TRANSPARENT`
+**ProviderAdapter:**
+- Purpose: Abstract base for provider-specific schema translation
+- Examples: `src/anonreq/providers/openai.py`, `src/anonreq/providers/anthropic.py`, `src/anonreq/providers/gemini.py`, `src/anonreq/providers/ollama.py`
+- Pattern: Strategy pattern — `translate_request()`, `execute()`, `stream_events()`, `translate_response()`
 
-**`ProviderAdapter` (Abstract Base):**
-- Purpose: Unified interface to different LLM providers
-- Files: `src/anonreq/providers/adapter.py`
-- Pattern: Strategy pattern — concrete implementations for each provider
-
-**`CacheManager`:**
-- Purpose: Valkey/Redis abstraction for token mapping storage
-- Files: `src/anonreq/cache/manager.py`
-- Pattern: Singleton per application lifetime, initialized in lifespan
-
-**`Settings` (Pydantic BaseSettings):**
-- Purpose: Central configuration from env vars
-- Files: `src/anonreq/config/__init__.py`
-- Pattern: Singleton at module level, validated at import time
-
-**`AnonReqError` (Exception Hierarchy):**
-- Purpose: Structured error types with safe messages
-- Files: `src/anonreq/exceptions.py`
-- Subclasses: `DependencyUnavailableError`, `PipelineAbortError`, `PipelineBlockedError`, `OutboundDLPError`, `AuthenticationError`
-
-**`Tokenization` / `Restoration`:**
-- Purpose: PII→token substitution and reversal
-- Files: `src/anonreq/tokenization/tokenizer.py`, `src/anonreq/restore/engine.py`
-- Token format: `[TYPE_N]` — case-insensitive + bracket-optional matching
+**RuntimeSecretStore:**
+- Purpose: Thread-local secret store for provider API keys, with rotation support
+- Examples: `src/anonreq/secrets/store.py`
+- Pattern: Context-variable scoped store with push/pop for per-request isolation during secret rotation
 
 ## Entry Points
 
-**FastAPI Application:**
-- Location: `src/anonreq/main.py:152` (`create_app()`)
-- Triggers: Uvicorn (`uvicorn anonreq.main:app --host 0.0.0.0 --port 8080`)
-- Responsibilities: Creates FastAPI app, configures middleware, exception handlers, lifespan
+**`create_app()` — Application Factory:**
+- Location: `src/anonreq/main.py:201-428`
+- Triggers: Module import (`app = create_app()` at line 460)
+- Responsibilities: Creates FastAPI app, registers middleware (metrics → classification → policy → content-type → mTLS → request_id), registers routes, sets up lifespan context manager for startup/shutdown
 
-**`POST /v1/chat/completions`:**
-- Location: `src/anonreq/routing/chat.py:361`
+**Lifespan Context Manager:**
+- Location: `src/anonreq/main.py:241-311`
+- Triggers: FastAPI startup/shutdown events
+- Responsibilities: Bootstrap secrets → run startup checks → create CacheManager → bootstrap locale detection → bootstrap policy engine → bootstrap MITM proxy → bootstrap audit services → bootstrap SLO → bootstrap governance → bootstrap gateway → bootstrap SOC → bootstrap deployment proxy → bootstrap trust center → bootstrap compliance
+
+**`POST /v1/chat/completions` — Primary Route:**
+- Location: `src/anonreq/routing/chat.py:421-496`
 - Triggers: HTTP POST from client
-- Responsibilities: Core anonymization pipeline — extract, detect, tokenize, forward, restore
+- Responsibilities: Creates ProcessingContext, runs full pipeline (non-streaming) or pre-provider pipeline + adapter streaming
 
-**`GET /v1/gateway/status`:**
-- Location: `src/anonreq/main.py:647`
-- Triggers: HTTP GET
-- Responsibilities: Returns gateway operating mode + uptime + proxy config
-
-**`GET /health`, `GET /health/ready`:**
-- Location: `src/anonreq/health.py:83,108`
-- Triggers: HTTP GET (load balancers, Docker HEALTHCHECK)
-- Responsibilities: Component health status (Valkey + Presidio)
-
-**`GET /metrics`:**
-- Location: `src/anonreq/main.py:610`
-- Triggers: HTTP GET (Prometheus scraping)
-- Responsibilities: Prometheus metrics endpoint
-
-**Admin Routes:**
-- Location: `src/anonreq/admin/router.py`
-- Routes: `/v1/admin/policy/*`, `/v1/admin/config/*`, `/v1/admin/providers/*`, `/v1/admin/usage/*`, `/v1/admin/compliance/*`, `/v1/admin/incidents/*`
-- Responsibilities: Configuration hot-reload, policy management, provider config
+**Module-level `app`:**
+- Location: `src/anonreq/main.py:460`
+- Triggers: `uvicorn anonreq.main:app`
+- Responsibilities: Uvicorn entry point
 
 ## Architectural Constraints
 
-- **Threading:** Single-threaded async event loop (Python asyncio, FastAPI with async route handlers). Presidio client uses `max_concurrency=10` for parallel NER requests. No background worker threads or process pools.
-- **Global state:** Module-level `settings = Settings()` singleton in `src/anonreq/config/__init__.py:104`. Long-lived singletons stored on `app.state` (CacheManager, ProviderRegistry, AliasRegistry, PDP, etc.). Logging config is global via `structlog.configure()`.
-- **Circular imports:** `config/__init__.py` imports `Settings` which depends on `exceptions.py`. `main.py` imports from nearly every subpackage. No circular chains detected — all imports are tree-structured with `config/` and `exceptions.py` as leaves.
-- **Fail-secure invariant:** Every pipeline error → HTTP 5xx. No path forwards unsanitized data to providers. Enforced via `ctx.fail_secure()` + `ctx.has_errors()` check before each stage.
-- **Ephemeral cache only:** Valkey with `save ""` and `appendonly no`. No persistence. TTL-based eviction.
-- **No PII in logs:** `ALLOWLIST` field allowlist in `logging_config.py:34`. Only metadata fields permitted.
+- **Fail-secure/fail-closed:** Every pipeline stage, middleware, exception handler, and forwarding guard defaults to blocking rather than permissive fallback. Any ambiguity or component failure returns an error and prevents data from reaching the external provider.
+- **No PII in logs or telemetry:** Audit/log/SOC/metrics/events use metadata-only fields (entity counts, token counts, classification levels). Raw request bodies, detected values, and token mappings are never emitted.
+- **Ephemeral sensitive mappings:** Token mappings are stored in Valkey with TTL (`anonreq:{tenant_id}:{session_id}`), deleted after response/cleanup, and never persisted to durable storage.
+- **OpenAI-compatible wire protocol:** `/v1/chat/completions` and `/v1/models` maintain OpenAI format; provider adapters translate internally. Clients never see provider-specific formats.
+- **Classification before anonymization/forwarding:** BLOCK, ROUTE_LOCAL, ANONYMIZE, PASS decisions occur before external provider forwarding.
+- **Multi-locale/compliance:** `X-AnonReq-Locale` header drives locale negotiation, recognizer merging, compliance preset activation, and entity type filtering.
+- **Tenant isolation:** Tenant-scoped policy, usage, spend, audit, cache keys, metrics labels, and governance records do not bleed across tenants.
+- **Sequential pipeline only:** No concurrent stage execution; `PipelineManager` iterates stages one at a time. Streaming path reuses the pre-provider pipeline stages.
+- **Secrets never enter ProcessingContext:** API keys are resolved only at the network boundary inside `ProviderAdapter.translate_request()` or `resolve_api_key()`.
+- **Single global exception handler:** `global_exception_handler` in `src/anonreq/exceptions.py` catches all unhandled exceptions and returns OpenAI-compatible error envelopes with no internal details.
 
 ## Anti-Patterns
 
-### Module-level Settings Singleton
+### Bypassing PipelineManager to Forward Requests
 
-**What happens:** `settings = Settings()` is instantiated at module import time in `src/anonreq/config/__init__.py:104`. This requires env vars to be set before any import.
+**What happens:** Directly calling the provider from a route handler without going through `PipelineManager`.
+**Why it's wrong:** Skips classification, detection, tokenization, forwarding guard, DLP, and cleanup stages — PII crosses the network boundary unanonymized.
+**Do this instead:** Always construct a `PipelineManager` (via `build_pipeline()` or `build_pre_provider_pipeline()`) and call `manager.run(ctx)`. See `src/anonreq/routing/chat.py:451-458`.
 
-**Why it's wrong:** Makes testing harder — requires `os.environ.setdefault()` in `conftest.py:23` before any test imports. Tests that need different env var values must use `monkeypatch` before re-importing.
+### Storing Secrets in ProcessingContext
 
-**Do this instead:** Use FastAPI dependency injection or `lru_cache`-based factory. See `tests/conftest.py:25-26` for the current workaround pattern.
+**What happens:** Attaching API keys or raw credentials to `ProcessingContext` fields.
+**Why it's wrong:** `ProcessingContext` may be logged, serialized to audit, or leaked via error responses.
+**Do this instead:** Resolve secrets only at the network boundary inside `ProviderAdapter.translate_request()` or `resolve_api_key()`. See `src/anonreq/providers/registry.py:147-189`.
 
-### Sequential Pipeline with Single ProcessingContext
+### Skipping ForwardingGuard Checks
 
-**What happens:** All pipeline stages operate on a single mutable `ProcessingContext` dataclass, passed by reference. Stages mutate the same object.
+**What happens:** Removing or bypassing `ForwardingGuard` to allow forwarding when tokenization is incomplete.
+**Why it's wrong:** The transformed request may contain untokenized PII that crosses the network boundary.
+**Do this instead:** Always include `ForwardingGuard` as the last stage before `ProviderStage`. See `src/anonreq/routing/chat.py:108-136`.
 
-**Why it's wrong:** Creates implicit coupling between stages — order matters, and stage A reading a field set by stage B creates hidden dependencies. Impossible to run stages in parallel.
+### Catching Exceptions Without fail_secure()
 
-**Do this instead:** Accept the tradeoff — this is a deliberate architectural choice for fail-secure simplicity (D-45 through D-49). Document stage ordering dependencies explicitly.
+**What happens:** Using `try/except` in pipeline stages without calling `ctx.fail_secure()`.
+**Why it's wrong:** The pipeline continues executing with incomplete state, potentially forwarding unanonymized data.
+**Do this instead:** Always call `ctx.fail_secure(PipelineAbortError(...))` in exception handlers within stages. See `src/anonreq/pipeline/detection.py:295-325`.
 
-### Hardcoded `config/` Path References
+### Emitting Raw Values in Audit Logs
 
-**What happens:** Many files reference config paths as string literals (e.g., `"config/classification.yaml"` in `src/anonreq/routing/chat.py:78`, `"config/mnpi_recognizers.yaml"` in `src/anonreq/routing/chat.py:113`).
-
-**Why it's wrong:** Brittle — moving config files requires hunting through source code. No single source of truth for config paths.
-
-**Do this instead:** Centralize config file paths in `config/__init__.py` or a dedicated `ConfigPaths` class.
+**What happens:** Logging detected PII values, token mappings, or raw request/response bodies.
+**Why it's wrong:** Violates the no-PII-in-logs invariant and creates compliance risk.
+**Do this instead:** Emit only metadata: entity counts, token counts, classification levels, action taken. See `src/anonreq/pipeline/cleanup.py:88-165`.
 
 ## Error Handling
 
-**Strategy:** Fail-secure with OpenAI-compatible error envelopes. Every exception returns `{"error": {"message": str, "type": str, "code": str, "request_id": str}}`.
+**Strategy:** Fail-secure — every error blocks forwarding and returns a safe response. No internals leak.
 
 **Patterns:**
-- `AnonReqError` hierarchy for structured errors with safe messages (`src/anonreq/exceptions.py:75`)
-- `global_exception_handler` catches all unhandled exceptions (`src/anonreq/exceptions.py:220`)
-- `http_exception_handler` formats FastAPI's HTTPException (`src/anonreq/exceptions.py:299`)
-- Pipeline errors use `ctx.fail_secure()` → `PipelineAbortError` → HTTP error
+- **Pipeline stage failure:** Stage calls `ctx.fail_secure(PipelineAbortError(...))` → `PipelineManager` checks `has_errors()` before next stage → provider call never executes → route handler raises `HTTPException` based on error type
+- **Global exception handler:** Catches all unhandled exceptions → returns OpenAI-compatible error envelope `{"error": {"message": "...", "type": "...", "code": "...", "request_id": "..."}}` with no stack traces, request bodies, or header content
+- **HTTPException handler:** Formats FastAPI `HTTPException` into the same envelope, with special handling for 451 (classification block) to include classification metadata
+- **Dependency unavailable:** `DependencyUnavailableError` → HTTP 503 with generic message
+- **Cache failure:** `CacheManager` retries with exponential backoff → `DependencyUnavailableError` if exhausted → pipeline aborts
+- **Provider timeout/error:** `ProviderStage` maps `httpx.TimeoutException` → 504, `ConnectError` → 503, HTTP error → 502 with generic messages
 
 ## Cross-Cutting Concerns
 
-**Logging:** Structured JSON via `structlog` with strict field allowlist (`src/anonreq/logging_config.py:34`). `request_id` propagated via `structlog.contextvars` for trace correlation. No raw PII ever logged.
+**Logging:** Structured logging via `structlog` with field allowlist. `request_id` bound to contextvars by middleware. No PII in log fields. Audit log entries contain only metadata (entity counts, token counts, classification levels).
 
-**Validation:** Pydantic models for request/response validation (`src/anonreq/models/chat.py`). Settings validated via `pydantic-settings` with `field_validator` for API key length.
+**Validation:** Pydantic Settings validates required env vars at import time (`src/anonreq/config/__init__.py:27-200`). Pydantic models validate request/response schemas. YAML files loaded with `yaml.safe_load()` to prevent code injection.
 
-**Authentication:** Bearer token via `HTTPBearer(auto_error=True)` (`src/anonreq/dependencies.py:29`). Composite `auth_context` dependency on all protected routes. Admin API has separate key (`ADMIN_API_KEY`).
+**Authentication:** Bearer token via `HTTPBearer(auto_error=True)` → constant-time comparison against `settings.API_KEY`. Optional OIDC verification for admin endpoints via `src/anonreq/auth/oidc.py`. Optional mTLS via `IngressMTLSMiddleware`.
 
-**Metrics:** Prometheus client with custom counters (`dlp_violations_total`, `exfiltration_total`, `actions_total`) defined in `src/anonreq/main.py:99-113` and middleware in `src/anonreq/monitoring/metrics.py`. Exposed at `GET /metrics`.
+**Metrics:** Prometheus counters and histograms via `prometheus_client`. Key metrics: `requests_total`, `detection_latency`, `entities_detected`, `processing_overhead`, `unrestored_tokens`, `fail_secure_events_total`. All metric labels are metadata-only (no PII).
 
-**Observability:** Health checks (`/health`, `/health/ready`) verify Valkey + Presidio connectivity (`src/anonreq/health.py`). Pre-flight startup checks prevent boot with unavailable dependencies (`src/anonreq/startup_checks.py`).
+**Middleware Stack Order (innermost to outermost on request):**
+1. `set_request_context` (inline middleware) — assigns `request_id`, creates `RequestContext`
+2. `IngressMTLSMiddleware` — mTLS certificate validation
+3. `ContentTypeMiddleware` — content-type enforcement
+4. `ClassificationResponseMiddleware` — classification response headers
+5. `PolicyMiddleware` — PDP/PEP evaluation
+6. `ClassificationMiddleware` — parses `X-AnonReq-Classification` header, blocks HIGHLY_RESTRICTED
+7. `MetricsMiddleware` — request timing and counter increment
+
+**Configuration:** All settings use `ANONREQ_` prefix env vars via Pydantic Settings. YAML files for policies, providers, locales, compliance presets, DLP rules, SOC sinks, model aliases, and financial crime words. Startup validation ensures required vars are present.
+
+## Bootstrap Sequence (Lifespan Startup)
+
+1. `setup_logging()` — structured logging configuration
+2. `mode_from_env()` — resolve proxy mode (immutable for process lifetime)
+3. `ContentTypeDispatcher` creation — multimodal content analysis
+4. OIDC verifier build (if configured)
+5. `bootstrap_runtime_secrets()` — load provider API keys into `RuntimeSecretStore`
+6. `CacheManager` creation — Valkey connection pool
+7. `run_startup_checks()` — Valkey health, Presidio reachability
+8. Alias registry creation
+9. Domain-specific bootstrap sequence:
+   - `bootstrap_locale_detection()` — locale registry, negotiator, merger
+   - `bootstrap_policy_engine()` — PDP, PEP, policy store, usage/spend limits
+   - `bootstrap_mitm_proxy()` — CA manager, MITM handler
+   - `bootstrap_audit_services()` — audit engine, chain service
+   - `bootstrap_slo_services()` — SLO engine
+   - `bootstrap_governance_services()` — oversight, lifecycle, transparency, notifications, approval
+   - `bootstrap_gateway_services()` — gateway status, AI detector, route table
+   - `bootstrap_soc_services()` — SOC normalizer, sink router, health monitor
+   - `bootstrap_deployment_proxy()` — reverse/transparent proxy
+   - `bootstrap_trust_center()` — trust center service
+   - `bootstrap_compliance_services()` — compliance evidence service
 
 ---
 
-*Architecture analysis: 2026-07-06*
+*Architecture analysis: 2026-07-18*

@@ -16,7 +16,8 @@ Usage::
 from __future__ import annotations
 
 import logging
-from typing import Any
+from collections.abc import Callable
+from typing import Any, cast
 
 from anonreq.soc.buffer import SinkBuffer
 from anonreq.soc.health import SinkHealthMonitor
@@ -108,7 +109,7 @@ def _build_webhook(config: dict[str, Any], name: str) -> SinkBase:
     )
 
 
-_BUILDERS: dict[str, Any] = {
+_BUILDERS: dict[str, Callable[[dict[str, Any], str], SinkBase]] = {
     "splunk_hec": _build_splunk_hec,
     "qradar_cef": _build_qradar_cef,
     "sentinel_dcr": _build_sentinel_dcr,
@@ -162,7 +163,7 @@ def build_sinks(
     router = SinkRouter()
 
     for definition in definitions:
-        sink = instantiate_sink(definition)
+        sink: SinkBase | SinkBuffer = instantiate_sink(definition)
 
         # Wrap in buffer if maxsize > 0
         if definition.buffer_maxsize > 0:
@@ -173,7 +174,7 @@ def build_sinks(
                 definition.buffer_maxsize,
             )
 
-        router.register(sink)
+        router.register(cast(SinkBase, sink))
         logger.info(
             "Sink '%s' (%s) %s",
             definition.name,

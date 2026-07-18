@@ -199,7 +199,7 @@ class FairnessDatasetManager:
         object_path = f"datasets/{sha256}.jsonl"
         try:
             response = await self._minio.get_object(self._bucket, object_path)
-            data = response.read()
+            data: bytes = response.read()
             return data
         except Exception as exc:
             raise FileNotFoundError(
@@ -260,4 +260,5 @@ class FairnessDatasetManager:
             if locale is not None:
                 stmt = stmt.where(FairnessDatasetModel.locale == locale)
             result = await session.execute(stmt)
-            return result.scalar_one()
+            count: int = result.scalar_one()
+            return count

@@ -106,7 +106,7 @@ class UsageRecord(BaseModel):
 
 
 @model_serializer
-def _ser_decimal(self) -> float:
+def _ser_decimal(self: Any) -> float:
     return float(self)
 
 

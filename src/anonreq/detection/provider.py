@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def get_custom_recognizer_patterns(
     registry: AtomicConfigRegistry | None,
-) -> dict[str, re.Pattern]:
+) -> dict[str, re.Pattern[str]]:
     """Compile custom recognizer patterns from the AtomicConfigRegistry.
 
     Called during each detection cycle to check for hot-reloaded custom
@@ -46,7 +46,7 @@ def get_custom_recognizer_patterns(
     if not config.custom_recognizers:
         return {}
 
-    patterns: dict[str, re.Pattern] = {}
+    patterns: dict[str, re.Pattern[str]] = {}
     for recognizer in config.custom_recognizers:
         if not recognizer.enabled:
             continue

@@ -45,9 +45,9 @@ def _principal_tenant(request: Request) -> str | None:
 async def list_policies(
     request: Request,
     enabled: bool | None = None,
-    store=Depends(_get_policy_store),
-    _=Depends(require_role(Role.OPERATOR)),
-) -> Any:
+    store: Any = Depends(_get_policy_store),
+    _: None = Depends(require_role(Role.OPERATOR)),
+) -> dict[str, Any]:
     tenant_id = _principal_tenant(request) or "default"
 
     all_rules = await store.load_policies(tenant_id)
@@ -73,9 +73,9 @@ async def list_policies(
 async def update_policy(
     request: Request,
     policy_id: str,
-    store=Depends(_get_policy_store),
-    _=Depends(require_role(Role.ADMINISTRATOR)),
-) -> Any:
+    store: Any = Depends(_get_policy_store),
+    _: None = Depends(require_role(Role.ADMINISTRATOR)),
+) -> dict[str, Any]:
     """Create or update a policy rule (upsert).
 
     Args:

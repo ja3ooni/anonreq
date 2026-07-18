@@ -52,7 +52,7 @@ class MultipartAnalyzer:
             if not parts:
                 return result
 
-            all_entities: list[dict] = []
+            all_entities: list[dict[str, Any]] = []
 
             for part in parts:
                 if part.kind == "field":
@@ -97,7 +97,7 @@ class MultipartAnalyzer:
 
         return parts
 
-    async def _process_field(self, part: _ParsedPart, entities: list[dict]) -> None:
+    async def _process_field(self, part: _ParsedPart, entities: list[dict[str, Any]]) -> None:
         content_type = part.content_type
         field_name = part.field_name
         data = part.data
@@ -121,7 +121,7 @@ class MultipartAnalyzer:
                 d["content_type"] = content_type
             entities.extend(detections)
 
-    def _process_file(self, part: _ParsedPart, entities: list[dict]) -> None:
+    def _process_file(self, part: _ParsedPart, entities: list[dict[str, Any]]) -> None:
         content_type = part.content_type
         field_name = part.field_name
         file_name = part.file_name

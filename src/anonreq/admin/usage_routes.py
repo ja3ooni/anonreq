@@ -8,6 +8,8 @@ Provides:
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from anonreq.middleware.rbac import Role, require_role
@@ -19,7 +21,7 @@ router = APIRouter(dependencies=[Depends(require_role(Role.OPERATOR))])
 async def get_tenant_usage(
     request: Request,
     tenant_id: str,
-):
+) -> dict[str, Any]:
     """Return current-period usage counters for the specified tenant."""
     # RBAC scope enforcement:
     # Operators can only query their own tenant.

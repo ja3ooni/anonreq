@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from anonreq.compliance.merge import PresetMergeResult
 from anonreq.compliance.preset import CompliancePreset
@@ -19,7 +20,7 @@ class ComplianceViolation:
     message: str
 
 
-def _tiers_for(effective_config: dict | PresetMergeResult, entity_type: str) -> list[RecognizerTier]:  # noqa: E501
+def _tiers_for(effective_config: dict[str, Any] | PresetMergeResult, entity_type: str) -> list[RecognizerTier]:  # noqa: E501
     if isinstance(effective_config, PresetMergeResult):
         return effective_config.merged_minimum_tiers.get(entity_type, [])
     raw = (effective_config.get("entity_types") or {}).get(entity_type, {})
@@ -29,14 +30,14 @@ def _tiers_for(effective_config: dict | PresetMergeResult, entity_type: str) -> 
     return [tier if isinstance(tier, RecognizerTier) else RecognizerTier(str(tier))]
 
 
-def _threshold_for(effective_config: dict | PresetMergeResult, entity_type: str) -> float:
+def _threshold_for(effective_config: dict[str, Any] | PresetMergeResult, entity_type: str) -> float:
     if isinstance(effective_config, PresetMergeResult):
         return effective_config.merged_thresholds.get(entity_type, 0.0)
     raw = (effective_config.get("entity_types") or {}).get(entity_type, {})
     return float(raw.get("confidence_threshold", raw.get("threshold", 0.0)))
 
 
-def _has_entity(effective_config: dict | PresetMergeResult, entity_type: str) -> bool:
+def _has_entity(effective_config: dict[str, Any] | PresetMergeResult, entity_type: str) -> bool:
     if isinstance(effective_config, PresetMergeResult):
         if entity_type in effective_config.disabled_entity_types:
             return False
@@ -46,7 +47,7 @@ def _has_entity(effective_config: dict | PresetMergeResult, entity_type: str) ->
     return entity_type in (effective_config.get("entity_types") or {})
 
 
-def _has_checksum(effective_config: dict | PresetMergeResult, entity_type: str) -> bool:
+def _has_checksum(effective_config: dict[str, Any] | PresetMergeResult, entity_type: str) -> bool:
     if isinstance(effective_config, PresetMergeResult):
         return entity_type in effective_config.requires_checksum
     return entity_type in (effective_config.get("requires_checksum") or [])
@@ -54,7 +55,7 @@ def _has_checksum(effective_config: dict | PresetMergeResult, entity_type: str) 
 
 def validate_effective_config(
     active_presets: list[CompliancePreset],
-    effective_config: dict | PresetMergeResult,
+    effective_config: dict[str, Any] | PresetMergeResult,
 ) -> list[ComplianceViolation]:
     """Collect all compliance validation violations."""
 

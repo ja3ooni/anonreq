@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Literal
+from typing import Any, Literal
 
 ClassificationAction = Literal["BLOCK", "ROUTE_LOCAL", "ANONYMIZE", "PASS"]
 """The four classification actions (D-24).
@@ -58,6 +58,8 @@ class ClassificationResult:
         detected_levels: Classification level per entity type.
         client_override: Whether client-asserted level increased the result.
         client_asserted_level: The client-asserted level (if applied).
+        handling_action: Pipeline handling action derived from classification level.
+        highest_entity: The entity type label with the highest classification level.
     """
 
     highest: ClassificationLevel
@@ -65,6 +67,8 @@ class ClassificationResult:
     detected_levels: list[ClassificationLevel]
     client_override: bool = False
     client_asserted_level: ClassificationLevel | None = None
+    handling_action: str = ""
+    highest_entity: str = ""
 
 
 ENTITY_CLASSIFICATION_MAP: dict[str, ClassificationLevel] = {
@@ -129,7 +133,7 @@ class ClassificationRule:
     version: int = 1
     name: str = ""
     action: ClassificationAction = "ANONYMIZE"
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
     roles: list[str] = field(default_factory=list)
     regex_patterns: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)

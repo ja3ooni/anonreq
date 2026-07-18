@@ -60,7 +60,7 @@ class MCPMessage:
 # Known AI provider hostnames and model patterns
 # ---------------------------------------------------------------------------
 
-KNOWN_PROVIDERS: dict[str, list[re.Pattern]] = {
+KNOWN_PROVIDERS: dict[str, list[re.Pattern[str]]] = {
     "openai": [
         re.compile(r"(^|\.)api\.openai\.com$", re.IGNORECASE),
         re.compile(r"(^|\.)api\.openai\.com$", re.IGNORECASE),
@@ -93,7 +93,7 @@ KNOWN_PROVIDERS: dict[str, list[re.Pattern]] = {
     ],
 }
 
-MODEL_TO_PROVIDER: dict[re.Pattern, str] = {
+MODEL_TO_PROVIDER: dict[re.Pattern[str], str] = {
     re.compile(r"^gpt-", re.IGNORECASE): "openai",
     re.compile(r"^o[0-9]|^o1-|^o3-", re.IGNORECASE): "openai",
     re.compile(r"^claude-", re.IGNORECASE): "anthropic",
@@ -104,7 +104,7 @@ MODEL_TO_PROVIDER: dict[re.Pattern, str] = {
     re.compile(r"^mixtral-", re.IGNORECASE): "mistral",
 }
 
-AI_ENDPOINT_PATTERNS: list[re.Pattern] = [
+AI_ENDPOINT_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"/v1/chat/completions$", re.IGNORECASE),
     re.compile(r"/v1/completions$", re.IGNORECASE),
     re.compile(r"/v1/embeddings$", re.IGNORECASE),
@@ -130,7 +130,7 @@ class AIDetector:
     """
 
     def __init__(self, custom_patterns: dict[str, list[str]] | None = None) -> None:
-        self._providers: dict[str, list[re.Pattern]] = {
+        self._providers: dict[str, list[re.Pattern[str]]] = {
             provider: list(patterns)
             for provider, patterns in KNOWN_PROVIDERS.items()
         }

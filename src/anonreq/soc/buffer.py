@@ -16,7 +16,7 @@ import contextlib
 import logging
 import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from prometheus_client import Counter, Gauge
 
@@ -124,7 +124,7 @@ class SinkBuffer:
         self._counter = 0
         self._overflow_emitted = False
         self._overflow_total = 0
-        self._task: asyncio.Task | None = None
+        self._task: asyncio.Task[None] | None = None
         self._sink_label = sink.name
 
         # Initialize Prometheus
@@ -144,12 +144,12 @@ class SinkBuffer:
     @property
     def name(self) -> str:
         """Delegate name to the inner sink."""
-        return self._sink.name
+        return str(self._sink.name)
 
     @property
     def sink_type(self) -> str:
         """Delegate sink_type to the inner sink."""
-        return self._sink.sink_type
+        return str(self._sink.sink_type)
 
     async def health_check(self) -> Any:
         """Delegate health_check to the inner sink."""
@@ -218,6 +218,17 @@ class SinkBuffer:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._task
         self._drain()
+
+    async def send_event(self, event: Any) -> bool:
+        """Delegate send_event to the inner sink."""
+        return cast(bool, await self._sink.send_event(event))
+
+    async def format_event(self, event: Any) -> str | bytes | dict[str, Any] | list[dict[str, Any]]:
+        """Delegate format_event to the inner sink."""
+        result = await self._sink.format_event(event)
+        return cast(
+            str | bytes | dict[str, Any] | list[dict[str, Any]], result
+        )
 
     async def _retry_loop(self) -> None:
         """Background loop consuming events from the queue and retrying."""

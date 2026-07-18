@@ -23,7 +23,7 @@ class ToolCallInspector:
     def __init__(
         self,
         firewall: Any,
-        schema_registry: dict[str, dict],
+        schema_registry: dict[str, dict[str, Any]],
         config: ToolGovernanceConfig,
     ) -> None:
         self._firewall = firewall

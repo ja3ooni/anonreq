@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -263,7 +264,7 @@ class AuditChainService:
     ) -> list[AuditEvent]:
         """Paginated, filterable event query."""
         query = "SELECT * FROM audit_event WHERE 1=1"
-        params = {"limit": limit, "offset": offset}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
 
         if tenant_id is not None:
             query += " AND tenant_id = :tenant_id"
@@ -301,7 +302,7 @@ class AuditChainService:
     ) -> int:
         """Count events matching the given filters."""
         query = "SELECT COUNT(*) FROM audit_event WHERE 1=1"
-        params = {}
+        params: dict[str, Any] = {}
 
         if tenant_id is not None:
             query += " AND tenant_id = :tenant_id"
@@ -328,7 +329,7 @@ class AuditChainService:
             return result.scalar() or 0
 
     @staticmethod
-    def _row_to_event(row: dict) -> AuditEvent:
+    def _row_to_event(row: dict[str, Any]) -> AuditEvent:
         """Convert a DB row dict to an AuditEvent dataclass."""
         ts = row["timestamp"]
         if isinstance(ts, str):

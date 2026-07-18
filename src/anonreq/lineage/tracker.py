@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -182,7 +183,7 @@ class LineageTracker:
             "Lineage recorded: id=%s session=%s tenant=%s",
             record.id, record.session_id, record.tenant_id,
         )
-        return record.id
+        return str(record.id)
 
     async def query_lineage(
         self,
@@ -211,7 +212,7 @@ class LineageTracker:
             A list of matching LineageRecord instances.
         """
         conditions: list[str] = []
-        params: dict = {}
+        params: dict[str, Any] = {}
 
         if session_id is not None:
             conditions.append("session_id = :session_id")

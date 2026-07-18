@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -74,7 +75,7 @@ class SupplierService:
     async def update_provider(
         self,
         provider_name: str,
-        **kwargs,
+        **kwargs: Any,
     ) -> SupplierRecord:
         raw = await self._redis.get(f"{SUPPLIER_KEY_PREFIX}:{provider_name}")
         if raw is None:
@@ -122,6 +123,6 @@ class SupplierService:
         providers = await self.list_providers()
         return [p for p in providers if p.ict_concentration_risk]
 
-    async def export_providers(self) -> list[dict]:
+    async def export_providers(self) -> list[dict[str, Any]]:
         providers = await self.list_providers()
         return [p.model_dump(mode="json") for p in providers]

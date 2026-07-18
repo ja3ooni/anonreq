@@ -13,6 +13,7 @@ import os
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 import structlog
@@ -38,7 +39,7 @@ class BreachEvent:
     detected_at: datetime
     acknowledged: bool = False
 
-    def model_dump(self) -> dict:
+    def model_dump(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "slo_name": self.slo_name,
@@ -284,6 +285,6 @@ class BreachDetector:
                 headers=self._headers,
                 timeout=self._timeout_seconds
             )
-            return 200 <= response.status_code < 300
+            return bool(200 <= response.status_code < 300)
         except Exception:
             return False

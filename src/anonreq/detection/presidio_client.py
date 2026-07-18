@@ -23,7 +23,7 @@ if not hasattr(httpx.Request, "json"):
 
         return json.loads(self.content.decode())
 
-    httpx.Request.json = _request_json
+    httpx.Request.json = _request_json  # type: ignore[attr-defined]
 
 
 class PresidioTimeoutError(Exception):

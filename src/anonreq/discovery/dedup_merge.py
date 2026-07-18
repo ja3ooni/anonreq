@@ -120,19 +120,19 @@ class DedupMerge:
                     "users": set(),
                     "estimated_token_volume": 0,
                 }
-            g = groups[key]
-            g["sources"].add("dns")
-            g["hostnames"].add(entry.hostname)
-            g["ip_addresses"].add(entry.source_ip)
-            g["total_requests"] += 1
-            g["users"].add(entry.source_ip)
-            if entry.timestamp < g["first_seen"]:
-                g["first_seen"] = entry.timestamp
-            if entry.timestamp > g["last_seen"]:
-                g["last_seen"] = entry.timestamp
+            dns_info = groups[key]
+            dns_info["sources"].add("dns")
+            dns_info["hostnames"].add(entry.hostname)
+            dns_info["ip_addresses"].add(entry.source_ip)
+            dns_info["total_requests"] += 1
+            dns_info["users"].add(entry.source_ip)
+            if entry.timestamp < dns_info["first_seen"]:
+                dns_info["first_seen"] = entry.timestamp
+            if entry.timestamp > dns_info["last_seen"]:
+                dns_info["last_seen"] = entry.timestamp
 
-        for entry in proxy_entries:
-            hostname = urlparse(entry.url).hostname or ""
+        for proxy_entry in proxy_entries:
+            hostname = urlparse(proxy_entry.url).hostname or ""
             match = matcher.match(hostname)
             if not match:
                 continue
@@ -144,23 +144,23 @@ class DedupMerge:
                     "sources": set(),
                     "hostnames": set(),
                     "ip_addresses": set(),
-                    "first_seen": entry.timestamp,
-                    "last_seen": entry.timestamp,
+                    "first_seen": proxy_entry.timestamp,
+                    "last_seen": proxy_entry.timestamp,
                     "total_requests": 0,
                     "users": set(),
                     "estimated_token_volume": 0,
                 }
-            g = groups[key]
-            g["sources"].add("proxy")
-            g["hostnames"].add(hostname)
-            g["ip_addresses"].add(entry.source_ip)
-            g["total_requests"] += 1
-            g["users"].add(entry.source_ip)
-            g["estimated_token_volume"] += entry.bytes // 4
-            if entry.timestamp < g["first_seen"]:
-                g["first_seen"] = entry.timestamp
-            if entry.timestamp > g["last_seen"]:
-                g["last_seen"] = entry.timestamp
+            proxy_info = groups[key]
+            proxy_info["sources"].add("proxy")
+            proxy_info["hostnames"].add(hostname)
+            proxy_info["ip_addresses"].add(proxy_entry.source_ip)
+            proxy_info["total_requests"] += 1
+            proxy_info["users"].add(proxy_entry.source_ip)
+            proxy_info["estimated_token_volume"] += proxy_entry.bytes // 4
+            if proxy_entry.timestamp < proxy_info["first_seen"]:
+                proxy_info["first_seen"] = proxy_entry.timestamp
+            if proxy_entry.timestamp > proxy_info["last_seen"]:
+                proxy_info["last_seen"] = proxy_entry.timestamp
 
         records: list[MergedRecord] = []
         for _key, info in groups.items():

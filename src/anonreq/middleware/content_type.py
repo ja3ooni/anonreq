@@ -21,7 +21,12 @@ class ContentTypeMiddleware:
         self.app = app
         self._dispatcher = dispatcher
 
-    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[..., Any],
+        send: Callable[..., Any],
+    ) -> None:
         if scope["type"] != "http" or self._dispatcher is None:
             await self.app(scope, receive, send)
             return

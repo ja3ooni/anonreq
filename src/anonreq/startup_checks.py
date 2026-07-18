@@ -17,6 +17,7 @@ Threat model coverage:
 """
 
 from collections.abc import Awaitable, Callable
+from typing import Any
 from urllib.parse import urlparse
 
 import structlog
@@ -54,7 +55,7 @@ async def check_valkey(url: str) -> bool:
         return False
 
 
-async def asyncio_open_connection(host: str, port: int, timeout: float = 3.0) -> tuple:
+async def asyncio_open_connection(host: str, port: int, timeout: float = 3.0) -> tuple[Any, Any]:
     """Open a TCP connection with timeout.
 
     Uses asyncio's ``open_connection`` with a timeout wrapper. This avoids
@@ -103,7 +104,8 @@ async def check_presidio(url: str) -> bool:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(health_url)
-            return response.status_code < 500
+            is_healthy: bool = response.status_code < 500
+            return is_healthy
     except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError):
         return False
 

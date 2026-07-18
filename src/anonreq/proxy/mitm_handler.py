@@ -9,7 +9,7 @@ Provides:
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from fastapi import Request
@@ -118,7 +118,7 @@ class MITMHandler:
         Returns:
             The upstream ``Response``.
         """
-        return await call_next(request)
+        return cast(Response, await call_next(request))
 
     async def close(self) -> None:
         """Close all active tunnels and release resources."""
@@ -140,7 +140,7 @@ async def mitm_middleware(request: Request, call_next: Any) -> Response:
     """
     handler: MITMHandler | None = getattr(request.app.state, "mitm_handler", None)
     if handler is None:
-        return await call_next(request)
+        return cast(Response, await call_next(request))
 
     if request.method == "CONNECT":
         return await handler.handle_connect(request)

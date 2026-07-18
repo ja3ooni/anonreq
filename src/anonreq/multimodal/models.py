@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -18,10 +19,10 @@ class ContentType(StrEnum):
 
 class UnifiedDetectionResult(BaseModel):
     content_type: ContentType
-    entities: list[dict] = Field(default_factory=list)
+    entities: list[dict[str, Any]] = Field(default_factory=list)
     risk_score: float = 0.0
     classification: str = "Internal"
-    analyzer_metadata: dict = Field(default_factory=dict)
+    analyzer_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class AnalyzerResult(BaseModel):

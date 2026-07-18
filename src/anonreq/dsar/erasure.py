@@ -130,7 +130,7 @@ class DataErasureService:
                 "WHERE subject_id = :subject_id"
             )
             result = await db.execute(stmt, {"subject_id": subject_id})
-            row = await result.fetchone()
+            row = result.fetchone()
             count = row[0] if row else 0
             return count > 0
         except Exception:

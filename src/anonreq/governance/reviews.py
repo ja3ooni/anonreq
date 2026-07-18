@@ -7,8 +7,9 @@ reviews, and completing review cycles.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import Column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -47,9 +48,9 @@ async def schedule_review(
     next_review = (now + timedelta(days=interval_days)).replace(microsecond=0)
 
     if existing:
-        existing.interval_days = interval_days
-        existing.next_review_date = next_review
-        existing.status = "active"
+        existing.interval_days = cast(Column[int], interval_days)
+        existing.next_review_date = cast(Column[datetime], next_review)
+        existing.status = cast(Column[str], "active")
         await db.flush()
         model = existing
     else:
@@ -67,8 +68,8 @@ async def schedule_review(
         id=model.id,
         tenant_id=model.tenant_id,
         interval_days=model.interval_days,
-        last_review_date=_ensure_tz(model.last_review_date),
-        next_review_date=_ensure_tz(model.next_review_date),
+        last_review_date=_ensure_tz(cast(datetime | None, model.last_review_date)),
+        next_review_date=_ensure_tz(cast(datetime | None, model.next_review_date)),
         status=model.status,
     )
 
@@ -154,18 +155,19 @@ async def complete_review(
         raise ValueError(f"No review cycle for tenant: {tenant_id}")
 
     now = datetime.now(UTC)
-    model.last_review_date = now
-    model.next_review_date = (now + timedelta(days=model.interval_days)).replace(
+    model.last_review_date = cast(Column[datetime], now)
+    next_review = (now + timedelta(days=cast(int, model.interval_days))).replace(
         microsecond=0
     )
+    model.next_review_date = cast(Column[datetime], next_review)
     await db.flush()
 
     return ReviewCycle(
         id=model.id,
         tenant_id=model.tenant_id,
         interval_days=model.interval_days,
-        last_review_date=_ensure_tz(model.last_review_date),
-        next_review_date=_ensure_tz(model.next_review_date),
+        last_review_date=_ensure_tz(cast(datetime | None, model.last_review_date)),
+        next_review_date=_ensure_tz(cast(datetime | None, model.next_review_date)),
         status=model.status,
     )
 
@@ -192,7 +194,7 @@ def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
     """Convert ORM model to Pydantic GovernanceRecord."""
     import json
 
-    officers_data = json.loads(model.officers)
+    officers_data = json.loads(cast(str, model.officers))
     from anonreq.models.governance import (
         GovernanceOfficer,
         json_to_change_history,
@@ -205,8 +207,8 @@ def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
         id=rc.id,
         tenant_id=rc.tenant_id,
         interval_days=rc.interval_days,
-        last_review_date=_ensure_tz(rc.last_review_date),
-        next_review_date=_ensure_tz(rc.next_review_date),
+        last_review_date=_ensure_tz(cast(datetime | None, rc.last_review_date)),
+        next_review_date=_ensure_tz(cast(datetime | None, rc.next_review_date)),
         status=rc.status,
     )
 
@@ -219,8 +221,8 @@ def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
         tenant_id=model.tenant_id,
         officers=officers,
         review_cycle=review_cycle,
-        created_at=_ensure_tz(model.created_at),
-        updated_at=_ensure_tz(model.updated_at),
+        created_at=_ensure_tz(cast(datetime | None, model.created_at)),
+        updated_at=_ensure_tz(cast(datetime | None, model.updated_at)),
         status=model.status,
         version=getattr(model, "version", 1),
         change_history=change_history,

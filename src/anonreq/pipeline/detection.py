@@ -116,7 +116,7 @@ class DetectionStage(PipelineStage):
 
         # Ensure text nodes are extracted
         if ctx.text_nodes is None:
-            ctx.text_nodes = TextExtractor.extract(ctx.original_request)
+            ctx.text_nodes = TextExtractor.extract(ctx.original_request or {})
 
         if not ctx.text_nodes:
             ctx.detections = []

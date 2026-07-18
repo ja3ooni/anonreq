@@ -172,8 +172,8 @@ class AtomicConfigRegistry:
                         )
 
             # Validate exclusion entry match_type
-            for i, e in enumerate(new_config.exclusion_list):
-                if e.match_type not in ("exact", "wildcard"):
+            for i, ex in enumerate(new_config.exclusion_list):
+                if ex.match_type not in ("exact", "wildcard"):
                     errors.append(
                         f"exclusion_list[{i}].match_type: must be 'exact' or 'wildcard'"
                     )

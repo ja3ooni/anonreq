@@ -125,8 +125,8 @@ class CASBEngine:
                     )
 
         # Normal policy evaluation
-        policy = self._classifier.classify(app_id)
-        if policy is None:
+        app_policy: AppPolicy | None = self._classifier.classify(app_id)
+        if app_policy is None:
             # Unknown app -> default block
             return self._record_enforcement(
                 app_id=app_id,
@@ -137,7 +137,7 @@ class CASBEngine:
                 classification="unsanctioned",
             )
 
-        action = self._classifier.resolve_action(policy)
+        action = self._classifier.resolve_action(app_policy)
         blocked = (action == ClassificationAction.BLOCK)
 
         # Generate audit event for all enforcements
@@ -152,7 +152,7 @@ class CASBEngine:
         # Only return audit_event for non-ALLOW actions
         returned_event = audit_event if action != ClassificationAction.ALLOW else None
 
-        self._update_telemetry(app_id, policy.classification.value)
+        self._update_telemetry(app_id, app_policy.classification.value)
         return EnforcementResult(
             action=action,
             blocked=blocked,

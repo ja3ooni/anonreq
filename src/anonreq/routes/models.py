@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from anonreq.state import get_app_state
 
@@ -17,6 +17,8 @@ async def list_models(request: Request) -> dict[str, Any]:
     """Return configured aliases in OpenAI-compatible list format."""
 
     alias_registry = get_app_state(request.app).alias_registry
+    if alias_registry is None:
+        raise HTTPException(status_code=503, detail="Alias registry not initialized")
     created = int(time.time())
     data = []
     for alias_name, alias in alias_registry.list_aliases().items():

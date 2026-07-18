@@ -203,6 +203,7 @@ class AnonReqInternalHostnameRecognizer:
             if d:
                 cleaned_domains.append(re.escape(d))
 
+        self._regex: re.Pattern[str] | None = None
         if cleaned_domains:
             domain_pattern = "|".join(cleaned_domains)
             pattern_str = (
@@ -210,8 +211,6 @@ class AnonReqInternalHostnameRecognizer:
                 rf"+({domain_pattern})\b(?!\.[a-zA-Z0-9])"
             )
             self._regex = re.compile(pattern_str)
-        else:
-            self._regex = None
 
     def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:  # noqa: ARG002
         """Scan text for internal hostnames."""

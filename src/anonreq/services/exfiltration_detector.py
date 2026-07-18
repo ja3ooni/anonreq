@@ -79,7 +79,7 @@ class ExfiltrationDetector:
 
     def _compile_patterns(self) -> None:
         """Compile regex patterns for each detection method."""
-        self._patterns: dict[str, re.Pattern] = {}
+        self._patterns: dict[str, re.Pattern[str]] = {}
         for method, cfg in self._config.get("methods", {}).items():
             if cfg.get("enabled", False) and "pattern" in cfg:
                 self._patterns[method] = re.compile(cfg["pattern"])

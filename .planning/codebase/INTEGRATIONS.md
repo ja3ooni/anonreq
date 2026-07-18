@@ -1,329 +1,328 @@
 # External Integrations
 
-**Analysis Date:** 2026-07-17
+**Analysis Date:** 2026-07-18
 
-## APIs & External Services
+## Provider APIs
 
-### LLM Provider APIs (Upstream)
+**OpenAI:**
+- Adapter: `src/anonreq/providers/openai.py` → `OpenAIAdapter`
+- Endpoint: `https://api.openai.com/v1/chat/completions`
+- Auth: `Authorization: Bearer {api_key}` header
+- API key resolution: `RuntimeSecretStore` → `ANONREQ_OPENAI_API_KEY` → `OPENAI_API_KEY`
+- HTTP client: `httpx.AsyncClient` (lazy-init, 30s timeout, no redirects)
+- Streaming: SSE with `data: {...}\n\n` lines, `[DONE]` sentinel
+- Translation: passes OpenAI requests through directly (canonical format)
 
-| Provider | Protocol | Implementation | Auth Env Var |
-|----------|----------|----------------|--------------|
-| **OpenAI** | OpenAI-compatible Chat Completions | `src/anonreq/providers/openai.py` (`OpenAIAdapter`) | `ANONREQ_OPENAI_API_KEY` or `OPENAI_API_KEY` |
-| **Anthropic** | Anthropic Messages API (translated from OpenAI schema) | `src/anonreq/providers/anthropic.py` (`AnthropicAdapter`) | `ANONREQ_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY` |
-| **Gemini** | Google Gemini API (translated from OpenAI schema) | `src/anonreq/providers/gemini.py` (`GeminiAdapter`) | `ANONREQ_GEMINI_API_KEY` or `GEMINI_API_KEY` |
-| **Ollama** | Ollama Chat API (translated from OpenAI schema) | `src/anonreq/providers/ollama.py` (`OllamaAdapter`) | `ANONREQ_OLLAMA_API_KEY` or `OLLAMA_API_KEY` |
+**Anthropic:**
+- Adapter: `src/anonreq/providers/anthropic.py` → `AnthropicAdapter`
+- Endpoint: `https://api.anthropic.com/v1/messages`
+- Auth: `x-api-key` header + `anthropic-version: 2023-06-01`
+- Translation: OpenAI → Anthropic format (system message extracted to top-level `system` param, tools converted to `name`/`description`/`input_schema`)
+- Streaming: SSE with `event:` prefix lines, events: `message_start`, `content_block_delta`, `message_delta`, `error`
+- Response normalization: Anthropic content blocks → OpenAI `choices[0].message.content`
 
-**Adapter architecture:** All providers are registered via `config/providers.yaml`, loaded by `ProviderRegistry` (`src/anonreq/providers/registry.py`). Each adapter translates from OpenAI-compatible input schema to provider-native format. Response normalization maps back to OpenAI-compatible chat completions. Adapters are pure schema translators — zero policy, detection, or caching logic. All `httpx.AsyncClient` instances across adapters and pipeline use `follow_redirects=False` (SSRF hardening, Phase 29).
+**Google Gemini:**
+- Adapter: `src/anonreq/providers/gemini.py` → `GeminiAdapter`
+- Endpoint: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
+- Auth: `x-goog-api-key` header
+- Translation: OpenAI → Gemini format (system → `system_instruction`, assistant → `model` role, tools → `function_declarations`)
+- Streaming: SSE via `:streamGenerateContent?alt=sse` endpoint variant
+- Response normalization: Gemini candidates → OpenAI canonical format
 
-**Provider capability config:** `config/providers.yaml` maps provider names to adapter class paths (e.g., `anonreq.providers.anthropic.AnthropicAdapter`). Capability flags (streaming, tool_calling, vision, etc.) resolved via `config/capabilities.yaml` and `CapabilityResolver`.
+**Ollama:**
+- Adapter: `src/anonreq/providers/ollama.py` → `OllamaAdapter`
+- Endpoint: `{OLLAMA_HOST}/api/chat` (default: `http://localhost:11434/api/chat`)
+- Auth: optional `Authorization: Bearer` (for remote setups); local runs without auth
+- Translation: minimal — Ollama uses OpenAI-compatible messages format
+- Streaming: NDJSON (newline-delimited JSON), each line has `message` + `done` boolean
 
-**Runtime secret store:** Provider API keys can be loaded from a `RuntimeSecretStore` (`src/anonreq/secrets/store.py`) at startup and hot-reloaded via file watcher (`src/anonreq/secrets/reloader.py`). `ProviderRegistry` accepts an optional `secret_store` parameter, falling back to the process-wide store via `get_runtime_secret_store()`.
+**Provider Registry:**
+- `src/anonreq/providers/registry.py` → `ProviderRegistry`
+- Loads adapter class paths from `config/providers.yaml` via `yaml.safe_load()`
+- Dynamic import via `importlib.import_module()` at resolution time
+- Lazy-imported and cached per provider name
+- API key resolution chain: `RuntimeSecretStore.get_provider_api_key()` → `ANONREQ_{PROVIDER}_API_KEY` → `{PROVIDER}_API_KEY`
+
+**Adapter Pattern:**
+- All adapters implement `ProviderAdapter` ABC (`src/anonreq/providers/adapter.py`)
+- Methods: `translate_request()`, `execute()`, `stream_events()`, `translate_response()`
+- Zero policy/classification/detection logic inside adapters (pure schema translators)
+- Secrets resolved only at network boundary (never stored in `ProcessingContext`)
+- Capabilities loaded from `config/capabilities.yaml` via `CapabilityResolver`
 
 ## Data Storage
 
-**Databases:**
-- **PostgreSQL 16** — Audit log database (observability profile, `docker-compose.yml` service `postgres`)
-  - Connection: `ANONREQ_DATABASE_URL` env var (default: `sqlite+aiosqlite:///./anonreq.db`)
-  - Client: SQLAlchemy 2.0 async (`create_async_engine`) + `asyncpg` driver
-  - Migrations: Alembic (`alembic.ini`, `alembic/`)
-  - Alternative: SQLite with aiosqlite for development/testing
-  - Prometheus metrics via `postgres-exporter` (observability profile)
-  - Docker Compose now uses `${POSTGRES_USER:?err}` / `${POSTGRES_PASSWORD:?err}` — no hardcoded credentials
+**Redis/Valkey (ephemeral cache):**
+- Client: `redis.asyncio` (Python redis-py async interface)
+- Connection: `CacheManager` at `src/anonreq/cache/manager.py`
+- Topologies supported:
+  - Standalone: `redis://host:port/db` via `redis.from_url()`
+  - Sentinel: `redis+sentinel://host1:port1,host2:port2/servicename` via `Sentinel().master_for()`
+  - Cluster: `redis+cluster://host1:port1,host2:port2` via `RedisCluster()`
+- Key format: `anonreq:{tenant_id}:{session_id}` — HASH mapping `token → original_value`
+- Atomicity: `pipeline(transaction=True)` for HSET + EXPIRE
+- TTL: configurable via `ANONREQ_CACHE_TTL_SECONDS` (default: 300s)
+- Retry: tenacity exponential backoff (0.1s–2s, 30s total stop) on `ConnectionError`, `TimeoutError`, `ReadOnlyError`, `ClusterDownError`, `MasterDownError`
+- Health check: `src/anonreq/cache/health.py` — PING + verify `save ""` (persistence disabled)
+- SLO tracking uses Redis sorted sets and counters for daily/monthly/rolling windows (`src/anonreq/services/slo_engine.py`)
 
-**File Storage:**
-- **MinIO** — S3-compatible object storage for compliance archives (SEC 17a-4 MNPI audit retention) — optional extra `[storage]`
-  - Client: `minio` Python SDK in `src/anonreq/storage/minio.py` (`MinioWormBucket`)
-  - Bucket: `anonreq-mnpi-audit` with WORM (Write Once Read Many) mode
-  - Retention: COMPLIANCE mode, 7-year retain-until-date (2557 days)
-  - Only SHA-256 hashes stored, never raw PII/MNPI
-  - Credentials: `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` env vars (Docker Compose, no defaults)
-  - Endpoint: `minio:9000` (internal network)
+**PostgreSQL (governance/audit persistence):**
+- Driver: `asyncpg>=0.31.0` (async PostgreSQL)
+- ORM: `sqlalchemy>=2.0.0` with async support
+- Connection URL: `ANONREQ_DATABASE_URL` (default fallback: `sqlite+aiosqlite:///./anonreq.db`)
+- Migrations: Alembic (`alembic/versions/`)
+- Models: `src/anonreq/models/governance.py`, `src/anonreq/models/breach.py`, `src/anonreq/models/dsar.py`, `src/anonreq/models/ediscovery.py`, `src/anonreq/models/lineage.py`, `src/anonreq/models/dlp.py`
+- Docker Compose: `postgres:16-alpine` (observability profile only)
 
-**Caching:**
-- **Valkey 8** (Redis-compatible) — Ephemeral token mapping store, TTL-based eviction
-  - Client: `redis-py` (`redis.asyncio`), in `src/anonreq/cache/manager.py` (`CacheManager`)
-  - Connection: `ANONREQ_VALKEY_URL` env var
-  - **Topology support** (Phase 28): standalone (`redis://`), Sentinel (`redis+sentinel://`), Cluster (`redis+cluster://`)
-  - Persistence disabled: `--save "" --appendonly no`
-  - Key format: `anonreq:{tenant_id}:{session_id}` per D-13
-  - TTL range: 60–3600 seconds (configurable via `ANONREQ_CACHE_TTL_SECONDS`)
-  - Atomic HSET + EXPIRE via pipeline transactions
-  - Health checks every 5s via `health_check_interval`
-  - **Retry with tenacity** (Phase 28): exponential backoff with jitter, 30s stop delay, covers `ConnectionError`, `TimeoutError`, `ReadOnlyError`, `ClusterDownError`, `MasterDownError`; translates to `DependencyUnavailableError` on exhaustion
-  - Prometheus metrics via `valkey-exporter` (observability profile)
+**SQLite (default/fallback database):**
+- Driver: `aiosqlite>=0.20.0`
+- Default connection: `sqlite+aiosqlite:///./anonreq.db`
+- Used when no PostgreSQL is configured (development/small deployments)
 
-## Authentication & Identity
+**MinIO (compliance archive storage):**
+- Client: `minio>=7.2.0` Python SDK (optional extra `[storage]`)
+- Module: `src/anonreq/storage/minio.py` → `MinioWormBucket`
+- Bucket: `anonreq-mnpi-audit` with WORM (object_lock=True)
+- Retention: COMPLIANCE mode, 7-year retain-until-date (2557 days)
+- Object path: `{tenant_id}/{YYYY}/{MM}/{DD}/{event_id}.json`
+- Factory: `create_mnpi_worm_bucket()` reads `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_SECURE`
+- Only SHA-256 hashes of detected values stored (never raw PII/MNPI)
 
-**Auth Provider:**
-- **Custom** (self-hosted, no external IdP) — Bearer token authentication
-  - Implementation: `src/anonreq/dependencies.py` (`verify_api_key`, `auth_context`)
-  - Scheme: HTTP Bearer via `fastapi.security.HTTPBearer(auto_error=True)`
-  - Token validation: constant-time comparison (`hmac.compare_digest`) against `ANONREQ_API_KEY` env var (min 32 chars)
-  - Admin endpoints: Separate `ANONREQ_ADMIN_API_KEY` env var
-  - Auth applies to all protected routes via `Depends(auth_context)`
-  - Health routes, chat routes, compliance routes, governance routes, admin routes — all auth-protected
-  - PAC file endpoint is public (no auth)
-  - `/metrics` is public (secured at network level)
+## Presidio
 
-**OIDC Support (Phase 29):**
-- **OIDCVerifier** — Optional external IdP integration for admin identity tokens
-  - Implementation: `src/anonreq/auth/oidc.py` (`OIDCVerifier`, `JWKSCache`)
-  - Config: `ANONREQ_OIDC_ISSUER`, `ANONREQ_OIDC_AUDIENCE`, `ANONREQ_OIDC_JWKS_URL`, `ANONREQ_OIDC_ROLE_CLAIM`, `ANONREQ_OIDC_JWKS_CACHE_SECONDS`
-  - JWKS: Cached public keys with configurable TTL (default 300s), async refresh with lock
-  - Token verification: JWT signature validation via RSA public keys from JWKS endpoint
-  - Role claim extraction for RBAC integration
+**Presidio Analyzer Sidecar:**
+- Client: `src/anonreq/detection/presidio_client.py` → `PresidioClient`
+- HTTP client: `httpx.AsyncClient` (lazy-init, 2s default timeout, no redirects)
+- Endpoint: `ANONREQ_PRESIDIO_URL/analyze` (POST), `{url}/health` (GET)
+- Concurrency: `asyncio.Semaphore(max_concurrency)` — default 10 concurrent requests
+- Short text skip: nodes < 20 chars bypass Presidio (regex only)
+- Score threshold: 0.7 default
+- Batch analysis: `analyze_text_nodes()` uses `asyncio.gather()` with semaphore control
+- Docker: `mcr.microsoft.com/presidio-analyzer:latest` sidecar
+- Error handling: `PresidioTimeoutError` on timeout, `PresidioError` on HTTP error
+- Health check: GET `/health`, returns `{"reachable": bool}`
 
-**RBAC (Phase 29):**
-- **Role hierarchy** with 4 levels: `ADMINISTRATOR` (4) > `SECURITY_OFFICER` (3) > `OPERATOR` (2) > `READ_ONLY_AUDITOR` (1)
-  - Implementation: `src/anonreq/middleware/rbac.py` (`require_role()`)
-  - Role normalization: legacy `read_only` maps to `read_only_auditor`
-  - Used on admin routes, audit routes, compliance routes
+## SOC/SIEM Sinks
 
-**mTLS (Phase 29):**
-- **IngressMTLSMiddleware** — Validates forwarded client certificates from trusted reverse proxies
-  - Implementation: `src/anonreq/middleware/mtls.py`
-  - Config: `ANONREQ_MTLS_ENFORCE`, `ANONREQ_MTLS_TRUSTED_PROXY_CIDRS`, `ANONREQ_MTLS_FORWARD_CERT_HEADER`
-  - Certificate formats: PEM, DER, base64-encoded DER
-  - Trusted proxy validation: CIDR allowlist matching against request client IP
-  - Machine principal extraction from certificate subject/issuer/fingerprint
+**Sink Architecture:**
+- Router: `src/anonreq/soc/router.py` → `SinkRouter` — fan-out to all registered sinks
+- Factory: `src/anonreq/soc/sink_factory.py` — instantiates sinks from `SinkDefinition` config
+- Config: `src/anonreq/soc/sink_config.py` → `SinkConfigLoader` — loads `config/soc-sinks.yaml`
+- Secret resolution: `$env:VAR_NAME` (env var) and `$file:/etc/anonreq/secrets/...` (file)
+- Normalizer: `src/anonreq/soc/normalizer.py` → `SOCNormalizer` — strips content fields, MITRE mapping, metadata enrichment
+- Event bus: `asyncio.Queue` (maxsize from config, default 10000) — non-blocking `put_nowait()`
+- Buffering: optional `SinkBuffer` wrapper per sink (configurable `buffer_maxsize`)
+- Health monitoring: `src/anonreq/soc/health.py` → `SinkHealthMonitor`
 
-## Runtime Secret Management (Phase 29)
+**Splunk HEC:**
+- Sink: `src/anonreq/soc/sinks/splunk_hec.py` → `SplunkHECSink`
+- Protocol: HTTP POST to `/services/collector/event`
+- Auth: `Authorization: Splunk {token}` header
+- Wire format: HEC JSON envelope (`time`, `host`, `source`, `sourcetype: anonreq:ai_security`, `event`)
+- Batch support: `send_batch()` for multiple events in one request
 
-- **RuntimeSecretStore** — Thread-safe in-memory secret snapshot container
-  - Implementation: `src/anonreq/secrets/store.py` (`RuntimeSecretStore`, `SecretSnapshot`)
-  - Protocol-based source abstraction (`SecretSource`)
-  - Request-scoped binding via ContextVar
+**Elastic Bulk:**
+- Sink: `src/anonreq/soc/sinks/elastic_bulk.py` → `ElasticBulkSink`
+- Protocol: HTTP POST to bulk API endpoint
+- Auth: `api_key` header
+- Index pattern: `anonreq-ai-security-%Y.%m.%d` (daily rotation)
 
-- **SecretRotationBuffer** — Rotation support for long-lived streaming connections
-  - Implementation: `src/anonreq/secrets/rotation.py`
-  - Atomic rotation with previous snapshot retention
-  - Per-session read-only views
+**Azure Sentinel DCR:**
+- Sink: `src/anonreq/soc/sinks/sentinel_dcr.py` → `SentinelDCRSink`
+- Protocol: HTTP POST to DCR endpoint
+- Auth: Azure AD client credentials (tenant_id, client_id, client_secret)
+- Config: DCR immutable ID, stream name
 
-- **VaultSecretSource** — HashiCorp Vault KV v2 backend
-  - Implementation: `src/anonreq/secrets/bootstrap.py` (`VaultSecretSource`)
-  - Config: `ANONREQ_SECRET_BACKEND=vault`, `ANONREQ_SECRET_BACKEND_PATH`
-  - Requires `hvac` package (optional dependency)
+**QRadar CEF:**
+- Sink: `src/anonreq/soc/sinks/qradar_cef.py` → `QRadarCEFSink`
+- Protocol: TCP/UDP syslog with CEF format
+- Default port: 514, TCP by default
 
-- **SecretVolumeReloader** — Watchdog-based file watcher for mounted secret volumes
-  - Implementation: `src/anonreq/secrets/reloader.py`
-  - Config: `ANONREQ_SECRET_VOLUME_DIR`, `ANONREQ_SECRET_VOLUME_FILE`
-  - YAML format with `provider_api_keys` mapping
-  - Atomic snapshot replacement on file change
+**Datadog Logs:**
+- Sink: `src/anonreq/soc/sinks/datadog_logs.py` → `DatadogLogsSink`
+- Protocol: HTTP POST to Datadog Logs API
+- Auth: `DD-API-KEY` header
+- Default site: `datadoghq.com`
 
-## License Validation (Phase 26)
+**Webhook:**
+- Sink: `src/anonreq/soc/sinks/webhook.py` → `WebhookSink`
+- Protocol: configurable HTTP method (default POST)
+- Custom headers and payload templates supported
+- Content-Type: `application/json` default
 
-- **HMAC-SHA256 commercial license** — Offline license key verification
-  - Implementation: `src/anonreq/license/validator.py` (`LicenseValidator`)
-  - Config: `ANONREQ_LICENSE_SECRET` (HMAC signing key), `ANONREQ_LICENSE_KEY` (base64-encoded signed payload)
-  - Feature gating: `src/anonreq/license/models.py` (`FeatureGate`, `LicensePayload`)
-  - Constant-time signature comparison
-  - In-memory caching of validation status
-  - Routes: `src/anonreq/license/router.py`
+**SOC Event Flow:**
+1. Detection engines publish `RawSecurityEvent` to `SOCNormalizer.event_bus` (asyncio.Queue)
+2. Normalizer strips content fields (`content`, `prompt`, `response`, `raw_text`, `message`, `text`) per D-012
+3. If content fields detected → event dropped with `soc_strip_failure` audit
+4. MITRE technique ID resolved via `MITREMapper` (config: `config/mitre_mapping.yaml`, `config/mitre_attack.yaml`, `config/mitre_atlas.yaml`)
+5. `NormalizedEvent` produced with 8 required fields + metadata dict
+6. Fan-out to all enabled sinks via `SinkRouter.fan_out()`
+7. Each sink formats and delivers independently (failure in one doesn't affect others)
 
-## PII Detection
+## Proxy/TLS
 
-- **Microsoft Presidio Analyzer** — PII/PHI detection sidecar service
-  - Container: `mcr.microsoft.com/presidio-analyzer:latest` (Docker Compose)
-  - Client: `src/anonreq/detection/presidio_client.py` (`PresidioClient`)
-  - Connection: `ANONREQ_PRESIDIO_URL` env var (`http://presidio-analyzer:3000`)
-  - Endpoint: `POST /analyze` per text node
-  - Concurrency: Semaphore-limited `asyncio.gather()` (max 10 concurrent requests, configurable via `ANONREQ_PRESIDIO_MAX_CONCURRENCY`)
-  - Timeout: 2 seconds per request (D-50), configurable via `ANONREQ_REQUEST_TIMEOUT_SECONDS`
-  - Skip threshold: text nodes < 20 chars skip Presidio (D-34)
-  - Default score threshold: 0.7 (D-37)
-  - Locale-specific recognizer bundles via `config/locales/` and locale negotiation header `X-AnonReq-Locale`
-  - All `httpx.AsyncClient` instances use `follow_redirects=False` (SSRF hardening)
+**Transparent Proxy:**
+- Module: `src/anonreq/proxy/transparent_proxy.py` → `TransparentProxy`
+- TLS interception: `src/anonreq/proxy/tls_interceptor.py` → `TLSInterceptor`
+  - Enterprise CA loaded from disk (`ANONREQ_CA_DIR`)
+  - Dynamic leaf cert generation (RSA 2048, SHA-256, 24h TTL)
+  - TLS 1.3 minimum, in-memory cert cache per domain
+  - Generated certs written to temp files briefly, loaded into `ssl.SSLContext`, then deleted
+- Traffic detection: `src/anonreq/proxy/detection.py` → `AITrafficDetector` — identifies AI API traffic
+- Certificate pinning detection: `CertPinningDetector` — blocks pinned clients with HTTP 426
+- Fail-closed policy: all ambiguities block forwarding
 
-## Monitoring & Observability
+**Reverse Proxy:**
+- Module: `src/anonreq/proxy/reverse_proxy.py` → `ReverseProxy`
 
-**Metrics:**
-- **Prometheus** — Metrics collection and alerting engine
-  - Client: `prometheus-client` Python library
-  - Endpoint: `GET /metrics` (OpenMetrics text format)
-  - Key metrics: request counts, latency histograms, DLP violations, exfiltration detections, SIEM sink counters
-  - Prometheus server: `prom/prometheus:v2.53.0` (observability profile)
-  - Scrape targets: anonreq gateway, postgres-exporter, valkey-exporter
-  - Alert rules: `docker/prometheus/rules/slo_alerts.yml`
-  - Retention: 30 days (`--storage.tsdb.retention.time=30d`)
+**MITM Handler:**
+- Module: `src/anonreq/proxy/mitm_handler.py` → `MITMHandler`
+- Orchestrates TLS interception, cert pinning detection, bidirectional tunnel establishment
 
-**Dashboards:**
-- **Grafana** — Visualization dashboards
-  - Version: `grafana/grafana:11.0.0`
-  - Provisioned datasources: Prometheus (`docker/grafana/datasources/prometheus.yml`)
-  - Provisioned dashboards: SLO dashboard, Audit dashboard (`docker/grafana/dashboards/`)
-  - Anonymous auth disabled (Phase 24 security fix)
+**CA Manager:**
+- Module: `src/anonreq/proxy/ca_manager.py` → `CAManager`
+- Dual-path management: API upload + filesystem watch
+- Hot-reload via `watchdog` filesystem observer
+- In-memory metadata store keyed by certificate serial number
 
-**Logging:**
-- **Structured JSON logging** via `structlog` + `python-json-logger`
-  - Metadata-only audit, never raw PII values
-  - Log levels configurable via `ANONREQ_LOG_LEVEL`
-  - Request-scoped `request_id` bound via structlog contextvars
-  - Config: `src/anonreq/logging_config.py`
+**PAC File:**
+- Module: `src/anonreq/proxy/pac.py` → `PACGenerator` + FastAPI router
+- Endpoint: `GET /v1/proxy.pac` (public, no auth)
+- Generates Netscape PAC JavaScript routing AI provider domains through gateway
+- Admin endpoints for custom PAC rules (authenticated)
+- Default domains: `.openai.com`, `.anthropic.com`, `.googleapis.com`
+- Custom rules support wildcard subdomain patterns
 
-## SIEM & SOC Integrations
+**Proxy Modes:**
+- Module: `src/anonreq/proxy/modes.py`
+- `proxy-only` — standard API proxy
+- `transparent` — transparent interception with TLS/MITM
+- `full` — full appliance mode with all interception features
 
-**Config-driven SIEM sink framework** (`config/soc-sinks.yaml`, `src/anonreq/soc/`):
+## Endpoint Agent
 
-| Sink | Type | Protocol | Status | Details |
-|------|------|----------|--------|---------|
-| **Splunk HEC** | `splunk_hec` | HTTPS POST | Enabled | `src/anonreq/soc/sinks/splunk_hec.py` — HEC JSON envelopes, sourcetype `anonreq:ai_security` |
-| **QRadar CEF** | `qradar_cef` | TCP syslog (port 514) | Enabled | `src/anonreq/soc/sinks/qradar_cef.py` — CEF:0\|AnonReq\| format |
-| **Azure Sentinel** | `sentinel_dcr` | HTTPS (OAuth2) | Disabled | `src/anonreq/soc/sinks/sentinel_dcr.py` — DCR stream records via Azure AD `client_credentials` grant |
-| **Elasticsearch** | `elastic_bulk` | HTTPS Bulk API | Disabled | `src/anonreq/soc/sinks/elastic_bulk.py` — NDJSON `/_bulk` API with ApiKey auth |
-| **Datadog Logs** | `datadog_logs` | HTTPS | Disabled | `src/anonreq/soc/sinks/datadog_logs.py` — `https://http-intake.logs.{site}/api/v2/logs` |
-| **Custom Webhook** | `webhook` | HTTPS (Jinja2 templated) | Disabled | `src/anonreq/soc/sinks/webhook.py` — Configurable method, URL, headers, Jinja2 payload |
+**Desktop Agent:**
+- Module: `src/anonreq/endpoint/agent.py` → `EndpointAgent`
+- Lifecycle: async start/stop with background tasks
+- AI app discovery: `src/anonreq/endpoint/discovery.py` → `AppDiscovery`
+  - Scans running processes for known AI apps: Cursor, Claude Desktop, ChatGPT Desktop, VS Code (Copilot)
+  - macOS-specific: uses bundle IDs (`com.todesktop.230113mto6h4b5r`, `com.anthropic.claudedesktop`, etc.)
+- Traffic capture: `src/anonreq/endpoint/macos/capture.py` → `TrafficCapture` (macOS-specific)
+- Heartbeat telemetry: periodic status emission via structured audit logger
+- Config: `src/anonreq/endpoint/config.py` → `EndpointConfig` (heartbeat_interval_sec, discovery_interval_sec, capture_enabled, capture_interface)
 
-**SOC event pipeline:**
-- `SOCNormalizer` (`src/anonreq/soc/normalizer.py`) — MITRE ATT&CK mapping via `config/mitre-mapping.yaml`
-- `MITREMapper` (`src/anonreq/soc/mitre.py`) — ATT&CK technique/ID resolution
-- SOC event buffer (`src/anonreq/soc/buffer.py`) — Async event buffering
-- Health monitoring: per-sink health checks with periodic monitoring
-- Config: `config/soc-sinks.yaml`, `config/mitre-mapping.yaml`, `config/mitre_atlas.yaml`, `config/mitre_attack.yaml`
+## Voice
 
-## SLO Breach Notifications
+**Speech-to-Text Engine:**
+- Module: `src/anonreq/voice/stt_engine.py` → `STTEngine`
+- Model backends (tried in order):
+  1. `faster_whisper.WhisperModel` (preferred, CTranslate2-based)
+  2. `whisper.load_model` (OpenAI Whisper fallback)
+- Config: `src/anonreq/voice/config.py` → `VoiceConfig` (stt_model_size, stt_device, audio_sample_rate, transcript_buffer settings)
+- Device selection: auto-detect CUDA via `torch.cuda.is_available()`, fallback to CPU
+- Streaming: `transcribe_streaming()` with sliding window overlap buffer
+- Transcript buffer: `src/anonreq/voice/transcript_buffer.py` — contiguous assembly from overlapping chunks
 
-- **Webhook** — Configurable SLO breach notification
-  - URL: `ANONREQ_BREACH_WEBHOOK_URL` env var
-  - Retry: exponential backoff (base 2s), max 3 retries, 10s timeout
-  - DLQ: max 1000 entries
-  - Implementation: `src/anonreq/breach/notifications.py`, config: `config/webhook.yaml`
-  - Templates: `src/anonreq/breach/templates.py` (Jinja2-rendered)
-
-## Compliance Presets
-
-**Regional compliance configurations** in `config/compliance/`:
-- GDPR (Europe)
-- LGPD (Brazil)
-- PDPA (Singapore/Thailand)
-- PIPEDA (Canada)
-- POPIA (South Africa)
-- Privacy Act (Australia/New Zealand)
-
-Loaded by `PresetEngine` (`src/anonreq/compliance/engine.py`). Active presets configured via `ANONREQ_ACTIVE_PRESETS` env var (comma-separated).
-
-## Trust Center (Phase 24)
-
-- **Public compliance portal** — External-facing trust status endpoint
-  - Service: `src/anonreq/trust_center/service.py` (`TrustCenterService`)
-  - Router: `src/anonreq/trust_center/router.py`
-  - Config: `config/trust_center.yaml` (enabled, display name, supported frameworks)
-  - Rate limiting: `TrustCenterRateLimiter` (`src/anonreq/trust_center/service.py`)
-  - Schemas: `src/anonreq/trust_center/schemas.py` (`TrustStatus`, `TrustCompliance`, `TrustSecurity`, `TrustMetrics`)
-  - Enabled by default (Phase 27 made it default)
-
-## Audit & Chain of Custody
-
-- **AuditChainService** (`src/anonreq/services/audit_chain.py`) — Immutable audit log with cryptographic chain anchoring
-- **ChainAnchorService** (`src/anonreq/services/chain_anchor.py`) — Merkle-tree style anchoring
-- **Signing key:** `ANONREQ_ANCHOR_SIGNING_KEY` env var
-- **Retention:** 2557 days (7 years) per `config/audit.yaml`
-- Database: PostgreSQL (async, via SQLAlchemy)
-- **Admin Audit API** (Phase 29): `src/anonreq/api/v1/admin/audit.py` — `/v1/admin/audit/config-history` endpoint for querying/filtering/exporting config change audit trail, RBAC-protected (ADMINISTRATOR role)
-
-## CI/CD & Deployment
-
-**Hosting:**
-- **Docker** — Multi-stage `Dockerfile`, `python:3.12-slim` base
-  - Builder stage: installs deps with `pip install ".[all]"` (all optional extras)
-  - Runtime stage: minimal image, non-root `anonreq` user (uid 1001)
-  - HEALTHCHECK on port 8080, `--no-server-header` for security
-  - Port: 8080 (container), EXPOSE 8080
-
-**CI Pipeline:**
-- **GitHub Actions** — 4 workflows in `.github/workflows/`:
-  - `test.yml` — ruff lint, mypy type check, pytest with coverage, coverage summary (on PR/push to main)
-  - `docs-ci.yml` — Markdown lint, link check, Mermaid validation, OpenAPI sync check (on PR/push to main)
-  - `docs-nightly.yml` — Scheduled doc rebuild
-  - `release.yml` — SBOM generation (CycloneDX + Syft), Cosign attestation, artifact attachment (on release publish)
-
-**Container Registry:**
-- GitHub Container Registry (implied by `release.yml` workflow)
-- Image labels: `org.opencontainers.image.source`, `version`, `description`
-
-**Orchestration:**
-- `docker-compose.yml` — Core services (anonreq, valkey, presidio-analyzer) on isolated `anonreq-net` bridge network
-- Observability profile (`--profile observability`): adds postgres, postgres-exporter, minio, prometheus, grafana, valkey-exporter
-- All services use `restart: unless-stopped`
-- Docker secrets: All sensitive credentials use `${VAR:?err}` pattern (no hardcoded defaults)
-
-**System Deployment:**
-- `systemd` unit at `systemd/anonreq-agent.service` for agent/endpoint visibility mode
-- Appliance deployment modes: reverse proxy, transparent proxy, virtual, physical (in `src/anonreq/appliance/`, `src/anonreq/deployment/`)
-
-## Webhooks & Callbacks
-
-**Incoming:**
-- **SLO Breach Callback** — Configurable webhook target for SLO breaches
-  - Endpoint target: configured via `ANONREQ_BREACH_WEBHOOK_URL`
-  - Event type header: `X-AnonReq-Event-Type: slo_breach`
-  - Payload: `application/json`
-
-**Outgoing:**
-- **LLM Provider API calls** — All outbound requests to upstream LLM APIs (OpenAI, Anthropic, Gemini, Ollama); all use `follow_redirects=False`
-- **SIEM sinks** — Configurable outbound events to Splunk, QRadar, Azure Sentinel, Elastic, Datadog, custom webhook
-- **Compliance archive** — WORM bucket writes to MinIO
-- **PAC file** — Served at `GET /proxy.pac` (public, no auth)
-- **JWKS fetch** — OIDC JWKS endpoint fetch for token verification (`httpx.AsyncClient` with timeout)
-
-## AI-Specific Integrations
+**Voice Connectors:**
+- Module: `src/anonreq/voice/connectors.py`
+- `SIPConnector` — SIP trunk proxy, RTP audio extraction
+- `WebRTCConnector` — WebRTC media with SDP inspection and ICE passthrough
+- `WebSocketConnector` — binary audio frame streaming with fragmentation support
+- `GRPCConnector` — bidirectional gRPC-style audio streams with length-prefixed messages
+- Audio format detection: WAV (RIFF header), Opus (RTP payload type), PCM (default)
+- All connectors extend `BaseConnector` ABC with common lifecycle and chunk delivery
 
 **Voice Pipeline:**
-- **OpenAI Whisper** — Local STT via `openai-whisper` + `torch` (GPU/CPU detection); optional extra `[voice]`
-  - `src/anonreq/voice/stt_engine.py`, `src/anonreq/voice/stt.py`
-  - `src/anonreq/voice/connectors.py` — Voice provider connectors
-  - Telephony integration support via `src/anonreq/voice/`
+- Module: `src/anonreq/voice/pipeline.py` — orchestrates connector → STT → sanitization
+- Sanitizer: `src/anonreq/voice/sanitizer.py` — PII detection/redaction on transcripts
+- Detector: `src/anonreq/voice/detector.py` — security event detection on voice content
 
-**RAG Pipeline:**
-- **Vector store connectors** — Abstract interface with backends: Pinecone, Weaviate, Chroma, PGVector
-  - `src/anonreq/rag/vector_connector.py` — `VectorStoreConnector` ABC
-  - Ingest, detection, restoration, policy enforcement pipelines in `src/anonreq/rag/`
+## Prometheus/Grafana
 
-**MCP (Model Context Protocol):**
-- **MCP Inspector** — Protocol detection and inspection for AI agent tool calls
-  - `src/anonreq/mcp/inspector.py`, `src/anonreq/mcp/parser.py`
-  - `src/anonreq/agent/mcp_parser.py` — MCP protocol parser
+**Metrics Export:**
+- Endpoint: `GET /metrics` (no auth, network-level security)
+- Format: Prometheus text exposition via `prometheus_client.generate_latest(REGISTRY)`
+- Core metrics defined in `src/anonreq/monitoring/metrics.py`
+- Middleware: `src/anonreq/monitoring/middleware.py` → `MetricsMiddleware` — request counting and latency
+- Docker Compose: Prometheus v2.53.0 + Grafana 11.0.0 (observability profile)
+- Prometheus config: `docker/prometheus/prometheus.yml`
+- Grafana dashboards: `docker/grafana/dashboards/` (SLO dashboard as default home)
 
-**Agent-Tool Governance:**
-- Tool use classification, approval workflows, result sanitization
-  - `src/anonreq/agent/` — Agent tool governance framework
-  - `src/anonreq/governance/` — AI governance, tool inspection, policy evaluation
-  - `src/anonreq/governance/provider_inventory.py` — Provider inventory management
-  - `src/anonreq/governance/model_inventory.py` — Model inventory management
+**Docker Compose Observability Services:**
+- `postgres-exporter` (v0.15.0) — PostgreSQL metrics for Prometheus
+- `valkey-exporter` (v1.61.0) — Valkey/Redis metrics for Prometheus
 
-**Fairness Evaluation:**
-- ML-driven fairness monitoring for AI outputs (optional extra `[ml]`)
-  - `src/anonreq/fairness/` — Dataset analysis, evaluation, monitoring
+## Authentication
 
-## Environment Configuration
+**API Key Auth (primary):**
+- Module: `src/anonreq/dependencies.py` → `verify_api_key` / `auth_context`
+- Bearer token via `HTTPBearer(auto_error=True)`
+- Constant-time comparison: `hmac.compare_digest(token, settings.API_KEY)`
+- Min key length: 32 characters (validated at startup)
+- `auth_context` composite dependency: validates auth + populates `RequestContext`
 
-**Required env vars (application fails to start without these):**
-- `ANONREQ_API_KEY` — API authentication, min 32 chars
-- `ANONREQ_VALKEY_URL` — Valkey/Redis connection (standalone, Sentinel, or Cluster)
-- `ANONREQ_PRESIDIO_URL` — Presidio Analyzer URL
+**Admin API Key:**
+- Separate key: `ANONREQ_ADMIN_API_KEY` env var
+- Module: `src/anonreq/admin/auth.py` → `verify_admin_api_key`
 
-**Critical optional env vars:**
-- `ANONREQ_ADMIN_API_KEY` — Separate key for admin endpoints
-- `ANONREQ_DATABASE_URL` — Database URL (defaults to SQLite for dev)
-- `ANONREQ_{PROVIDER}_API_KEY` — Per-provider LLM API keys (OpenAI, Anthropic, Gemini, Ollama)
-- `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` — MinIO credentials (required by Docker Compose)
-- `ANONREQ_BREACH_WEBHOOK_URL` — SLO breach notification endpoint
-- `ANONREQ_ANCHOR_SIGNING_KEY` — Audit chain signing key
+**OIDC (admin identity tokens):**
+- Module: `src/anonreq/auth/oidc.py` → `build_oidc_verifier`
+- JWKS-based verification with cached key lookups (`JWKSCache`)
+- Config: `ANONREQ_OIDC_ISSUER`, `ANONREQ_OIDC_AUDIENCE`, `ANONREQ_OIDC_JWKS_URL`
+- Role projection from configurable claim (`ANONREQ_OIDC_ROLE_CLAIM`, default: `role`)
 
-**Security env vars (added in phases 28-30):**
-- `ANONREQ_OIDC_ISSUER`, `ANONREQ_OIDC_AUDIENCE`, `ANONREQ_OIDC_JWKS_URL` — OIDC provider configuration
-- `ANONREQ_MTLS_ENFORCE`, `ANONREQ_MTLS_TRUSTED_PROXY_CIDRS` — mTLS validation
-- `ANONREQ_SECRET_BACKEND` (`vault`), `ANONREQ_SECRET_BACKEND_PATH` — Vault secret bootstrap
-- `ANONREQ_SECRET_VOLUME_DIR`, `ANONREQ_SECRET_VOLUME_FILE` — File-based secret volume
-- `VAULT_ADDR`, `VAULT_TOKEN` — Vault connection (when using Vault backend)
-- `ANONREQ_LICENSE_SECRET`, `ANONREQ_LICENSE_KEY` — Commercial license
+**mTLS (ingress forwarded):**
+- Module: `src/anonreq/middleware/mtls.py` → `IngressMTLSMiddleware`
+- Validates forwarded client certificates from trusted ingress proxies
+- Config: `ANONREQ_MTLS_ENFORCE`, `ANONREQ_MTLS_TRUSTED_PROXY_CIDRS`, `ANONREQ_MTLS_FORWARD_CERT_HEADER`
 
-**Secrets location:**
-- Environment variables (`ANONREQ_*` prefix), loaded via Pydantic Settings from `.env` file or process env
-- Runtime secret store (`src/anonreq/secrets/store.py`) — in-memory with optional Vault bootstrap
-- Secret volume directory (`ANONREQ_SECRET_VOLUME_DIR`) — YAML files watched by `watchdog`
-- `config/soc-sinks.yaml` supports `$env:VAR_NAME` and `$file:/path/to/secret` reference patterns
-- Docker Compose: `${VAR:?err}` pattern for required secrets, no hardcoded defaults
+## Secrets Management
+
+**Runtime Secret Store:**
+- Module: `src/anonreq/secrets/store.py` → `RuntimeSecretStore`
+- Thread-safe in-memory snapshot container (RLock)
+- Immutable snapshots: `SecretSnapshot(provider_api_keys=...)` with `MappingProxyType`
+- ContextVar-based access: `get_runtime_secret_store()` / `set_runtime_secret_store()`
+
+**Secret Backends:**
+- Volume/file: reads from `ANONREQ_SECRET_VOLUME_DIR`/`ANONREQ_SECRET_VOLUME_FILE`
+- Vault: HashiCorp Vault integration (when `VAULT_ADDR` + `VAULT_TOKEN` set)
+- Hot-reload: `src/anonreq/secrets/reloader.py` → `bootstrap_runtime_secret_reloader()` via watchdog
+
+**Secret Rotation:**
+- Module: `src/anonreq/secrets/rotation.py` → `SecretRotationBuffer`
+- Buffers current snapshot for graceful rotation without downtime
+
+## Database (Alembic)
+
+**Migrations:**
+- Directory: `alembic/`
+- Config: `alembic/env.py`
+- Models: `src/anonreq/models/` (governance, breach, DSAR, eDiscovery, lineage, DLP, audit)
+- SQLAlchemy declarative base: `src/anonreq/models/audit.py` → `Base`
+
+## Licensing
+
+**License Validation:**
+- Module: `src/anonreq/license/validator.py` → `require_license(feature)`
+- HMAC-SHA256 signed license key
+- Config: `ANONREQ_LICENSE_KEY`, `ANONREQ_LICENSE_SECRET`
+- Feature-gated: `require_license("soc_integration")` etc.
+- Router: `src/anonreq/license/router.py`
+
+## MCP (Model Context Protocol)
+
+**MCP Integration:**
+- Module: `src/anonreq/mcp/`
+- Provides MCP-compatible tool/resource access for AI agents interacting with the gateway
+
+## Monitoring Middleware
+
+**Request Metrics:**
+- Module: `src/anonreq/monitoring/middleware.py` → `MetricsMiddleware`
+- Outermost middleware (added first, runs first on request, last on response)
+- Captures `request_receipt_time` before any other processing
 
 ---
 
-*Integration audit: 2026-07-17*
+*Integration audit: 2026-07-18*

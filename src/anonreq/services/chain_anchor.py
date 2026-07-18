@@ -13,6 +13,7 @@ import io
 import json
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -161,8 +162,10 @@ class ChainAnchorService:
         try:
             from minio import Minio
 
+            endpoint = self._config.minio_endpoint
+            assert endpoint is not None  # guarded by caller
             client = Minio(
-                self._config.minio_endpoint,
+                endpoint,
                 access_key=self._config.minio_access_key,
                 secret_key=self._config.minio_secret_key,
                 region=self._config.minio_region,
@@ -253,7 +256,7 @@ class ChainAnchorService:
         await self.store_anchor(anchor)
         return anchor
 
-    async def get_anchor_status(self) -> dict:
+    async def get_anchor_status(self) -> dict[str, Any]:
         """Return latest anchor date, count, and verification status.
 
         Returns:

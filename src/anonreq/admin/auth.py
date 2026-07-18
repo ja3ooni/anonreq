@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+from typing import Any
 
 from fastapi import Header, HTTPException, Request
 
@@ -25,7 +26,7 @@ def _legacy_admin_auth_enabled() -> bool:
     return not _oidc_configured() and bool(settings.ADMIN_API_KEY)
 
 
-def _get_oidc_verifier(request: Request):
+def _get_oidc_verifier(request: Request) -> Any:
     state = get_app_state(request.app)
     verifier = state.oidc_verifier
     if verifier is None:
@@ -88,6 +89,6 @@ async def verify_admin_api_key(
     )
 
 
-async def get_admin_api_key() -> str | None:
+def get_admin_api_key() -> str | None:
     """Return the configured legacy admin API key, if any."""
     return settings.ADMIN_API_KEY

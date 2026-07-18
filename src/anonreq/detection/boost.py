@@ -63,7 +63,8 @@ class ContextBooster:
             yaml.YAMLError: If the config file is malformed.
         """
         with open(self.config_path) as f:
-            return yaml.safe_load(f)
+            result = yaml.safe_load(f)
+            return result if isinstance(result, dict) else {}
 
     def find_high_risk_word_positions(
         self,

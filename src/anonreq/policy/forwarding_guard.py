@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from structlog import get_logger
 
@@ -16,7 +17,7 @@ class ForwardingVerdict:
     action: PolicyAction
     reason: str | None
     http_status: int
-    error_body: dict | None = None
+    error_body: dict[str, Any] | None = None
     ctx: ProcessingContext | None = None
 
 

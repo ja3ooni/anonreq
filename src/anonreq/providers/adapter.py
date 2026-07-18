@@ -181,7 +181,7 @@ class ProviderAdapter(ABC):
         """
 
     @abstractmethod
-    async def stream_events(
+    def stream_events(
         self, request: ProviderRequest
     ) -> AsyncIterator[StreamEvent]:
         """Execute a streaming HTTP call and yield normalized events.

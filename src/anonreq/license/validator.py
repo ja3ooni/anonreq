@@ -94,7 +94,7 @@ class LicenseValidator:
             now = datetime.now(UTC)
             expires_at = payload.expires_at
             if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(UTC)
+                expires_at = expires_at.replace(tzinfo=UTC)
 
             if now > expires_at:
                 return LicenseStatus(

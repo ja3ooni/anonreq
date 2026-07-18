@@ -524,10 +524,14 @@ async def _check_risk_assessments(db: AsyncSession | None, tenant_id: str | None
     """Count risk assessment records. Defaults to 1 if not checkable."""
     if db is not None:
         try:
-            from anonreq.governance.risk import _assessments
+            from sqlalchemy import select
+
+            from anonreq.models.governance import RiskAssessmentModel
+            stmt = select(RiskAssessmentModel)
             if tenant_id:
-                return sum(1 for a in _assessments if a.tenant_id == tenant_id)
-            return len(_assessments)
+                stmt = stmt.where(RiskAssessmentModel.tenant_id == tenant_id)
+            result = await db.execute(stmt)
+            return len(result.scalars().all())
         except Exception:
             pass
     return 1  # Default positive

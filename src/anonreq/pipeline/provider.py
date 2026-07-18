@@ -131,15 +131,18 @@ class ProviderStage(PipelineStage):
             if response.is_error:
                 try:
                     error_body = response.json()
-                    error_detail = str(error_body)[:200]
+                    if isinstance(error_body, dict):
+                        error_type = error_body.get("error", {}).get("type", "unknown")
+                    else:
+                        error_type = "unknown"
                 except Exception:
-                    error_detail = response.text[:200] if response.text else "no body"
+                    error_type = "unknown"
                 logger.warning(
                     "provider.error_response",
                     stage=self.name,
                     request_id=ctx.request_id,
                     status_code=response.status_code,
-                    error_detail=error_detail,
+                    error_type=error_type,
                 )
                 ctx.fail_secure(
                     PipelineAbortError(

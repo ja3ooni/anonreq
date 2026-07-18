@@ -7,7 +7,7 @@ denial, rate limit, and spend budget counters.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from prometheus_client import REGISTRY, Counter
 
@@ -76,13 +76,13 @@ class PolicyMetrics:
         """idempotently get or register a Prometheus counter on the registry."""
         # Under standard registry or custom registry, if name is already collected, reuse it
         if hasattr(self._registry, "_names_to_collectors") and name in self._registry._names_to_collectors:  # noqa: E501
-            return self._registry._names_to_collectors[name]
+            return cast(Counter, self._registry._names_to_collectors[name])
         try:
             return Counter(name, doc, labels, registry=self._registry)
         except ValueError:
             # Fallback in case of race condition or collector lookup mismatch
             if hasattr(self._registry, "_names_to_collectors"):
-                return self._registry._names_to_collectors[name]
+                return cast(Counter, self._registry._names_to_collectors[name])
             raise
 
     def record_decision(self, tenant_id: str, action: str) -> None:

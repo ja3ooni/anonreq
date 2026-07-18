@@ -149,7 +149,8 @@ class EventGenerator:
             event_dict: The serialized event data.
         """
         try:
-            with httpx.Client(timeout=self._webhook_timeout) as client:
-                client.post(self._webhook_url, json=event_dict)
+            if self._webhook_url is not None:
+                with httpx.Client(timeout=self._webhook_timeout) as client:
+                    client.post(self._webhook_url, json=event_dict)
         except Exception:
             logger.warning("Webhook delivery failed", exc_info=True)

@@ -182,8 +182,9 @@ class QRadarCEFSink:
             return False
 
         try:
-            self._writer.write((line + "\n").encode("utf-8"))
-            await self._writer.drain()
+            if self._writer is not None:
+                self._writer.write((line + "\n").encode("utf-8"))
+                await self._writer.drain()
             qradar_events_total.labels(sink_name=self.name).inc()
             return True
         except (OSError, ConnectionError) as exc:

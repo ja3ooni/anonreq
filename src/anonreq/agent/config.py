@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -11,7 +11,7 @@ class ToolGovernanceConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     per_tool_policies: dict[str, ToolPolicy] = Field(default_factory=dict)
-    schema_registry: dict[str, dict] = Field(default_factory=dict)
+    schema_registry: dict[str, dict[str, Any]] = Field(default_factory=dict)
     default_tool_policy: ToolPolicy = "allow_with_audit"
     block_unknown_tools: bool = True
     arg_injection_scan_enabled: bool = True

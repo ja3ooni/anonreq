@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from typing import Any
 
 from anonreq.cache.manager import CacheManager
 from anonreq.policy.config import PolicyConfig
 from anonreq.policy.models import PolicyRule
 
 
-def _rule_to_dict(rule: PolicyRule) -> dict:
+def _rule_to_dict(rule: PolicyRule) -> dict[str, Any]:
     d = rule.model_dump()
     if d.get("conditions") is None:
         d["conditions"] = {}
@@ -19,7 +20,7 @@ def _rule_to_dict(rule: PolicyRule) -> dict:
     return d
 
 
-def _dict_to_rule(d: dict) -> PolicyRule:
+def _dict_to_rule(d: dict[str, Any]) -> PolicyRule:
     if d.get("description") == "":
         d["description"] = None
     if d.get("tenant_id") == "":

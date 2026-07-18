@@ -11,6 +11,7 @@ GET is not admin-protected — uses gateway API key from main auth middleware.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -32,13 +33,13 @@ registry: AtomicConfigRegistry = AtomicConfigRegistry()
 class RulesConfigPayload(BaseModel):
     """Pydantic model for the POST /v1/admin/config/rules request body."""
 
-    custom_recognizers: list[dict]
-    exclusion_list: list[dict] = []
+    custom_recognizers: list[dict[str, Any]]
+    exclusion_list: list[dict[str, Any]] = []
     thresholds: dict[str, float] = {}
 
 
 @admin_router.get("/v1/config/rules")
-async def get_rules():
+async def get_rules() -> dict[str, Any]:
     """Return active custom rules configuration metadata.
 
     Returns metadata about the active recognizers (not raw patterns)
@@ -68,7 +69,7 @@ async def get_rules():
     "/v1/admin/config/rules",
     dependencies=[Depends(verify_admin_api_key)],
 )
-async def update_rules(payload: RulesConfigPayload):
+async def update_rules(payload: RulesConfigPayload) -> dict[str, Any]:
     """Hot-reload custom detection rules.
 
     Accepts a configuration payload with custom recognizer patterns and

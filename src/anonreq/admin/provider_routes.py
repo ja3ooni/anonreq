@@ -12,6 +12,8 @@ All endpoints require ADMINISTRATOR role per T-15-02-03/04 mitigation.
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from anonreq.governance.provider_inventory import ProviderInventory
@@ -22,13 +24,13 @@ router = APIRouter(dependencies=[Depends(require_role(Role.ADMINISTRATOR))])
 
 def _get_provider_inventory(request: Request) -> ProviderInventory:
     """Get ProviderInventory from app state."""
-    inventory = getattr(request.app.state, "provider_inventory", None)
+    inventory: Any = getattr(request.app.state, "provider_inventory", None)
     if inventory is None:
         raise HTTPException(
             status_code=503,
             detail="Provider inventory not initialized",
         )
-    return inventory
+    return cast(ProviderInventory, inventory)
 
 
 @router.get("/providers")
@@ -38,7 +40,7 @@ async def list_providers(
     concentration_risk: bool | None = None,
     skip: int = 0,
     limit: int = 50,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/admin/providers — list provider records.
 
     Returns:
@@ -58,7 +60,7 @@ async def list_providers(
 async def get_provider(
     request: Request,
     provider_id: str,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/admin/providers/{provider_id} — get provider details.
 
     Returns:
@@ -78,7 +80,7 @@ async def get_provider(
 async def suspend_provider(
     request: Request,
     provider_id: str,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/admin/providers/{provider_id}/suspend — suspend a provider.
 
     Body: ``{"reason": "string", "suspended_by": "string"}``
@@ -97,8 +99,8 @@ async def suspend_provider(
     try:
         record = await inventory.suspend_provider(
             provider_id=provider_id,
-            _reason=reason,
-            _suspended_by=suspended_by,
+            reason=reason,
+            suspended_by=suspended_by,
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
@@ -110,7 +112,7 @@ async def suspend_provider(
 async def unsuspend_provider(
     request: Request,
     provider_id: str,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/admin/providers/{provider_id}/unsuspend — unsuspend a provider.
 
     Body: ``{"unsuspended_by": "string"}``
@@ -128,7 +130,7 @@ async def unsuspend_provider(
     try:
         record = await inventory.unsuspend_provider(
             provider_id=provider_id,
-            _unsuspended_by=unsuspended_by,
+            unsuspended_by=unsuspended_by,
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
@@ -140,7 +142,7 @@ async def unsuspend_provider(
 async def flag_concentration_risk(
     request: Request,
     provider_id: str,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/admin/providers/{provider_id}/concentration-risk —
     flag concentration risk.
 

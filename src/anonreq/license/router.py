@@ -12,7 +12,7 @@ async def _admin_auth(request: Request) -> None:
     """Lazy-import require_auth to avoid circular dependency."""
     from anonreq.admin.router import require_auth
 
-    return await require_auth(request)
+    await require_auth(request)
 
 
 router = APIRouter(

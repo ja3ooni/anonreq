@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -34,7 +35,7 @@ class LegalHold(BaseModel):
     imposed_at: datetime
     released_at: datetime | None = None
     released_by: str | None = None
-    filters: dict | None = None
+    filters: dict[str, Any] | None = None
 
     model_config = {"extra": "ignore"}
 
@@ -92,7 +93,7 @@ class RetentionService:
         tenant_id: str,
         hold_ref: str,
         imposed_by: str,
-        filters: dict | None = None,
+        filters: dict[str, Any] | None = None,
     ) -> LegalHold:
         hold = LegalHold(
             hold_id=str(uuid.uuid4()),

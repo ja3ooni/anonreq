@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel
@@ -47,7 +48,7 @@ class PolicyEvidence(BaseModel):
     enabled_rule_count: int
     action: PolicyAction | None
     decision_id: str | None = None
-    metadata: dict = {}
+    metadata: dict[str, Any] = {}
 
 
 class EvidenceStore:
@@ -90,7 +91,7 @@ class EvidenceStore:
         self._records[evidence_id] = record
         return record
 
-    async def generate_manifest(self, tenant_id: str) -> dict:
+    async def generate_manifest(self, tenant_id: str) -> dict[str, Any]:
         """Generate a Merkle-style manifest of all evidence records for a tenant."""
         tenant_records = [r for r in self._records.values() if r.tenant_id == tenant_id]
         # Sort by timestamp and ID for determinism

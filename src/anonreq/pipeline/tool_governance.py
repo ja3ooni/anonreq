@@ -36,7 +36,7 @@ class ToolGovernanceStage(PipelineStage):
         if not isinstance(request_body, dict):
             return ctx
 
-        headers = {}
+        headers: dict[str, str] = {}
         tool_format = self._extractor.detect_format(request_body, headers)
         if tool_format is None:
             return ctx

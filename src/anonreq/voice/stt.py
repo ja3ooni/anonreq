@@ -3,8 +3,8 @@ from collections.abc import AsyncGenerator
 
 import numpy as np
 import structlog
-import torch
-import whisper
+import torch  # type: ignore[import-not-found]
+import whisper  # type: ignore[import-not-found]
 
 logger = structlog.get_logger(__name__)
 
@@ -28,7 +28,7 @@ class LocalSTTEngine:
                 logger.info(f"Loading Whisper {self.model_size} model on {self.device}")
                 # Run load in executor to avoid blocking the event loop
                 loop = asyncio.get_running_loop()
-                self._model = await loop.run_in_executor(
+                self._model = await loop.run_in_executor(  # type: ignore[func-returns-value]
                     None,
                     lambda: whisper.load_model(self.model_size, device=self.device)
                 )
@@ -50,9 +50,9 @@ class LocalSTTEngine:
         # Run inference in executor
         result = await loop.run_in_executor(
             None,
-            lambda: self._model.transcribe(audio_data, fp16=False)
+            lambda: self._model.transcribe(audio_data, fp16=False)  # type: ignore[attr-defined]
         )
-        return result.get("text", "").strip()
+        return result.get("text", "").strip()  # type: ignore[no-any-return]
 
     async def stream_transcribe(self, audio_stream: AsyncGenerator[np.ndarray, None]) -> AsyncGenerator[str, None]:  # noqa: E501
         """Stream transcription from an async generator of audio chunks."""

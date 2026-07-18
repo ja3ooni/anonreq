@@ -15,7 +15,7 @@ import ipaddress
 import ssl
 import tempfile
 from pathlib import Path
-from typing import Final
+from typing import Final, cast
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -40,7 +40,10 @@ def _load_cert(path: str) -> x509.Certificate:
 
 def _load_key(path: str) -> CertificateIssuerPrivateKeyTypes:
     try:
-        return serialization.load_pem_private_key(Path(path).read_bytes(), password=None)
+        key = serialization.load_pem_private_key(
+            Path(path).read_bytes(), password=None
+        )
+        return cast(CertificateIssuerPrivateKeyTypes, key)
     except Exception as exc:
         raise TLSInterceptorError(f"failed to load CA private key: {path}") from exc
 

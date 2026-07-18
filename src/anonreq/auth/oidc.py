@@ -42,7 +42,7 @@ async def _default_fetch_jwks(jwks_url: str) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(jwks_url)
         response.raise_for_status()
-        return response.json()
+        return dict(response.json())
 
 
 @dataclass(slots=True)

@@ -35,8 +35,8 @@ try:
     )
     from watchdog.observers import Observer
 except ImportError:
-    Observer = None
-    FileSystemEventHandler = object
+    Observer = None  # type: ignore[assignment]
+    FileSystemEventHandler = object  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +162,7 @@ class CAManager:
         self._certs: dict[int, dict[str, Any]] = {}
         self._active_serial: int | None = None
 
-        self._observer: Observer | None = None  # type: ignore[valid-type]
+        self._observer: Any = None
         self._start_file_watcher(debounce)
 
     # ------------------------------------------------------------------
@@ -331,7 +331,7 @@ class CAManager:
         try:
             cert_pub = cert.public_key()
             if isinstance(key, rsa.RSAPrivateKey) and isinstance(cert_pub, rsa.RSAPublicKey):
-                return (
+                return bool(
                     key.public_key().public_numbers().n == cert_pub.public_numbers().n
                     and key.public_key().public_numbers().e == cert_pub.public_numbers().e
                 )

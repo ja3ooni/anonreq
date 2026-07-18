@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -58,7 +59,7 @@ class DsarRequest(BaseModel):
     status: str = "pending_verification"
     verified_by: str | None = None
     fulfilled_by: str | None = None
-    verification_details: dict | None = None
+    verification_details: dict[str, Any] | None = None
     result: SubjectStatus | None = None
     submitted_at: datetime | None = None
     verified_at: datetime | None = None

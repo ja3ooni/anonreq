@@ -456,7 +456,7 @@ class AssetInventory:
             from anonreq.discovery.hostname_signatures import get_signature_by_hostname
             sig = get_signature_by_hostname(hostname)
             if sig:
-                return sig.provider or sig.name
+                return sig.provider
         except Exception:
             pass
         return None

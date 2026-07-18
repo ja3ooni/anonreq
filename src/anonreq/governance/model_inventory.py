@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import and_, select
+from sqlalchemy import Column, and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from anonreq.models.governance import (
@@ -209,13 +209,12 @@ class ModelInventory:
             raise ValueError(f"Model not found: {model_id}")
 
         now = datetime.now(UTC)
-        orm.validation_status = validation_status
-        orm.validation_date = validation_date
-        orm.last_review_date = now
-        orm.next_review_date = (now + timedelta(days=orm.review_cycle_days)).replace(
-            microsecond=0
-        )
-        orm.updated_at = now
+        orm.validation_status = cast(Column[str], validation_status)
+        orm.validation_date = cast(Column[datetime], validation_date)
+        orm.last_review_date = cast(Column[datetime], now)
+        review_date = now + timedelta(days=cast(int, orm.review_cycle_days))
+        orm.next_review_date = cast(Column[datetime], review_date.replace(microsecond=0))
+        orm.updated_at = cast(Column[datetime], now)
 
         await self._db.flush()
         await self._db.refresh(orm)
@@ -278,7 +277,7 @@ def _orm_to_model_record(orm: ModelAnonReqModel) -> ModelRecord:
         id=orm.model_id,
         provider=orm.provider,
         model_name=orm.model_name,
-        risk_classification=ModelRiskClassification(orm.risk_classification),
+        risk_classification=ModelRiskClassification(cast(str, orm.risk_classification)),
         approval_status=orm.approval_status,
         current_stage=orm.current_stage,
         lifecycle_object_id=orm.lifecycle_object_id,

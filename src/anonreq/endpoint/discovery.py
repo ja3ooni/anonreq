@@ -165,5 +165,6 @@ class HostnameMatcher:
         """
         result = self._matcher.match(hostname)
         if result is not None:
-            return result.provider
+            provider: str | None = result.provider
+            return provider
         return None

@@ -48,13 +48,14 @@ class SpanArbiter:
         if not regex_results and not ner_results:
             return []
 
-        # Tag each result with its source
-        for r in regex_results:
-            r["_source"] = "regex"
-        for r in ner_results:
-            r["_source"] = "ner"
+        # Tag each result with its source (copy dicts to avoid mutating caller data)
+        tagged = [
+            {**r, "_source": "regex"} for r in regex_results
+        ] + [
+            {**r, "_source": "ner"} for r in ner_results
+        ]
 
-        combined = regex_results + ner_results
+        combined = tagged
         # Sort by start position ascending, then by score descending
         combined.sort(key=lambda r: (r["start"], -r["score"]))
 

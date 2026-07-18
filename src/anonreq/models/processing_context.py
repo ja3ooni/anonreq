@@ -65,15 +65,15 @@ class ProcessingContext:
     request_id: str
     tenant_id: str = "default"
     context_id: str | None = None
-    original_request: dict | None = None
-    text_nodes: list[dict] | None = None
-    classification_result: dict | None = None
-    detections: list[dict] | None = None
+    original_request: dict[str, Any] | None = None
+    text_nodes: list[dict[str, Any]] | None = None
+    classification_result: dict[str, Any] | None = None
+    detections: list[dict[str, Any]] | None = None
     token_mappings: dict[str, str] | None = None
-    transformed_request: dict | None = None
+    transformed_request: dict[str, Any] | None = None
     assembled_response: str | None = None
-    provider_response: dict | None = None
-    restored_response: dict | None = None
+    provider_response: dict[str, Any] | None = None
+    restored_response: dict[str, Any] | None = None
     provider: str | None = None
     model: str | None = None
     locale_header: str | None = None

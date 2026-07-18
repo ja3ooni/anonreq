@@ -104,37 +104,8 @@ ignore = ["B008"]
 python_version = "3.12"
 strict = true
 show_error_codes = true
-disable_error_code = ["type-arg"]
 plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
 
 [[tool.mypy.overrides]]
 module = ["fastapi.*", "pydantic.*", "sqlalchemy.*", "cryptography.*", "httpx.*", "structlog.*", "prometheus_client.*", "yaml.*", "jinja2.*", "reportlab.*", "minio.*", "pyarrow.*", "watchdog.*", "onnxruntime.*", "soundfile.*", "presidio_analyzer.*", "python_multipart.*"]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["anonreq.governance.*"]
-disable_error_code = ["assignment", "arg-type", "misc", "no-any-return", "attr-defined", "return-value", "str-bytes-safe", "no-untyped-def", "no-untyped-call"]
-
-[[tool.mypy.overrides]]
-module = ["anonreq.retention.*"]
-disable_error_code = ["assignment", "arg-type", "misc", "no-any-return", "attr-defined", "no-untyped-def"]
-
-[[tool.mypy.overrides]]
-module = ["anonreq.dsar.*"]
-disable_error_code = ["assignment", "arg-type", "misc", "no-any-return", "attr-defined", "no-untyped-def"]
-
-[[tool.mypy.overrides]]
-module = ["anonreq.breach.*"]
-disable_error_code = ["assignment", "arg-type", "misc", "no-any-return", "attr-defined", "no-untyped-def"]
-
-[[tool.mypy.overrides]]
-module = ["anonreq.cache.*", "anonreq.proxy.*", "anonreq.endpoint.*", "anonreq.discovery.*", "anonreq.soc.*", "anonreq.storage.*", "anonreq.rag.*", "anonreq.fairness.*", "anonreq.voice.*", "anonreq.pipeline.*", "anonreq.services.*", "anonreq.policy.*", "anonreq.admin.*", "anonreq.routing.*", "anonreq.routes.*", "anonreq.main"]
-disable_error_code = ["arg-type", "assignment", "attr-defined", "misc", "no-any-return", "no-untyped-def", "no-untyped-call", "union-attr", "var-annotated", "return-value", "override", "import-not-found", "import-untyped", "func-returns-value"]
-
-[[tool.mypy.overrides]]
-module = ["anonreq.providers.*"]
-disable_error_code = ["override"]
-
-[[tool.mypy.overrides]]
-module = ["anonreq.api.*", "anonreq.appliance.*", "anonreq.casb.*", "anonreq.config.*", "anonreq.detection.*", "anonreq.firewall.*", "anonreq.health", "anonreq.lineage.*", "anonreq.locale.*", "anonreq.logging_config", "anonreq.mcp.*", "anonreq.middleware.*", "anonreq.restore.*"]
-disable_error_code = ["attr-defined", "no-any-return", "no-untyped-def", "no-untyped-call", "union-attr", "var-annotated", "return-value", "override", "import-not-found", "import-untyped", "arg-type", "assignment", "misc", "no-redef", "list-item", "func-returns-value", "comparison-overlap"]

@@ -259,7 +259,7 @@ class RequestFastPath:
         Returns:
             The raw request body as bytes.
         """
-        body = await request.body()
+        body: bytes = await request.body()
         if not self.is_proxy_only:
             self._cached_body = body
         return body

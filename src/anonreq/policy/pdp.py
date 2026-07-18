@@ -4,6 +4,7 @@ import hashlib
 import json
 import time
 from datetime import UTC, datetime
+from typing import Any
 
 from structlog import get_logger
 
@@ -62,7 +63,7 @@ class PolicyDecisionPoint:
         self._decision_cache[key] = (time.monotonic(), decision)
 
     async def evaluate_classification(
-        self, tenant_id: str, classification_result: dict | None,
+        self, tenant_id: str, classification_result: dict[str, Any] | None,
     ) -> PolicyDecision:
         try:
             rules = await self._policy_store.enabled_rules(tenant_id)

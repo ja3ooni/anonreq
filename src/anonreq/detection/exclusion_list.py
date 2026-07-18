@@ -30,7 +30,7 @@ class ExclusionList:
 
     def __init__(self, exclusions: list[str] | None = None) -> None:
         self._exact: set[str] = set()
-        self._wildcard_patterns: list[re.Pattern] = []
+        self._wildcard_patterns: list[re.Pattern[str]] = []
 
         if exclusions:
             for pattern in exclusions:

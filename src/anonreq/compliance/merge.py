@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from anonreq.compliance.preset import CompliancePreset
 from anonreq.locale.bundle import RecognizerTier
@@ -25,7 +26,7 @@ def _tier_rank(tier: RecognizerTier) -> int:
     return {RecognizerTier.REGEX: 1, RecognizerTier.NER: 1, RecognizerTier.BOTH: 2}[tier]
 
 
-def _normalize_base(base_config: dict) -> tuple[dict[str, RecognizerTier], dict[str, float], dict[str, list[RecognizerTier]]]:  # noqa: E501
+def _normalize_base(base_config: dict[str, Any]) -> tuple[dict[str, RecognizerTier], dict[str, float], dict[str, list[RecognizerTier]]]:  # noqa: E501
     entity_types: dict[str, RecognizerTier] = {}
     thresholds: dict[str, float] = {}
     minimum_tiers: dict[str, list[RecognizerTier]] = {}
@@ -67,9 +68,9 @@ def _apply_preset(
 
 
 def merge_presets(
-    base_config: dict,
+    base_config: dict[str, Any],
     presets: list[CompliancePreset],
-    overrides: dict | None = None,
+    overrides: dict[str, Any] | None = None,
 ) -> PresetMergeResult:
     """Merge base config, compliance presets, and non-weakening overrides."""
 

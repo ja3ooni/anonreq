@@ -30,11 +30,11 @@ class SeverityLevel(StrEnum):
     HIGH = "high"
     CRITICAL = "critical"
 
-    def __lt__(self, other: SeverityLevel) -> bool:
+    def __lt__(self, other: SeverityLevel) -> bool:  # type: ignore[override]
         levels = list(SeverityLevel)
         return levels.index(self) < levels.index(other)
 
-    def __le__(self, other: SeverityLevel) -> bool:
+    def __le__(self, other: SeverityLevel) -> bool:  # type: ignore[override]
         levels = list(SeverityLevel)
         return levels.index(self) <= levels.index(other)
 

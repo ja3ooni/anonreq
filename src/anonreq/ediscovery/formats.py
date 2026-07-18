@@ -87,7 +87,7 @@ def to_pdf_summary(
         topMargin=0.5 * inch, bottomMargin=0.5 * inch,
     )
     styles = getSampleStyleSheet()
-    elements: list = []
+    elements: list[Any] = []
 
     # Title
     elements.append(Paragraph(title, styles["Title"]))

@@ -24,7 +24,7 @@ import logging
 import re
 import sys
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from structlog.stdlib import BoundLogger, ProcessorFormatter
@@ -199,8 +199,8 @@ def setup_logging(level: str = "INFO") -> None:
             structlog.contextvars.merge_contextvars,
             structlog.stdlib.PositionalArgumentsFormatter(),
             structlog.processors.TimeStamper(fmt="iso"),
-            allowlist_processor,
-            redact_secret_substrings_processor,
+            allowlist_processor,  # type: ignore[list-item]
+            redact_secret_substrings_processor,  # type: ignore[list-item]
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
@@ -237,4 +237,4 @@ def get_logger(component: str | None = None) -> BoundLogger:
     log = structlog.get_logger()
     if component:
         log = log.bind(component=component)
-    return log
+    return cast(BoundLogger, log)

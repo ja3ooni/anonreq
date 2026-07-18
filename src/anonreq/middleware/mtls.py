@@ -10,7 +10,8 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.responses import Response
 
 from anonreq.config import settings
 
@@ -80,7 +81,7 @@ def _machine_principal_from_certificate(cert: x509.Certificate) -> dict[str, Any
 class IngressMTLSMiddleware(BaseHTTPMiddleware):
     """Validate ingress-forwarded client certificates on trusted paths."""
 
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if not settings.MTLS_ENFORCE:
             return await call_next(request)
 

@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -40,7 +41,7 @@ TENANT_INDEX_PREFIX = "anonreq:lineage:tenant"
 SIGNING_KEY = b"anonreq-lineage-hmac-key-v1"
 
 
-def _compute_integrity_hash(data: dict) -> str:
+def _compute_integrity_hash(data: dict[str, Any]) -> str:
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
     return hmac.new(SIGNING_KEY, canonical.encode(), hashlib.sha256).hexdigest()
 

@@ -1,360 +1,262 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-07-17
+**Analysis Date:** 2026-07-18
 
 ## Naming Patterns
 
 **Files:**
-- `snake_case.py` for all Python modules (e.g., `regex_detector.py`, `presidio_client.py`, `tail_buffer.py`)
-- Test files: `test_{module_name}.py` for unit tests (e.g., `test_detection.py`, `test_tail_buffer.py`)
-- Property test files: `test_{domain}_invariants.py` or `test_{feature}.py` in `tests/property/` (e.g., `test_locale_invariants.py`, `test_fail_secure.py`)
-- Integration test files: `test_{feature}.py` in `tests/integration/` (e.g., `test_e2e_round_trip.py`)
-- YAML config files: `snake_case.yaml` (e.g., `mnpi_recognizers.yaml`, `financial_crime_words.yaml`)
+- Snake_case for all Python modules: `processing_context.py`, `span_arbiter.py`, `classifier.py`
+- One primary class per file; file named after that class in snake_case
+- Test files: `test_<module>.py` for unit tests at `tests/` root, `test_<feature>.py` inside domain test subdirectories
+- Config files: YAML with lowercase kebab-case: `enterprise-policy.yaml`, `mnpi_recognizers.yaml`
 
 **Functions:**
-- `snake_case` for all function and method names (e.g., `luhn_checksum()`, `find_high_risk_word_positions()`, `_extract_request_id()`)
-- Private functions prefixed with single underscore: `_make_error_body()`, `_negotiate_and_merge()`, `_parse_topology()`
-- Async functions use `async def` with no special naming prefix beyond `snake_case`
-- Bootstrap functions follow `bootstrap_{domain}()` naming: `bootstrap_locale_detection()`, `bootstrap_policy_engine()`, `bootstrap_soc_services()`
-- Helper functions in tests use descriptive `snake_case`: `make_delta()`, `collect()`, `_ai_request()`, `_build_pipeline()`, `_make_proc_ctx()`
-
-**Variables:**
-- `snake_case` for all variables (e.g., `request_id`, `entity_type`, `raw_pii`)
-- Module-level constants: `UPPER_SNAKE_CASE` (e.g., `ENTITY_SPECIFICITY`, `TIER_1_ENTITIES`, `MAX_EXAMPLES`, `_LUHN_VALIDATED`, `_RETRY_STOP_SECONDS`)
-- Type-annotated throughout with `variable: Type = value` style
-- Short-lived variables use brief but clear names: `rid`, `det`, `ex`
-
-**Types:**
-- Type annotations via `from __future__ import annotations` at top of every module (288 of 349 source modules)
-- Custom types defined with `type` alias or imported from `typing`
-- `Any` used sparingly, mostly in generic dict return types and fixture declarations
-- Complex types use `list[dict[str, Any]]` rather than `List[Dict[str, Any]]` (Python 3.12 style)
-- `re.Pattern` quoted in forward-reference style when used in class attributes: `dict[str, "re.Pattern"]`
+- snake_case: `verify_api_key()`, `build_pipeline()`, `load_provider_registry()`
+- Private/internal helpers prefixed with underscore: `_extract_request_id()`, `_make_error_body()`, `_find_stage_by_name()`
+- Boolean-returning functions use `is_`/`has_` prefix: `has_errors()`
 
 **Classes:**
-- `PascalCase` for all classes (e.g., `RegexDetector`, `ExclusionList`, `ContextBooster`, `PresidioClient`, `TailBuffer`)
-- Exception classes: `PascalCase` with `Error` suffix (e.g., `PresidioTimeoutError`, `PipelineAbortError`, `DependencyUnavailableError`)
-- Dataclass pattern: `@dataclass(frozen=True)` for immutable value objects (e.g., `_ParsedTopology`, `SecretSnapshot`, locale `EntityType`), `@dataclass` for mutable state containers (e.g., `AppState` in `src/anonreq/state.py`)
-- Protocol classes for dependency contracts (e.g., `SecretSource` in `src/anonreq/secrets/store.py`)
-- `@dataclass(slots=True)` for performance-critical classes (e.g., `JWKSCache`, `OIDCVerifier` in `src/anonreq/auth/oidc.py`)
+- PascalCase: `PipelineManager`, `ClassificationEngine`, `SpanArbiter`, `TailBuffer`
+- Abstract base classes use `ABC` suffix implicitly via inheritance: `PipelineStage(ABC)`
+- Pydantic models: `ChatRequest`, `ProcessingContext`, `ClassificationResult`
+- Enums: `StrEnum` or `Enum` with UPPER_CASE values: `FailureMode`, `ClassificationAction`
+
+**Variables:**
+- snake_case: `token_mappings`, `text_nodes`, `entity_counts`
+- Constants: UPPER_SNAKE_CASE: `MAX_EXAMPLES`, `TOKEN_PATTERN`, `ACTION_PRECEDENCE`, `ALLOWLIST`
+- Module-level singletons: lowercase: `settings = Settings()`, `security = HTTPBearer(auto_error=True)`
+
+**Type Hints:**
+- Python 3.12 union syntax: `str | None`, `dict[str, Any]`, `list[dict[str, Any]]`
+- Never use `Optional[]` or `Union[]` — always use `X | None` and `X | Y`
+- Type annotations on all function signatures (required by mypy strict)
 
 ## Code Style
 
 **Formatting:**
-- No formatter is configured in the repository (per CLAUDE.md: "No linter/formatter is configured in this repo")
-- Code is hand-formatted with consistent 4-space indentation
-- Line lengths vary but generally stay under 100 characters
-- `# noqa: E501` used for lines that exceed 100 chars (e.g., `src/anonreq/config/__init__.py:74`)
-- Blank lines: two between top-level definitions, one between methods in a class, one around section-comment blocks
+- Ruff 0.15+ with `line-length = 100`, `target-version = "py312"`
+- Config: `pyproject.toml [tool.ruff]`
+- Enabled rule sets: `E`, `F`, `I`, `N`, `W`, `UP`, `B`, `SIM`, `ARG`, `PT`, `RUF`
+- `B008` ignored (allows `Depends()` in function signatures — FastAPI pattern)
 
 **Linting:**
-- Ruff is configured in `pyproject.toml`: target Python 3.12, line-length 100
-- Ruff rule selection: `["E", "F", "I", "N", "W", "UP", "B", "SIM", "ARG", "PT", "RUF"]` with `ignore = ["B008"]`
-- Ruff and mypy configured in `pyproject.toml` (Phase 23 engineering hygiene)
-- `.ruff_cache/` and `.mypy_cache/` in `.gitignore`
-- mypy configured with `strict = true`, `python_version = "3.12"`, plugins for pydantic and sqlalchemy
-- `# type: ignore[union-attr]` and `# type: ignore[method-assign]` used inline for type-checker overrides
-- `# noqa: F811` used in a single place for structlog re-import in `exceptions.py`
-- 52 ruff lint issues fixed in commit `ada5d1e`
+- Ruff for linting and import sorting
+- mypy strict mode enabled with `pydantic.mypy` and `sqlalchemy.ext.mypy.plugin`
+- `# noqa: E501` used sparingly for intentionally long lines (YAML field descriptions, strategy definitions)
+- `# noqa: RUF002` used on docstrings containing Unicode characters (e.g., `2⁻³²`)
 
-## Import Organization
-
-**Order:**
-1. `from __future__ import annotations` — first import in every module
-2. Standard library modules (`re`, `typing`, `pathlib`, `enum`, `asyncio`, `json`, `logging`, `hmac`, `contextlib`)
-3. Third-party packages (`pytest`, `hypothesis`, `yaml`, `httpx`, `structlog`, `fastapi`, `redis.asyncio`, `sqlalchemy`, `cryptography`)
-4. Local application imports (`from anonreq.detection.regex_detector import RegexDetector`)
-5. Test imports from `tests.` package (in test files): `from tests.property.conftest import inject_failure`
+**Import Organization:**
+- `from __future__ import annotations` at top of every module (enables `X | None` syntax at runtime)
+- stdlib first, then third-party, then `anonreq.*`, then `tests.*`
+- Sorted by isort (Ruff `I` rules)
+- Lazy imports inside functions/fixtures to avoid slow test collection: `from fastapi import FastAPI` inside fixture body
 
 **Path Aliases:**
-- No custom path aliases or `PYTHONPATH` manipulation in source code
-- `pyproject.toml` sets `pythonpath = ["src"]` for pytest, so imports are `from anonreq.xxx import YYY`
-- Test package imports use `from tests.conftest import ...` and `from tests.property.strategies import ...`
+- None. All imports use full `anonreq.*` paths from `src/` root (configured via `pythonpath = ["src"]` in `pyproject.toml`)
 
-**Imports within Type Annotations:**
-- `TYPE_CHECKING` guards are used in newer modules (e.g., `src/anonreq/state.py`, `src/anonreq/cache/health.py`, `src/anonreq/pipeline/detection.py`, `src/anonreq/secrets/reloader.py`, `src/anonreq/providers/adapter.py`, `src/anonreq/governance/forwarding_guard.py`, `src/anonreq/detection/provider.py`)
-- Older modules import types directly without `TYPE_CHECKING` guard
-- Forward references using string literals for self-referential types: `"ExclusionList"`, `"re.Pattern"`
+## Type Hints
 
-**Lazy Imports:**
-- Used in conftest files to avoid slow test collection (~40-180s overhead avoided)
-- Used in bootstrap functions for optional dependencies (e.g., `src/anonreq/bootstrap/services.py` lazily imports detection, policy, audit, etc.)
-```python
-@pytest.fixture
-def app():
-    from fastapi import FastAPI
-    return FastAPI()
-```
+**Strictness:**
+- mypy `strict = true` globally (`pyproject.toml [tool.mypy]`)
+- `show_error_codes = true` for actionable error output
+- Plugins: `pydantic.mypy`, `sqlalchemy.ext.mypy.plugin`
+- Missing import stubs suppressed via `[[tool.mypy.overrides]]` for third-party packages (fastapi, pydantic, sqlalchemy, httpx, structlog, etc.)
+
+**Pydantic Models:**
+- All API models use `model_config = {"extra": "ignore"}` for forward compatibility with OpenAI API changes
+- `Field()` with `min_length`, `validation_alias`, `description` used for validation and env var mapping
+- `field_validator` for custom validation: `validate_api_key_length`
+- Settings use `pydantic-settings` v2 with `BaseSettings` and `SettingsConfigDict(env_prefix="ANONREQ_")`
+
+**Dataclasses:**
+- `ProcessingContext` and `RequestContext` use stdlib `@dataclass` (not Pydantic) for internal state containers
+- Typed with `Any` for fields that vary by stage (e.g., `audit_metadata: dict[str, Any]`)
+- `field(default_factory=dict)` and `field(default_factory=list)` for mutable defaults
 
 ## Error Handling
 
-**Patterns:**
-- Custom exception hierarchy rooted at `AnonReqError` in `src/anonreq/exceptions.py`:
-  - `DependencyUnavailableError` (503) — dependency unreachable
-  - `PipelineAbortError` (500) — pipeline execution aborted
-  - `PipelineBlockedError` (451) — DLP/DND policy block
-  - `OutboundDLPError` (451) — outbound DLP violation
-  - `AuthenticationError` (401) — invalid API key
-- Global exception handler `global_exception_handler()` catches all unhandled exceptions and returns OpenAI-compatible error envelopes
-- `http_exception_handler()` handles FastAPI `HTTPException` specifically
-- Fail-secure principle: any pipeline error → HTTP 5xx, never forward unsanitized data
-- Error bodies include `message`, `type`, `code`, `request_id` — no stack traces, no internal details
-- Pipeline errors propagate via `ctx.fail_secure()` pattern in `ProcessingContext`
-- Guard pattern for fail-secure at pipeline stage boundaries:
-```python
-async def fail_execute(ctx: Any) -> Any:
-    ctx.fail_secure(
-        PipelineAbortError(status_code=500, message="Detection stage failed", ...)
-    )
-    return ctx
-```
-- Provider error messages are generic (no internal details leaked) — security fix applied 2026-07-17 (`src/anonreq/pipeline/provider.py`)
-
-**Timing-Safe Comparisons:**
-- `hmac.compare_digest()` used for all API key comparisons (security fix applied 2026-07-17):
-  - `src/anonreq/dependencies.py:69` — main API key verification
-  - `src/anonreq/admin/auth.py:71` — admin API key verification
-  - `src/anonreq/services/lineage.py` — lineage verification
-  - `src/anonreq/license/validator.py` — license key verification
-
-**Bootstrap Error Handling:**
-- Domain bootstrap functions (`src/anonreq/bootstrap/services.py`) catch exceptions, log with `log.error()` + `exc_info=True`, close dependencies, then re-raise
-- Lifespan startup aborts on any bootstrap failure (fail-secure)
-```python
-async def bootstrap_policy_engine(app: FastAPI, cache_manager: Any) -> None:
-    try:
-        # ... initialization ...
-        log.info("Policy engine initialised", component="lifespan")
-    except Exception:
-        log.error("Failed to initialise policy engine", component="lifespan", exc_info=True)
-        await cache_manager.close()
-        raise
+**Exception Hierarchy:**
+```text
+AnonReqError (base)
+├── DependencyUnavailableError (503)
+├── PipelineAbortError (500)
+│   ├── PipelineBlockedError (451)
+│   └── OutboundDLPError (451)
+└── AuthenticationError (401)
 ```
 
-**Pattern for exception classes:**
-```python
-class DependencyUnavailableError(AnonReqError):
-    def __init__(self, dependency: str, request_id: str | None = None) -> None:
-        self.dependency = dependency
-        super().__init__(
-            message=f"{dependency} unavailable",
-            error_type="service_unavailable",
-            status_code=503,
-            code="dependency_unavailable",
-            request_id=request_id,
-        )
-```
+**Fail-Secure Pattern:**
+- Every exception returns an OpenAI-compatible error envelope: `{"error": {"message": str, "type": str, "code": str, "request_id": str}}`
+- `global_exception_handler` catches all unhandled exceptions and returns generic 500 with no internals
+- `ctx.fail_secure(error)` is the canonical pipeline abort mechanism — appends error to `ctx.errors`, checked by `has_errors()` before each stage
+- No stack traces, request bodies, header content, env var values, file paths, or dependency URLs in error responses
+- Request IDs propagated through error envelopes for trace correlation
+
+**Error Propagation:**
+- Pipeline stages raise `PipelineAbortError` or call `ctx.fail_secure()`
+- `PipelineManager.run()` catches all exceptions per stage, records via `ctx.fail_secure()`, and breaks
+- Global handler formats `AnonReqError` subclasses with structured body; everything else gets generic 500
+
+**File:** `src/anonreq/exceptions.py`
 
 ## Logging
 
-**Framework:** `structlog` for structured JSON logging
+**Framework:** `structlog` with stdlib integration and JSON rendering
 
-**Loggers:**
-- Module-level logger via `log = get_logger()` (structlog) — preferred for newer modules
-- Module-level logger via `logger = logging.getLogger(__name__)` — used in older modules
-- `structlog.get_logger("anonreq.module.name")` with explicit component names for some modules
-- In pipeline code, `structlog.contextvars.bind_contextvars(request_id=...)` ties logs to requests
+**Field Allowlist:**
+- Strict allowlist (`ALLOWLIST` frozenset) in `src/anonreq/logging_config.py`
+- ~85 allowed field names covering metadata only (request_id, status_code, duration_ms, entity_counts, etc.)
+- Non-allowlisted fields silently dropped by `allowlist_processor`
+- Secret redaction via `redact_secret_substrings_processor` (regex-based, handles `sk-*`, `Bearer *`, `api_key=*` patterns)
 
-**Patterns:**
+**What Gets Logged:**
+- Pipeline stage start/complete/failed events: `"pipeline.stage.start"`, `"pipeline.stage.complete"`
+- Error events with `error_type` and `request_id`
+- Audit metadata (decision IDs, matched rules, compliance presets, locale)
+- Prometheus metrics via `prometheus-client` counters
+
+**What NEVER Gets Logged:**
+- Raw request/response bodies
+- Raw PII entity values
+- Token mappings
+- API keys or secrets
+- Internal URLs or file paths
+
+**Logger Pattern:**
 ```python
-log.info("AnonReq starting in %s mode", active_mode.value,
-         component="lifespan", mode=active_mode.value)
-logger.warning("MNPI config not found; MNPI detection disabled",
-               extra={"config_path": config_path})
-logger.exception("Failed to load MNPI recognizers")
+from structlog import get_logger
+logger = get_logger("anonreq.pipeline")
+logger.info("pipeline.stage.start", stage=stage.name, request_id=ctx.request_id)
 ```
 
-- `extra={...}` for structured context with stdlib logging
-- `component` field to identify the origin within the application (used extensively: `"lifespan"`, `"health_check"`, `"startup_checks"`, `"policy_middleware"`, etc.)
-- Structured fields use `snake_case` keys: `request_id`, `cache_health`, `failure_type`
-- No PII values ever logged — field allowlist enforced by `logging_config.py`
-- ALLOWLIST expanded (2026-07-17) to include fields actually used: `path`, `tenant_id`, `content_type`, `elapsed_ms`, `count`, `attempt`, `bucket`, `extra`, `file_name`, `max_locales`, `part_name`, `data`, `ttl`, `error`, `mode`, `version`, `component`, `deployment_mode`
+**File:** `src/anonreq/logging_config.py`
 
-## Comments
+## Configuration Patterns
 
-**When to Comment:**
-- Module-level docstrings describe purpose, requirements cross-references (e.g., "Per D-38", "Per Phase 15"), and threat model coverage
-- Class docstrings with `Usage::` examples showing code snippets
-- Method docstrings follow Google-style with `Args:`, `Returns:`, `Raises:` sections
-- Section comments in test files: horizontal rules (`# ----`) to separate test groups
-- Inline comments only for non-obvious logic (e.g., Luhn validation, de-duplication strategy)
-- Requirement/ticket references throughout: `# Per D-32, D-34`, `# Phase 17: MITM proxy setup`, `# Plan 13-04, Task 2`
-- Design decisions documented with `# Design decisions:` prefix
+**Settings Loading:**
+- `pydantic-settings` `BaseSettings` with `SettingsConfigDict(env_prefix="ANONREQ_", extra="ignore")`
+- Module-level singleton: `settings = Settings()` — instantiated at import time (fail-secure startup)
+- Required vars validated at import: `API_KEY` (min 32 chars), `VALKEY_URL`, `PRESIDIO_URL`
+- Optional vars have documented defaults: `HOST="0.0.0.0"`, `PORT=8080`, `LOG_LEVEL="INFO"`
 
-**Docstring Patterns:**
-- Not applicable (Python project)
-- Docstrings use triple double-quotes `"""..."""` throughout
-- Google-style docstring format with explicit `Args:` / `Returns:` / `Raises:` sections
+**YAML Configuration:**
+- External config in `config/` directory: policies, providers, locales, compliance, DLP, SLO, fairness
+- Loaded via `yaml.safe_load()` to prevent code injection
+- Hot-reloadable via `watchdog` for some config files
 
-**Example docstring pattern:**
-```python
-def detect(self, text: str) -> list[dict[str, Any]]:
-    """Run all patterns on the given text and return detections.
+**Environment Variables:**
+- All prefixed with `ANONREQ_`
+- `.env` file supported (for local dev only)
+- Required vars set via `os.environ.setdefault()` in test `conftest.py` before any Settings import
 
-    Args:
-        text: The text to scan for PII.
+**File:** `src/anonreq/config/__init__.py`
 
-    Returns:
-        List of detection dicts, each with:
-        - ``entity_type``: The type of detected entity.
-        - ``start``: Character offset where the entity starts.
-        - ``end``: Character offset where the entity ends.
-        - ``score``: Always ``1.0`` for regex detections (D-38).
-        - ``source``: Always ``"regex"`` (D-39).
-    """
-```
+## Module Organization
 
-## Function Design
+**Package Structure:**
+- `src/anonreq/` root package with `src/` layout (setuptools `packages.find where=["src"]`)
+- Domain-specific subpackages: `pipeline/`, `detection/`, `tokenization/`, `cache/`, `policy/`, `governance/`, etc.
+- Each subpackage has `__init__.py` with exports and docstrings
+- Flat module layout within subpackages (no deep nesting beyond 2 levels)
 
-**Size:**
-- Most functions are 10-50 lines
-- Helper/pure functions are under 20 lines
-- `create_app()` in `main.py` is 465 lines (reduced from 672) — decomposed via bootstrap pattern
-- Bootstrap functions in `src/anonreq/bootstrap/services.py` are 30-80 lines each
-- Test helper functions are typically 3-10 lines
-- Property test functions are 15-40 lines
+**`__init__.py` Pattern:**
+- Re-exports public API: `models/__init__.py` imports all model classes and defines `__all__`
+- Subpackage `__init__.py` provides convenience imports
+- Not all subpackages have `__init__.py` re-exports — some rely on explicit imports
 
-**Parameters:**
-- 0-3 parameters preferred; 4+ used only for configuration objects
-- Optional parameters use `| None = None` pattern with `if x is not None` guards
-- Default values provided for configurable behavior (e.g., `config_path`, `timeout`, `max_concurrency`)
-- `draw` parameter in `@st.composite` strategies: `def my_strategy(draw: Any) -> ...`
+**Key Structural Patterns:**
+- `config/` — application settings (singleton)
+- `core/` — deployment-mode-specific settings
+- `models/` — Pydantic models and dataclasses
+- `pipeline/` — sequential stage execution (base class + manager + concrete stages)
+- `routes/` and `api/` — FastAPI routers
+- `middleware/` — ASGI middleware (classification, firewall, RBAC, mTLS, response headers)
+- `services/` — cross-cutting service implementations
 
-**Return Values:**
-- List returns: empty list `[]` for no results, never `None` (e.g., `return []` when no detections)
-- Dict returns: typed with `dict[str, Any]` for flexible detection schemas
-- Bool returns for predicates: `is_excluded()`, `is_mcp()`, `is_within_proximity()`
-- None returns used sparingly: `test_known_provider_detected_consistently` checks `result is not None`
-- Context manager returns via `@contextlib.asynccontextmanager` with `yield`
+**File:** `src/anonreq/` directory structure
 
-## Module Design
+## Async Patterns
 
-**Exports:**
-- `__init__.py` files re-export key classes with `__all__` lists
-- Internal implementation details not re-exported
-- Pattern in `__init__.py`:
-```python
-from anonreq.detection.regex_detector import RegexDetector
-from anonreq.detection.regex_patterns import PATTERNS, luhn_checksum, ENTITY_SPECIFICITY
+**async/await:**
+- All route handlers are `async def`
+- Pipeline stages use `async def execute(self, ctx: ProcessingContext) -> ProcessingContext`
+- Cache operations use `fakeredis.aioredis` (async) in tests, `redis.asyncio` in production
+- Database operations use `SQLAlchemy` async (`asyncpg`/`aiosqlite`)
 
-__all__ = [
-    "RegexDetector",
-    "PATTERNS",
-    "luhn_checksum",
-    "ENTITY_SPECIFICITY",
-]
-```
+**Async Context Managers:**
+- `inject_failure()` in tests uses `@contextlib.asynccontextmanager` for failure injection with cleanup
+- `httpx.AsyncClient` used with `async with` for test HTTP clients
+- `ASGITransport` for testing FastAPI apps without a running server
 
-**Barrel Files:**
-- Package-level `__init__.py` files serve as barrel exports for public API
-- `tests/__init__.py` is empty (marker file)
-- `tests/property/conftest.py` contains shared fixtures, not re-exported through `__init__`
+**pytest-asyncio:**
+- `asyncio_mode = "auto"` — all async test functions run automatically without `@pytest.mark.asyncio`
+- Exception: `@pytest.mark.asyncio` used explicitly in some property tests inside classes (class-scoped)
 
-**Module docstrings:**
-- Every module has a docstring describing purpose, cross-referencing requirements
-- Includes references to specific requirement IDs (e.g., D-32, D-38, TOKN-01)
-- Threat model references for security-relevant code: `# Threat model: T-13-02-01`
-- Design note comments for non-obvious decisions:
-```
-# Design decisions:
-# - @given tests use suppress_health_check=[HealthCheck.function_scoped_fixture]
-```
+**Async Fixtures:**
+- `@pytest_asyncio.fixture` for async fixtures that need `await`
+- `async def cache_manager()` yields after `await fake_redis.aclose()` teardown
 
-## Type Annotations
+## API Design
 
-- 100% of function signatures include type annotations
-- Return type `-> None` on all void functions/methods
-- `list[dict[str, Any]]` is the most common complex type (used for detection results)
-- `from __future__ import annotations` enables PEP 604 style (using `|` instead of `Union`)
-- `str | None` used instead of `Optional[str]`
-- `Any` used in test fixtures where exact types would create circular dependencies
-- `TYPE_CHECKING` guard pattern used in newer modules to avoid circular imports (`src/anonreq/state.py`, `src/anonreq/cache/health.py`, `src/anonreq/pipeline/detection.py`, etc.)
+**Router Organization:**
+- Feature-specific routers: `admin_router`, `chat_router`, `governance_router`, etc.
+- Routers included in main app via `app.include_router()`
+- Dependencies injected at router level: `dependencies=[Depends(auth_context)]`
 
-## Application State Pattern
+**Response Models:**
+- OpenAI-compatible wire format: `ChatCompletionResponse`, `ChatCompletionChoice`
+- Error responses: `{"error": {"message", "type", "code", "request_id"}}`
+- `model_config = {"extra": "ignore"}` on all API models for forward compatibility
 
-**Typed AppState (introduced post-Phase 27):**
-- `src/anonreq/state.py` defines `AppState` dataclass with typed fields for every attribute stored on `app.state`
-- `get_app_state(app)` helper returns typed `AppState` (lazy initialization)
-- Bootstrap functions in `src/anonreq/bootstrap/services.py` populate `AppState` fields during lifespan startup
-- Route handlers and middleware access state via `get_app_state(request.app)` or `get_app_state(app)`
-- Pattern:
-```python
-from anonreq.state import get_app_state
+**Dependency Injection:**
+- `HTTPBearer(auto_error=True)` for auth extraction
+- `Depends(verify_api_key)` for API key validation
+- `Depends(get_request_context)` for request context population
+- `Depends(auth_context)` as composite dependency (auth + context)
+- Route handlers receive `RequestContext` via dependency injection
 
-async def some_route(request: Request) -> Response:
-    state = get_app_state(request.app)
-    cache_manager = state.cache_manager
-    pdp = state.pdp
-```
+**File:** `src/anonreq/dependencies.py`
 
-**Bootstrap Decomposition:**
-- `src/anonreq/bootstrap/services.py` contains domain-specific bootstrap functions:
-  - `bootstrap_locale_detection()` — locale, Presidio, detection pipeline
-  - `bootstrap_policy_engine()` — PDP, PEP, policy store, rate/spend controls
-  - `bootstrap_mitm_proxy()` — CA manager, TLS interceptor, MITM handler
-  - `bootstrap_audit_services()` — audit DB engine, audit chain, chain anchor
-  - `bootstrap_slo_services()` — SLO engine, webhook client, breach detector
-  - `bootstrap_governance_services()` — oversight, lifecycle, transparency, notification, approval
-  - `bootstrap_gateway_services()` — AI detector, route table, PAC generator, MCP inspector
-  - `bootstrap_soc_services()` — SOC normalizer, MITRE mapper, sink router
-  - `bootstrap_deployment_proxy()` — reverse/transparent proxy
-  - `bootstrap_trust_center()` — trust center settings and service
-  - `bootstrap_compliance_services()` — compliance engine
-- Called sequentially in `lifespan()` in `src/anonreq/main.py:295-305`
+## Documentation
 
-## HTTP Client Pattern
+**Docstring Style:**
+- Google-style docstrings with `Args:`, `Returns:`, `Raises:` sections
+- Module-level docstrings describe purpose, design references (e.g., "Per D-22 through D-28")
+- Threat model coverage documented in module docstrings (e.g., "Threat model coverage: T-01-03-01")
+- Class docstrings include `Attributes:` sections with field descriptions
+- `"""Triple-quoted"""` for all docstrings
 
-**SSRF Hardening (applied 2026-07-17):**
-- All outbound `httpx.AsyncClient` instances must use `follow_redirects=False`
-- 12 instances hardened across: providers (4), SOC sinks (5), presidio client, AML webhook, webhook client
-- Pattern:
-```python
-self._http_client = httpx.AsyncClient(
-    timeout=self._timeout,
-    follow_redirects=False,
-)
-```
+**Inline Comments:**
+- Design decision rationale in comments: `# Per D-24: conditions are ANDed`
+- `# noqa: E501` for intentionally long lines
+- `# type: ignore[...]` used sparingly with specific ignore codes
 
-## Configuration Pattern
+**Comment Style:**
+- Block comments explain "why", not "what"
+- Section dividers with `# ──── Section Name ────────` visual separators
+- TODO/FIXME usage minimal; mostly references to requirement IDs (D-XX, REQ-XX)
 
-**Dual Configuration:**
-- Pydantic Settings (`src/anonreq/config/__init__.py`) for runtime config with `ANONREQ_` prefix
-- YAML files in `config/` for behavior configuration (policy, classification, compliance presets, etc.)
-- `Settings` validates required fields at import time (fail-secure startup)
-- API key minimum length validation: `Field(min_length=32)`
+## File Naming
 
-**Optional Dependencies (introduced post-Phase 27):**
-- `pyproject.toml` defines optional dependency groups:
-  - `[storage]` — minio
-  - `[exports]` — pyarrow, reportlab
-  - `[ml]` — onnxruntime
-  - `[voice]` — openai-whisper
-  - `[all]` — all of the above
-  - `[dev]` — testing and linting tools
+**Source Files:**
+- `snake_case.py`: `processing_context.py`, `span_arbiter.py`, `tail_buffer.py`
+- `__init__.py` for package directories
+- `__about__.py` for version info
 
-## Testing Patterns
+**Test Files:**
+- `test_<module>.py` at `tests/` root for legacy/flat tests
+- `tests/unit/<domain>/test_<module>.py` for structured unit tests
+- `tests/integration/test_<feature>.py` for integration tests
+- `tests/property/test_<invariant>.py` for property-based tests
+- `tests/load/test_<scenario>.py` for load tests
+- `tests/firewall/`, `tests/policy/`, `tests/multimodal/` etc. for domain test directories
+- `conftest.py` at `tests/`, `tests/property/`, `tests/unit/providers/` levels
 
-**Framework:** pytest with `asyncio_mode = "auto"` (no `@pytest.mark.asyncio` needed)
-
-**Test Structure:**
-- `tests/unit/` — unit tests organized by module
-- `tests/integration/` — integration tests (e.g., `test_e2e_round_trip.py`)
-- `tests/property/` — Hypothesis property tests
-- 287 test files, 260 with `test_` prefix
-- Config in `pyproject.toml`: `testpaths = ["tests"]`, `pythonpath = ["src"]`
-
-**Fixture Pattern:**
-- Module-level `os.environ.setdefault()` in `tests/conftest.py` for Settings singleton
-- `cache_manager` fixture uses `CacheManager._from_client()` factory (replaced fragile `__new__` pattern)
-- Lazy imports in fixtures to avoid slow collection
-- `fakeredis.aioredis.FakeRedis` for cache tests, `respx` for HTTP mocking
-
-**E2E Round-Trip Test Pattern:**
-- `tests/integration/test_e2e_round_trip.py` — full pipeline test
-- Builds complete pipeline with real stages + mocked provider via respx
-- Verifies PII detection → tokenization → mock provider → restoration
-- Helper functions: `_build_pipeline()`, `_make_proc_ctx()`
+**Config Files:**
+- YAML with descriptive names: `enterprise-policy.yaml`, `financial_crime_words.yaml`, `prompt-security-rules.yaml`
+- Locale configs in `config/locales/` with BCP 47 codes: `en.yaml`, `fr-FR.yaml`, `pt-BR.yaml`
+- Compliance presets in `config/compliance/`: `gdpr.yaml`, `lgpd.yaml`
 
 ---
 
-*Convention analysis: 2026-07-17*
+*Convention analysis: 2026-07-18*

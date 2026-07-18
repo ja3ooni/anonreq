@@ -49,7 +49,7 @@ class SinkHealthMonitor:
     ) -> None:
         self._router = router
         self._interval = interval
-        self._tasks: dict[str, asyncio.Task] = {}
+        self._tasks: dict[str, asyncio.Task[None]] = {}
         self._status_cache: dict[str, SinkStatus] = {}
 
     async def start(self) -> None:

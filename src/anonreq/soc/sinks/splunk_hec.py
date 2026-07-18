@@ -74,7 +74,7 @@ class SplunkHECSink:
             await self._client.aclose()
             self._client = None
 
-    async def format_event(self, event: Any) -> dict:
+    async def format_event(self, event: Any) -> dict[str, Any]:
         """Format a NormalizedEvent into a Splunk HEC envelope.
 
         Args:

@@ -9,8 +9,9 @@ Provides:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from enum import StrEnum
+from typing import Any
 
 from fastapi import HTTPException, Request
 
@@ -36,7 +37,7 @@ def _normalize_role_value(role: str) -> str:
     return role
 
 
-def require_role(minimum_role: Role) -> Callable:
+def require_role(minimum_role: Role) -> Callable[..., Coroutine[Any, Any, None]]:
     """Create a FastAPI dependency that enforces a minimum role requirement.
 
     The dependency extracts the authenticated principal from request state

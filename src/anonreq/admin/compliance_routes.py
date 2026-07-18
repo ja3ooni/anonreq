@@ -10,6 +10,8 @@ All endpoints require ADMINISTRATOR role per T-15-04-01 mitigation.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from anonreq.governance.reports import (
@@ -40,7 +42,7 @@ evidence_router = APIRouter(
 async def get_compliance_report(
     framework: str = Query(..., description="Framework ID (e.g. DORA, GDPR)"),
     tenant_id: str | None = Query(None, description="Optional tenant scope"),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/admin/compliance/report — generate a compliance report.
 
     Query params:
@@ -63,7 +65,7 @@ async def get_compliance_report(
 
 
 @router.get("/frameworks")
-async def get_frameworks() -> dict:
+async def get_frameworks() -> dict[str, Any]:
     """GET /v1/admin/compliance/report/frameworks — list supported frameworks.
 
     Returns:
@@ -82,11 +84,14 @@ async def get_compliance_evidence(
     request: Request,
     framework: str = Query("soc2", description="Framework ID (e.g. soc2, iso27001, gdpr)"),
     _license: None = Depends(require_license("compliance_monitoring")),
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/admin/compliance/evidence — collect compliance evidence.
 
     Per D-04: Aggregates evidence from SLO engine, audit chain,
     governance records, and incident history.
     """
-    service: ComplianceEvidenceService = get_app_state(request.app).compliance_evidence_service
+    app_state = get_app_state(request.app)
+    service: ComplianceEvidenceService | None = app_state.compliance_evidence_service
+    if service is None:
+        raise HTTPException(status_code=503, detail="Compliance evidence service not available")
     return await service.collect_evidence(framework=framework)

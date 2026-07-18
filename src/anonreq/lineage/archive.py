@@ -12,6 +12,7 @@ import io
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 try:
     from minio import Minio
@@ -52,7 +53,7 @@ async def get_archived_lineage(
     minio_client: Minio,
     path: str,
     bucket: str = DEFAULT_LINEAGE_BUCKET,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Retrieve an archived lineage record from MinIO (module-level convenience).
 
     Args:
@@ -154,7 +155,7 @@ class LineageArchiver:
 
         return object_path
 
-    async def get_archived_lineage(self, path: str) -> dict | None:
+    async def get_archived_lineage(self, path: str) -> dict[str, Any] | None:
         """Retrieve an archived lineage record from MinIO.
 
         Args:
@@ -169,7 +170,8 @@ class LineageArchiver:
             data = response.read()
             response.close()
             response.release_conn()
-            return json.loads(data)
+            parsed = json.loads(data)
+            return dict(parsed) if isinstance(parsed, dict) else None
         except S3Error as exc:
             if exc.code == "NoSuchKey":
                 logger.debug("Archived lineage not found: %s", path)
@@ -182,7 +184,7 @@ class LineageArchiver:
         tenant_id: str,
         _date_from: datetime,
         _date_to: datetime,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Query archived lineage records by tenant and date range.
 
         Scans the MinIO bucket for records matching the tenant and
@@ -196,7 +198,7 @@ class LineageArchiver:
         Returns:
             List of archived lineage record dicts.
         """
-        records: list[dict] = []
+        records: list[dict[str, Any]] = []
         prefix = f"lineage/{tenant_id}/"
 
         try:

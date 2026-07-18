@@ -36,7 +36,7 @@ class ToolCallDetection:
     tool_call_id: str | None
     function_name: str
     arguments: dict[str, Any] = field(default_factory=dict)
-    entities: list[dict] = field(default_factory=list)
+    entities: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def has_pii(self) -> bool:
@@ -73,7 +73,7 @@ class ToolCallResult:
 async def _analyze_arguments(
     arguments: Any,
     json_analyzer: JsonAnalyzer,
-) -> tuple[dict[str, Any] | Any, list[dict]]:
+) -> tuple[dict[str, Any] | Any, list[dict[str, Any]]]:
     """Parse *arguments* (a JSON string or dict) and detect PII.
 
     Returns ``(parsed_value, entities)`` where *parsed_value* is the

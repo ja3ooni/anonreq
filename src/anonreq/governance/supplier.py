@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -54,7 +55,7 @@ class SupplierGovernance:
     def __init__(
         self,
         db: AsyncSession,
-        lifecycle_manager=None,
+        lifecycle_manager: Any = None,
     ) -> None:
         """Initialize the supplier governance manager.
 
@@ -185,7 +186,7 @@ class SupplierGovernance:
         )
         try:
             result = await self._db.execute(stmt, {"id": supplier_id})
-            row = await result.fetchone()
+            row = result.fetchone()
         except Exception:
             return None
 
@@ -210,7 +211,7 @@ class SupplierGovernance:
             List of matching SupplierGovernanceRecord instances.
         """
         conditions: list[str] = []
-        params: dict = {}
+        params: dict[str, Any] = {}
 
         if risk_status is not None:
             conditions.append("risk_status = :risk_status")
@@ -228,7 +229,7 @@ class SupplierGovernance:
 
         try:
             result = await self._db.execute(stmt, params)
-            rows = await result.fetchall()
+            rows = result.fetchall()
         except Exception:
             return []
 
@@ -260,7 +261,7 @@ class SupplierGovernance:
         """)
         try:
             result = await self._db.execute(stmt, {"now": now})
-            rows = await result.fetchall()
+            rows = result.fetchall()
         except Exception:
             return []
 
@@ -411,7 +412,7 @@ class SupplierGovernance:
         )
 
     @staticmethod
-    def _row_to_record(row_dict: dict) -> SupplierGovernanceRecord:
+    def _row_to_record(row_dict: dict[str, Any]) -> SupplierGovernanceRecord:
         """Convert a DB row dict to a SupplierGovernanceRecord.
 
         Handles comma-separated trigger strings and string-to-datetime

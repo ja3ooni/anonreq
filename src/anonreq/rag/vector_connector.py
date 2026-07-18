@@ -107,12 +107,12 @@ class PineconeConnector(VectorStoreConnector):
         self._environment = environment
         self._index_name = index_name
         self._dimension = dimension
-        self._client = None
+        self._client: Any = None
 
-    async def _ensure_client(self):
+    async def _ensure_client(self) -> None:
         if self._client is None:
             try:
-                from pinecone import Pinecone
+                from pinecone import Pinecone  # type: ignore[import-not-found]
                 self._pc = Pinecone(api_key=self._api_key)
                 self._client = self._pc.Index(self._index_name)
             except ImportError:
@@ -128,7 +128,7 @@ class PineconeConnector(VectorStoreConnector):
     ) -> list[str]:
         await self._ensure_client()
         ids: list[str] = []
-        vectors: list = []
+        vectors: list[dict[str, Any]] = []
         for chunk in chunks:
             chunk_id = chunk.chunk_id
             ids.append(chunk_id)
@@ -190,13 +190,13 @@ class WeaviateConnector(VectorStoreConnector):
         self._url = url
         self._api_key = api_key
         self._class_name = class_name
-        self._client = None
+        self._client: Any = None
 
-    async def _ensure_client(self):
+    async def _ensure_client(self) -> None:
         if self._client is None:
             try:
-                import weaviate
-                from weaviate.auth import AuthApiKey
+                import weaviate  # type: ignore[import-not-found]
+                from weaviate.auth import AuthApiKey  # type: ignore[import-not-found]
                 auth = AuthApiKey(api_key=self._api_key) if self._api_key else None
                 self._client = weaviate.connect_to_wcs(
                     cluster_url=self._url,
@@ -241,12 +241,12 @@ class ChromaConnector(VectorStoreConnector):
         self._host = host
         self._port = port
         self._collection_name = collection_name
-        self._client = None
+        self._client: Any = None
 
-    async def _ensure_client(self):
+    async def _ensure_client(self) -> None:
         if self._client is None:
             try:
-                import chromadb
+                import chromadb  # type: ignore[import-not-found]
                 self._http_client = chromadb.HttpClient(host=self._host, port=self._port)
                 self._client = self._http_client.get_or_create_collection(self._collection_name)
             except ImportError:

@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import text
@@ -61,9 +62,9 @@ class BreachNotifier:
         self,
         db: AsyncSession,
         template_manager: BreachTemplateManager,
-        notification_service=None,
-        governance_service=None,
-        audit_chain=None,
+        notification_service: Any = None,
+        governance_service: Any = None,
+        audit_chain: Any = None,
     ) -> None:
         """Initialize the breach notifier.
 
@@ -88,10 +89,10 @@ class BreachNotifier:
         framework: str,
         description: str,
         affected_tenants: list[str],
-        variables: dict | None = None,
+        variables: dict[str, Any] | None = None,
         region: str = "eu",
         classification: str = "HIGH",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Send breach notifications to regulators and affected tenants.
 
         Args:
@@ -199,7 +200,7 @@ class BreachNotifier:
         target_id: str,
         framework: str,
         region: str,
-        variables: dict,
+        variables: dict[str, Any],
         now: datetime,
     ) -> bool:
         """Render and send a single notification.
@@ -327,7 +328,7 @@ class BreachNotifier:
 
         try:
             result = await self._db.execute(stmt, params)
-            rows = await result.fetchall()
+            rows = result.fetchall()
         except Exception:
             return []
 
@@ -360,7 +361,7 @@ class BreachNotifier:
             result = await self._db.execute(
                 stmt, {"status": "failed"}
             )
-            rows = await result.fetchall()
+            rows = result.fetchall()
         except Exception:
             return 0
 
@@ -392,7 +393,7 @@ class BreachNotifier:
         self,
         framework: str,
         region: str,
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Get the regulator contact for a framework/region."""
         try:
             return DEFAULT_REGULATORS[framework][region]
@@ -419,7 +420,7 @@ class BreachNotifier:
                     tenant_id
                 )
                 if contacts:
-                    return contacts
+                    return list(contacts)
             except Exception:
                 pass
 

@@ -68,7 +68,7 @@ class LocaleRegistry:
 
     def get_recognizers(self, locale_code: str) -> list[str]:
         bundle = self.get(locale_code)
-        return [] if bundle is None else list(bundle.entity_types)
+        return [] if bundle is None else [et.name for et in bundle.entity_types]
 
     def register_checksum_validators(self, checksum_registry: ChecksumValidatorRegistry) -> None:
         for bundle in self._bundles.values():

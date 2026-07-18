@@ -110,7 +110,7 @@ class ToolResultSanitizer:
             self.token_mappings.update(mapping)
             if "agent_tool_result_sanitized" not in self.audit_events:
                 self.audit_events.append("agent_tool_result_sanitized")
-        return tokenized
+        return str(tokenized)
 
     def _mapping_entity_types(self) -> set[str]:
         entity_types: set[str] = set()

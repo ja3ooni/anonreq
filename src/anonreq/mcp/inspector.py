@@ -243,7 +243,8 @@ def _get_target_host(request: Any) -> str | None:
     if url is not None:
         host = getattr(url, "host", None)
         if host:
-            return host
+            return str(host)
     # Try host header
     headers = _get_headers_dict(request)
-    return headers.get("host", None)
+    raw = headers.get("host", None)
+    return str(raw) if raw is not None else None

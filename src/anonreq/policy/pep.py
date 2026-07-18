@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from anonreq.models.processing_context import ProcessingContext
@@ -13,7 +14,7 @@ class PolicyEnforcementResult:
     action: PolicyAction
     status_code: int | None
     headers: dict[str, str] = field(default_factory=dict)
-    body: dict | None = None
+    body: dict[str, Any] | None = None
     should_forward: bool = False
     decision_id: str = ""
 
@@ -76,7 +77,7 @@ class PolicyEnforcementPoint:
 
     def _determine_block_type(
         self, decision: PolicyDecision,
-    ) -> tuple[int, str, dict]:
+    ) -> tuple[int, str, dict[str, Any]]:
         for rid in decision.matched_rule_ids:
             if "rate_limit" in rid:
                 return 429, "rate_limit_exceeded", {
@@ -110,7 +111,7 @@ class PolicyEnforcementPoint:
     ) -> PolicyEnforcementResult:
         status_code, block_type, extra_headers = self._determine_block_type(decision)
 
-        body: dict = {
+        body: dict[str, Any] = {
             "reason": decision.reason or "Request blocked by policy",
             "decision_id": decision_id,
             "timestamp": now,

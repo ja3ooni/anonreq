@@ -11,13 +11,15 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger("anonreq.retention.tiers")
 
-RETENTION_TIERS: dict[str, dict] = {
+RETENTION_TIERS: dict[str, dict[str, Any]] = {
     "postgresql": {
         "duration_days": 90,
         "description": "Operational queries",
@@ -42,7 +44,7 @@ Tiers with ``duration_days: None`` rely on external mechanisms
 """
 
 
-async def get_retention_config() -> dict:
+async def get_retention_config() -> dict[str, Any]:
     """Get the current retention configuration (module-level convenience).
 
     Returns:
@@ -55,8 +57,8 @@ async def purge_expired(
     db: AsyncSession,
     tier: str,
     dry_run: bool = False,
-    legal_hold_manager=None,
-) -> dict:
+    legal_hold_manager: Any = None,
+) -> dict[str, Any]:
     """Purge expired records for a retention tier (module-level convenience).
 
     Args:
@@ -88,8 +90,8 @@ class RetentionManager:
     def __init__(
         self,
         db: AsyncSession,
-        legal_hold_manager=None,
-        config: dict | None = None,
+        legal_hold_manager: Any = None,
+        config: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the retention manager.
 
@@ -105,7 +107,7 @@ class RetentionManager:
         self._legal_hold_manager = legal_hold_manager
         self._config = dict(config) if config else dict(RETENTION_TIERS)
 
-    async def get_retention_config(self) -> dict:
+    async def get_retention_config(self) -> dict[str, Any]:
         """Get the current retention configuration.
 
         Returns:
@@ -115,7 +117,7 @@ class RetentionManager:
 
     async def update_retention_config(
         self, tier: str, duration_days: int
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Update the retention duration for a specific tier.
 
         Args:
@@ -143,7 +145,7 @@ class RetentionManager:
 
     async def purge_expired(
         self, tier: str, dry_run: bool = False
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Purge expired records for a given retention tier.
 
         For PostgreSQL: deletes ``data_lineage`` records older than
@@ -220,7 +222,7 @@ class RetentionManager:
             )
             try:
                 result = await self._db.execute(count_stmt, {"cutoff": cutoff})
-                row = await result.fetchone()
+                row = result.fetchone()
                 estimated = row[0] if row else 0
             except Exception:
                 estimated = 0
@@ -238,7 +240,7 @@ class RetentionManager:
         )
         try:
             result = await self._db.execute(delete_stmt, {"cutoff": cutoff})
-            deleted = result.rowcount
+            deleted = cast(CursorResult[Any], result).rowcount
             await self._db.commit()
             logger.info(
                 "Purged %d expired records from %s tier",
@@ -256,7 +258,7 @@ class RetentionManager:
             "dry_run": False,
         }
 
-    async def run_scheduled_purge(self) -> list[dict]:
+    async def run_scheduled_purge(self) -> list[dict[str, Any]]:
         """Run purge for all applicable tiers.
 
         This is intended to be called by a scheduled task (e.g., cron).
@@ -265,7 +267,7 @@ class RetentionManager:
         Returns:
             A list of result dicts, one per tier processed.
         """
-        results: list[dict] = []
+        results: list[dict[str, Any]] = []
         for tier_name, tier_config in self._config.items():
             if tier_config.get("duration_days") is not None:
                 result = await self.purge_expired(tier_name)

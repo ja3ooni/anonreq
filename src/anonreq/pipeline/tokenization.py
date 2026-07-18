@@ -83,7 +83,7 @@ class TokenizationStage(PipelineStage):
             all_mappings: dict[str, str] = {}
             tokenized_texts: dict[int, str] = {}
 
-            for i, node in enumerate(ctx.text_nodes):
+            for i, node in enumerate(ctx.text_nodes or []):
                 node_value = node.get("value", "")
                 node_detections = detections_by_node.get(i, [])
 
@@ -97,9 +97,9 @@ class TokenizationStage(PipelineStage):
                     tokenized_texts[i] = node_value
 
             # Build transformed_request by replacing original content
-            transformed = ctx.original_request.copy()
+            transformed = (ctx.original_request or {}).copy()
             messages = transformed.get("messages", [])
-            for i, node in enumerate(ctx.text_nodes):
+            for i, node in enumerate(ctx.text_nodes or []):
                 # Extract message index and key from path
                 path = node.get("path", "")
                 # Path format: messages[{idx}].content or messages[{idx}].tool_calls[{tc_idx}].function.arguments  # noqa: E501

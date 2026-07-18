@@ -41,7 +41,7 @@ async def bootstrap_locale_detection(
     state.preset_engine = None
     state.active_compliance_presets = []
 
-    if not requires_detection(state.proxy_mode):
+    if state.proxy_mode is None or not requires_detection(state.proxy_mode):
         log.info("Skipping detection/anonymization setup — proxy-only mode", component="lifespan")
         return
 
@@ -139,8 +139,8 @@ async def bootstrap_policy_engine(app: FastAPI, cache_manager: Any) -> None:
         state.forwarding_guard = forwarding_guard
         state.policy_store = policy_store
         log.info("Policy engine initialised", component="lifespan")
-    except Exception as exc:
-        log.error("Failed to initialise policy engine", component="lifespan", error=str(exc))
+    except Exception:
+        log.error("Failed to initialise policy engine", component="lifespan", exc_info=True)
         await cache_manager.close()
         raise
 
@@ -157,7 +157,7 @@ async def bootstrap_mitm_proxy(app: FastAPI) -> None:
     state.ca_manager = ca_manager
 
     ca_info = await ca_manager.get_ca_info()
-    if ca_info is None and requires_mitm(state.proxy_mode):
+    if ca_info is None and state.proxy_mode is not None and requires_mitm(state.proxy_mode):
         log.warning(
             "No CA certificate loaded in transparent proxy mode",
             component="lifespan",
@@ -185,7 +185,7 @@ async def bootstrap_mitm_proxy(app: FastAPI) -> None:
         state.mitm_handler = mitm_handler
 
         @app.middleware("http")
-        async def proxy_middleware(request: Request, call_next: Callable) -> Response:
+        async def proxy_middleware(request: Request, call_next: Callable[..., Any]) -> Response:
             return await mitm_middleware(request, call_next)
 
         log.info("MITM proxy middleware registered", component="lifespan")
@@ -378,16 +378,18 @@ async def bootstrap_deployment_proxy(app: FastAPI, cache_manager: Any) -> None:
 
     try:
         if state.pipeline is not None:
-            dispatcher = PipelineContentDispatcher(
+            dispatcher: Any = PipelineContentDispatcher(
                 state.pipeline,
                 app_state=state,
             )
         else:
-            def dispatcher(_request: Any) -> bytes:
+            def _noop_dispatcher(_request: Any) -> bytes:
                 return b""
+            dispatcher = _noop_dispatcher
 
         from anonreq.main import _network_proxy_autostart_enabled, create_deployment_proxy
 
+        assert state.deployment_config is not None
         state.deployment_proxy = create_deployment_proxy(
             state.deployment_config,
             dispatcher,
@@ -407,7 +409,11 @@ async def bootstrap_deployment_proxy(app: FastAPI, cache_manager: Any) -> None:
         log.error(
             "Failed to initialize deployment proxy",
             component="lifespan",
-            deployment_mode=state.deployment_config.mode.value,
+            deployment_mode=(
+                state.deployment_config.mode.value
+                if state.deployment_config
+                else "unknown"
+            ),
             error=str(exc),
         )
         await cache_manager.close()
@@ -431,6 +437,7 @@ async def bootstrap_trust_center(app: FastAPI, cache_manager: Any) -> None:
         state.trust_center_settings = trust_settings
         state.trust_center_enabled = trust_settings.enabled
 
+        assert state.slo_engine is not None, "slo_engine must be bootstrapped before Trust Center"
         trust_center_service = TrustCenterService(
             slo_engine=state.slo_engine,
             preset_engine=state.preset_engine,

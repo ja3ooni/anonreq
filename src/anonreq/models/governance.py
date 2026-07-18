@@ -450,7 +450,7 @@ def json_to_change_history(raw: str | None) -> list[ChangeEntry]:
 
 
 def model_record_to_json(record: ModelRecord) -> str:
-    return record.model_dump_json()
+    return str(record.model_dump_json())
 
 
 def json_to_model_record(raw: str) -> ModelRecord:
@@ -458,7 +458,7 @@ def json_to_model_record(raw: str) -> ModelRecord:
 
 
 def provider_record_to_json(record: ProviderRecord) -> str:
-    return record.model_dump_json()
+    return str(record.model_dump_json())
 
 
 def json_to_provider_record(raw: str) -> ProviderRecord:

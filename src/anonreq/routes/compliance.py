@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from typing import Any
+
+from fastapi import APIRouter, HTTPException, Request
 
 from anonreq.state import get_app_state
 
@@ -10,10 +12,12 @@ router = APIRouter(prefix="/v1/compliance", tags=["compliance"])
 
 
 @router.get("/presets")
-async def list_compliance_presets(request: Request) -> dict:
+async def list_compliance_presets(request: Request) -> dict[str, Any]:
     """GET /v1/compliance/presets returns configured preset metadata."""
 
     engine = get_app_state(request.app).preset_engine
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Preset engine not initialized")
     presets = engine.list_presets()
     return {
         "object": "list",

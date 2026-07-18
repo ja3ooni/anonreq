@@ -137,9 +137,10 @@ class SentinelDCRSink:
             )
 
         data = response.json()
-        self._cached_token = data["access_token"]
+        access_token: str = data["access_token"]
+        self._cached_token = access_token
         self._token_expiry = now + float(data.get("expires_in", 3600))
-        return self._cached_token
+        return access_token
 
     async def _get_dcr_url(self) -> str:
         """Build the DCR stream ingestion URL.

@@ -64,7 +64,7 @@ class AliasRegistry:
     def resolve(self, alias: str) -> ModelAlias:
         key = alias.casefold()
         if key not in self._aliases:
-            raise AliasNotFoundError(alias, self.list_aliases().keys() | set())
+            raise AliasNotFoundError(alias, list(self.list_aliases().keys()))
         return self._aliases[key]
 
     def list_aliases(self) -> dict[str, ModelAlias]:

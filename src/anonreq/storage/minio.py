@@ -190,7 +190,7 @@ class MinioWormBucket:
         client = self._get_client()
         try:
             response = client.get_object(self._bucket, path)
-            data = json.loads(response.read())
+            data: dict[str, Any] = json.loads(response.read())
             response.close()
             response.release_conn()
             return data
@@ -253,9 +253,12 @@ def create_mnpi_worm_bucket(
     """
     import os
 
+    resolved_endpoint = endpoint or os.environ.get("MINIO_ENDPOINT") or "localhost:9000"
+    resolved_access_key = access_key or os.environ.get("MINIO_ACCESS_KEY") or "minioadmin"
+    resolved_secret_key = secret_key or os.environ.get("MINIO_SECRET_KEY") or "minioadmin"
     return MinioWormBucket(
-        endpoint=endpoint or os.environ.get("MINIO_ENDPOINT", "localhost:9000"),
-        access_key=access_key or os.environ.get("MINIO_ACCESS_KEY", "minioadmin"),
-        secret_key=secret_key or os.environ.get("MINIO_SECRET_KEY", "minioadmin"),
+        endpoint=resolved_endpoint,
+        access_key=resolved_access_key,
+        secret_key=resolved_secret_key,
         secure=secure if secure is not None else os.environ.get("MINIO_SECURE", "false").lower() == "true",  # noqa: E501
     )

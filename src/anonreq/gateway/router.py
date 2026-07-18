@@ -56,7 +56,7 @@ class RouteTable:
 
     def __init__(self) -> None:
         self._entries: list[RouteEntry] = []
-        self._wildcard_patterns: list[tuple[re.Pattern, RouteEntry]] = []
+        self._wildcard_patterns: list[tuple[re.Pattern[str], RouteEntry]] = []
         self._load_defaults()
 
     def _load_defaults(self) -> None:

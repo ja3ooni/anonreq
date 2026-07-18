@@ -377,7 +377,8 @@ class ApplianceAgent:
                 result["stderr"],
             )
             return f"Error: {result['stderr']}"
-        return result["stdout"]
+        stdout: str = result["stdout"]
+        return stdout
 
     # ------------------------------------------------------------------
     # Service management

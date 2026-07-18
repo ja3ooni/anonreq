@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import and_, select
+from sqlalchemy import Column, and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from anonreq.models.governance import ProviderAnonReqModel, ProviderRecord
@@ -169,8 +169,8 @@ class ProviderInventory:
             raise ValueError(f"Provider not found: {provider_id}")
 
         now = datetime.now(UTC)
-        orm.status = "suspended"
-        orm.updated_at = now
+        orm.status = cast(Column[str], "suspended")
+        orm.updated_at = cast(Column[datetime], now)
 
         await self._db.flush()
         await self._db.refresh(orm)
@@ -200,8 +200,8 @@ class ProviderInventory:
             raise ValueError(f"Provider not found: {provider_id}")
 
         now = datetime.now(UTC)
-        orm.status = "active"
-        orm.updated_at = now
+        orm.status = cast(Column[str], "active")
+        orm.updated_at = cast(Column[datetime], now)
 
         await self._db.flush()
         await self._db.refresh(orm)
@@ -232,12 +232,13 @@ class ProviderInventory:
             raise ValueError(f"Provider not found: {provider_id}")
 
         now = datetime.now(UTC)
-        orm.concentration_risk = True
-        orm.concentration_risk_justification = justification
-        orm.concentration_risk_justification_date = now
-        orm.last_review_date = now
-        orm.next_review_date = (now + timedelta(days=365)).replace(microsecond=0)
-        orm.updated_at = now
+        orm.concentration_risk = cast(Column[bool], True)
+        orm.concentration_risk_justification = cast(Column[str], justification)
+        orm.concentration_risk_justification_date = cast(Column[datetime], now)
+        orm.last_review_date = cast(Column[datetime], now)
+        next_review = (now + timedelta(days=365)).replace(microsecond=0)
+        orm.next_review_date = cast(Column[datetime], next_review)
+        orm.updated_at = cast(Column[datetime], now)
 
         await self._db.flush()
         await self._db.refresh(orm)
@@ -281,7 +282,10 @@ class ProviderInventory:
             ProviderAnonReqModel.provider_id == provider_id
         )
         result = await self._db.execute(stmt)
-        return result.scalars().unique().one_or_none()
+        orm = result.scalars().unique().one_or_none()
+        if orm is None:
+            return None
+        return orm
 
 
 def _orm_to_provider_record(orm: ProviderAnonReqModel) -> ProviderRecord:

@@ -7,6 +7,8 @@ Provides:
 
 from __future__ import annotations
 
+from typing import Any
+
 import structlog
 from fastapi import APIRouter, Request, Response
 
@@ -23,7 +25,7 @@ logger = structlog.get_logger()
 def _build_health_response(
     components: dict[str, dict[str, str]],
     all_healthy: bool,
-) -> dict:
+) -> dict[str, Any]:
     """Build the health response body and log the result."""
 
     overall_status = "healthy" if all_healthy else "degraded"
@@ -43,7 +45,7 @@ def _build_health_response(
 
 
 @router.get("/health")
-async def health(response: Response) -> dict:
+async def health(response: Response) -> dict[str, Any]:
     """Process liveness endpoint.
 
     Returns 200 for a live FastAPI process without probing downstream
@@ -56,11 +58,14 @@ async def health(response: Response) -> dict:
 
 
 @router.get("/health/ready")
-async def health_ready(request: Request, response: Response) -> dict:
+async def health_ready(request: Request, response: Response) -> dict[str, Any]:
     """Readiness probe endpoint for Docker HEALTHCHECK."""
 
     cache_manager = get_app_state(request.app).cache_manager
-    cache_health = await check_cache_health(cache_manager)
+    if cache_manager is None:
+        cache_health: dict[str, Any] = {"healthy": False}
+    else:
+        cache_health = await check_cache_health(cache_manager)
     presidio_ok = await check_presidio(settings.PRESIDIO_URL)
 
     components = {

@@ -50,7 +50,7 @@ class OutboundFirewallMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         body_bytes = b""
-        async for chunk in response.body_iterator:
+        async for chunk in response.body_iterator:  # type: ignore[attr-defined]
             body_bytes += chunk
 
         import json

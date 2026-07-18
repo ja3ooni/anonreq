@@ -16,7 +16,7 @@ import re
 # Pre-compiled regex patterns
 # ---------------------------------------------------------------------------
 
-PATTERNS: dict[str, re.Pattern] = {
+PATTERNS: dict[str, re.Pattern[str]] = {
     "EMAIL_ADDRESS": re.compile(
         r"[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
         r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+"

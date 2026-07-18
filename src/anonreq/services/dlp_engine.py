@@ -91,7 +91,7 @@ class DLPEngine:
         # Run core category patterns
         for category, patterns in self._core_patterns.items():
             for pattern in patterns:
-                compiled: re.Pattern = pattern["regex"]
+                compiled: re.Pattern[str] = pattern["regex"]
                 for match in compiled.finditer(text):
                     detections.append(DLPDetection(
                         category=category,
@@ -204,7 +204,7 @@ class DLPEngine:
 
         CRITICAL: NEVER store or return the matched payload content.
         """
-        metadata = {
+        metadata: dict[str, Any] = {
             "event_id": f"q_{uuid4().hex[:16]}",
             "tenant_id": ctx.tenant_id,
             "request_id": ctx.request_id,

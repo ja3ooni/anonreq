@@ -30,7 +30,7 @@ class RegexDetector:
 
     def __init__(
         self,
-        patterns: dict[str, re.Pattern] | None = None,
+        patterns: dict[str, re.Pattern[str]] | None = None,
     ) -> None:
         """Initialize the detector with optional custom patterns.
 
@@ -43,9 +43,9 @@ class RegexDetector:
     @staticmethod
     def patterns_from_entity_configs(
         entity_configs: list[EntityTypeConfig],
-    ) -> dict[str, re.Pattern]:
+    ) -> dict[str, re.Pattern[str]]:
         """Compile regex patterns declared by locale bundle entity configs."""
-        compiled: dict[str, re.Pattern] = {}
+        compiled: dict[str, re.Pattern[str]] = {}
         for config in entity_configs:
             if config.tier not in (RecognizerTier.REGEX, RecognizerTier.BOTH):
                 continue
@@ -57,7 +57,7 @@ class RegexDetector:
     def detect(
         self,
         text: str,
-        extra_patterns: dict[str, re.Pattern] | None = None,
+        extra_patterns: dict[str, re.Pattern[str]] | None = None,
     ) -> list[dict[str, Any]]:
         """Run all patterns on the given text and return detections.
 

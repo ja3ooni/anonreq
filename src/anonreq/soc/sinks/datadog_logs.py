@@ -82,7 +82,7 @@ class DatadogLogsSink:
             await self._client.aclose()
             self._client = None
 
-    async def format_event(self, event: Any) -> dict:
+    async def format_event(self, event: Any) -> dict[str, Any]:
         """Format a NormalizedEvent into a Datadog log entry.
 
         Args:
@@ -155,7 +155,7 @@ class DatadogLogsSink:
             )
             return False
 
-    async def _post_logs(self, entries: list[dict], count: int) -> bool:
+    async def _post_logs(self, entries: list[dict[str, Any]], count: int) -> bool:
         """POST log entries to the Datadog Logs API.
 
         Args:

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from pydantic import BaseModel, field_validator
 
@@ -203,11 +204,11 @@ class DSARService:
             return "not_found"
         return req.status
 
-    async def get_audit_trail(self, request_id: str) -> list[dict]:
+    async def get_audit_trail(self, request_id: str) -> list[dict[str, Any]]:
         raw = await self._redis.get(f"{AUDIT_TRAIL_PREFIX}:{request_id}")
         if raw is None:
             return []
-        return json.loads(raw)
+        return list(json.loads(raw))
 
     async def _get_request_or_raise(self, request_id: str) -> DSARRequest:
         req = await self.get_request(request_id)

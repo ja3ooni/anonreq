@@ -239,7 +239,7 @@ class ToolResultInspector:
 
     async def inspect(
         self,
-        tool_result,
+        tool_result: Any,
         session_id: str | None = None,
     ) -> InspectionResult:
         """Inspect a tool result for PII and reconstruction attempts.

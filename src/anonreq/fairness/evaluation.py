@@ -70,8 +70,8 @@ class FairnessEvaluator:
         """
         if not results or len(results) < 2:
             return 0.0
-        recalls = [r.recall for r in results]
-        return max(recalls) - min(recalls)
+        recalls: list[float] = [r.recall for r in results]
+        return float(max(recalls) - min(recalls))
 
     def should_fail_build(self, evaluation: FairnessEvaluation) -> bool:
         """Determine if the build should fail based on evaluation results.
@@ -120,8 +120,10 @@ class FairnessEvaluator:
                 "configure detection_pipeline at construction"
             )
 
+        assert self._detection_pipeline is not None
+        pipeline = self._detection_pipeline
         actual_detect = detect_fn or (
-            lambda text: self._detection_pipeline.analyze(text)
+            lambda text: pipeline.analyze(text)
         )
 
         if self._dataset_manager is None:

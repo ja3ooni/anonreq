@@ -147,7 +147,7 @@ class DataRestrictionService:
             result = await self._db.execute(
                 stmt, {"subject_id": subject_id}
             )
-            row = await result.fetchone()
+            row = result.fetchone()
             count = row[0] if row else 0
             return count > 0
         except Exception:
@@ -179,7 +179,7 @@ class DataRestrictionService:
                 stmt, {"subject_id": subject_id}
             )
             await self._db.commit()
-            if result.rowcount and result.rowcount > 0:
+            if hasattr(result, 'rowcount') and result.rowcount and result.rowcount > 0:
                 removed = True
         except Exception:
             await self._db.rollback()
@@ -213,7 +213,7 @@ class DataRestrictionService:
                 ORDER BY restricted_at DESC
             """)
             result = await self._db.execute(stmt)
-            rows = await result.fetchall()
+            rows = result.fetchall()
             return [
                 {
                     "subject_id": row[0],

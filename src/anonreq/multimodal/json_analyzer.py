@@ -6,7 +6,7 @@ from typing import Any
 
 from anonreq.multimodal.models import ContentType, UnifiedDetectionResult
 
-SENSITIVE_KEY_PATTERNS: list[re.Pattern] = [
+SENSITIVE_KEY_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"ssn"),
     re.compile(r"social.security"),
     re.compile(r"password"),
@@ -35,7 +35,7 @@ class JsonAnalyzer:
 
     async def analyze(
         self,
-        json_data: str | bytes | dict,
+        json_data: str | bytes | dict[str, Any],
         path: str = "$",
     ) -> UnifiedDetectionResult:
         result = UnifiedDetectionResult(content_type=ContentType.APPLICATION_JSON)
@@ -49,7 +49,7 @@ class JsonAnalyzer:
         else:
             parsed = json_data
 
-        entities: list[dict] = []
+        entities: list[dict[str, Any]] = []
         await self._walk_node(parsed, path, 0, entities, result)
         result.entities = entities
         return result
@@ -59,7 +59,7 @@ class JsonAnalyzer:
         node: Any,
         path: str,
         depth: int,
-        entities: list[dict],
+        entities: list[dict[str, Any]],
         result: UnifiedDetectionResult,
     ) -> None:
         if depth > self._max_depth:
@@ -90,7 +90,7 @@ class JsonAnalyzer:
         self,
         value: str,
         path: str,
-        entities: list[dict],
+        entities: list[dict[str, Any]],
         is_sensitive: bool = False,
     ) -> None:
         if self._detection_engine is None:

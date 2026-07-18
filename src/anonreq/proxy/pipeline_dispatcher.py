@@ -60,7 +60,12 @@ class PipelineContentDispatcher:
         self._pipeline = pipeline_manager
         self._app_state = app_state
 
-    async def dispatch(self, content_type: str, body: bytes, ctx: dict | None = None) -> bytes:
+    async def dispatch(
+        self,
+        content_type: str,
+        body: bytes,
+        ctx: dict[str, Any] | None = None,
+    ) -> bytes:
         if not content_type.startswith("application/json") or not body:
             return UNSUPPORTED_MEDIA_TYPE_ERROR
 

@@ -82,7 +82,7 @@ class SinkBase(Protocol):
         """
         ...
 
-    async def format_event(self, event: Any) -> str | bytes | dict:
+    async def format_event(self, event: Any) -> str | bytes | dict[str, Any] | list[dict[str, Any]]:
         """Format a NormalizedEvent into the sink's wire format.
 
         Args:

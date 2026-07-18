@@ -56,7 +56,7 @@ class ClassificationStage(PipelineStage):
         # Ensure text nodes are extracted
         text_nodes = ctx.text_nodes
         if text_nodes is None:
-            text_nodes = TextExtractor.extract(ctx.original_request)
+            text_nodes = TextExtractor.extract(ctx.original_request or {})
             ctx.text_nodes = text_nodes
 
         # Run classification engine

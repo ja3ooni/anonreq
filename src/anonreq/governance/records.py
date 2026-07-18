@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import Column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -132,7 +132,7 @@ async def update_governance_record(
     )
     next_version = max((e.version for e in existing_history), default=0) + 1
 
-    old_officers = json.loads(model.officers)
+    old_officers = json.loads(cast(str, model.officers))
     changes_desc = {}
     old_names = {o["name"] for o in old_officers}
     new_names = {o.name for o in officers}
@@ -150,10 +150,10 @@ async def update_governance_record(
     )
     updated_history = [*existing_history, new_entry]
 
-    model.officers = officers_to_json(officers)
-    model.change_history = change_history_to_json(updated_history)
-    model.version = next_version
-    model.updated_at = now
+    model.officers = cast(Column[str], officers_to_json(officers))
+    model.change_history = cast(Column[str], change_history_to_json(updated_history))
+    model.version = cast(Column[int], next_version)
+    model.updated_at = cast(Column[datetime], now)
     await db.flush()
     await db.refresh(model, ["review_cycle"])
     return _model_to_record(model)
@@ -188,7 +188,7 @@ async def list_governance_records(
 
 def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
     """Convert ORM model to Pydantic GovernanceRecord."""
-    officers_data = json.loads(model.officers)
+    officers_data = json.loads(cast(str, model.officers))
     officers = [GovernanceOfficer(**o) for o in officers_data]
 
     rc = model.review_cycle
@@ -196,8 +196,8 @@ def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
         id=rc.id,
         tenant_id=rc.tenant_id,
         interval_days=rc.interval_days,
-        last_review_date=_ensure_tz(rc.last_review_date),
-        next_review_date=_ensure_tz(rc.next_review_date),
+        last_review_date=_ensure_tz(cast(datetime | None, rc.last_review_date)),
+        next_review_date=_ensure_tz(cast(datetime | None, rc.next_review_date)),
         status=rc.status,
     )
 
@@ -210,8 +210,8 @@ def _model_to_record(model: GovernanceRecordModel) -> GovernanceRecord:
         tenant_id=model.tenant_id,
         officers=officers,
         review_cycle=review_cycle,
-        created_at=_ensure_tz(model.created_at),
-        updated_at=_ensure_tz(model.updated_at),
+        created_at=_ensure_tz(cast(datetime | None, model.created_at)),
+        updated_at=_ensure_tz(cast(datetime | None, model.updated_at)),
         status=model.status,
         version=getattr(model, "version", 1),
         change_history=change_history,

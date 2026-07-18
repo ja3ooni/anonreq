@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from anonreq.firewall.models import DetectionCategory
@@ -21,7 +23,7 @@ def _get_loader() -> FirewallRuleLoader:
 async def list_firewall_rules(
     category: str | None = None,
     enabled: bool | None = None,
-):
+) -> dict[str, Any]:
     loader = _get_loader()
     rules = loader.rules
 
@@ -59,7 +61,7 @@ async def list_firewall_rules(
 
 
 @router.get("/v1/admin/prompt-security/rules/{rule_id}")
-async def get_firewall_rule(rule_id: str):
+async def get_firewall_rule(rule_id: str) -> dict[str, Any]:
     loader = _get_loader()
     for rule in loader.rules:
         if rule.rule_id == rule_id:

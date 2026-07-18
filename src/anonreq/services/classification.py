@@ -82,7 +82,7 @@ class ClassificationService:
             client_level=client_level,
         )
         result.handling_action = self.determine_handling(result.highest)
-        result.highest_entity = self._find_highest_entity(result)
+        result.highest_entity = self._find_highest_entity(result) or ""
         return result
 
     @staticmethod

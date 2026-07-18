@@ -11,6 +11,8 @@ Endpoints:
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 from fastapi import APIRouter, HTTPException, Request
 
 from anonreq.services.oversight import (
@@ -24,14 +26,14 @@ def _get_service(request: Request) -> OversightService:
     svc = getattr(request.app.state, "oversight_service", None)
     if svc is None:
         raise HTTPException(status_code=503, detail="Oversight service not initialized")
-    return svc
+    return cast(OversightService, svc)
 
 
 @router.get("/approvals")
 async def list_approvals(
     request: Request,
     tenant_id: str | None = None,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/oversight/approvals — list pending approvals (optionally filtered by tenant)."""
     svc = _get_service(request)
     approvals = await svc.list_pending_approvals(tenant_id=tenant_id)
@@ -45,7 +47,7 @@ async def list_approvals(
 async def get_approval(
     approval_id: str,
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """GET /v1/oversight/approvals/{approval_id} — get single approval."""
     svc = _get_service(request)
     req = await svc.get_approval_request(approval_id)
@@ -58,7 +60,7 @@ async def get_approval(
 async def approve_approval(
     approval_id: str,
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/oversight/approvals/{approval_id}/approve — approve a request."""
     svc = _get_service(request)
     try:
@@ -77,7 +79,7 @@ async def approve_approval(
 async def reject_approval(
     approval_id: str,
     request: Request,
-) -> dict:
+) -> dict[str, Any]:
     """POST /v1/oversight/approvals/{approval_id}/reject — reject a request."""
     svc = _get_service(request)
     try:
@@ -93,7 +95,7 @@ async def reject_approval(
 
 
 @router.get("/kill-switch")
-async def get_kill_switch(request: Request) -> dict:
+async def get_kill_switch(request: Request) -> dict[str, Any]:
     """GET /v1/oversight/kill-switch — return current kill-switch status."""
     svc = _get_service(request)
     status = await svc.get_kill_switch_status()
@@ -101,7 +103,7 @@ async def get_kill_switch(request: Request) -> dict:
 
 
 @router.post("/kill-switch")
-async def post_kill_switch(request: Request) -> dict:
+async def post_kill_switch(request: Request) -> dict[str, Any]:
     """POST /v1/oversight/kill-switch — activate or deactivate.
 
     Body (activate): ``{"action": "activate", "operator_id": "...", "reason": "..."}``

@@ -147,7 +147,7 @@ class LegalHoldManager:
         )
         try:
             result = await self._db.execute(check_stmt, {"id": hold_id})
-            row = await result.fetchone()
+            row = result.fetchone()
         except Exception:
             row = None
 
@@ -230,7 +230,7 @@ class LegalHoldManager:
 
         try:
             result = await self._db.execute(stmt, params)
-            row = await result.fetchone()
+            row = result.fetchone()
             count = row[0] if row else 0
             return count > 0
         except Exception:
@@ -267,7 +267,7 @@ class LegalHoldManager:
 
         try:
             result = await self._db.execute(stmt, params)
-            rows = await result.fetchall()
+            rows = result.fetchall()
         except Exception:
             return []
 
@@ -304,7 +304,7 @@ class LegalHoldManager:
 
         try:
             result = await self._db.execute(stmt, params)
-            rows = await result.fetchall()
+            rows = result.fetchall()
             return [row[0] for row in rows if row[0]]
         except Exception:
             return []

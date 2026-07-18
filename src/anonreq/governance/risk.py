@@ -8,9 +8,9 @@ and reassessment flagging.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import Column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from anonreq.models.governance import (
@@ -176,10 +176,10 @@ async def update_risk_assessment(
     for d in all_dims:
         d.overall_score = compute_dimension_score(d.severity, d.likelihood)
 
-    model.dimensions = dimensions_to_json(dimensions)
-    model.extensions = dimensions_to_json(extensions) if extensions else None
-    model.overall_risk_score = compute_overall_risk_score(all_dims)
-    model.updated_at = datetime.now(UTC)
+    model.dimensions = cast(Column[str], dimensions_to_json(dimensions))
+    model.extensions = cast(Column[str], dimensions_to_json(extensions) if extensions else None)
+    model.overall_risk_score = cast(Column[float], compute_overall_risk_score(all_dims))
+    model.updated_at = cast(Column[datetime], datetime.now(UTC))
     await db.flush()
     await db.refresh(model)
 
@@ -215,8 +215,8 @@ async def flag_reassessment(
     if model is None:
         raise ValueError(f"No risk assessment for tenant: {tenant_id}")
 
-    model.reassessment_required = True
-    model.updated_at = datetime.now(UTC)
+    model.reassessment_required = cast(Column[bool], True)
+    model.updated_at = cast(Column[datetime], datetime.now(UTC))
     await db.flush()
     await db.refresh(model)
 
@@ -283,8 +283,8 @@ def _validate_core_dimensions(
 
 def _model_to_assessment(model: RiskAssessmentModel) -> RiskAssessment:
     """Convert ORM model to Pydantic RiskAssessment."""
-    dims = json_to_dimensions(model.dimensions)
-    exts = json_to_dimensions(model.extensions) if model.extensions else None
+    dims = json_to_dimensions(cast(str, model.dimensions))
+    exts = json_to_dimensions(cast(str, model.extensions)) if model.extensions else None
 
     return RiskAssessment(
         id=model.id,

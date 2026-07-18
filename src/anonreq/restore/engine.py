@@ -118,7 +118,8 @@ class RestoreEngine:
         if not mapping:
             return response
 
-        return self._walk_and_restore(response, mapping)
+        result: dict[str, Any] = self._walk_and_restore(response, mapping)
+        return result
 
     def get_path_tracker(self) -> PathTracker:
         """Return the internal PathTracker for direct access."""

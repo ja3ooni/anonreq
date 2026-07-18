@@ -73,8 +73,8 @@ class SOCNormalizer:
         self._mitre_mapper = mitre_mapper
         self._config = config
         self._audit_logger = audit_logger
-        self._sink_callbacks: dict[str, Callable[..., Coroutine]] = {}
-        self._task: asyncio.Task | None = None
+        self._sink_callbacks: dict[str, Callable[..., Coroutine[Any, Any, Any]]] = {}
+        self._task: asyncio.Task[None] | None = None
 
         # Internal event bus — detection engines publish here
         self.event_bus: asyncio.Queue[RawSecurityEvent] = asyncio.Queue(
@@ -102,7 +102,7 @@ class SOCNormalizer:
             )
 
     def register_sink_callback(
-        self, sink_name: str, callback: Callable[..., Coroutine]
+        self, sink_name: str, callback: Callable[..., Coroutine[Any, Any, Any]]
     ) -> None:
         """Register a sink callback to receive normalized events.
 

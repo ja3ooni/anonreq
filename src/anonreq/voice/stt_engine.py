@@ -77,7 +77,7 @@ class STTEngine:
         self._model = None
         if self.device == "cuda":
             with contextlib.suppress(Exception):
-                import torch
+                import torch  # type: ignore[import-not-found]
 
                 torch.cuda.empty_cache()
 
@@ -94,7 +94,7 @@ class STTEngine:
         if self._model_factory is not None:
             return self._model_factory(self.config.stt_model_size, self.device)
         try:
-            from faster_whisper import WhisperModel
+            from faster_whisper import WhisperModel  # type: ignore[import-not-found]
 
             return WhisperModel(
                 self.config.stt_model_size,
@@ -102,7 +102,7 @@ class STTEngine:
                 compute_type=self.compute_type,
             )
         except ImportError:
-            import whisper
+            import whisper  # type: ignore[import-not-found]
 
             return whisper.load_model(self.config.stt_model_size, device=self.device)
 
