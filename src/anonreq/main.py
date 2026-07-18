@@ -25,6 +25,7 @@ import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import Response
 from prometheus_client import REGISTRY, Counter, generate_latest
+from starlette.responses import StreamingResponse
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
@@ -72,6 +73,7 @@ from anonreq.middleware.content_type import ContentTypeMiddleware
 from anonreq.middleware.mtls import IngressMTLSMiddleware
 from anonreq.middleware.policy import PolicyMiddleware
 from anonreq.middleware.response_headers import ClassificationResponseMiddleware
+from anonreq.middleware.tenant import TenantContextMiddleware
 from anonreq.models.request_context import RequestContext
 from anonreq.monitoring.middleware import MetricsMiddleware
 from anonreq.multimodal.dispatcher import ContentTypeDispatcher
@@ -101,6 +103,7 @@ from anonreq.secrets.rotation import SecretRotationBuffer
 from anonreq.secrets.store import RuntimeSecretStore, set_runtime_secret_store
 from anonreq.startup_checks import run_startup_checks
 from anonreq.state import get_app_state
+from anonreq.tenant.registry import TenantRegistry
 from anonreq.trust_center.router import router as trust_center_router
 
 log = get_logger()
@@ -124,8 +127,6 @@ dlp_actions_total = Counter(
 
 
 def _network_proxy_autostart_enabled() -> bool:
-    import os
-
     return os.environ.get("ANONREQ_START_NETWORK_PROXY", "false").strip().lower() in {
         "1",
         "true",
@@ -136,8 +137,8 @@ def _network_proxy_autostart_enabled() -> bool:
 
 def create_deployment_proxy(
     topology: TopologyConfig,
-    dispatcher,
-):
+    dispatcher: Any,
+) -> ReverseProxy | TransparentProxy:
     """Create the proxy object for a deployment topology.
 
     Network listeners are started by lifespan only when explicitly enabled.
@@ -194,7 +195,7 @@ def bootstrap_runtime_secrets(app: FastAPI) -> None:
     app.state.secret_rotation_buffer = state.secret_rotation_buffer
 
 
-def bootstrap_secret_volume_reloader(app: FastAPI):
+def bootstrap_secret_volume_reloader(app: FastAPI) -> Any:
     """Attach a secret volume reloader when the app exposes a secret path."""
     return bootstrap_runtime_secret_reloader(app)
 
@@ -320,7 +321,7 @@ def create_app() -> FastAPI:
     )
 
     # Register fail-secure exception handlers (order matters — specific first)
-    app.add_exception_handler(HTTPException, http_exception_handler)
+    app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Add MetricsMiddleware for Prometheus request counting and latency
@@ -339,6 +340,14 @@ def create_app() -> FastAPI:
     # PolicyMiddleware — evaluates PDP/PEP on chat-completion routes.
     # Runs after request-context middleware so request_id is available.
     app.add_middleware(PolicyMiddleware)
+
+    # TenantContextMiddleware — validates X-AnonReq-Tenant-ID header,
+    # rejects missing/invalid/disabled tenants, sets request.state.tenant_id.
+    # Runs after PolicyMiddleware but before ClassificationResponseMiddleware
+    # per D-02: after auth, before classification.
+    tenant_registry = TenantRegistry(yaml_path=settings.TENANTS_CONFIG_PATH)
+    app.state.tenant_registry = tenant_registry
+    app.add_middleware(TenantContextMiddleware, tenant_registry=tenant_registry)
 
     # ClassificationResponseMiddleware — conditionally returns classification result headers
     app.add_middleware(ClassificationResponseMiddleware)
@@ -364,12 +373,14 @@ def create_app() -> FastAPI:
     # Middleware: set request_id BEFORE auth runs so it's available in
     # 401 error responses (per RESEARCH Open Question 4).
     @app.middleware("http")
-    async def set_request_context(request: Request, call_next: Callable) -> Response:
+    async def set_request_context(
+        request: Request, call_next: Callable[..., Any]
+    ) -> StreamingResponse:
         request_id = f"req_{uuid4().hex[:24]}"
         request.state.request_id = request_id
         request.state.context = RequestContext(request_id=request_id)
         structlog.contextvars.bind_contextvars(request_id=request_id)
-        response = await call_next(request)
+        response: StreamingResponse = await call_next(request)
         structlog.contextvars.unbind_contextvars("request_id")
         return response
 
@@ -403,8 +414,11 @@ def create_app() -> FastAPI:
     # Phase 17: Gateway status endpoint
     @app.get("/v1/gateway/status")
     async def gateway_status(_ctx: Any = Depends(auth_context)) -> dict[str, Any]:
-        gs: GatewayStatus = get_app_state(app).gateway_status
-        return gs.get_status()
+        gs: GatewayStatus | None = get_app_state(app).gateway_status
+        if gs is None:
+            return {"status": "unavailable"}
+        result: dict[str, Any] = gs.get_status()
+        return result
 
     # Phase 20-05: SOC integration status endpoint
     @app.get("/v1/admin/soc/integration/status")

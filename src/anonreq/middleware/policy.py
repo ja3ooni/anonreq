@@ -20,10 +20,15 @@ class PolicyMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _extract_tenant_id(request: Request) -> str:
-        """Extract tenant_id from the authenticated principal, falling back to 'default'."""
-        principal = getattr(request.state, "oidc_principal", None)
-        if isinstance(principal, dict):
-            return principal.get("tenant_id", "default") or "default"
+        """Extract tenant_id from request.state (set by TenantContextMiddleware).
+
+        Per D-03, TenantContextMiddleware populates request.state.tenant_id
+        after validating against the registry. This method reads that value
+        instead of constructing from oidc_principal.
+        """
+        tenant_id = getattr(request.state, "tenant_id", None)
+        if tenant_id:
+            return tenant_id
         return "default"
 
     async def dispatch(
