@@ -179,6 +179,16 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_LICENSE_KEY",
         description="Signed license key payload. Base64-encoded HMAC-SHA256 signed JSON.",
     )
+    TENANTS_CONFIG_PATH: str = Field(
+        default="config/tenants.yaml",
+        validation_alias="ANONREQ_TENANTS_CONFIG_PATH",
+        description="Path to the YAML seed file for tenant configuration.",
+    )
+    KMS_BACKEND: str = Field(
+        default="local",
+        validation_alias="ANONREQ_KMS_BACKEND",
+        description="KMS backend for tenant encryption: local | aws | gcp.",
+    )
 
     @field_validator("API_KEY", mode="before")
     @classmethod
@@ -221,4 +231,5 @@ def load_provider_registry() -> dict[str, Any]:
     if not config_path.exists():
         return {"providers": {}}
     with open(config_path) as f:
-        return yaml.safe_load(f)
+        result = yaml.safe_load(f)
+        return dict(result) if result is not None else {"providers": {}}

@@ -1,0 +1,13 @@
+# Tenant seed configuration for multi-tenant segregation.
+# Per D-05, YAML seed is loaded at startup; the YAML wins on conflicts.
+# This provides backward compatibility for existing single-tenant deployments.
+
+tenants:
+  - tenant_id: default
+    display_name: Default Tenant
+    enabled: true
+    kms_key_arn: null
+    spend_limits: {}
+    rate_limits: {}
+    allowed_providers: []
+    allowed_models: []

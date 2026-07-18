@@ -21,13 +21,14 @@ if TYPE_CHECKING:
 
     from anonreq.auth.oidc import OIDCVerifier
     from anonreq.cache.manager import CacheManager
+    from anonreq.tenant.registry import TenantRegistry
     from anonreq.compliance.engine import PresetEngine
     from anonreq.config import Settings
-    from anonreq.deployment.modes import DeploymentConfig
+    from anonreq.deployment.modes import TopologyConfig as DeploymentConfig
     from anonreq.detection.presidio_client import PresidioClient
-    from anonreq.discovery.admin_router import AssetInventory
     from anonreq.discovery.flow_analyzer import FlowAnalyzer
     from anonreq.discovery.hostname_allowlist import HostnameAllowlist
+    from anonreq.discovery.inventory import AssetInventory
     from anonreq.firewall.pipeline import FirewallPipeline
     from anonreq.gateway.detector import AIDetector
     from anonreq.gateway.passthrough import GatewayStatus
@@ -94,6 +95,9 @@ class AppState:
 
     # Cache
     cache_manager: CacheManager | None = None
+
+    # Tenant registry
+    tenant_registry: TenantRegistry | None = None
 
     # Routing
     alias_registry: AliasRegistry | None = None
