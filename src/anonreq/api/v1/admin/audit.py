@@ -49,12 +49,10 @@ async def get_config_history(
     date_to: datetime = Query(default=None),
     limit: int = Query(default=100, le=1000),
     offset: int = Query(default=0),
-    request: Request | None = None,
+    request: Request = ...,
     _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> ConfigHistoryResponse:
     """Return paginated, filterable config change audit trail."""
-    if request is None:
-        raise HTTPException(status_code=400, detail="Request required")
     service = getattr(request.app.state, "audit_chain", None)
     if service is None:
         raise HTTPException(status_code=503, detail="Audit chain service not initialized")
@@ -140,12 +138,10 @@ async def export_config_history(
     operator_id: str = Query(default=None),
     date_from: datetime = Query(default=None),
     date_to: datetime = Query(default=None),
-    request: Request | None = None,
+    request: Request = ...,
     _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> StreamingResponse:
     """Stream filtered audit events as JSONL."""
-    if request is None:
-        raise HTTPException(status_code=400, detail="Request required")
     service = getattr(request.app.state, "audit_chain", None)
     if service is None:
         raise HTTPException(status_code=503, detail="Audit chain service not initialized")
