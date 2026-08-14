@@ -1,0 +1,11 @@
+Schadensmeldung — Kfz, München
+
+Versicherte: Anna Schmidt
+KVNR: A123456780
+Personalausweis: L01X00T471
+IBAN: DE89370400440532013000
+Aktenzeichen: Az. 14 C 123/24
+Gesellschaft: HRB 12345
+Kontakt: anna.schmidt@example.de, +49 89 12345678
+
+Sachverhalt: Auffahrunfall am 12.03.2026 in der Leopoldstraße. Bitte Deckungszusage prüfen und nicht an den privaten Chatbot der Sachbearbeitung weiterleiten, bevor Identifikatoren maskiert sind.

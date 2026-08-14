@@ -20,6 +20,9 @@ def test_german_locale_detection_config(locale_stack) -> None:
     bundles, _ = negotiator.negotiate("de-DE")
     merged = merger.merge(bundles)
     assert "TAX_ID_DE" in merged.entity_configs
+    assert "PERSONAL_AUSWEIS" in merged.entity_configs
+    assert "KVNR" in merged.entity_configs
+    assert "IBAN_DE" in merged.entity_configs
     assert "PERSON" in merged.entity_configs
     assert merged.has_universal
 

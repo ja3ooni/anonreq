@@ -9,11 +9,28 @@ import structlog
 import yaml
 
 from anonreq.locale.bundle import LocaleBundle
-from anonreq.locale.checksum import ChecksumValidatorRegistry
+from anonreq.locale.checksum import ChecksumValidator, ChecksumValidatorRegistry
 from anonreq.locale.checksums.codice_fiscale import CodiceFiscaleValidator
+from anonreq.locale.checksums.germany import (
+    IBANMod97Validator,
+    KVNRValidator,
+    PersonalausweisValidator,
+)
 from anonreq.locale.checksums.iso7064 import ISO7064Mod11_2Validator
 from anonreq.locale.checksums.luhn import CNPJValidator, CPFValidator, LuhnValidator
 from anonreq.locale.checksums.nir import NIRValidator
+
+_VALIDATOR_FACTORIES: dict[str, type[ChecksumValidator]] = {
+    "TAX_ID_DE": ISO7064Mod11_2Validator,
+    "BSN": LuhnValidator,
+    "NIR": NIRValidator,
+    "CODICE_FISCALE": CodiceFiscaleValidator,
+    "CPF": CPFValidator,
+    "CNPJ": CNPJValidator,
+    "PERSONAL_AUSWEIS": PersonalausweisValidator,
+    "KVNR": KVNRValidator,
+    "IBAN_DE": IBANMod97Validator,
+}
 
 logger = structlog.get_logger("anonreq.locale.registry")
 
@@ -72,19 +89,13 @@ class LocaleRegistry:
 
     def register_checksum_validators(self, checksum_registry: ChecksumValidatorRegistry) -> None:
         for bundle in self._bundles.values():
-            if bundle.checksum is None:
-                continue
-            validator_id = bundle.checksum.validator_id.upper()
-            if validator_id == "TAX_ID_DE":
-                checksum_registry.register("TAX_ID_DE", ISO7064Mod11_2Validator())
-            elif validator_id == "BSN":
-                checksum_registry.register("BSN", LuhnValidator())
-            elif validator_id == "NIR":
-                checksum_registry.register("NIR", NIRValidator())
-            elif validator_id == "CODICE_FISCALE":
-                checksum_registry.register("CODICE_FISCALE", CodiceFiscaleValidator())
-            elif validator_id == "CPF":
-                checksum_registry.register("CPF", CPFValidator())
-                checksum_registry.register("CNPJ", CNPJValidator())
-            elif validator_id == "CNPJ":
-                checksum_registry.register("CNPJ", CNPJValidator())
+            for checksum in bundle.all_checksums:
+                validator_id = checksum.validator_id.upper()
+                factory = _VALIDATOR_FACTORIES.get(validator_id)
+                if factory is None:
+                    continue
+                checksum_registry.register(validator_id, factory())
+                if validator_id == "CPF":
+                    checksum_registry.register("CNPJ", CNPJValidator())
+                elif validator_id == "CNPJ":
+                    checksum_registry.register("CPF", CPFValidator())

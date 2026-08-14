@@ -9,9 +9,11 @@ Provides:
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -119,6 +121,35 @@ class AuditChainService:
         if row is None:
             return None
         return self._row_to_event(dict(row))
+
+    async def log_event(self, event_type: str, **fields: Any) -> AuditEvent | None:
+        """Store a metadata-only audit event. Never pass raw PII in ``fields``."""
+        tenant_id = str(fields.pop("tenant_id", "default"))
+        request_id = fields.pop("request_id", None)
+        operator_id = fields.pop("operator_id", None)
+        provider = fields.pop("provider", None)
+        decision = fields.pop("decision", None)
+        latency_ms = fields.pop("latency_ms", None)
+        event = AuditEvent(
+            event_id=uuid4().hex,
+            prev_hash=None,
+            hash="",
+            timestamp=datetime.now(UTC),
+            tenant_id=tenant_id,
+            request_id=str(request_id) if request_id else None,
+            policy_id=None,
+            decision=str(decision) if decision else None,
+            provider=str(provider) if provider else None,
+            latency_ms=int(latency_ms) if latency_ms is not None else None,
+            event_type=event_type,
+            operator_id=str(operator_id) if operator_id else None,
+            change_type=None,
+            prev_value_hash=None,
+            new_value_hash=None,
+            metadata_json=json.dumps(fields, default=str, sort_keys=True),
+            retention_days=self._config.retention_days,
+        )
+        return await self.store_event(event)
 
     async def store_event(self, event: AuditEvent) -> AuditEvent:
         """Compute hash, link to previous event, insert atomically.

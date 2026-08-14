@@ -83,6 +83,32 @@ class CleanupStage(PipelineStage):
         audit_entry = self._build_audit_entry(ctx)
         logger.info("audit.request_complete", **audit_entry)
 
+        if ctx.audit_chain is not None:
+            try:
+                await ctx.audit_chain.log_event(
+                    "anonymization",
+                    tenant_id=ctx.tenant_id,
+                    request_id=ctx.request_id,
+                    operator_id=ctx.audit_metadata.get("operator_id"),
+                    provider=ctx.provider,
+                    decision=audit_entry.get("classification_action"),
+                    latency_ms=int(ctx.processing_overhead_ms)
+                    if ctx.processing_overhead_ms is not None
+                    else None,
+                    entity_types=sorted(audit_entry.get("entity_counts", {})),
+                    entity_counts=audit_entry.get("entity_counts", {}),
+                    token_count=audit_entry.get("token_count", 0),
+                    locale=ctx.audit_metadata.get("locale"),
+                    model=ctx.model,
+                    compliance_preset=ctx.audit_metadata.get("compliance_preset"),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "cleanup.audit_chain_failed",
+                    request_id=ctx.request_id,
+                    error=type(exc).__name__,
+                )
+
         return ctx
 
     @staticmethod

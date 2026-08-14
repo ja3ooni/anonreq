@@ -132,7 +132,8 @@ class Tokenizer:
 
                 self._value_to_token[original_value] = token
                 self._per_type_counters[entity_type_short] = counter + 1
-                mapping[token] = original_value
+                if span.get("reversible", True):
+                    mapping[token] = original_value
 
             # Reverse-offset replacement (spans sorted descending,
             # so earlier replacements don't shift later positions)

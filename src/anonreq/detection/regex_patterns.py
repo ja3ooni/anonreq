@@ -67,11 +67,21 @@ TIER_2_ENTITIES: list[str] = [
 
 ENTITY_SPECIFICITY: dict[str, int] = {
     "API_KEY": 100,
+    "ENTERPRISE_API_KEY": 100,
+    "ENTERPRISE_AWS_KEY": 99,
+    "ENTERPRISE_GITHUB_TOKEN": 99,
     "EMAIL_ADDRESS": 90,
+    "TAX_ID_DE": 89,
+    "PERSONAL_AUSWEIS": 88,
+    "KVNR": 87,
+    "SVNR_DE": 86,
     "PHONE_NUMBER": 80,
     "CREDIT_CARD": 75,
+    "IBAN_DE": 73,
     "IBAN_CODE": 70,
     "US_SSN": 65,
+    "HR_NUMBER": 84,
+    "AKTENZEICHEN": 83,
     "URL": 55,
     "IP_ADDRESS": 50,
     "PERSON": 40,
@@ -79,6 +89,17 @@ ENTITY_SPECIFICITY: dict[str, int] = {
     "LOCATION": 30,
     "ORGANIZATION": 25,
 }
+
+IRREVERSIBLE_ENTITY_TYPES: frozenset[str] = frozenset({
+    "API_KEY",
+    "ENTERPRISE_API_KEY",
+    "ENTERPRISE_AWS_KEY",
+    "ENTERPRISE_GITHUB_TOKEN",
+    "ENTERPRISE_INTERNAL_HOST",
+    "AWS_ACCESS_KEY",
+    "GITHUB_TOKEN",
+    "PRIVATE_KEY",
+})
 
 # ---------------------------------------------------------------------------
 # Luhn checksum validation

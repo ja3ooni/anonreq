@@ -1,21 +1,25 @@
 """Admin audit API routes.
 
-Provides endpoints for querying and exporting the config change audit history.
+Provides endpoints for querying and exporting the config change audit history
+and regulator-safe anonymization activity (entity types only, never raw PII).
 """
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 
 from anonreq.middleware.rbac import Role, require_role
 from anonreq.services.audit_chain import AuditChainService
+from anonreq.services.audit_export import safe_anonymization_row
 
 # Prefix "/v1/admin/audit" is used when registered as a standalone router,
 # or "/audit" if registered under the global admin router prefix.
@@ -150,4 +154,62 @@ async def export_config_history(
         _jsonl_stream(service, tenant_id, event_type, operator_id, date_from, date_to),
         media_type="application/x-ndjson",
         headers={"Content-Disposition": "attachment; filename=config-history-export.jsonl"},
+    )
+
+
+@router.get("/anonymization-export")
+async def export_anonymization_activity(
+    tenant_id: str = Query(default=None),
+    date_from: datetime = Query(default=None),
+    date_to: datetime = Query(default=None),
+    export_format: str = Query(default="json", alias="format", pattern="^(json|csv)$"),
+    request: Request = ...,
+    _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
+) -> Response:
+    """Export anonymization activity for a DPO/BaFin request.
+
+    Columns are metadata only: who, when, which model, which entity *types*
+    were masked. Raw identifiers are never exported.
+    """
+    service = getattr(request.app.state, "audit_chain", None)
+    if service is None:
+        raise HTTPException(status_code=503, detail="Audit chain service not initialized")
+
+    events = await service.get_events(
+        tenant_id=tenant_id,
+        event_type="anonymization",
+        date_from=date_from,
+        date_to=date_to,
+        limit=10000,
+        offset=0,
+    )
+    rows = [safe_anonymization_row(e) for e in events]
+    if export_format == "csv":
+        buf = io.StringIO()
+        writer = csv.DictWriter(
+            buf,
+            fieldnames=[
+                "timestamp",
+                "request_id",
+                "tenant_id",
+                "operator_id",
+                "model",
+                "locale",
+                "entity_types",
+                "token_count",
+                "decision",
+                "compliance_preset",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=anonymization-export.csv"},
+        )
+    return Response(
+        content=json.dumps(rows, ensure_ascii=False, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": "attachment; filename=anonymization-export.json"},
     )

@@ -194,6 +194,11 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_METRICS_MAX_TENANTS",
         description="Maximum unique tenant labels for Prometheus metrics before _overflow fallback.",
     )
+    BLOCK_DETAIL_LEVEL: str = Field(
+        default="summary",
+        validation_alias="ANONREQ_BLOCK_DETAIL_LEVEL",
+        description="Detail level for BLOCK responses: none | summary | full.",
+    )
 
     @field_validator("API_KEY", mode="before")
     @classmethod

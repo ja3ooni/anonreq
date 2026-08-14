@@ -30,6 +30,9 @@ def test_registry_registers_checksum_validators() -> None:
     checksum_registry = ChecksumValidatorRegistry()
     LocaleRegistry("config/locales", checksum_registry=checksum_registry)
     assert checksum_registry.get("TAX_ID_DE") is not None
+    assert checksum_registry.get("PERSONAL_AUSWEIS") is not None
+    assert checksum_registry.get("KVNR") is not None
+    assert checksum_registry.get("IBAN_DE") is not None
     assert checksum_registry.get("CPF") is not None
     assert checksum_registry.get("CNPJ") is not None
 

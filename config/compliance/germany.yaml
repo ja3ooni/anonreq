@@ -1,0 +1,42 @@
+id: germany
+name: Germany
+description: "Germany beachhead pack — GDPR Art. 32/44, BDSG, EU AI Act logging, DORA-ready identifiers. Pseudonymisation of DE national IDs before any external model call."
+jurisdictions: ["DE", "EU", "EEA"]
+mandatory_entity_types:
+  - PERSON
+  - EMAIL_ADDRESS
+  - PHONE_NUMBER
+  - LOCATION
+  - CREDIT_CARD
+  - TAX_ID_DE
+  - PERSONAL_AUSWEIS
+  - KVNR
+  - IBAN_DE
+  - SVNR_DE
+  - HR_NUMBER
+  - AKTENZEICHEN
+  - API_KEY
+thresholds:
+  PERSON: 0.7
+  EMAIL_ADDRESS: 0.85
+  TAX_ID_DE: 0.9
+  PERSONAL_AUSWEIS: 0.9
+  KVNR: 0.9
+  IBAN_DE: 0.95
+  API_KEY: 0.95
+minimum_tiers:
+  PERSON: ["NER"]
+  TAX_ID_DE: ["REGEX"]
+  PERSONAL_AUSWEIS: ["REGEX"]
+  KVNR: ["REGEX"]
+  IBAN_DE: ["REGEX"]
+requires_checksum:
+  - TAX_ID_DE
+  - PERSONAL_AUSWEIS
+  - KVNR
+  - IBAN_DE
+metadata:
+  version: 1
+  authority: "BfDI / European Commission"
+  effective_date: "2018-05-25"
+  notes: "Does not claim BSI C5 or ISO 27001. Irreversible masking for credentials (API_KEY)."

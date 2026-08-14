@@ -24,6 +24,7 @@ class EntityTypeConfig:
     confidence_threshold: float = 0.7
     patterns: list[str] = field(default_factory=list)
     presidio_entities: list[str] = field(default_factory=list)
+    reversible: bool = True
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EntityTypeConfig:
@@ -33,6 +34,7 @@ class EntityTypeConfig:
             confidence_threshold=float(data.get("confidence_threshold", 0.7)),
             patterns=list(data.get("patterns") or []),
             presidio_entities=list(data.get("presidio_entities") or []),
+            reversible=bool(data.get("reversible", True)),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,6 +44,7 @@ class EntityTypeConfig:
             "confidence_threshold": self.confidence_threshold,
             "patterns": list(self.patterns),
             "presidio_entities": list(self.presidio_entities),
+            "reversible": self.reversible,
         }
 
 
@@ -84,11 +87,19 @@ class LocaleBundle:
     code: str
     entity_types: list[EntityTypeConfig]
     checksum: ChecksumConfig | None = None
+    checksums: list[ChecksumConfig] = field(default_factory=list)
     metadata: LocaleMetadata | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LocaleBundle:
-        checksum = data.get("checksum")
+        checksum_raw = data.get("checksum")
+        checksums_raw = data.get("checksums") or []
+        checksums = [ChecksumConfig.from_dict(item) for item in checksums_raw]
+        checksum = ChecksumConfig.from_dict(checksum_raw) if checksum_raw else None
+        if checksum is not None and not checksums:
+            checksums = [checksum]
+        elif checksum is None and checksums:
+            checksum = checksums[0]
         metadata = data.get("metadata")
         return cls(
             code=str(data["code"]),
@@ -96,9 +107,18 @@ class LocaleBundle:
                 EntityTypeConfig.from_dict(item)
                 for item in data.get("entity_types", [])
             ],
-            checksum=ChecksumConfig.from_dict(checksum) if checksum else None,
+            checksum=checksum,
+            checksums=checksums,
             metadata=LocaleMetadata.from_dict(metadata) if metadata else None,
         )
+
+    @property
+    def all_checksums(self) -> list[ChecksumConfig]:
+        if self.checksums:
+            return list(self.checksums)
+        if self.checksum is not None:
+            return [self.checksum]
+        return []
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -110,6 +130,11 @@ class LocaleBundle:
                 "algorithm": self.checksum.algorithm,
                 "validator_id": self.checksum.validator_id,
             }
+        if self.checksums:
+            data["checksums"] = [
+                {"algorithm": item.algorithm, "validator_id": item.validator_id}
+                for item in self.checksums
+            ]
         if self.metadata is not None:
             data["metadata"] = {
                 "name": self.metadata.name,

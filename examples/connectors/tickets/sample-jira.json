@@ -1,0 +1,10 @@
+{
+  "webhookEvent": "jira:issue_created",
+  "issue": {
+    "key": "BANK-1042",
+    "fields": {
+      "summary": "Kreditakte unzustellbar",
+      "description": "Kunde Anna Schmidt, Steuer-ID 26954371802, IBAN DE89370400440532013000. Bitte Vorgang Az. 14 C 123/24 prüfen. E-Mail: anna.schmidt@sparkasse.de"
+    }
+  }
+}

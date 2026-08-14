@@ -49,6 +49,7 @@ def _make_error_body(
     error_type: str,
     code: str,
     request_id: str,
+    block_detail: dict[str, Any] | None = None,
 ) -> dict[str, dict[str, Any]]:
     """Build an OpenAI-compatible error response envelope.
 
@@ -60,11 +61,12 @@ def _make_error_body(
         error_type: Machine-readable error category (e.g., "internal_error").
         code: Specific error code (e.g., "dependency_unavailable").
         request_id: Correlation ID for this request.
+        block_detail: Optional diagnostic detail for BLOCK responses.
 
     Returns:
         A dict with a single ``error`` key containing the envelope.
     """
-    return {
+    body: dict[str, Any] = {
         "error": {
             "message": message,
             "type": error_type,
@@ -72,6 +74,9 @@ def _make_error_body(
             "request_id": request_id,
         }
     }
+    if block_detail:
+        body["block_detail"] = block_detail
+    return body
 
 
 class AnonReqError(Exception):
@@ -136,7 +141,9 @@ class PipelineAbortError(AnonReqError):
         status_code: int = 500,
         message: str = "Pipeline aborted",
         request_id: str | None = None,
+        block_detail: dict[str, Any] | None = None,
     ) -> None:
+        self.block_detail = block_detail
         super().__init__(
             message=message,
             error_type="pipeline_abort",
@@ -163,11 +170,13 @@ class PipelineBlockedError(PipelineAbortError):
         self,
         detail: str = "Request blocked by DLP policy",
         request_id: str | None = None,
+        block_detail: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
             status_code=451,
             message=detail,
             request_id=request_id,
+            block_detail=block_detail,
         )
 
 
@@ -246,11 +255,13 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     # AnonReqError subclasses have their own structured error data
     if isinstance(exc, AnonReqError):
         exc.request_id = exc.request_id or request_id
+        block_detail = getattr(exc, "block_detail", None)
         body = _make_error_body(
             message=exc.message,
             error_type=exc.error_type,
             code=exc.code,
             request_id=exc.request_id or request_id,
+            block_detail=block_detail,
         )
         return JSONResponse(status_code=exc.status_code, content=body)
 
@@ -312,7 +323,12 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     Returns:
         A ``JSONResponse`` with the OpenAI-compatible error envelope.
     """
+    from anonreq.config import settings
+
     request_id = _extract_request_id(request)
+    block_detail_raw = getattr(exc, "block_detail", None)
+    detail_level = settings.BLOCK_DETAIL_LEVEL
+
     body = _make_error_body(
         message=exc.detail if isinstance(exc.detail, str) else "HTTP error",
         error_type="http_error",
@@ -334,6 +350,16 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
                 "highest": "HIGHLY_RESTRICTED",
                 "labels": [],
                 "reason": exc.detail if isinstance(exc.detail, str) else "Request blocked due to classification policy",  # noqa: E501
+            }
+
+    # Enrich BLOCK responses with diagnostic detail based on detail level
+    if block_detail_raw and exc.status_code in (403, 451):
+        if detail_level == "full":
+            body["block_detail"] = block_detail_raw
+        elif detail_level == "summary":
+            body["block_detail"] = {
+                k: v for k, v in block_detail_raw.items()
+                if k != "spans"
             }
 
     return JSONResponse(status_code=exc.status_code, content=body)

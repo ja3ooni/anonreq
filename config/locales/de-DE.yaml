@@ -1,18 +1,80 @@
 code: de-DE
 metadata:
   name: German
-  version: 1
+  version: 2
   maintainer: "AnonReq Core"
 entity_types:
   - name: TAX_ID_DE
     tier: REGEX
-    confidence_threshold: 0.8
+    confidence_threshold: 0.9
+    reversible: true
     patterns:
-      - '\b\d{2}\s?\d{3}\s?\d{3}\s?\d{2}\b'
+      - '\b[1-9]\d{10}\b'
+      - '\b[1-9]\d(?:\s\d{3}){3}\b'
+  - name: PERSONAL_AUSWEIS
+    tier: REGEX
+    confidence_threshold: 0.9
+    reversible: true
+    patterns:
+      - '\b[A-Z](?!\d{9}\b)[A-Z0-9]{8}\d\b'
+  - name: KVNR
+    tier: REGEX
+    confidence_threshold: 0.9
+    reversible: true
+    patterns:
+      - '\b[A-Z]\d{9}\b'
+  - name: SVNR_DE
+    tier: REGEX
+    confidence_threshold: 0.85
+    reversible: true
+    patterns:
+      - '\b\d{2}\s?\d{6}\s?[A-Z]\s?\d{3}\b'
+  - name: IBAN_DE
+    tier: REGEX
+    confidence_threshold: 0.95
+    reversible: true
+    patterns:
+      - '\bDE\d{2}(?:\s?\d{4}){4}\s?\d{2}\b'
+  - name: HR_NUMBER
+    tier: REGEX
+    confidence_threshold: 0.85
+    reversible: true
+    patterns:
+      - '\bHR[AB]\s?\d{1,6}(?:\s[A-Z]{1,3})?\b'
+  - name: AKTENZEICHEN
+    tier: REGEX
+    confidence_threshold: 0.8
+    reversible: true
+    patterns:
+      - '\bAz\.?\s*\d{1,3}\s*[A-ZÄÖÜ]{1,5}\s*\d{1,6}/\d{2,4}\b'
+      - '\b\d{1,2}\s*BvR\s*\d{1,5}/\d{2}\b'
+  - name: API_KEY
+    tier: REGEX
+    confidence_threshold: 0.95
+    reversible: false
+    patterns:
+      - '\bsk-[a-zA-Z0-9]{20,}\b'
+      - '\bAKIA[0-9A-Z]{16}\b'
+      - '\bghp_[a-zA-Z0-9]{36}\b'
   - name: PERSON
     tier: NER
     confidence_threshold: 0.7
+    reversible: true
     presidio_entities: ["PERSON"]
+  - name: LOCATION
+    tier: NER
+    confidence_threshold: 0.7
+    reversible: true
+    presidio_entities: ["LOCATION", "GPE"]
 checksum:
   algorithm: iso7064_mod11_2
   validator_id: TAX_ID_DE
+checksums:
+  - algorithm: iso7064_mod11_2
+    validator_id: TAX_ID_DE
+  - algorithm: icao9303
+    validator_id: PERSONAL_AUSWEIS
+  - algorithm: kvnr
+    validator_id: KVNR
+  - algorithm: iban_mod97
+    validator_id: IBAN_DE

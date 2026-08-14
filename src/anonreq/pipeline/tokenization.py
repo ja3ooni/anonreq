@@ -137,7 +137,7 @@ class TokenizationStage(PipelineStage):
                     ctx.context_id,
                     all_mappings,
                 )
-                if inspect.isawaitable(store_result):
+                if inspect.iscoroutine(store_result):
                     await store_result
 
             ctx.token_mappings = all_mappings

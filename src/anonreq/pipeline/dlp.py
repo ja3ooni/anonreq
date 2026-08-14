@@ -27,9 +27,17 @@ class InboundDLPStage(PipelineStage):
         result = await dlp_engine.inspect_request(ctx)
         ctx.dlp_result = result
         if result.is_blocked:
+            detections = result.detections or []
+            categories = list({d.category for d in detections})
             ctx.fail_secure(PipelineBlockedError(
                 detail="Request blocked by DLP policy",
                 request_id=ctx.request_id,
+                block_detail={
+                    "categories": categories,
+                    "detection_count": len(detections),
+                    "max_action": result.max_action,
+                    "action": "BLOCK",
+                },
             ))
         return ctx
 

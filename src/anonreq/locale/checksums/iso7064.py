@@ -10,7 +10,7 @@ class ISO7064Mod11_2Validator(ChecksumValidator):  # noqa: N801
 
     def validate(self, value: str) -> bool:
         digits = digits_only(value)
-        if len(digits) != 11 or not digits.isdigit():
+        if len(digits) != 11 or not digits.isdigit() or digits[0] == "0":
             return False
 
         product = 10

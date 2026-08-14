@@ -67,11 +67,19 @@ class SensitivityClassificationStage(PipelineStage):
 
         # If it says block, fail-secure!
         if result.handling_action == "block":
+            entity_types = list({d["entity_type"] for d in (ctx.detections or [])})
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=451,
                     message="Request blocked due to data classification policy",
                     request_id=ctx.request_id,
+                    block_detail={
+                        "classification": result.highest.name,
+                        "entities_detected": entity_types,
+                        "entity_count": len(ctx.detections or []),
+                        "highest_entity": result.highest_entity,
+                        "action": "BLOCK",
+                    },
                 )
             )
         return ctx
@@ -106,11 +114,22 @@ class PolicyEnforcementStage(PipelineStage):
         ctx.policy_enforcement = result
 
         if not result.should_forward:
+            entity_types = list({d["entity_type"] for d in (ctx.detections or [])})
+            enforcement_body = result.body or {}
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=result.status_code or 403,
-                    message=result.body.get("reason", "Request blocked by policy") if result.body else "Request blocked by policy",  # noqa: E501
+                    message=enforcement_body.get("reason", "Request blocked by policy"),
                     request_id=ctx.request_id,
+                    block_detail={
+                        "classification": (ctx.classification_result_v2.highest.name if ctx.classification_result_v2 else "UNKNOWN"),  # noqa: E501
+                        "entities_detected": entity_types,
+                        "entity_count": len(ctx.detections or []),
+                        "triggered_rule": (decision.matched_rule_ids[0] if decision.matched_rule_ids else "unknown"),  # noqa: E501
+                        "action": "BLOCK",
+                        "decision_id": enforcement_body.get("decision_id"),
+                        "error_type": enforcement_body.get("error_type"),
+                    },
                 )
             )
         return ctx

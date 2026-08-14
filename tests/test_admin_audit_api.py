@@ -134,3 +134,66 @@ async def test_export_config_history_streaming(audit_app):
         assert lines[0]["prev_value_hash"] == "prev_h"
         assert lines[0]["new_value_hash"] == "new_h"
         assert lines[0]["operator_id"] == "op1"
+
+
+@pytest.mark.asyncio
+async def test_anonymization_export_json_omits_raw_values(audit_app):
+    raw_iban = "DE89370400440532013000"
+    audit_app.state.audit_chain.get_events.return_value = [
+        AuditEvent(
+            event_id="e2",
+            prev_hash=None,
+            hash="h2",
+            timestamp=datetime(2026, 8, 14, 9, 0, 0, tzinfo=UTC),
+            tenant_id="test_tenant",
+            request_id="req-de-1",
+            policy_id=None,
+            decision="ANONYMIZE",
+            provider="gpt-4o",
+            latency_ms=12,
+            event_type="anonymization",
+            operator_id="dpo1",
+            change_type=None,
+            prev_value_hash=None,
+            new_value_hash=None,
+            metadata_json=json.dumps({
+                "entity_types": ["TAX_ID_DE", "IBAN_DE"],
+                "entity_counts": {"TAX_ID_DE": 1, "IBAN_DE": 1},
+                "token_count": 2,
+                "locale": "de-DE",
+                "model": "gpt-4o",
+                "compliance_preset": "germany",
+                "raw_iban": raw_iban,
+            }),
+        )
+    ]
+
+    transport = ASGITransport(app=audit_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        headers = {
+            "Authorization": "Bearer testkey",
+            "X-AnonReq-Role": "administrator",
+            "X-AnonReq-Tenant-ID": "test_tenant",
+        }
+        response = await client.get(
+            "/v1/admin/audit/anonymization-export?format=json",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        body = response.text
+        assert raw_iban not in body
+        rows = response.json()
+        assert len(rows) == 1
+        assert rows[0]["request_id"] == "req-de-1"
+        assert "TAX_ID_DE" in rows[0]["entity_types"]
+        assert "IBAN_DE" in rows[0]["entity_types"]
+        assert "raw_iban" not in rows[0]
+
+        csv_response = await client.get(
+            "/v1/admin/audit/anonymization-export?format=csv",
+            headers=headers,
+        )
+        assert csv_response.status_code == 200
+        assert "text/csv" in csv_response.headers["content-type"]
+        assert raw_iban not in csv_response.text
+        assert "entity_types" in csv_response.text

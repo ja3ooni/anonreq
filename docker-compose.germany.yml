@@ -1,0 +1,12 @@
+# Germany demo overlay — one-day CISO PoC.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.germany.yml up --build
+#
+# Point the customer's OpenAI/Anthropic/Gemini key at PROVIDER_API_KEY.
+# Clients send X-AnonReq-Locale: de-DE and use the OpenAI-compatible
+# /v1/chat/completions path.
+
+services:
+  anonreq:
+    environment:
+      ANONREQ_ACTIVE_PRESETS: germany
+      ANONREQ_PROXY_MODE: ${ANONREQ_PROXY_MODE:-full}

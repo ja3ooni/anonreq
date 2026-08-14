@@ -1,0 +1,14 @@
+apiVersion: v2
+name: anonreq
+description: Helm chart for AnonReq - Self-Hosted Enterprise AI Security & Anonymization Gateway
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+keywords:
+  - ai-security
+  - anonymization
+  - pii-redaction
+  - llm-gateway
+  - privacy
+maintainers:
+  - name: AnonReq Team

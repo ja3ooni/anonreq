@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from anonreq.detection.regex_patterns import PATTERNS, luhn_checksum
+from anonreq.detection.regex_patterns import ENTITY_SPECIFICITY, PATTERNS, luhn_checksum
 from anonreq.locale.bundle import EntityTypeConfig, RecognizerTier
 
 # Entity types that require Luhn checksum validation
@@ -106,6 +106,29 @@ class RegexDetector:
                     "source": "regex",
                 })
 
+        results = self._collapse_overlaps(results)
+
         # Sort by start position for consistent ordering
         results.sort(key=lambda r: r["start"])
         return results
+
+    @staticmethod
+    def _collapse_overlaps(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Keep the more specific entity type when regex spans overlap."""
+        if len(results) < 2:
+            return results
+        kept: list[dict[str, Any]] = []
+        for span in sorted(results, key=lambda r: (r["start"], -r["end"])):
+            replaced = False
+            for i, accepted in enumerate(kept):
+                if span["end"] <= accepted["start"] or accepted["end"] <= span["start"]:
+                    continue
+                span_spec = ENTITY_SPECIFICITY.get(span["entity_type"], 0)
+                acc_spec = ENTITY_SPECIFICITY.get(accepted["entity_type"], 0)
+                if span_spec > acc_spec:
+                    kept[i] = span
+                replaced = True
+                break
+            if not replaced:
+                kept.append(span)
+        return kept

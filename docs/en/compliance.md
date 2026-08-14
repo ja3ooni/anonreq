@@ -6,6 +6,7 @@ AnonReq provides compliance presets that enforce mandated entity detection for s
 
 | Preset | Regulation | Region | Mandated Entities |
 |--------|------------|--------|-------------------|
+| `germany` | GDPR + BDSG beachhead (Art. 32/44) | Germany / EU | Steuer-ID, Personalausweis, KVNR, DE-IBAN, SVNR, Handelsregister, Aktenzeichen, plus GDPR PII. Credentials irreversible. |
 | `gdpr` | General Data Protection Regulation | EU | Email, phone, name, address, IP, national ID |
 | `lgpd` | Lei Geral de Proteção de Dados | Brazil | CPF, CNPJ, email, phone, name, address |
 | `pdpa` | Personal Data Protection Act | Thailand | Email, phone, name, address, national ID |

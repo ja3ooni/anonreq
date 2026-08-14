@@ -67,11 +67,19 @@ class ClassificationStage(PipelineStage):
         action = result.get("action", "PASS")
 
         if action == "BLOCK":
+            entity_types = list({d["entity_type"] for d in (ctx.detections or [])})
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=403,
                     message="Request blocked by policy",
                     request_id=ctx.request_id,
+                    block_detail={
+                        "classification": (ctx.classification_result_v2.highest.name if ctx.classification_result_v2 else "UNKNOWN"),  # noqa: E501
+                        "entities_detected": entity_types,
+                        "entity_count": len(ctx.detections or []),
+                        "triggered_rule": (result.get("matched_rule_ids", ["unknown"])[0] if result.get("matched_rule_ids") else "unknown"),  # noqa: E501
+                        "action": "BLOCK",
+                    },
                 )
             )
         elif action == "ROUTE_LOCAL":

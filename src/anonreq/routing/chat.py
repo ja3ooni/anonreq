@@ -203,11 +203,14 @@ def _raise_for_pipeline_errors(proc_ctx: ProcessingContext) -> None:
     if isinstance(last_error, DependencyUnavailableError):
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     if isinstance(last_error, PipelineAbortError):
+        block_detail = getattr(last_error, "block_detail", None)
         if last_error.status_code in (400, 403, 404, 501, 451):
-            raise HTTPException(
+            exc = HTTPException(
                 status_code=last_error.status_code,
                 detail=last_error.message,
             )
+            exc.block_detail = block_detail  # type: ignore[attr-defined]
+            raise exc
         if last_error.status_code == 504:
             raise HTTPException(status_code=504, detail="Upstream provider timeout")
         if last_error.status_code == 503:
@@ -232,6 +235,8 @@ def _new_processing_context(
     if request is not None:
         proc_ctx.locale_header = request.headers.get("X-AnonReq-Locale")
         proc_ctx.client_classification = getattr(request.state, "client_classification", None)
+        proc_ctx.audit_chain = getattr(get_app_state(request.app), "audit_chain", None)
+        proc_ctx.model = body.model
         active_presets = get_app_state(request.app).active_compliance_presets
         if active_presets:
             proc_ctx.audit_metadata["compliance_preset"] = ",".join(active_presets)
@@ -278,7 +283,16 @@ async def _stream_chat_completions(
 
     action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
     if action == "BLOCK":
-        raise HTTPException(status_code=403, detail="Request blocked by policy")
+        entity_types = list({d["entity_type"] for d in (proc_ctx.detections or [])})
+        exc = HTTPException(status_code=403, detail="Request blocked by policy")
+        exc.block_detail = {  # type: ignore[attr-defined]
+            "classification": (proc_ctx.classification_result_v2.highest.name if proc_ctx.classification_result_v2 else "UNKNOWN"),  # noqa: E501
+            "entities_detected": entity_types,
+            "entity_count": len(proc_ctx.detections or []),
+            "triggered_rule": (proc_ctx.classification_result.get("matched_rule_ids", ["unknown"])[0] if proc_ctx.classification_result.get("matched_rule_ids") else "unknown"),  # noqa: E501
+            "action": "BLOCK",
+        }
+        raise exc
     if action == "ROUTE_LOCAL":
         raise HTTPException(status_code=501, detail="ROUTE_LOCAL not yet implemented")
 
@@ -464,7 +478,16 @@ async def chat_completions(
     action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
 
     if action in ("BLOCK",):
-        raise HTTPException(status_code=403, detail="Request blocked by policy")
+        entity_types = list({d["entity_type"] for d in (proc_ctx.detections or [])})
+        exc = HTTPException(status_code=403, detail="Request blocked by policy")
+        exc.block_detail = {  # type: ignore[attr-defined]
+            "classification": (proc_ctx.classification_result_v2.highest.name if proc_ctx.classification_result_v2 else "UNKNOWN"),  # noqa: E501
+            "entities_detected": entity_types,
+            "entity_count": len(proc_ctx.detections or []),
+            "triggered_rule": (proc_ctx.classification_result.get("matched_rule_ids", ["unknown"])[0] if proc_ctx.classification_result.get("matched_rule_ids") else "unknown"),  # noqa: E501
+            "action": "BLOCK",
+        }
+        raise exc
 
     if action == "ROUTE_LOCAL":
         raise HTTPException(status_code=501, detail="ROUTE_LOCAL not yet implemented")

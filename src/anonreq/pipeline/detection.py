@@ -33,10 +33,9 @@ import inspect
 import time
 from typing import TYPE_CHECKING, Any
 
-import httpx
 from structlog import get_logger
 
-from anonreq.exceptions import PipelineAbortError
+from anonreq.detection.regex_patterns import IRREVERSIBLE_ENTITY_TYPES
 from anonreq.locale.bundle import RecognizerTier
 from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
 from anonreq.models.processing_context import ProcessingContext
@@ -159,7 +158,8 @@ class DetectionStage(PipelineStage):
                 entities=ner_entities,
                 score_threshold=score_threshold,
             )
-            ner_results_list = await ner_call if inspect.isawaitable(ner_call) else ner_call
+            # iscoroutine, not isawaitable: MagicMock is awaitable and hangs.
+            ner_results_list = await ner_call if inspect.iscoroutine(ner_call) else ner_call
 
             all_detections: list[dict[str, Any]] = []
 
@@ -191,8 +191,15 @@ class DetectionStage(PipelineStage):
                 ]
 
                 # Tag each detection with its node index for tokenization
+                irreversible_names = {
+                    config.name
+                    for config in entity_configs
+                    if not config.reversible
+                } | set(IRREVERSIBLE_ENTITY_TYPES)
                 for d in final:
                     d["node_index"] = i
+                    entity_type = str(d.get("entity_type", ""))
+                    d["reversible"] = entity_type not in irreversible_names
 
                 all_detections.extend(final)
 
@@ -222,6 +229,7 @@ class DetectionStage(PipelineStage):
                             per_node = recognizer.analyze(node_value)
                             for d in per_node:
                                 d["node_index"] = i
+                                d["reversible"] = False
                             enterprise_results.extend(per_node)
                         except (TypeError, ValueError, KeyError) as exc:
                             logger.warning(
@@ -302,15 +310,6 @@ class DetectionStage(PipelineStage):
                 PipelineAbortError(
                     status_code=500,
                     message=f"Detection stage failed: {type(exc).__name__}: {exc}",
-                    request_id=ctx.request_id,
-                )
-            )
-        except httpx.HTTPError as exc:
-            fail_secure_events.labels(failure_type="detection_error").inc()
-            ctx.fail_secure(
-                PipelineAbortError(
-                    status_code=500,
-                    message=f"Detection stage HTTP error: {type(exc).__name__}",
                     request_id=ctx.request_id,
                 )
             )
