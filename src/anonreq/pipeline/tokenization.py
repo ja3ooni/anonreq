@@ -165,7 +165,7 @@ class TokenizationStage(PipelineStage):
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Tokenization stage failed: {type(exc).__name__}",
+                    message=f"Tokenization stage failed: {type(exc).__name__}: {exc}",
                     request_id=ctx.request_id,
                 )
             )

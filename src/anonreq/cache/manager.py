@@ -170,6 +170,7 @@ class CacheManager:
         instance = cls.__new__(cls)
         instance._redis = redis_client
         instance._ttl = ttl
+        instance._kms = None
         return instance
 
     def _build_client(self, topology: _ParsedTopology) -> Any:
@@ -243,7 +244,9 @@ class CacheManager:
 
         async def _operation() -> None:
             async with self._redis.pipeline(transaction=True) as pipe:
-                await pipe.hset(key, mapping=store_mapping).expire(key, self._ttl).execute()
+                pipe.hset(key, mapping=store_mapping)
+                pipe.expire(key, self._ttl)
+                await pipe.execute()
 
         await self._execute_with_retry(_operation)
 
