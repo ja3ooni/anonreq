@@ -24,7 +24,7 @@ router = APIRouter(prefix="/v1/admin/discovery", dependencies=[Depends(auth_cont
 @router.get("/inventory")
 async def list_inventory(
     request: Request,
-    format: str = Query("json", regex="^(json|csv)$"),
+    format: str = Query("json", pattern="^(json|csv)$"),
     provider: str | None = Query(None),
     risk_band: str | None = Query(None),
     approval_status: str | None = Query(None),

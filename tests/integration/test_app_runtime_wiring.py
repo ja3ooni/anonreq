@@ -18,6 +18,11 @@ from anonreq.dependencies import auth_context
 from anonreq.discovery.inventory import AssetInventory, InventoryRecord
 from anonreq.main import create_app
 
+_AUTH_HEADERS = {
+    "Authorization": "Bearer " + "a" * 32,
+    "X-AnonReq-Tenant-ID": "default",
+}
+
 
 @pytest.fixture
 def app():
@@ -78,7 +83,7 @@ class TestDiscoveryInventoryRouteRegistration:
         _seed_inventory(app)
         response = await client.get(
             "/v1/admin/discovery/inventory",
-            headers={"Authorization": "Bearer " + "a" * 32},
+            headers=_AUTH_HEADERS,
         )
         assert response.status_code == 200
         body = response.json()
@@ -93,7 +98,7 @@ class TestDiscoveryInventoryEndpoint:
         _seed_inventory(app)
         response = await client.get(
             "/v1/admin/discovery/inventory",
-            headers={"Authorization": "Bearer " + "a" * 32},
+            headers=_AUTH_HEADERS,
         )
         assert response.status_code == 200
         body = response.json()
@@ -108,7 +113,7 @@ class TestDiscoveryInventoryEndpoint:
         _seed_inventory(app)
         response = await client.get(
             "/v1/admin/discovery/inventory?format=csv",
-            headers={"Authorization": "Bearer " + "a" * 32},
+            headers=_AUTH_HEADERS,
         )
         assert response.status_code == 200
         assert response.headers.get("content-type", "").startswith("text/csv")
@@ -123,7 +128,7 @@ class TestDiscoveryInventoryEndpoint:
         _seed_inventory(app)
         response = await client.get(
             "/v1/admin/discovery/inventory",
-            headers={"Authorization": "Bearer " + "a" * 32},
+            headers=_AUTH_HEADERS,
         )
         text = response.text.lower()
         assert "ssn" not in text
