@@ -16,7 +16,7 @@ import asyncio
 import random
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from urllib.parse import urlparse
 
 import redis.asyncio as redis
@@ -275,7 +275,7 @@ class CacheManager:
             except Exception:
                 raise DependencyUnavailableError(dependency="kms") from None
 
-        return raw
+        return cast(dict[str, str], raw)
 
     async def delete_mapping(
         self,

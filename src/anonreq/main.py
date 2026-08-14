@@ -293,8 +293,10 @@ def create_app() -> FastAPI:
             from anonreq.kms.cache import InMemoryKeyCache
             from anonreq.kms.local import LocalAES256GCM
 
-            master_key = os.environ.get("ANONREQ_KMS_MASTER_KEY", "")
-            if not master_key:
+            master_key_env = os.environ.get("ANONREQ_KMS_MASTER_KEY")
+            if master_key_env:
+                master_key = master_key_env.encode("utf-8")
+            else:
                 # Generate ephemeral master key for dev/testing (not for production)
                 master_key = LocalAES256GCM.generate_master_key()
             key_cache = InMemoryKeyCache(ttl_seconds=settings.CACHE_TTL_SECONDS)

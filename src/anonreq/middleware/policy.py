@@ -27,7 +27,7 @@ class PolicyMiddleware(BaseHTTPMiddleware):
         instead of constructing from oidc_principal.
         """
         tenant_id = getattr(request.state, "tenant_id", None)
-        if tenant_id:
+        if isinstance(tenant_id, str) and tenant_id:
             return tenant_id
         return "default"
 

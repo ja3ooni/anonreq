@@ -1,18 +1,23 @@
 # Markdownlint config for docs CI.
-# Prefer catching broken structure over reformatting the whole translation tree.
-MD013: false
-MD033: false
-MD040: false
-MD041: false
-MD060: false
-MD022: false
-MD031: false
-MD032: false
-MD024: false
-MD036: false
-MD046: false
-MD047: false
-MD051: false
-MD055: false
-MD056: false
-MD058: false
+# Prefer catching broken links/diagrams over reformatting the translation tree.
+default: false
+MD001: true
+MD003: true
+MD004: true
+MD018: true
+MD019: true
+MD023: true
+MD025: true
+MD027: true
+MD028: true
+MD029: true
+MD030: true
+MD034: true
+MD035: true
+MD037: true
+MD038: true
+MD039: true
+MD042: true
+MD045: true
+MD049: true
+MD050: true

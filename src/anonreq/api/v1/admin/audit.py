@@ -46,6 +46,7 @@ class ConfigHistoryResponse(BaseModel):
 
 @router.get("/config-history")
 async def get_config_history(
+    request: Request,
     tenant_id: str = Query(default=None),
     event_type: str = Query(default=None),
     operator_id: str = Query(default=None),
@@ -53,7 +54,6 @@ async def get_config_history(
     date_to: datetime = Query(default=None),
     limit: int = Query(default=100, le=1000),
     offset: int = Query(default=0),
-    request: Request = ...,
     _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> ConfigHistoryResponse:
     """Return paginated, filterable config change audit trail."""
@@ -137,12 +137,12 @@ async def _jsonl_stream(
 
 @router.get("/config-history/export")
 async def export_config_history(
+    request: Request,
     tenant_id: str = Query(default=None),
     event_type: str = Query(default=None),
     operator_id: str = Query(default=None),
     date_from: datetime = Query(default=None),
     date_to: datetime = Query(default=None),
-    request: Request = ...,
     _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> StreamingResponse:
     """Stream filtered audit events as JSONL."""
@@ -159,11 +159,11 @@ async def export_config_history(
 
 @router.get("/anonymization-export")
 async def export_anonymization_activity(
+    request: Request,
     tenant_id: str = Query(default=None),
     date_from: datetime = Query(default=None),
     date_to: datetime = Query(default=None),
     export_format: str = Query(default="json", alias="format", pattern="^(json|csv)$"),
-    request: Request = ...,
     _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> Response:
     """Export anonymization activity for a DPO/BaFin request.

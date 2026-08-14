@@ -323,7 +323,7 @@ class AuditExporter:
         ])
 
         table = pa.Table.from_pydict(data, schema=schema)
-        pq.write_table(table, path)  # type: ignore[no-untyped-call]
+        pq.write_table(table, path)
 
         # Calculate checksum
         sha384 = hashlib.sha384()

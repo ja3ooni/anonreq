@@ -51,7 +51,7 @@ class InMemoryKeyCache:
 
         # Derive new data key via HKDF
         hkdf = HKDF(
-            algorithm=SHA256,
+            algorithm=SHA256(),
             length=32,
             salt=None,
             info=f"anonreq-tenant-{tenant_id}".encode(),
