@@ -27,21 +27,24 @@ def template_manager():
 
 @pytest.fixture
 def mock_db_session():
+    from unittest.mock import MagicMock
+
     session = AsyncMock()
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
 
     async def mock_execute(stmt, _params=None):
-        result = AsyncMock()
+        # SQLAlchemy Result.fetchall/fetchone are sync methods.
+        result = MagicMock()
         result.rowcount = 1
-        result.fetchone = AsyncMock(return_value=None)
-        result.fetchall = AsyncMock(return_value=[])
+        result.fetchone = MagicMock(return_value=None)
+        result.fetchall = MagicMock(return_value=[])
         stmt_str = str(stmt) if hasattr(stmt, "__str__") else str(stmt)  # noqa: RUF034
 
         if "SELECT * FROM regulator_notification_queue" in stmt_str or "SELECT * FROM breach_notifications" in stmt_str:  # noqa: E501
-            result.fetchall = AsyncMock(return_value=[])
+            result.fetchall = MagicMock(return_value=[])
         else:
-            result.fetchone = AsyncMock(return_value=None)
+            result.fetchone = MagicMock(return_value=None)
 
         return result
 
