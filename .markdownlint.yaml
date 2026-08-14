@@ -1,0 +1,9 @@
+# Markdownlint config for docs CI
+# Planning/security dumps at repo root are out of scope for this check.
+MD013:
+  line_length: 120
+  code_blocks: false
+  tables: false
+MD033: false
+MD041: false
+MD060: false
