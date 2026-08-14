@@ -114,7 +114,12 @@ class RegexDetector:
 
     @staticmethod
     def _collapse_overlaps(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Keep the more specific entity type when regex spans overlap."""
+        """Keep the more specific entity type when regex spans overlap.
+
+        When one span fully contains another (e.g. CREDIT_CARD covering a
+        PHONE_NUMBER substring match), prefer the longer containing span so
+        Luhn-validated cards are not discarded for a partial phone match.
+        """
         if len(results) < 2:
             return results
         kept: list[dict[str, Any]] = []
@@ -123,10 +128,21 @@ class RegexDetector:
             for i, accepted in enumerate(kept):
                 if span["end"] <= accepted["start"] or accepted["end"] <= span["start"]:
                     continue
-                span_spec = ENTITY_SPECIFICITY.get(span["entity_type"], 0)
-                acc_spec = ENTITY_SPECIFICITY.get(accepted["entity_type"], 0)
-                if span_spec > acc_spec:
+                span_contains = (
+                    span["start"] <= accepted["start"] and span["end"] >= accepted["end"]
+                )
+                acc_contains = (
+                    accepted["start"] <= span["start"] and accepted["end"] >= span["end"]
+                )
+                if span_contains and not acc_contains:
                     kept[i] = span
+                elif acc_contains and not span_contains:
+                    pass
+                else:
+                    span_spec = ENTITY_SPECIFICITY.get(span["entity_type"], 0)
+                    acc_spec = ENTITY_SPECIFICITY.get(accepted["entity_type"], 0)
+                    if span_spec > acc_spec:
+                        kept[i] = span
                 replaced = True
                 break
             if not replaced:
