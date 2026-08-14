@@ -3,10 +3,11 @@ from __future__ import annotations
 from anonreq.compliance.engine import PresetEngine
 
 
-def test_engine_loads_six_presets() -> None:
+def test_engine_loads_seven_presets() -> None:
     engine = PresetEngine("config/compliance")
     assert set(engine.list_presets()) == {
         "gdpr",
+        "germany",
         "lgpd",
         "pdpa",
         "pipeda",

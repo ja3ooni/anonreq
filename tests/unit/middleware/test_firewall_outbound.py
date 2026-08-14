@@ -2,40 +2,43 @@
 
 from __future__ import annotations
 
-from typing import Any
-from unittest.mock import MagicMock
-
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from starlette.responses import StreamingResponse
 
+from anonreq.firewall.models import (
+    DetectionCategory,
+    DetectionResult,
+    FirewallAction,
+    SeverityLevel,
+)
 from anonreq.middleware.firewall_outbound import OutboundFirewallMiddleware
 
 
 class FakeFirewallGate:
-    """Minimal stub implementing OutboundFirewallGate interface."""
+    """Minimal stub implementing the FirewallRuleEngine.evaluate API.
+
+    OutboundFirewallMiddleware wraps ``engine`` in OutboundFirewallGate,
+    which calls ``evaluate`` for both pre- and post-restore checks.
+    """
 
     def __init__(self, block_pre: bool = False, block_post: bool = False) -> None:
         self._block_pre = block_pre
         self._block_post = block_post
 
-    async def check_pre_restore(self, _text: str, _ctx: Any) -> list[Any]:
-        if self._block_pre:
-            r = MagicMock()
-            r.action.value = "BLOCK"
-            r.category = "PII"
-            r.match_text = "SSN detected"
-            return [r]
-        return []
-
-    async def check_post_restore(self, _text: str, _ctx: Any) -> list[Any]:
-        if self._block_post:
-            r = MagicMock()
-            r.action.value = "BLOCK"
-            r.category = "CREDENTIALS"
-            r.match_text = "password found"
-            return [r]
+    async def evaluate(self, _text: str) -> list[DetectionResult]:
+        if self._block_pre or self._block_post:
+            return [
+                DetectionResult(
+                    category=DetectionCategory.SECRET_EXFILTRATION,
+                    confidence=0.99,
+                    rule_id="test-block",
+                    severity=SeverityLevel.HIGH,
+                    action=FirewallAction.BLOCK,
+                    matched_text_snippet="blocked",
+                )
+            ]
         return []
 
 
@@ -90,11 +93,11 @@ class TestOutboundFirewallMiddleware:
         assert r.status_code == 200
 
     @pytest.mark.anyio
-    async def test_post_restore_block_returns_403(self) -> None:
+    async def test_post_restore_block_returns_451(self) -> None:
         app = _app(FakeFirewallGate(block_post=True))
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
             r = await c.get("/v1/chat/completions")
-        assert r.status_code == 403
+        assert r.status_code == 451
         body = r.json()
-        assert "detail" in body
+        assert "error" in body

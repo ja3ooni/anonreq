@@ -35,7 +35,7 @@ jobs:
         run: uv run mypy src/
 
       - name: Test with pytest
-        run: uv run pytest tests/ -v --maxfail=30 --ignore=tests/load -m "not load" --junitxml=junit.xml
+        run: uv run pytest tests/ -v --ignore=tests/load -m "not load" --junitxml=junit.xml
 
       - name: Coverage report
         if: success()

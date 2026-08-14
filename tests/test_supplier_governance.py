@@ -30,7 +30,7 @@ def _reset_supplier_store():
 
 def _make_mock_row(data: dict):
     """Create a mock SQLAlchemy row with _mapping attribute."""
-    row = AsyncMock()
+    row = MagicMock()
     row._mapping = dict(data)
     return row
 
@@ -42,16 +42,18 @@ def mock_db_session():
     session.rollback = AsyncMock()
 
     async def mock_execute(stmt, params=None):
-        result = AsyncMock()
+        # SQLAlchemy Result.fetchone/fetchall are synchronous.
+        result = MagicMock()
         result.rowcount = 1
+        result.fetchone = MagicMock(return_value=None)
+        result.fetchall = MagicMock(return_value=[])
         stmt_str = str(stmt) if hasattr(stmt, '__str__') else str(stmt)  # noqa: RUF034
         params = params or {}
-        result.fetchall = AsyncMock(return_value=[])
 
         if 'INSERT INTO supplier_governance' in stmt_str:
             record_id = params.get('id', '')
             _supplier_store[record_id] = dict(params)
-            result.fetchone = AsyncMock(return_value=[])
+            result.fetchone = MagicMock(return_value=[])
 
         elif 'UPDATE supplier_governance' in stmt_str:
             record_id = params.get('id', '')
@@ -59,15 +61,15 @@ def mock_db_session():
                 for key, value in params.items():
                     if key != 'id':
                         _supplier_store[record_id][key] = value
-            result.fetchone = AsyncMock(return_value=None)
+            result.fetchone = MagicMock(return_value=None)
 
         elif 'WHERE id = :id' in stmt_str:
             record_id = params.get('id', '')
             if record_id in _supplier_store:
                 mock_row = _make_mock_row(_supplier_store[record_id])
-                result.fetchone = AsyncMock(return_value=mock_row)
+                result.fetchone = MagicMock(return_value=mock_row)
             else:
-                result.fetchone = AsyncMock(return_value=None)
+                result.fetchone = MagicMock(return_value=None)
 
         elif 'SELECT * FROM supplier_governance' in stmt_str or 'WHERE next_review_date' in stmt_str:  # noqa: E501
             rows = list(_supplier_store.values())
@@ -90,11 +92,11 @@ def mock_db_session():
                 filtered.append(data)
 
             mock_rows = [_make_mock_row(d) for d in filtered]
-            result.fetchall = AsyncMock(return_value=mock_rows)
-            result.fetchone = AsyncMock(return_value=mock_rows[0] if mock_rows else None)
+            result.fetchall = MagicMock(return_value=mock_rows)
+            result.fetchone = MagicMock(return_value=mock_rows[0] if mock_rows else None)
 
         else:
-            result.fetchone = AsyncMock(return_value=None)
+            result.fetchone = MagicMock(return_value=None)
 
         return result
 

@@ -114,17 +114,18 @@ class FairnessEvaluator:
             ValueError: If no detection mechanism is configured.
             FileNotFoundError: If dataset not found.
         """
-        if detect_fn is None and self._detection_pipeline is None:
+        if detect_fn is not None:
+            actual_detect = detect_fn
+        elif self._detection_pipeline is not None:
+            pipeline = self._detection_pipeline
+
+            def actual_detect(text: str):  # type: ignore[no-untyped-def]
+                return pipeline.analyze(text)
+        else:
             raise ValueError(
                 "No detection mechanism available — provide detect_fn or "
                 "configure detection_pipeline at construction"
             )
-
-        assert self._detection_pipeline is not None
-        pipeline = self._detection_pipeline
-        actual_detect = detect_fn or (
-            lambda text: pipeline.analyze(text)
-        )
 
         if self._dataset_manager is None:
             raise ValueError("No dataset_manager configured")

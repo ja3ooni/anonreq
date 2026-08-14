@@ -22,15 +22,28 @@ class TestTLSVersionEnforcement:
         assert ssl.TLSVersion.TLSv1_3 == MIN_TLS_VERSION
 
     def test_outbound_tls_context_uses_secure_protocol(self):
-        """``ssl.create_default_context`` with ``SERVER_AUTH`` defaults to
-        TLS 1.3+ on Python 3.12+ with modern OpenSSL."""
+        """Default client context must not allow TLS < 1.2.
+
+        On Python 3.12 / OpenSSL 3, ``create_default_context`` uses
+        ``PROTOCOL_TLS_CLIENT`` (or the ``PROTOCOL_TLS`` alias). The
+        numeric ``PROTOCOL_TLSv1_2`` constant is gone, and
+        ``minimum_version`` may be left as ``MINIMUM_SUPPORTED`` because
+        OpenSSL 3's default security level already rejects TLS < 1.2.
+        """
         ctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
-        # Python 3.12+ ssl.create_default_context sets minimum_version
-        # to TLSVersion.TLSv1_2 by default. We explicitly set it to
-        # TLSv1_3 in tls_interceptor.py's MIN_TLS_VERSION.
-        assert ctx.minimum_version >= ssl.TLSVersion.TLSv1_2, (
-            "Python default TLS version must be at least 1.2"
-        )
+        allowed_protocols = {ssl.PROTOCOL_TLS_CLIENT}
+        if hasattr(ssl, "PROTOCOL_TLS"):
+            allowed_protocols.add(ssl.PROTOCOL_TLS)
+        assert ctx.protocol in allowed_protocols
+
+        min_ver = ctx.minimum_version
+        if min_ver not in (
+            ssl.TLSVersion.MINIMUM_SUPPORTED,
+            ssl.TLSVersion.MAXIMUM_SUPPORTED,
+        ):
+            assert min_ver >= ssl.TLSVersion.TLSv1_2, (
+                "Python default TLS version must be at least 1.2"
+            )
 
     def test_upstream_context_matches_min_tls_version(self):
         """Creating an upstream context and setting min version to

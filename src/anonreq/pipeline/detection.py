@@ -303,10 +303,16 @@ class DetectionStage(PipelineStage):
 
         except PipelineAbortError:
             # Count fail-secure events from detection errors (D-161)
-            fail_secure_events.labels(failure_type="detection_error").inc()
+            fail_secure_events.labels(
+                tenant_id=ctx.tenant_id,
+                failure_type="detection_error",
+            ).inc()
             raise
         except (KeyError, TypeError, ValueError, IndexError) as exc:
-            fail_secure_events.labels(failure_type="detection_error").inc()
+            fail_secure_events.labels(
+                tenant_id=ctx.tenant_id,
+                failure_type="detection_error",
+            ).inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
@@ -315,7 +321,10 @@ class DetectionStage(PipelineStage):
                 )
             )
         except Exception as exc:
-            fail_secure_events.labels(failure_type="detection_error").inc()
+            fail_secure_events.labels(
+                tenant_id=ctx.tenant_id,
+                failure_type="detection_error",
+            ).inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,

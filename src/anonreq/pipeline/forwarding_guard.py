@@ -48,7 +48,10 @@ class ForwardingGuard(PipelineStage):
         """
         # Must have classification result
         if ctx.classification_result is None:
-            fail_secure_events.labels(failure_type="forwarding_denied").inc()
+            fail_secure_events.labels(
+                tenant_id=ctx.tenant_id,
+                failure_type="forwarding_denied",
+            ).inc()
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=503,
@@ -79,7 +82,10 @@ class ForwardingGuard(PipelineStage):
         if action == "ANONYMIZE":
             # Verify detection ran
             if ctx.detections is None:
-                fail_secure_events.labels(failure_type="forwarding_denied").inc()
+                fail_secure_events.labels(
+                    tenant_id=ctx.tenant_id,
+                    failure_type="forwarding_denied",
+                ).inc()
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=503,
@@ -94,7 +100,10 @@ class ForwardingGuard(PipelineStage):
 
             # Verify tokenisation ran (or no mapping needed per TOKN-06/07)
             if ctx.token_mappings is None:
-                fail_secure_events.labels(failure_type="forwarding_denied").inc()
+                fail_secure_events.labels(
+                    tenant_id=ctx.tenant_id,
+                    failure_type="forwarding_denied",
+                ).inc()
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=503,
@@ -109,7 +118,10 @@ class ForwardingGuard(PipelineStage):
 
             # Verify transformed_request exists (but not for empty detections)
             if ctx.detections and ctx.transformed_request is None:
-                fail_secure_events.labels(failure_type="forwarding_denied").inc()
+                fail_secure_events.labels(
+                    tenant_id=ctx.tenant_id,
+                    failure_type="forwarding_denied",
+                ).inc()
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=503,

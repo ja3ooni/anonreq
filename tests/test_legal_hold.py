@@ -9,7 +9,7 @@ Per D-018, D-019, D-020:
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -35,10 +35,13 @@ def mock_db_session():
     session.rollback = AsyncMock()
 
     async def mock_execute(stmt, params=None):
-        result = AsyncMock()
+        # SQLAlchemy Result.fetchone/fetchall are synchronous.
+        result = MagicMock()
+        result.rowcount = 1
+        result.fetchone = MagicMock(return_value=None)
+        result.fetchall = MagicMock(return_value=[])
         stmt_str = str(stmt) if hasattr(stmt, '__str__') else str(stmt)  # noqa: RUF034
         params = params or {}
-        result.rowcount = 1
 
         if 'INSERT INTO legal_hold' in stmt_str:
             # Track inserted hold
@@ -50,22 +53,22 @@ def mock_db_session():
             if hold_id in _hold_store:
                 _hold_store[hold_id]['released_at'] = params.get('released_at')
                 _hold_store[hold_id]['released_by'] = params.get('released_by')
-            result.fetchone = AsyncMock(return_value=None)
-            result.fetchall = AsyncMock(return_value=[])
+            result.fetchone = MagicMock(return_value=None)
+            result.fetchall = MagicMock(return_value=[])
             return result
 
         if 'WHERE id = :id' in stmt_str:
             hold_id = params.get('id', '')
             if hold_id in _hold_store:
                 row = list(_hold_store[hold_id].values())
-                result.fetchone = AsyncMock(return_value=row)
-                result.fetchall = AsyncMock(return_value=[])
+                result.fetchone = MagicMock(return_value=row)
+                result.fetchall = MagicMock(return_value=[])
             elif hold_id in ('nonexistent-id', 'nonexistent_id'):
-                result.fetchone = AsyncMock(return_value=None)
-                result.fetchall = AsyncMock(return_value=[])
+                result.fetchone = MagicMock(return_value=None)
+                result.fetchall = MagicMock(return_value=[])
             else:
-                result.fetchone = AsyncMock(return_value=None)
-                result.fetchall = AsyncMock(return_value=[])
+                result.fetchone = MagicMock(return_value=None)
+                result.fetchall = MagicMock(return_value=[])
 
         elif 'SELECT COUNT(*)' in stmt_str:
             # Check active holds
@@ -88,8 +91,8 @@ def mock_db_session():
                 else:
                     pass
 
-            result.fetchone = AsyncMock(return_value=[count])
-            result.fetchall = AsyncMock(return_value=[])
+            result.fetchone = MagicMock(return_value=[count])
+            result.fetchall = MagicMock(return_value=[])
 
         elif 'SELECT * FROM legal_hold' in stmt_str:
             rows = []
@@ -99,15 +102,15 @@ def mock_db_session():
             # Wrap each dict as a mock row with _mapping attribute
             mock_rows = []
             for data in rows:
-                mock_row = AsyncMock()
+                mock_row = MagicMock()
                 mock_row._mapping = dict(data)
                 mock_rows.append(mock_row)
-            result.fetchone = AsyncMock(return_value=mock_rows[0] if mock_rows else None)
-            result.fetchall = AsyncMock(return_value=mock_rows)
+            result.fetchone = MagicMock(return_value=mock_rows[0] if mock_rows else None)
+            result.fetchall = MagicMock(return_value=mock_rows)
 
         else:
-            result.fetchone = AsyncMock(return_value=[1])
-            result.fetchall = AsyncMock(return_value=[])
+            result.fetchone = MagicMock(return_value=[1])
+            result.fetchall = MagicMock(return_value=[])
 
         return result
 
