@@ -15,7 +15,7 @@ from anonreq.kms.local import LocalAES256GCM
 def fake_redis():
     """Create a FakeRedis instance for testing."""
     fakeredis = pytest.importorskip("fakeredis.aioredis")
-    return fakeredis.FakeRedis()
+    return fakeredis.FakeRedis(decode_responses=True)
 
 
 @pytest.fixture
