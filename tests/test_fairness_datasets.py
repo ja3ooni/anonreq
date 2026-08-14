@@ -46,7 +46,9 @@ def mock_minio():
         async def make_bucket(self, bucket: str) -> None:
             self._buckets.add(bucket)
 
-        async def put_object(self, bucket, object_path, data, length=None, content_type=None, *args, **kwargs):
+        async def put_object(
+            self, bucket, object_path, data, length=None, content_type=None, *args, **kwargs,
+        ):
             self._objects[object_path] = data.read() if hasattr(data, 'read') else data
 
         async def get_object(self, _bucket, object_path):

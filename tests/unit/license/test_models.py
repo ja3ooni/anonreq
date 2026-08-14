@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import pytest
-from pydantic import ValidationError
 
 from anonreq.license.models import (
     FeatureGate,
+    LicenseError,
     LicensePayload,
     LicenseStatus,
     LicenseTier,
-    LicenseError,
 )
 
 
@@ -32,7 +32,7 @@ def test_license_tier_values():
 
 def test_license_payload_creation():
     """Verify LicensePayload constructs successfully with valid arguments."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     payload = LicensePayload(
         org="Acme",
         tier=LicenseTier.APPLIANCE,
@@ -70,5 +70,5 @@ def test_feature_gate_from_string():
     gate = FeatureGate("ai_firewall")
     assert gate == FeatureGate.AI_FIREWALL
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="nonexistent_feature"):
         FeatureGate("nonexistent_feature")

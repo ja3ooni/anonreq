@@ -9,6 +9,8 @@ on:
       - "CHANGELOG.md"
       - "SECURITY.md"
       - "CONTRIBUTING.md"
+      - ".github/workflows/docs-ci.yml"
+      - "openapi/**"
   push:
     branches: [main]
     paths:
@@ -18,6 +20,8 @@ on:
       - "CHANGELOG.md"
       - "SECURITY.md"
       - "CONTRIBUTING.md"
+      - ".github/workflows/docs-ci.yml"
+      - "openapi/**"
 
 jobs:
   markdown-lint:
@@ -25,11 +29,11 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "22"
       - name: Install markdownlint
-        run: pip install markdownlint-cli2
+        run: npm install -g markdownlint-cli2
       - name: Lint markdown files
         run: markdownlint-cli2 "docs/**/*.md" "*.md"
 
@@ -61,7 +65,13 @@ jobs:
         run: npm install -g @mermaid-js/mermaid-cli
       - name: Render Mermaid diagrams
         run: |
-          for f in docs/*.mmd; do
+          shopt -s nullglob
+          files=(docs/*.mmd docs/**/*.mmd)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No .mmd files to render"
+            exit 0
+          fi
+          for f in "${files[@]}"; do
             mmdc -i "$f" -o /dev/null
           done
 
@@ -75,12 +85,4 @@ jobs:
           python-version: "3.12"
       - name: Verify OpenAPI spec
         run: |
-          python -c "
-import json, sys
-with open('docs/openapi.json') as f:
-    spec = json.load(f)
-assert 'openapi' in spec, 'Missing OpenAPI version'
-assert 'info' in spec, 'Missing info'
-assert 'paths' in spec, 'Missing paths'
-print('OpenAPI spec is valid')
-"
+          python -c 'from pathlib import Path; p=Path("openapi/openapi.yaml"); assert p.exists(), "missing openapi/openapi.yaml"; t=p.read_text(encoding="utf-8"); assert "openapi:" in t; assert "info:" in t; assert "paths:" in t; print("OpenAPI spec is present")'

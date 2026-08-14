@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, Any
 from structlog import get_logger
 
 from anonreq.detection.regex_patterns import IRREVERSIBLE_ENTITY_TYPES
+from anonreq.exceptions import PipelineAbortError
 from anonreq.locale.bundle import RecognizerTier
 from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
 from anonreq.models.processing_context import ProcessingContext

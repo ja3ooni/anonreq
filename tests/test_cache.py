@@ -106,7 +106,7 @@ class _RetryableRedisStub:
         self._connection_error = redis.exceptions.ConnectionError
         self._readonly_error = redis.exceptions.ReadOnlyError
 
-    def pipeline(self, transaction: bool = True):  # noqa: ARG002
+    def pipeline(self, transaction: bool = True):
         self.pipeline_calls += 1
         return _FailOncePipeline(
             self._redis.pipeline(transaction=True),

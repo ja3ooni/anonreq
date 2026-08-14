@@ -11,11 +11,11 @@ Key invariant: raw PII must never cross the network boundary to the provider.
 from __future__ import annotations
 
 import re
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 import respx
-from unittest.mock import AsyncMock
 
 from anonreq.classification.engine import ClassificationEngine
 from anonreq.detection.exclusion_list import ExclusionList
@@ -24,8 +24,8 @@ from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
 from anonreq.exceptions import PipelineAbortError
 from anonreq.models.processing_context import ProcessingContext
-from anonreq.pipeline.cleanup import CleanupStage
 from anonreq.pipeline.classification import ClassificationStage
+from anonreq.pipeline.cleanup import CleanupStage
 from anonreq.pipeline.detection import DetectionStage
 from anonreq.pipeline.dlp import InboundDLPStage, OutboundDLPStage
 from anonreq.pipeline.forwarding_guard import ForwardingGuard

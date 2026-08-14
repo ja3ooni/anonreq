@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
-import pytest
 from unittest.mock import MagicMock
 
-from anonreq.services.compliance_evidence import ComplianceEvidenceService, EVIDENCE_STORAGE_DIR
+import pytest
+
+from anonreq.services.compliance_evidence import ComplianceEvidenceService
 
 
 class DummyCompliance:
@@ -124,7 +124,7 @@ async def test_store_snapshot_filesystem(mock_slo_engine):
     assert filepath.endswith(".jsonl")
 
     # Read file and verify
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         line = f.readline()
         loaded = json.loads(line)
         assert loaded["framework"] == "SOC2"

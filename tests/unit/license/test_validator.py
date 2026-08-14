@@ -6,20 +6,22 @@ import base64
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi import HTTPException
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from anonreq.license.config import license_settings
-from anonreq.license.models import FeatureGate, LicenseStatus, LicenseTier
+from anonreq.license.models import FeatureGate, LicenseTier
 from anonreq.license.validator import LicenseValidator, require_license
 
 
 def _create_license_payload(
     org: str = "TestOrg",
     tier: str = "appliance",
-    features: list[str] = None,
+    features: list[str] | None = None,
     expires_in_days: int = 365,
     secret: str = "test-secret-key",
 ) -> tuple[str, str]:
@@ -32,8 +34,8 @@ def _create_license_payload(
         "org": org,
         "tier": tier,
         "features": features,
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=expires_in_days)).isoformat(),
-        "issued_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(UTC) + timedelta(days=expires_in_days)).isoformat(),
+        "issued_at": datetime.now(UTC).isoformat(),
         "signature": "dummy",
     }
     data_str = json.dumps(payload)
@@ -81,7 +83,7 @@ async def test_missing_license_key():
 @pytest.mark.asyncio
 async def test_invalid_signature():
     """Verify signature mismatch gives invalid status."""
-    key, secret = _create_license_payload()
+    key, _secret = _create_license_payload()
     license_settings.LICENSE_KEY = key
     license_settings.LICENSE_SECRET = "wrong-secret"
 
@@ -102,7 +104,7 @@ async def test_tampered_payload():
     payload_dict["org"] = "TamperedCorp"
     tampered_data = json.dumps(payload_dict)
 
-    tampered_key = base64.b64encode(f"{tampered_data}.{sig}".encode("utf-8")).decode("utf-8")
+    tampered_key = base64.b64encode(f"{tampered_data}.{sig}".encode()).decode("utf-8")
     license_settings.LICENSE_KEY = tampered_key
     license_settings.LICENSE_SECRET = secret
 

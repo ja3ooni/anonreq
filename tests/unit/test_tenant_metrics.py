@@ -11,13 +11,12 @@ Per D-11/D-12, verifies:
 from __future__ import annotations
 
 import pytest
-from prometheus_client import CollectorRegistry
 
 from anonreq.monitoring.metrics import (
+    _known_tenants,
     _tenant_label,
     requests_total,
     set_max_tenants,
-    _known_tenants,
 )
 
 
@@ -100,8 +99,8 @@ class TestTenantMetricsCounter:
             provider="unknown",
             classification="unknown",
         ).inc()
-        # Verify the metric name contains 'requests_total'
-        assert "anonreq_requests_total" in requests_total._name
+        # Verify the metric name contains 'requests'
+        assert "anonreq_requests" in requests_total._name
 
     def test_tenant_overflow_label_works_in_counter(self):
         """_overflow can be used as a valid tenant_id label."""

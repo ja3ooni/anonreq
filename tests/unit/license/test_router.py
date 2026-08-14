@@ -6,14 +6,14 @@ import base64
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.admin.router import require_auth
 from anonreq.license.config import license_settings
-from anonreq.license.models import FeatureGate, LicenseTier
 from anonreq.license.router import router as license_router
 from anonreq.license.validator import LicenseValidator
 
@@ -21,7 +21,7 @@ from anonreq.license.validator import LicenseValidator
 def _create_license_payload(
     org: str = "TestOrg",
     tier: str = "appliance",
-    features: list[str] = None,
+    features: list[str] | None = None,
     secret: str = "test-secret-key",
 ) -> str:
     features = features or ["ai_firewall", "soc_integration"]
@@ -29,8 +29,8 @@ def _create_license_payload(
         "org": org,
         "tier": tier,
         "features": features,
-        "expires_at": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
-        "issued_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(UTC) + timedelta(days=30)).isoformat(),
+        "issued_at": datetime.now(UTC).isoformat(),
         "signature": "dummy",
     }
     data_str = json.dumps(payload)

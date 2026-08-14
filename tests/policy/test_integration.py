@@ -128,7 +128,9 @@ class TestPolicyMiddlewareIntegration:
         assert "reason" in data
 
     @pytest.mark.asyncio
-    async def test_block_returns_x_anonreq_blocked_header(self, client, mock_pdp, mock_pep, block_decision):
+    async def test_block_returns_x_anonreq_blocked_header(
+        self, client, mock_pdp, mock_pep, block_decision,
+    ):
         from anonreq.policy.pep import PolicyEnforcementResult
         mock_pdp.evaluate_all.return_value = block_decision
         mock_pep.enforce.return_value = PolicyEnforcementResult(
@@ -168,7 +170,9 @@ class TestPolicyMiddlewareIntegration:
         assert response.status_code == 503
 
     @pytest.mark.asyncio
-    async def test_allow_response_has_transparency_headers(self, client, mock_pdp, mock_pep, allow_decision):
+    async def test_allow_response_has_transparency_headers(
+        self, client, mock_pdp, mock_pep, allow_decision,
+    ):
         from anonreq.policy.pep import PolicyEnforcementResult
         mock_pdp.evaluate_all.return_value = allow_decision
         mock_pep.enforce.return_value = PolicyEnforcementResult(

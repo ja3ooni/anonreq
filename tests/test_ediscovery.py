@@ -299,7 +299,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_export_jsonl_structure(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession
     ):
         """JSONL export returns newline-delimited JSON records."""
         result = await exporter.export(
@@ -321,7 +321,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_export_pdf_structure(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession
     ):
         """PDF export returns valid PDF bytes."""
         result = await exporter.export(
@@ -336,7 +336,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_export_edrm_xml_structure(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession
     ):
         """EDRM XML export returns valid XML."""
         result = await exporter.export(
@@ -351,7 +351,7 @@ class TestExportFormats:
 
     @pytest.mark.asyncio
     async def test_cross_format_record_count_consistency(
-        self, exporter: EDiscoveryExporter, db_session: AsyncSession  # noqa: PT019
+        self, exporter: EDiscoveryExporter, db_session: AsyncSession
     ):
         """All formats return same record count for same filters."""
         jsonl = await exporter.export(
@@ -523,7 +523,7 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_exporter_handles_db_empty(
-        self, db_session: AsyncSession  # noqa: PT019
+        self, db_session: AsyncSession
     ):
         """Export on fresh (empty) DB returns empty."""
         # Drop all data and recreate exporter with clean session

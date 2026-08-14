@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-import pytest
+
 from anonreq.license.config import LicenseSettings
 
 

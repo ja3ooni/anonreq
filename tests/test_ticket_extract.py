@@ -11,7 +11,8 @@ _SPEC = importlib.util.spec_from_file_location(
     "forward_ticket",
     ROOT / "examples" / "connectors" / "tickets" / "forward_ticket.py",
 )
-assert _SPEC and _SPEC.loader
+assert _SPEC is not None
+assert _SPEC.loader is not None
 _mod = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_mod)
 

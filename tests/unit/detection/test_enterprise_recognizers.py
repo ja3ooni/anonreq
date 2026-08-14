@@ -8,16 +8,17 @@ from __future__ import annotations
 
 import os
 import tempfile
+
 import pytest
 import yaml
 
 from anonreq.detection.recognizers.enterprise import (
-    EnterpriseRecognizerConfig,
-    create_enterprise_bundle,
     AnonReqApiKeyRecognizer,
     AnonReqAwsAccessKeyRecognizer,
     AnonReqGitHubTokenRecognizer,
     AnonReqInternalHostnameRecognizer,
+    EnterpriseRecognizerConfig,
+    create_enterprise_bundle,
 )
 
 
@@ -130,7 +131,8 @@ class TestInternalHostnameRecognizer:
         recognizer = AnonReqInternalHostnameRecognizer(default_hostname_config)
         assert len(recognizer.analyze("google.com")) == 0
         assert len(recognizer.analyze("github.com")) == 0
-        assert len(recognizer.analyze("company.com")) == 0 # requires subdomain subdomain.company.com
+        # requires a subdomain, e.g. subdomain.company.com
+        assert len(recognizer.analyze("company.com")) == 0
         assert len(recognizer.analyze("my.company.com.external")) == 0
 
     def test_internal_hostname_confidence(self, default_hostname_config):
@@ -160,10 +162,30 @@ class TestRecognizerGeneral:
         default_github_token_config,
         default_hostname_config,
     ):
-        assert AnonReqApiKeyRecognizer(default_api_key_config).analyze("sk-1234567890abcdefghijklmnopqrstuvwxyz")[0]["entity_type"] == "ENTERPRISE_API_KEY"
-        assert AnonReqAwsAccessKeyRecognizer(default_aws_key_config).analyze("AKIAIOSFODNN7EXAMPLE")[0]["entity_type"] == "ENTERPRISE_AWS_KEY"
-        assert AnonReqGitHubTokenRecognizer(default_github_token_config).analyze("ghp_1234567890abcdefghijklmnopqrstuvwxyz")[0]["entity_type"] == "ENTERPRISE_GITHUB_TOKEN"
-        assert AnonReqInternalHostnameRecognizer(default_hostname_config).analyze("db.internal")[0]["entity_type"] == "ENTERPRISE_INTERNAL_HOST"
+        api_key = "sk-1234567890abcdefghijklmnopqrstuvwxyz"
+        github = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+        assert (
+            AnonReqApiKeyRecognizer(default_api_key_config).analyze(api_key)[0]["entity_type"]
+            == "ENTERPRISE_API_KEY"
+        )
+        assert (
+            AnonReqAwsAccessKeyRecognizer(default_aws_key_config).analyze(
+                "AKIAIOSFODNN7EXAMPLE"
+            )[0]["entity_type"]
+            == "ENTERPRISE_AWS_KEY"
+        )
+        assert (
+            AnonReqGitHubTokenRecognizer(default_github_token_config).analyze(github)[0][
+                "entity_type"
+            ]
+            == "ENTERPRISE_GITHUB_TOKEN"
+        )
+        assert (
+            AnonReqInternalHostnameRecognizer(default_hostname_config).analyze(
+                "db.internal"
+            )[0]["entity_type"]
+            == "ENTERPRISE_INTERNAL_HOST"
+        )
 
     def test_create_bundle_from_config(self):
         config_data = {

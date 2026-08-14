@@ -6,7 +6,6 @@ disabled tenant rejection, and structlog context binding.
 
 import pytest
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.middleware.tenant import TenantContextMiddleware

@@ -10,14 +10,16 @@ Per D-10, verifies:
 
 from __future__ import annotations
 
-import structlog
 import pytest
+import structlog
 from structlog.contextvars import (
     bind_contextvars,
     clear_contextvars,
     merge_contextvars,
 )
 from structlog.testing import capture_logs
+
+from anonreq.logging_config import allowlist_processor
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +30,10 @@ def _clear_structlog_context():
     clear_contextvars()
 
 
+def _captured_logs():
+    return capture_logs(processors=[merge_contextvars, allowlist_processor])
+
+
 @pytest.mark.unit
 class TestTenantStructlogPropagation:
     """Tests for tenant_id in structlog contextvars."""
@@ -35,7 +41,7 @@ class TestTenantStructlogPropagation:
     def test_bind_tenant_id_appears_in_log(self):
         """Per D-10: binding tenant_id makes it appear in log entries."""
         bind_contextvars(tenant_id="acme-corp")
-        with capture_logs() as cap_logs:
+        with _captured_logs() as cap_logs:
             logger = structlog.get_logger()
             logger.info("test_event", extra_field="value")
         assert len(cap_logs) == 1
@@ -44,26 +50,26 @@ class TestTenantStructlogPropagation:
     def test_unbind_removes_tenant_id(self):
         """unbind_contextvars removes tenant_id from subsequent logs."""
         bind_contextvars(tenant_id="tenant-a")
-        with capture_logs() as cap_logs_1:
+        with _captured_logs() as cap_logs_1:
             structlog.get_logger().info("first_event")
         assert cap_logs_1[0]["tenant_id"] == "tenant-a"
 
         clear_contextvars()
-        with capture_logs() as cap_logs_2:
+        with _captured_logs() as cap_logs_2:
             structlog.get_logger().info("second_event")
         assert "tenant_id" not in cap_logs_2[0]
 
     def test_no_leakage_between_bindings(self):
         """Different bindings don't leak tenant_id across requests."""
         bind_contextvars(tenant_id="tenant-x")
-        with capture_logs() as cap_logs_1:
+        with _captured_logs() as cap_logs_1:
             structlog.get_logger().info("request_x")
         assert cap_logs_1[0]["tenant_id"] == "tenant-x"
 
         clear_contextvars()
 
         bind_contextvars(tenant_id="tenant-y")
-        with capture_logs() as cap_logs_2:
+        with _captured_logs() as cap_logs_2:
             structlog.get_logger().info("request_y")
         assert cap_logs_2[0]["tenant_id"] == "tenant-y"
         assert cap_logs_2[0]["tenant_id"] != "tenant-x"
@@ -77,7 +83,7 @@ class TestTenantStructlogPropagation:
 
     def test_tenant_id_passes_allowlist(self):
         """tenant_id is in the logging allowlist and is not stripped."""
-        from anonreq.logging_config import allowlist_processor, ALLOWLIST
+        from anonreq.logging_config import ALLOWLIST, allowlist_processor
 
         assert "tenant_id" in ALLOWLIST
 
@@ -94,7 +100,7 @@ class TestTenantStructlogPropagation:
     def test_tenant_id_with_request_id_in_same_log(self):
         """tenant_id and request_id can coexist in the same log entry."""
         bind_contextvars(tenant_id="multi-tenant", request_id="req-456")
-        with capture_logs() as cap_logs:
+        with _captured_logs() as cap_logs:
             structlog.get_logger().info("combined_event")
         assert cap_logs[0]["tenant_id"] == "multi-tenant"
         assert cap_logs[0]["request_id"] == "req-456"

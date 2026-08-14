@@ -6,14 +6,12 @@ fail-closed behavior. Integration tests for full response format verification.
 
 from __future__ import annotations
 
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from httpx import ASGITransport, AsyncClient
 
 # Lazy imports inside tests are preferred, but we import basic types/models here
 from anonreq.trust_center.config import TrustCenterSettings
@@ -85,7 +83,7 @@ class TestTrustCenterSchemas:
         assert ts.period == "Last 30 days"
 
     def test_trust_status_with_breach(self):
-        breach_dt = datetime(2026, 6, 15, tzinfo=timezone.utc)
+        breach_dt = datetime(2026, 6, 15, tzinfo=UTC)
         ts = TrustStatus(
             slo_count=5,
             compliant_count=4,
@@ -154,6 +152,7 @@ class TestTrustCenterSchemas:
 @pytest.fixture
 async def redis_cache():
     import fakeredis.aioredis
+
     from anonreq.cache.manager import CacheManager
 
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
@@ -308,13 +307,14 @@ class TestTrustCenterIntegration:
     @pytest.fixture
     def trust_app(self):
         """Create a minimal FastAPI app with Trust Center router and mocked dependencies."""
+        import fakeredis.aioredis
+
         from anonreq.cache.manager import CacheManager
         from anonreq.compliance.preset import CompliancePreset
         from anonreq.services.slo_engine import SLOCompliance
         from anonreq.trust_center.config import TrustCenterSettings
         from anonreq.trust_center.router import router as trust_router
         from anonreq.trust_center.service import TrustCenterRateLimiter, TrustCenterService
-        import fakeredis.aioredis
 
         app = FastAPI()
         app.state.trust_center_enabled = True
@@ -383,7 +383,8 @@ class TestTrustCenterIntegration:
         assert resp.status_code == 200
         data = resp.json()
         assert data["slo_count"] == 2
-        # success_rate compliant=True (any window compliant), fail_secure_rate is empty -> default non-compliant
+        # success_rate compliant=True (any window compliant);
+        # fail_secure_rate is empty -> default non-compliant
         # So overall percentage should be 50%
         assert data["overall_percentage"] == 50.0
 

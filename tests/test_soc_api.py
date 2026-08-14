@@ -62,7 +62,7 @@ def empty_monitor():
     return monitor
 
 
-from anonreq.soc.api import create_soc_status_response  # noqa: E402
+from anonreq.soc.api import create_soc_status_response
 
 
 def _make_test_app(monitor) -> AsyncClient:

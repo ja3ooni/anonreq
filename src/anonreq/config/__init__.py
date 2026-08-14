@@ -192,7 +192,10 @@ class Settings(BaseSettings):
     METRICS_MAX_TENANTS: int = Field(
         default=100,
         validation_alias="ANONREQ_METRICS_MAX_TENANTS",
-        description="Maximum unique tenant labels for Prometheus metrics before _overflow fallback.",
+        description=(
+            "Maximum unique tenant labels for Prometheus metrics "
+            "before _overflow fallback."
+        ),
     )
     BLOCK_DETAIL_LEVEL: str = Field(
         default="summary",

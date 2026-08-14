@@ -1,7 +1,8 @@
 """Prometheus metric definitions for the AnonReq gateway.
 
 Provides all 8 metrics required by D-139:
-- ``requests_total`` — Counter partitioned by endpoint, status_code, provider, classification, tenant_id
+- ``requests_total`` — Counter partitioned by endpoint, status_code,
+  provider, classification, tenant_id
 - ``detection_latency`` — Histogram of detection engine latency in milliseconds
 - ``entities_detected`` — Counter partitioned by entity_type and locale
 - ``unrestored_tokens`` — Counter partitioned by entity_type
