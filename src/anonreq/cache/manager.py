@@ -236,10 +236,11 @@ class CacheManager:
 
         # Per D-08: encrypt values before Valkey write when KMS is configured
         store_mapping = mapping
-        if self._kms is not None:
+        kms = getattr(self, "_kms", None)
+        if kms is not None:
             store_mapping = {}
             for token, value in mapping.items():
-                ciphertext = await self._kms.encrypt(tenant_id, value.encode())
+                ciphertext = await kms.encrypt(tenant_id, value.encode())
                 store_mapping[token] = base64.b64encode(ciphertext).decode()
 
         async def _operation() -> None:
@@ -267,12 +268,13 @@ class CacheManager:
         raw = await self._execute_with_retry(lambda: self._redis.hgetall(key))
 
         # Per D-08: decrypt values after Valkey read when KMS is configured
-        if self._kms is not None and raw:
+        kms = getattr(self, "_kms", None)
+        if kms is not None and raw:
             try:
                 decrypted = {}
                 for token, ciphertext_b64 in raw.items():
                     ciphertext = base64.b64decode(ciphertext_b64)
-                    plaintext = await self._kms.decrypt(tenant_id, ciphertext)
+                    plaintext = await kms.decrypt(tenant_id, ciphertext)
                     decrypted[token] = plaintext.decode()
                 return decrypted
             except Exception:

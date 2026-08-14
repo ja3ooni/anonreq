@@ -101,6 +101,7 @@ async def test_app() -> AsyncGenerator[FastAPI, None]:
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr._redis = fake_redis
     cache_mgr._ttl = 300
+    cache_mgr._kms = None
 
     # ── Mock PresidioClient ─────────────────────────────────────────────────
     presidio_mock = MagicMock(spec=["analyze_text_nodes", "close"])
