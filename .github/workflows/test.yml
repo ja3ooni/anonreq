@@ -35,13 +35,14 @@ jobs:
         run: uv run mypy src/
 
       - name: Test with pytest
-        run: uv run pytest tests/ -x -v --ignore=tests/load -m "not load" --junitxml=junit.xml
+        run: uv run pytest tests/ -v --maxfail=30 --ignore=tests/load -m "not load" --junitxml=junit.xml
 
       - name: Coverage report
+        if: success()
         run: uv run pytest tests/ --cov=anonreq --cov-report=term-missing --cov-report=xml --ignore=tests/load -m "not load"
 
       - name: Upload coverage to CI summary
-        if: always()
+        if: success()
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           uv run python -c "

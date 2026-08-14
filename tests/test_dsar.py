@@ -31,22 +31,27 @@ def _reset_stores():
 
 def _make_mock_row(data: dict):
     """Create a mock SQLAlchemy row with _mapping attribute."""
-    row = AsyncMock()
+    from unittest.mock import MagicMock
+
+    row = MagicMock()
     row._mapping = dict(data)
     return row
 
 
 @pytest.fixture
 def mock_db_session():
+    from unittest.mock import MagicMock
+
     session = AsyncMock()
     session.commit = AsyncMock()
     session.rollback = AsyncMock()
 
     async def mock_execute(stmt, params=None):
-        result = AsyncMock()
+        # SQLAlchemy Result.fetchone/fetchall are synchronous.
+        result = MagicMock()
         result.rowcount = 1
-        result.fetchone = AsyncMock(return_value=None)
-        result.fetchall = AsyncMock(return_value=[])
+        result.fetchone = MagicMock(return_value=None)
+        result.fetchall = MagicMock(return_value=[])
         stmt_str = str(stmt) if hasattr(stmt, "__str__") else str(stmt)  # noqa: RUF034
         params = params or {}
 
@@ -81,26 +86,26 @@ def mock_db_session():
             sid = params.get("subject_id", "")
             count = sum(1 for v in _restriction_store.values()
                        if v.get("subject_id") == sid)
-            result.fetchone = AsyncMock(return_value=[count])
+            result.fetchone = MagicMock(return_value=[count])
 
         elif "COUNT(*) FROM subject_erasure" in stmt_str:
             sid = params.get("subject_id", "")
             count = sum(1 for v in _erasure_store.values()
                        if v.get("subject_id") == sid)
-            result.fetchone = AsyncMock(return_value=[count])
+            result.fetchone = MagicMock(return_value=[count])
 
         elif "WHERE id = :id" in stmt_str:
             rid = params.get("id", "")
             if rid in _dsar_store:
-                result.fetchone = AsyncMock(
+                result.fetchone = MagicMock(
                     return_value=_make_mock_row(dict(_dsar_store[rid]))
                 )
             else:
-                result.fetchone = AsyncMock(return_value=None)
+                result.fetchone = MagicMock(return_value=None)
 
         elif "SELECT * FROM dsar_requests" in stmt_str:
             rows = [_make_mock_row(dict(v)) for v in _dsar_store.values()]
-            result.fetchall = AsyncMock(return_value=rows)
+            result.fetchall = MagicMock(return_value=rows)
 
         elif "SELECT subject_id, tenant_id" in stmt_str:
             rows = [_make_mock_row({
@@ -108,7 +113,7 @@ def mock_db_session():
                 "tenant_id": v.get("tenant_id", ""),
                 "restricted_at": v.get("restricted_at"),
             }) for v in _restriction_store.values()]
-            result.fetchall = AsyncMock(return_value=rows)
+            result.fetchall = MagicMock(return_value=rows)
 
         return result
 
