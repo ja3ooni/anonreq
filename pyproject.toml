@@ -101,6 +101,9 @@ line-length = 100
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "ARG", "PT", "RUF"]
 ignore = ["B008"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["anonreq"]
+
 [tool.ruff.lint.per-file-ignores]
 # Pytest fixtures look unused; some tests defer imports until env vars are set.
 "tests/**" = ["ARG001", "ARG002", "E402"]

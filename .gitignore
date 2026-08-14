@@ -44,7 +44,9 @@ pip-wheel-metadata/
 *.crt
 *.p12
 *.pfx
-secrets/
+# Local credential dumps / mounted volumes at repo root only.
+# Do not use a bare "secrets/" rule — it would ignore src/anonreq/secrets/.
+/secrets/
 
 # Logs and runtime files
 *.log
