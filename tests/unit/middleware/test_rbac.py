@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.middleware.rbac import Role, require_role
@@ -13,10 +13,9 @@ def _app_with_role(min_role: Role) -> FastAPI:
     app = FastAPI()
 
     @app.get("/protected")
-    async def protected() -> dict[str, str]:
+    async def protected(_=Depends(require_role(min_role))) -> dict[str, str]:
         return {"ok": "true"}
 
-    app.dependency_overrides[require_role(min_role)] = lambda: None
     return app
 
 

@@ -44,7 +44,10 @@ def _app() -> FastAPI:
 
     @app.get("/ingress")
     async def ingress(request: Request) -> dict[str, Any]:
-        return request.state.machine_principal
+        principal = getattr(request.state, "machine_principal", None)
+        if principal is None:
+            return {"error": "missing_machine_principal"}
+        return principal
 
     return app
 
@@ -58,11 +61,13 @@ async def test_forwarded_certificate_is_parsed() -> None:
 
 @pytest.mark.asyncio
 async def test_trusted_proxy_populates_machine_principal(monkeypatch) -> None:
-    from anonreq.config import settings
+    from anonreq.middleware import mtls as mtls_module
 
-    monkeypatch.setattr(settings, "MTLS_ENFORCE", True)
-    monkeypatch.setattr(settings, "MTLS_TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
-    monkeypatch.setattr(settings, "MTLS_FORWARD_CERT_HEADER", "X-Forwarded-Client-Cert")
+    monkeypatch.setattr(mtls_module.settings, "MTLS_ENFORCE", True)
+    monkeypatch.setattr(mtls_module.settings, "MTLS_TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
+    monkeypatch.setattr(
+        mtls_module.settings, "MTLS_FORWARD_CERT_HEADER", "X-Forwarded-Client-Cert"
+    )
 
     cert_der = _self_signed_cert()
     transport = ASGITransport(app=_app(), client=("127.0.0.1", 1234))
@@ -81,11 +86,13 @@ async def test_trusted_proxy_populates_machine_principal(monkeypatch) -> None:
 
 @pytest.mark.asyncio
 async def test_malformed_certificate_is_rejected(monkeypatch) -> None:
-    from anonreq.config import settings
+    from anonreq.middleware import mtls as mtls_module
 
-    monkeypatch.setattr(settings, "MTLS_ENFORCE", True)
-    monkeypatch.setattr(settings, "MTLS_TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
-    monkeypatch.setattr(settings, "MTLS_FORWARD_CERT_HEADER", "X-Forwarded-Client-Cert")
+    monkeypatch.setattr(mtls_module.settings, "MTLS_ENFORCE", True)
+    monkeypatch.setattr(mtls_module.settings, "MTLS_TRUSTED_PROXY_CIDRS", "127.0.0.1/32")
+    monkeypatch.setattr(
+        mtls_module.settings, "MTLS_FORWARD_CERT_HEADER", "X-Forwarded-Client-Cert"
+    )
 
     transport = ASGITransport(app=_app(), client=("127.0.0.1", 1234))
     async with AsyncClient(transport=transport, base_url="http://test") as client:

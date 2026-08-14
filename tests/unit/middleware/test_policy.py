@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -71,7 +72,8 @@ class TestPolicyMiddleware:
         decision = PolicyDecision(
             action=PolicyAction.ALLOW,
             reason="ok",
-            matched_rules=[],
+            matched_rule_ids=[],
+            decision_ts=datetime.now(UTC),
         )
         app = _make_app(
             pdp_result=decision,
@@ -87,7 +89,8 @@ class TestPolicyMiddleware:
         decision = PolicyDecision(
             action=PolicyAction.BLOCK,
             reason="blocked",
-            matched_rules=[],
+            matched_rule_ids=[],
+            decision_ts=datetime.now(UTC),
         )
         pep_result = PolicyEnforcementResult(
             action=PolicyAction.BLOCK,
@@ -107,7 +110,8 @@ class TestPolicyMiddleware:
         decision = PolicyDecision(
             action=PolicyAction.ALLOW,
             reason="ok",
-            matched_rules=[],
+            matched_rule_ids=[],
+            decision_ts=datetime.now(UTC),
         )
         pep_result = PolicyEnforcementResult(
             action=PolicyAction.ALLOW,

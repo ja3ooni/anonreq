@@ -66,8 +66,9 @@ class TestMetricsMiddleware:
         # Get current count
         child = REGISTRY.get_sample_value(
             "anonreq_requests_total",
-            {"endpoint": "/v1/chat/completions", "status_code": "200",
-             "provider": "openai", "classification": "anonymize"}
+            {"tenant_id": "_unknown", "endpoint": "/v1/chat/completions",
+             "status_code": "200", "provider": "openai",
+             "classification": "anonymize"}
         ) or 0.0
 
         transport = ASGITransport(app=app)
@@ -77,8 +78,9 @@ class TestMetricsMiddleware:
 
         new_child = REGISTRY.get_sample_value(
             "anonreq_requests_total",
-            {"endpoint": "/v1/chat/completions", "status_code": "200",
-             "provider": "openai", "classification": "anonymize"}
+            {"tenant_id": "_unknown", "endpoint": "/v1/chat/completions",
+             "status_code": "200", "provider": "openai",
+             "classification": "anonymize"}
         ) or 0.0
         assert new_child == child + 1.0, (
             f"Expected {child + 1.0}, got {new_child}"
@@ -335,15 +337,19 @@ class TestFailSecureInstrumentation:
         """Fail-secure path increments fail_secure_events_total."""
         from anonreq.monitoring import metrics
 
-        # Check initial state and increment
-        child = metrics.fail_secure_events.labels(failure_type="detection_error")
+        # Check initial state and increment (tenant_id required per D-11)
+        child = metrics.fail_secure_events.labels(
+            tenant_id="_unknown", failure_type="detection_error"
+        )
         child.inc()
         assert child._value.get() >= 1.0
 
         # Test different failure types
         for failure_type in ["cache_error", "forwarding_denied", "provider_timeout",
                               "circuit_breaker_open", "auth_error", "internal_error"]:
-            child = metrics.fail_secure_events.labels(failure_type=failure_type)
+            child = metrics.fail_secure_events.labels(
+                tenant_id="_unknown", failure_type=failure_type
+            )
             child.inc()
             assert child._value.get() >= 1.0, f"Failed for {failure_type}"
 

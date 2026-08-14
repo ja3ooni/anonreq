@@ -107,9 +107,14 @@ class DLPEngine:
         tenant_patterns = self._tenant_patterns.get(tenant_id, [])
         for pattern in tenant_patterns:
             compiled = pattern["regex"]
+            cat_val = pattern.get("category", DLPCategory.PII)
+            try:
+                category = DLPCategory(cat_val)
+            except ValueError:
+                category = DLPCategory.PII
             for match in compiled.finditer(text):
                 detections.append(DLPDetection(
-                    category=DLPCategory(pattern["category"]),
+                    category=category,
                     action=DLPAction(pattern.get("action", "block")),
                     match_text=match.group(),
                     confidence=0.9,
@@ -164,7 +169,7 @@ class DLPEngine:
                 patterns.append({
                     "id": pattern["id"],
                     "regex": compiled,
-                    "category": pattern["category"],
+                    "category": pattern.get("category", "custom"),
                     "action": pattern.get("action", "block"),
                 })
             except (re.error, KeyError):

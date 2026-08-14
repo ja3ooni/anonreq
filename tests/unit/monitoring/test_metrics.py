@@ -77,7 +77,7 @@ class TestLabelNames:
 
     def test_requests_total_labels(self):
         assert m.requests_total._labelnames == (
-            "endpoint", "status_code", "provider", "classification"
+            "tenant_id", "endpoint", "status_code", "provider", "classification"
         )
 
     def test_detection_latency_no_labels(self):
@@ -90,7 +90,7 @@ class TestLabelNames:
         assert m.unrestored_tokens._labelnames == ("entity_type",)
 
     def test_fail_secure_events_labels(self):
-        assert m.fail_secure_events._labelnames == ("failure_type",)
+        assert m.fail_secure_events._labelnames == ("tenant_id", "failure_type")
 
     def test_audit_failures_no_labels(self):
         assert m.audit_failures._labelnames == ()
@@ -184,7 +184,11 @@ class TestNoPIIInLabels:
     """Verify no PII or entity values in any label name (AG-15)."""
 
     def test_no_sensitive_keys_in_label_names(self):
-        """Label names must not reference tenant_id, request_id, session_id, or raw content."""
+        """Label names must not reference request_id, session_id, or raw content.
+
+        ``tenant_id`` is an intentional multi-tenant isolation label (D-11),
+        not a sensitive value.
+        """
         all_labels: set[str] = set()
         for metric_obj in [
             m.requests_total,
@@ -199,7 +203,7 @@ class TestNoPIIInLabels:
             all_labels.update(metric_obj._labelnames)
 
         forbidden_substrings = [
-            "tenant", "request_id", "session", "user_id",
+            "request_id", "session", "user_id",
             "email", "phone", "name", "address", "credit_card",
             "ssn", "password", "secret", "token", "api_key",
             "content", "text", "prompt", "message",
