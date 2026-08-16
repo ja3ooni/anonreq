@@ -77,7 +77,35 @@ rules:
     conditions:
       roles: [user, assistant, tool]
       regex: []
-      keywords: ["email", "phone", "address", "ssn", "credit card", "my name is"]
+      keywords:
+        - "email"
+        - "phone"
+        - "address"
+        - "ssn"
+        - "credit card"
+        - "my name is"
+        - "iban"
+        - "steuer"
+        - "ausweis"
+        - "kvnr"
+        - "kontonummer"
+
+  - id: CLS-005
+    enabled: true
+    version: 1
+    name: anonymize_german_identifiers
+    action: ANONYMIZE
+    metadata:
+      owner: security-team
+      category: pii_de
+      severity: high
+    conditions:
+      roles: []
+      regex:
+        - "\\bDE\\d{2}[\\d\\s]{10,30}\\b"
+        - "\\b[1-9]\\d{10}\\b"
+        - "\\b[A-Z]\\d{9}\\b"
+      keywords: []
 
 # ---------------------------------------------------------------------------
 # Phase 12: Entity-type-to-classification mapping (CLASS-01, CLASS-02)

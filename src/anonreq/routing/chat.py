@@ -83,13 +83,21 @@ def build_pre_provider_pipeline(
 ) -> PipelineManager:
     """Construct stages shared by streaming and non-streaming requests."""
     try:
-        rules = ClassificationRuleLoader.from_yaml("config/classification.yaml")
+        from anonreq.config import settings as _settings
+
+        class_path = getattr(
+            _settings, "CLASSIFICATION_CONFIG_PATH", "config/classification.yaml"
+        )
+        rules, yaml_default = ClassificationRuleLoader.load_yaml(class_path)
+        override = getattr(_settings, "CLASSIFICATION_DEFAULT_ACTION", None)
+        default_action = (override or yaml_default or "PASS").upper()
     except FileNotFoundError:
         rules = []
+        default_action = "PASS"
 
     classification_engine = ClassificationEngine(
         rules=rules,
-        default_action="PASS",
+        default_action=default_action,  # type: ignore[arg-type]
     )
 
     if locale_negotiator is None or recognizer_merger is None:

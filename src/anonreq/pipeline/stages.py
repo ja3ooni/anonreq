@@ -100,12 +100,15 @@ class PolicyEnforcementStage(PipelineStage):
             # Skip if not configured (e.g. in basic unit tests)
             return ctx
 
-        # Inject classification_result representation for legacy check compatibility
+        # Merge sensitivity fields into classification_result without dropping
+        # pipeline action / matched_rule_ids. Replacing the dict used to wipe
+        # ``action``, so ForwardingGuard defaulted to PASS and ProviderStage
+        # forwarded cleartext after tokenization had already run.
         if ctx.classification_result_v2:
-            ctx.classification_result = {
-                "classification_level": ctx.classification_result_v2.highest.name,
-                "highest_entity": ctx.classification_result_v2.highest_entity or "",
-            }
+            base = dict(ctx.classification_result or {})
+            base["classification_level"] = ctx.classification_result_v2.highest.name
+            base["highest_entity"] = ctx.classification_result_v2.highest_entity or ""
+            ctx.classification_result = base
 
         decision = await pdp.evaluate_all(ctx)
         ctx.policy_decision = decision

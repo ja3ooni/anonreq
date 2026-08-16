@@ -72,10 +72,15 @@ class ProviderStage(PipelineStage):
             The mutated ``ProcessingContext`` with ``ctx.provider_response``
             set on success.
         """
-        # Determine which body to send
+        # Prefer tokenized body whenever present (defense in depth). Do not
+        # re-send cleartext after TokenizationStage built a transformed request.
         action = ctx.classification_result.get("action") if ctx.classification_result else None
-
-        request_body = ctx.transformed_request if action == "ANONYMIZE" else ctx.original_request
+        if ctx.transformed_request is not None:
+            request_body = ctx.transformed_request
+        elif action == "ANONYMIZE":
+            request_body = None
+        else:
+            request_body = ctx.original_request
 
         if request_body is None:
             ctx.fail_secure(

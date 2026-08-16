@@ -68,6 +68,17 @@ class Settings(BaseSettings):
         validation_alias="PROVIDER_API_KEY",
     )
     ACTIVE_PRESETS: str = ""
+    CLASSIFICATION_CONFIG_PATH: str = Field(
+        default="config/classification.yaml",
+        description="Path to classification rules YAML (default_action + rules).",
+    )
+    CLASSIFICATION_DEFAULT_ACTION: str | None = Field(
+        default=None,
+        description=(
+            "Optional override for classification default_action "
+            "(PASS|ANONYMIZE|BLOCK|ROUTE_LOCAL). When set, wins over YAML."
+        ),
+    )
     POLICY_CONFIG_PATH: str = Field(
         default="config/enterprise-policy.yaml",
         validation_alias="ANONREQ_POLICY_CONFIG_PATH",

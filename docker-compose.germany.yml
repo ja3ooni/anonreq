@@ -9,4 +9,6 @@ services:
   anonreq:
     environment:
       ANONREQ_ACTIVE_PRESETS: germany
+      ANONREQ_CLASSIFICATION_CONFIG_PATH: config/classification.germany.yaml
+      ANONREQ_CLASSIFICATION_DEFAULT_ACTION: ANONYMIZE
       ANONREQ_PROXY_MODE: ${ANONREQ_PROXY_MODE:-full}

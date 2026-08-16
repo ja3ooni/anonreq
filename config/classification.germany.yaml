@@ -1,0 +1,45 @@
+# Germany PoC classification — fail closed on unmatched traffic.
+# Used when ANONREQ_CLASSIFICATION_CONFIG_PATH points here (see docker-compose.germany.yml).
+#
+# default_action ANONYMIZE: every request is scanned/tokenized unless a
+# higher-priority BLOCK/ROUTE_LOCAL rule matches. This is the CISO demo contract.
+
+default_action: ANONYMIZE
+
+rules:
+  - id: CLS-DE-001
+    enabled: true
+    version: 1
+    name: block_credentials
+    action: BLOCK
+    metadata:
+      owner: security-team
+      category: credentials
+      severity: critical
+    conditions:
+      roles: [user]
+      regex:
+        - "(?i)(?:password|secret|api.?key|token)\\s*[:=]\\s*\\S+"
+      keywords: []
+
+  - id: CLS-DE-002
+    enabled: true
+    version: 1
+    name: anonymize_german_identifiers
+    action: ANONYMIZE
+    metadata:
+      owner: security-team
+      category: pii_de
+    conditions:
+      roles: []
+      regex:
+        - "\\bDE\\d{2}[\\d\\s]{10,30}\\b"
+        - "\\b[1-9]\\d{10}\\b"
+        - "\\b[A-Z]\\d{9}\\b"
+      keywords:
+        - "iban"
+        - "steuer"
+        - "ausweis"
+        - "kvnr"
+        - "kontonummer"
+        - "aktenzeichen"

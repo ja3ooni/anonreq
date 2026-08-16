@@ -44,6 +44,12 @@ class ClassificationRuleLoader:
                 key, or a rule missing required ``id`` or ``action`` fields).
             FileNotFoundError: If the file does not exist.
         """
+        _rules, _default = ClassificationRuleLoader.load_yaml(path)
+        return _rules
+
+    @staticmethod
+    def load_yaml(path: str | Path) -> tuple[list[ClassificationRule], str]:
+        """Load rules and ``default_action`` from a classification YAML file."""
         with open(path) as f:
             data = yaml.safe_load(f)
 
@@ -52,7 +58,12 @@ class ClassificationRuleLoader:
                 "YAML config must contain a 'rules' key at the top level"
             )
 
-        return ClassificationRuleLoader.from_dict(data)
+        default_action = str(data.get("default_action", "PASS")).upper()
+        if default_action not in {"PASS", "ANONYMIZE", "BLOCK", "ROUTE_LOCAL"}:
+            raise ValueError(
+                f"Invalid default_action '{default_action}' in {path}"
+            )
+        return ClassificationRuleLoader.from_dict(data), default_action
 
     @staticmethod
     def from_dict(data: dict[str, Any]) -> list[ClassificationRule]:
