@@ -19,17 +19,34 @@ class PolicyMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     @staticmethod
-    def _extract_tenant_id(request: Request) -> str:
+    def _extract_tenant_id(request: Request) -> str | None:
         """Extract tenant_id from request.state (set by TenantContextMiddleware).
 
         Per D-03, TenantContextMiddleware populates request.state.tenant_id
-        after validating against the registry. This method reads that value
-        instead of constructing from oidc_principal.
+        after validating against the registry. Returns ``None`` when the
+        tenant context is missing so the caller can fail secure — never
+        silently fall back to ``"default"`` (fail-open for tenancy).
+
+        Single-tenant deployments opt in explicitly via
+        ``ANONREQ_SINGLE_TENANT=true``; in that mode the caller may
+        substitute ``"default"`` as a conscious deployment choice.
         """
         tenant_id = getattr(request.state, "tenant_id", None)
         if isinstance(tenant_id, str) and tenant_id:
             return tenant_id
-        return "default"
+        return None
+
+    @staticmethod
+    def _single_tenant_mode() -> bool:
+        """Return True only when single-tenant fallback is explicitly enabled."""
+        import os
+
+        return os.environ.get("ANONREQ_SINGLE_TENANT", "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
 
     async def dispatch(
         self,
@@ -45,9 +62,28 @@ class PolicyMiddleware(BaseHTTPMiddleware):
             logger.error("policy_middleware.not_configured", path=request.url.path)
             return await call_next(request)
 
+        tenant_id = self._extract_tenant_id(request)
+        if tenant_id is None:
+            if self._single_tenant_mode():
+                logger.warning(
+                    "policy_middleware.single_tenant_fallback",
+                    path=request.url.path,
+                )
+                tenant_id = "default"
+            else:
+                logger.error(
+                    "policy_middleware.tenant_missing",
+                    path=request.url.path,
+                )
+                return JSONResponse(
+                    status_code=503,
+                    content={"error": "Tenant context unavailable"},
+                    headers={"X-AnonReq-Blocked": "true"},
+                )
+
         ctx = ProcessingContext(
             request_id=getattr(request.state, "request_id", "unknown"),
-            tenant_id=self._extract_tenant_id(request),
+            tenant_id=tenant_id,
         )
 
         try:

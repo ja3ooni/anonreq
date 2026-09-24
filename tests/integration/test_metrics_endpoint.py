@@ -9,10 +9,17 @@ Tests verify:
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.main import create_app
+
+
+def _auth_headers() -> dict[str, str]:
+    """Auth headers for the authenticated /metrics endpoint (Finding 5)."""
+    return {"Authorization": f"Bearer {os.environ.get('ANONREQ_API_KEY', '')}"}
 
 
 @pytest.fixture
@@ -41,9 +48,18 @@ METRIC_NAMES = [
 
 @pytest.mark.asyncio
 async def test_metrics_endpoint_returns_200(metrics_client: AsyncClient) -> None:
-    """GET /metrics should return HTTP 200."""
-    response = await metrics_client.get("/metrics")
+    """GET /metrics with auth should return HTTP 200 (Finding 5)."""
+    response = await metrics_client.get("/metrics", headers=_auth_headers())
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_metrics_without_auth_returns_401(
+    metrics_client: AsyncClient,
+) -> None:
+    """GET /metrics without auth must be rejected (Finding 5)."""
+    response = await metrics_client.get("/metrics")
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -51,7 +67,7 @@ async def test_metrics_content_type_is_prometheus_text(
     metrics_client: AsyncClient,
 ) -> None:
     """Content-Type should be Prometheus text format (version 0.0.4)."""
-    response = await metrics_client.get("/metrics")
+    response = await metrics_client.get("/metrics", headers=_auth_headers())
     content_type = response.headers.get("content-type", "")
     assert "text/plain" in content_type
     assert "charset=utf-8" in content_type
@@ -62,7 +78,7 @@ async def test_metrics_contains_all_metric_families(
     metrics_client: AsyncClient,
 ) -> None:
     """All 8 metric family names must appear in the response body."""
-    response = await metrics_client.get("/metrics")
+    response = await metrics_client.get("/metrics", headers=_auth_headers())
     body = response.text
     for name in METRIC_NAMES:
         assert name in body, f"Missing metric family: {name}"
@@ -74,7 +90,7 @@ async def test_requests_total_incremented_after_request(
 ) -> None:
     """After a request, the requests_total counter should be > 0."""
     # Read metrics before
-    before = await metrics_client.get("/metrics")
+    before = await metrics_client.get("/metrics", headers=_auth_headers())
     before_body = before.text
 
     # Make a request that will hit the middleware (will get 401 without auth)
@@ -84,7 +100,7 @@ async def test_requests_total_incremented_after_request(
     )
 
     # Read metrics after
-    after = await metrics_client.get("/metrics")
+    after = await metrics_client.get("/metrics", headers=_auth_headers())
     after_body = after.text
 
     # The requests_total counter should have appeared or incremented
@@ -113,7 +129,7 @@ async def test_metrics_prometheus_format_is_valid(
 
     expected = {normalized(n) for n in METRIC_NAMES}
 
-    response = await metrics_client.get("/metrics")
+    response = await metrics_client.get("/metrics", headers=_auth_headers())
     families = list(text_string_to_metric_families(response.text))
     family_names = {f.name for f in families}
     for name in expected:
@@ -127,7 +143,7 @@ async def test_metric_help_strings_are_present(
     """Every metric family should have a HELP string."""
     from prometheus_client.parser import text_string_to_metric_families
 
-    response = await metrics_client.get("/metrics")
+    response = await metrics_client.get("/metrics", headers=_auth_headers())
     families = list(text_string_to_metric_families(response.text))
     for family in families:
         assert family.documentation, f"Metric {family.name} has no HELP string"

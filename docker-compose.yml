@@ -25,14 +25,14 @@ services:
   # Valkey — ephemeral key-value store (Redis-compatible)
   # -------------------------------------------------------------------------
   valkey:
-    image: valkey/valkey:8
+    image: valkey/valkey:8.0
     container_name: anonreq-valkey
     command:
       - valkey-server
       - --save ""
       - --appendonly no
     healthcheck:
-      test: ["CMD", "valkey-cli", "ping"]
+      test: [ "CMD", "valkey-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -45,7 +45,7 @@ services:
   # Presidio Analyzer — PII / PHI detection
   # -------------------------------------------------------------------------
   presidio-analyzer:
-    image: mcr.microsoft.com/presidio-analyzer:latest
+    image: mcr.microsoft.com/presidio-analyzer:2.2.354
     container_name: anonreq-presidio
     healthcheck:
       test:
@@ -69,15 +69,18 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: anonreq-gateway
-    user: root
+    # Run as the non-root anonreq user (uid 1001, created in Dockerfile).
+    # Never run as root: the image already chowns /app at build time, so
+    # no runtime privilege drop is needed.
+    user: "1001:1001"
     command:
-      - sh
-      - -c
-      - >
-        mkdir -p /app/data/ca &&
-        chown -R anonreq:anonreq /app/data &&
-        exec su anonreq -s /bin/sh -c
-        'uvicorn anonreq.main:app --host 0.0.0.0 --port 8080 --no-server-header'
+      - uvicorn
+      - anonreq.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8080"
+      - --no-server-header
     ports:
       - "8080:8080"
     environment:
@@ -87,6 +90,7 @@ services:
       ANONREQ_VALKEY_URL: redis://valkey:6379/0
       ANONREQ_PRESIDIO_URL: http://presidio-analyzer:3000
       ANONREQ_POLICY_CONFIG_PATH: config/enterprise-policy.yaml
+      ANONREQ_ACTIVE_PRESETS: ${ANONREQ_ACTIVE_PRESETS:-}
       ANONREQ_DATABASE_URL: ${ANONREQ_DATABASE_URL:-sqlite+aiosqlite:////app/data/anonreq.db}
       ANONREQ_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?err}
       ANONREQ_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?err}
@@ -97,6 +101,10 @@ services:
       ANONREQ_BREACH_WEBHOOK_URL: ${ANONREQ_BREACH_WEBHOOK_URL:-}
       ANONREQ_ANCHOR_SIGNING_KEY: ${ANONREQ_ANCHOR_SIGNING_KEY:-}
       ANONREQ_LOG_LEVEL: ${ANONREQ_LOG_LEVEL:-INFO}
+      ANONREQ_BLOCK_DETAIL_LEVEL: ${ANONREQ_BLOCK_DETAIL_LEVEL:-summary}
+      ANONREQ_ENV: ${ANONREQ_ENV:-development}
+      ANONREQ_SINGLE_TENANT: ${ANONREQ_SINGLE_TENANT:-false}
+      ANONREQ_METRICS_NO_AUTH: ${ANONREQ_METRICS_NO_AUTH:-false}
       ANONREQ_HOST: 0.0.0.0
       ANONREQ_PORT: "8080"
       ANONREQ_CA_DIR: /app/data/ca
@@ -128,19 +136,22 @@ services:
     image: postgres:16-alpine
     container_name: anonreq-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?err}
+      # WARNING: never use default credentials in production. In
+      # production mode (ANONREQ_ENV=production) the gateway refuses to
+      # boot when POSTGRES_PASSWORD / MINIO_ROOT_* are unset or default.
+      POSTGRES_USER: ${POSTGRES_USER:-anonreq}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
       POSTGRES_DB: ${POSTGRES_DB:-anonreq}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U anonreq"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-anonreq} -d ${POSTGRES_DB:-anonreq}" ]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
       - anonreq-net
-    profiles: ["observability"]
+    profiles: [ "observability" ]
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
@@ -156,14 +167,14 @@ services:
         condition: service_healthy
     networks:
       - anonreq-net
-    profiles: ["observability"]
+    profiles: [ "observability" ]
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
   # MinIO — Compliance Archive Object Storage (Observability Profile)
   # -------------------------------------------------------------------------
   minio:
-    image: minio/minio:latest
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: anonreq-minio
     command: server /data --console-address ":9001"
     environment:
@@ -172,13 +183,13 @@ services:
     volumes:
       - minio_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - anonreq-net
-    profiles: ["observability"]
+    profiles: [ "observability" ]
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
@@ -187,8 +198,10 @@ services:
   prometheus:
     image: prom/prometheus:v2.53.0
     container_name: anonreq-prometheus
+    build:
+      context: ./docker/prometheus
+      dockerfile: Dockerfile
     volumes:
-      - ./docker/prometheus:/etc/prometheus
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -198,8 +211,9 @@ services:
         condition: service_started
     networks:
       - anonreq-net
-    profiles: ["observability"]
-    restart: unless-stopped
+    # prometheus
+    ports:
+      - "9090:9090"
 
   # -------------------------------------------------------------------------
   # Grafana — Visualization Dashboards (Observability Profile)
@@ -207,18 +221,21 @@ services:
   grafana:
     image: grafana/grafana:11.0.0
     container_name: anonreq-grafana
+    build:
+      context: ./docker/grafana
+      dockerfile: Dockerfile
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/slo_dashboard.json
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/slo_dashboard.json
     volumes:
-      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
-      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
     networks:
       - anonreq-net
-    profiles: ["observability"]
+    ports:
+      - "3000:3000"
+    profiles: [ "observability" ]
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
@@ -234,7 +251,7 @@ services:
         condition: service_started
     networks:
       - anonreq-net
-    profiles: ["observability"]
+    profiles: [ "observability" ]
     restart: unless-stopped
 
 networks:

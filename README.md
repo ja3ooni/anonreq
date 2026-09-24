@@ -2,6 +2,8 @@
 
 AnonReq is a self-hosted, high-performance anonymization gateway designed to sit between enterprise applications and external LLM APIs (e.g., OpenAI, Anthropic, Gemini, Ollama). It intercepts outbound requests, automatically detects and tokenizes Personally Identifiable Information (PII/PHI), forwards sanitized requests to upstream providers, and restores the original PII tokens in the incoming response streams—all completely in-memory, without storing sensitive data on disk.
 
+Built by [Abdullah Al-Jauni](https://infratechton.com/) — AI consultant and infrastructure strategist based in Frankfurt, Germany.
+
 ---
 
 ## Key Features & Constraints

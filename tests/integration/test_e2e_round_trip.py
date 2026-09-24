@@ -310,7 +310,6 @@ class TestFullRoundTrip:
 
 class TestFailSecure:
     """Fail-secure behavior: provider errors must abort the pipeline cleanly."""
-
     @pytest.mark.asyncio
     async def test_provider_http_error_aborts_pipeline(self, cache_manager):
         """Provider returning HTTP 500 → pipeline aborts with 502 PipelineAbortError."""
@@ -412,3 +411,114 @@ class TestFailSecure:
 
         # Restoration never ran → mapping NOT cleaned up
         # (CleanupStage only runs after successful restoration)
+
+
+class TestStreamingSplitToken:
+    """A token split across two SSE chunks must still restore (Finding 9).
+
+    Exercises the TailBuffer FSM + StreamingRestorationStage path: the
+    partial ``[TYPE_N`` at the chunk boundary is retained until the
+    completing chunk arrives, then restored to the original value.
+    """
+
+    @pytest.mark.asyncio
+    async def test_split_token_restores_original(self, cache_manager):
+        from anonreq.streaming.restoration import StreamingRestorationStage
+        from anonreq.streaming.stream_event import EventType, StreamEvent
+        from anonreq.streaming.tail_buffer import TailBuffer
+
+        presidio_client = AsyncMock(spec=PresidioClient)
+        presidio_client.analyze_text_nodes = AsyncMock(return_value=[
+            [{"entity_type": "PERSON", "start": 11, "end": 21, "score": 0.95}],
+        ])
+
+        pipeline = _build_pipeline(cache_manager, presidio_client)
+        proc_ctx = _make_proc_ctx()
+
+        with respx.mock:
+            respx.post(f"{PROVIDER_BASE_URL}/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200,
+                    json=_mock_provider_response("ack"),
+                ),
+            )
+            proc_ctx = await pipeline.run(proc_ctx)
+
+        assert not proc_ctx.has_errors(), f"Pipeline errors: {proc_ctx.errors}"
+        assert proc_ctx.token_mappings, "expected a non-empty token mapping"
+
+        # Pick a real token from this run and split it mid-token.
+        token = sorted(proc_ctx.token_mappings)[0]
+        original = proc_ctx.token_mappings[token]
+        cut = len(token) // 2
+        chunk_a, chunk_b = token[:cut], token[cut:]
+
+        buffer = TailBuffer()
+        restorer = StreamingRestorationStage(cache_manager)
+        # CleanupStage deleted the mapping after the round-trip above;
+        # re-seed it so the streaming session can load it (as a live
+        # stream would before cleanup runs).
+        await cache_manager.store_mapping(
+            TENANT_ID, CONTEXT_ID, dict(proc_ctx.token_mappings)
+        )
+        await restorer.start_session(TENANT_ID, CONTEXT_ID)
+
+        assembled: list[str] = []
+        for piece in (f"hello {chunk_a}", f"{chunk_b} bye"):
+            event = StreamEvent(
+                event_type=EventType.TEXT_DELTA,
+                provider="mock",
+                delta_text=piece,
+            )
+            async for out in buffer.ingest(event):
+                assembled.append(restorer.restore_text(out))
+        assembled.append(restorer.restore_text(buffer.flush_remaining()))
+
+        full = "".join(assembled)
+        assert original in full, f"original {original!r} missing from {full!r}"
+        assert TOKEN_PATTERN.search(full) is None, (
+            f"residual token in streaming output: {full!r}"
+        )
+
+
+class TestCacheFailureFailsSecure:
+    """Killed cache mid-request → 5xx and upstream receives nothing (Finding 9)."""
+
+    @pytest.mark.asyncio
+    async def test_cache_failure_blocks_provider_call(self, cache_manager):
+        class _FailingCache:
+            """Cache double whose writes always fail (simulates dead Valkey)."""
+
+            def __init__(self, real):
+                self._real = real
+
+            def __getattr__(self, name):
+                if name == "store_mapping":
+                    raise RuntimeError("Valkey unavailable")
+                return getattr(self._real, name)
+
+            async def store_mapping(self, *args, **kwargs):
+                raise RuntimeError("Valkey unavailable")
+
+        presidio_client = AsyncMock(spec=PresidioClient)
+        presidio_client.analyze_text_nodes = AsyncMock(return_value=[
+            [{"entity_type": "PERSON", "start": 11, "end": 21, "score": 0.95}],
+        ])
+
+        pipeline = _build_pipeline(_FailingCache(cache_manager), presidio_client)
+        proc_ctx = _make_proc_ctx()
+
+        with respx.mock:
+            route = respx.post(
+                f"{PROVIDER_BASE_URL}/v1/chat/completions"
+            ).mock(
+                return_value=httpx.Response(
+                    200, json=_mock_provider_response("should never be called")
+                ),
+            )
+            proc_ctx = await pipeline.run(proc_ctx)
+
+        assert proc_ctx.has_errors(), "cache failure must abort the pipeline"
+        assert proc_ctx.errors[-1].status_code == 500
+        assert not route.called, "upstream must receive nothing on cache failure"
+        assert proc_ctx.restored_response is None

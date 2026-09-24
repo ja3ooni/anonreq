@@ -332,6 +332,10 @@ def create_app() -> FastAPI:
         await bootstrap_trust_center(app, cache_manager)
         await bootstrap_compliance_services(app)
 
+        from anonreq.startup_checks import assert_middleware_ordering
+
+        assert_middleware_ordering(app)
+
         log.info("Pre-flight checks passed, accepting traffic", component="lifespan")
         yield
 
@@ -387,14 +391,30 @@ def create_app() -> FastAPI:
 
     app.add_middleware(IngressMTLSMiddleware)
 
-    # Add /metrics endpoint for Prometheus scraping (no auth — scrapers
-    # connect on internal networks; secured at network level)
-    @app.get("/metrics")
-    async def metrics() -> Response:
-        return Response(
-            content=generate_latest(REGISTRY),
-            media_type="text/plain; charset=utf-8",
+    # Add /metrics endpoint for Prometheus scraping. Requires auth by
+    # default; set ANONREQ_METRICS_NO_AUTH=true only for
+    # Prometheus-behind-sidecar topologies (secured at network level).
+    if settings.METRICS_NO_AUTH:
+        log.warning(
+            "Metrics endpoint exposed without auth "
+            "(ANONREQ_METRICS_NO_AUTH=true)",
+            component="lifespan",
         )
+
+        @app.get("/metrics")
+        async def metrics() -> Response:
+            return Response(
+                content=generate_latest(REGISTRY),
+                media_type="text/plain; charset=utf-8",
+            )
+    else:
+
+        @app.get("/metrics", dependencies=[Depends(auth_context)])
+        async def metrics(_ctx: Any = Depends(auth_context)) -> Response:
+            return Response(
+                content=generate_latest(REGISTRY),
+                media_type="text/plain; charset=utf-8",
+            )
 
     # Middleware: set request_id BEFORE auth runs so it's available in
     # 401 error responses (per RESEARCH Open Question 4).
@@ -430,10 +450,16 @@ def create_app() -> FastAPI:
     # Phase 26: License router (requires auth)
     app.include_router(license_router, dependencies=[Depends(auth_context)])
 
-    # PAC file endpoint — public (no auth, used by browsers/proxies)
+    # PAC file endpoint — public by design (no auth, used by browsers/proxies).
+    # Serves only gateway routing topology (proxy host/port + AI domains),
+    # never credentials. Admin custom-rules endpoints require admin auth
+    # (see proxy/pac.py).
     app.include_router(pac_router)
 
-    # Trust Center router — public (no auth), config-gated, rate-limited
+    # Trust Center router — public (no auth), config-gated, rate-limited.
+    # Public-by-design: serves only attestation metadata, never keys or
+    # customer identifiers. Disabled by default (trust_center.yaml
+    # ``enabled: false``); bootstrap_trust_center logs the effective state.
     app.include_router(trust_center_router)
     log.info("Trust Center router registered", component="lifespan")
 

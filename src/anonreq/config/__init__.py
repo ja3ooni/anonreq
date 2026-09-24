@@ -213,6 +213,29 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_BLOCK_DETAIL_LEVEL",
         description="Detail level for BLOCK responses: none | summary | full.",
     )
+    SINGLE_TENANT: bool = Field(
+        default=False,
+        validation_alias="ANONREQ_SINGLE_TENANT",
+        description=(
+            "Explicit single-tenant mode. When true, PolicyMiddleware may "
+            "fall back to tenant 'default' if TenantContextMiddleware did "
+            "not set a tenant. When false (default), a missing tenant "
+            "context fails secure with HTTP 503."
+        ),
+    )
+    METRICS_NO_AUTH: bool = Field(
+        default=False,
+        validation_alias="ANONREQ_METRICS_NO_AUTH",
+        description=(
+            "Allow unauthenticated /metrics scraping (Prometheus-behind-"
+            "sidecar topologies). Default false — /metrics requires auth."
+        ),
+    )
+    ENV: str = Field(
+        default="development",
+        validation_alias="ANONREQ_ENV",
+        description="Deployment environment: development | staging | production.",
+    )
 
     @field_validator("API_KEY", mode="before")
     @classmethod
