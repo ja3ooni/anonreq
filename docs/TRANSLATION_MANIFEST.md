@@ -2,11 +2,11 @@
 
 This manifest tracks the translation status of the AnonReq gateway documentation from the English (`en/`) sources to the target languages.
 
-## Summary Status (As of 2026-07-08)
+## Summary Status (As of 2026-09-29)
 - **Total English Source Files:** 9
-- **Target Languages:** 6 (FR, ES, PT, IT, AR, NL)
-- **Total Target Files:** 54 (plus 1 Arabic RTL guide README)
-- **Completed Translations:** 54 / 54 (100% draft status)
+- **Target Languages:** 7 (FR, ES, PT, IT, AR, NL, DE)
+- **Total Target Files:** 63 (plus 1 Arabic RTL guide README)
+- **Completed Translations:** 63 / 63 (100% draft status)
 - **Overall Project Status:** In human review phase
 
 ## Lifecycle Statuses Legend
@@ -19,14 +19,14 @@ This manifest tracks the translation status of the AnonReq gateway documentation
 
 ## Translation Tracking Matrix
 
-| Source File | FR | ES | PT | IT | AR | NL | Notes |
-|---|---|---|---|---|---|---|---|
-| `docs/en/getting-started.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | Core introduction |
-| `docs/en/installation.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | Install instructions |
-| `docs/en/deployment.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | Production configs |
-| `docs/en/api-reference.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | OpenAPI & endpoints |
-| `docs/en/compliance.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | Presets & locales |
-| `docs/en/faq.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | Frequently Asked Questions |
-| `docs/en/architecture.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | System design prose |
-| `docs/en/security.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | Security policy |
-| `docs/en/operations.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | Operations/SLO guide |
+| Source File | FR | ES | PT | IT | AR | NL | DE | Notes |
+|---|---|---|---|---|---|---|---|---|
+| `docs/en/getting-started.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | Core introduction |
+| `docs/en/installation.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | Install instructions |
+| `docs/en/deployment.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | Production configs |
+| `docs/en/api-reference.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | draft 2026-09-29 | OpenAPI & endpoints |
+| `docs/en/compliance.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | reviewed 2026-09-29 | Presets & locales |
+| `docs/en/faq.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | Frequently Asked Questions |
+| `docs/en/architecture.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | System design prose |
+| `docs/en/security.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | Security policy |
+| `docs/en/operations.md` | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-07-08 | draft 2026-09-29 | Operations/SLO guide |
