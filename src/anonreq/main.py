@@ -30,6 +30,7 @@ from structlog import get_logger
 
 from anonreq.__about__ import __version__
 from anonreq.admin.router import tenant_admin_router
+from anonreq.anonymization_guard import assert_anonymization_required, effective_default_action
 from anonreq.admin.routes import admin_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
 from anonreq.auth.oidc import build_oidc_verifier
@@ -245,6 +246,14 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         log.info("Starting pre-flight checks", component="lifespan")
+
+        assert_anonymization_required(
+            required=settings.REQUIRE_ANONYMIZATION,
+            default_action=effective_default_action(
+                settings.CLASSIFICATION_DEFAULT_ACTION, settings.CLASSIFICATION_CONFIG_PATH
+            ),
+            mode=active_mode,
+        )
 
         state = get_app_state(app)
 

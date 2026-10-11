@@ -88,6 +88,15 @@ class Settings(BaseSettings):
             "(PASS|ANONYMIZE|BLOCK|ROUTE_LOCAL). When set, wins over YAML."
         ),
     )
+    REQUIRE_ANONYMIZATION: bool = Field(
+        default=False,
+        validation_alias="ANONREQ_REQUIRE_ANONYMIZATION",
+        description=(
+            "Refuse to start unless the default classification action is ANONYMIZE and the "
+            "proxy mode performs detection. Recommended for any deployment that promises "
+            "personal data never reaches the provider."
+        ),
+    )
     POLICY_CONFIG_PATH: str = Field(
         default="config/enterprise-policy.yaml",
         validation_alias="ANONREQ_POLICY_CONFIG_PATH",

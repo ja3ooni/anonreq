@@ -17,6 +17,7 @@ x-gateway-env: &gateway-env
   ANONREQ_SINGLE_TENANT: "false"
   # Shipped default is PASS (forward unmatched requests untouched). Corral requires ANONYMIZE.
   ANONREQ_CLASSIFICATION_DEFAULT_ACTION: ANONYMIZE
+  ANONREQ_REQUIRE_ANONYMIZATION: "true"   # refuse to boot if the above is ever removed
   ANONREQ_PROXY_MODE: full   # explicit: the Settings default says proxy-only (no detection)
   ANONREQ_TENANT_CACHE_TTL_SECONDS: "2"
   ANONREQ_TENANT_NEGATIVE_CACHE_TTL_SECONDS: "1"

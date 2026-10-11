@@ -103,3 +103,40 @@ def test_unknown_and_disabled_tenants_are_rejected(tenant: str) -> None:
 
 def test_chat_key_cannot_manage_tenants() -> None:
     assert httpx.get(f"{GATEWAY}/v1/admin/tenants", headers=CHAT, timeout=5).status_code == 401
+
+
+def _compose(*args: str) -> None:
+    import os
+    import subprocess
+
+    subprocess.run(
+        ["docker", "compose", "-f", "docker-compose.corral-test.yml", *args],
+        check=True, capture_output=True, timeout=120,
+        env={**os.environ, "PRESIDIO_IMAGE": os.environ.get("PRESIDIO_IMAGE", "mcr.microsoft.com/presidio-analyzer:latest")},
+    )
+
+
+def _wait_ready() -> None:
+    import time
+
+    for _ in range(60):
+        try:
+            if httpx.get(f"{GATEWAY}/health/ready", headers=CHAT, timeout=3).status_code == 200:
+                return
+        except httpx.HTTPError:
+            pass
+        time.sleep(2)
+    raise AssertionError("gateway did not become ready again")
+
+
+@pytest.mark.parametrize("dependency", ["presidio-analyzer", "valkey"])
+def test_fails_closed_when_a_dependency_is_down(tenant: str, dependency: str) -> None:
+    """If detection or the cache is unavailable, nothing may be forwarded to the provider."""
+    _compose("stop", dependency)
+    try:
+        resp = _chat(tenant, f"Write to {CANARIES[0]} about {CANARIES[1]}")
+        assert resp.status_code >= 500, f"expected a 5xx, got {resp.status_code}"
+        assert httpx.get(f"{STUB}/__received", timeout=5).json() == []
+    finally:
+        _compose("start", dependency)
+        _wait_ready()
