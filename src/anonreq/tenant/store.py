@@ -53,7 +53,7 @@ class TenantStore:
         try:
             async with self._sessions() as session:
                 await session.execute(select(TenantRegistryModel.id).limit(1))
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, OSError) as exc:
             raise TenantStoreError(
                 "tenant table is not readable; run 'alembic upgrade head'"
             ) from exc
@@ -63,7 +63,7 @@ class TenantStore:
             async with self._sessions() as session:
                 row = await self._fetch(session, tenant_id)
                 return row.to_profile() if row else None
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, OSError) as exc:
             raise TenantStoreError("tenant lookup failed") from exc
 
     async def list_all(self) -> list[TenantProfile]:
@@ -73,7 +73,7 @@ class TenantStore:
                     select(TenantRegistryModel).order_by(TenantRegistryModel.tenant_id)
                 )
                 return [row.to_profile() for row in result.scalars().all()]
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, OSError) as exc:
             raise TenantStoreError("tenant listing failed") from exc
 
     async def upsert(self, profile: TenantProfile) -> tuple[TenantProfile, bool]:
@@ -89,7 +89,7 @@ class TenantStore:
             except IntegrityError as exc:
                 if attempt == 1:
                     raise TenantStoreError("tenant upsert conflicted twice") from exc
-            except SQLAlchemyError as exc:
+            except (SQLAlchemyError, OSError) as exc:
                 raise TenantStoreError("tenant upsert failed") from exc
         raise TenantStoreError("tenant upsert failed")  # pragma: no cover
 
@@ -102,7 +102,7 @@ class TenantStore:
                 row.enabled = enabled
                 row.updated_at = datetime.now(UTC)
                 return row.to_profile()
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, OSError) as exc:
             raise TenantStoreError("tenant update failed") from exc
 
     async def _upsert_once(self, profile: TenantProfile) -> tuple[TenantProfile, bool]:

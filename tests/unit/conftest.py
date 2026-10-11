@@ -44,9 +44,16 @@ def pg_template(tmp_path_factory: pytest.TempPathFactory) -> Iterator[tuple[str,
     data_dir = tmp_path_factory.mktemp("pg")
     server = pgserver.get_server(data_dir, cleanup_mode="stop")
     socket_dir = str(data_dir)
-    asyncio.run(_admin(socket_dir, "CREATE DATABASE tpl"))
+    # Synchronous on purpose: this fixture can be requested from inside a running event loop
+    # (via getfixturevalue in an async fixture), where asyncio.run() would raise.
+    server.psql("CREATE DATABASE tpl;")
 
-    env = {**os.environ, "ANONREQ_DATABASE_URL": _pg_url(socket_dir, "tpl")}
+    env = {
+        **os.environ,
+        "ANONREQ_DATABASE_URL": _pg_url(socket_dir, "tpl"),
+        # pytest's `pythonpath = ["src"]` does not reach a child process.
+        "PYTHONPATH": str(REPO_ROOT / "src"),
+    }
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=REPO_ROOT, env=env, capture_output=True, text=True, timeout=120,
