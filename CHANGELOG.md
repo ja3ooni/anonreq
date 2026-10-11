@@ -7,7 +7,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Initial project scaffolding
+- Database-backed tenant registry shared by all replicas, with a short per-replica cache (`ANONREQ_TENANT_CACHE_TTL_SECONDS`). Startup fails if the `tenant` table is missing.
+- Tenant admin API: `GET/PUT /v1/admin/tenants[/{id}]`, `POST .../disable`, `POST .../enable`. Authenticated with the admin credential only.
+- Per-tenant enforcement of `allowed_models` and `allowed_providers`.
+- `docs/en/multi-tenant.md`.
+- `ANONREQ_API_KEY_PREVIOUS`: a second accepted chat key so the key can be rotated without failed requests.
+
+### Fixed
+
+- Documentation and Helm chart used port 8000 and env var names that do not exist (`ANONREQ_CACHE_URL`, `PRESIDIO_ANALYZER_URL`, `ANONREQ_COMPLIANCE_PRESET`, `ANONREQ_LOCALE`, `ANONREQ_CONFIDENCE_THRESHOLD`, `ANONREQ_CACHE_PASSWORD`). The gateway listens on 8080 and uses `ANONREQ_VALKEY_URL`, `ANONREQ_PRESIDIO_URL`, `ANONREQ_ACTIVE_PRESETS`.
+- Helm liveness and readiness probes called `/health` and `/ready` without the bearer key (and `/ready` does not exist); they now run the same authenticated check as the Dockerfile.
+- `greenlet` was not declared, so async SQLAlchemy failed on Apple Silicon. Declared via `sqlalchemy[asyncio]`.
+
+### Known gaps
+
+- `spend_limits`, `rate_limits`, and `kms_key_arn` on a tenant are stored but not enforced.
+- Compliance presets are deployment-wide, not per tenant.
+- The policy, provider, usage, incident, and compliance admin routers in `admin/router.py` are not mounted by `create_app`.
+- Six tests in `tests/policy/test_integration.py` and `tests/unit/middleware/test_policy.py` fail on a clean checkout.
 
 ## [0.1.0] - 2026-06-19
 

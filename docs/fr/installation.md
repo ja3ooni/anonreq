@@ -27,9 +27,9 @@ cp .env.example .env
 |----------|--------|------------|-------------|
 | `ANONREQ_API_KEY` | Oui | — | Jeton porteur statique pour l'authentification API (≥ 32 caractères) |
 | `ANONREQ_LOG_LEVEL` | Non | `INFO` | Niveau de journalisation |
-| `ANONREQ_CACHE_TTL` | Non | `600` | Durée de vie (TTL) du cache de session en secondes |
+| `ANONREQ_CACHE_TTL_SECONDS` | Non | `300` | Durée de vie (TTL) du cache de session en secondes |
 | `ANONREQ_PRESIDIO_URL` | Non | `http://presidio-analyzer:5001` | URL de l'analyseur Presidio |
-| `ANONREQ_VALKEY_URL` | Non | `valkey://localhost:6379` | Chaîne de connexion Valkey |
+| `ANONREQ_VALKEY_URL` | Non | `redis://localhost:6379/0` | Chaîne de connexion Valkey |
 
 Au moins une clé API de fournisseur (`ANONREQ_OPENAI_API_KEY`, `ANONREQ_ANTHROPIC_API_KEY` ou `ANONREQ_GEMINI_API_KEY`) doit être configurée.
 
@@ -44,7 +44,7 @@ Cela démarre les trois services : `anonreq` (la passerelle), `presidio-analyzer
 ## Vérifier l'installation
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 Réponse attendue : HTTP 200 avec `{"status":"pass","checks":{"presidio":"pass","valkey":"pass"}}`.
@@ -54,7 +54,7 @@ Réponse attendue : HTTP 200 avec `{"status":"pass","checks":{"presidio":"pass",
 | Problème | Cause probable | Solution |
 |----------|----------------|----------|
 | Le test de santé retourne 503 | Le modèle Presidio est encore en cours de chargement | Attendre 60 secondes pour le téléchargement du modèle, puis réessayer |
-| `docker compose up` échoue | Le port 8000 est en cours d'utilisation | Arrêter les autres services ou modifier le mappage des ports |
+| `docker compose up` échoue | Le port 8080 est en cours d'utilisation | Arrêter les autres services ou modifier le mappage des ports |
 | `curl: connection refused` | La passerelle n'est pas prête | Exécuter `docker compose ps` pour vérifier l'état |
 
 ---

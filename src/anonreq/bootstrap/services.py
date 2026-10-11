@@ -149,6 +149,12 @@ async def bootstrap_mitm_proxy(app: FastAPI) -> None:
     """Set up CA manager, TLS interceptor, MITM handler and middleware."""
     state = get_app_state(app)
 
+    # Only transparent mode intercepts TLS. In full and proxy-only mode there is no CA,
+    # so a non-root container does not need a writable CA directory to start.
+    if state.proxy_mode is None or not requires_mitm(state.proxy_mode):
+        log.info("MITM proxy not required for this mode; skipped", component="lifespan")
+        return
+
     from anonreq.proxy.ca_manager import CAManager
     from anonreq.proxy.mitm_handler import MITMHandler, mitm_middleware
     from anonreq.proxy.tls import ConfigurationError, TLSInterceptor
@@ -208,6 +214,24 @@ async def bootstrap_audit_services(app: FastAPI) -> None:
     anchor_config = AnchorConfig(signing_key=settings.ANCHOR_SIGNING_KEY)
     chain_anchor = ChainAnchorService(audit_chain, audit_engine, anchor_config)
     state.chain_anchor = chain_anchor
+
+
+async def bootstrap_tenant_store(app: FastAPI) -> None:
+    """Attach the shared tenant database to the registry.
+
+    Runs after ``bootstrap_audit_services`` so the engine exists. Startup fails
+    if the ``tenant`` table is missing (fail-secure): a gateway with an empty
+    registry would reject every tenant but the seed ones, hiding the real fault.
+    """
+    from anonreq.tenant.store import TenantStore
+
+    state = get_app_state(app)
+    registry = getattr(app.state, "tenant_registry", None)
+    if registry is None or state.audit_engine is None:
+        return
+    store = TenantStore(state.audit_engine)
+    await store.check_schema()
+    registry.attach_store(store)
 
 
 async def bootstrap_slo_services(app: FastAPI, cache_manager: Any) -> None:

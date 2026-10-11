@@ -66,7 +66,12 @@ async def verify_api_key(
             API key.
     """
     token = credentials.credentials
-    if not hmac.compare_digest(token, settings.API_KEY or ""):
+    # Both comparisons always run so timing does not reveal which key matched.
+    matches_current = hmac.compare_digest(token, settings.API_KEY or "")
+    matches_previous = bool(settings.API_KEY_PREVIOUS) and hmac.compare_digest(
+        token, settings.API_KEY_PREVIOUS or ""
+    )
+    if not (matches_current or matches_previous):
         raise AuthenticationError()
     return token
 

@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 
+from anonreq.config import settings
 from anonreq.exceptions import PipelineAbortError
 from anonreq.providers.adapter import (
     ProviderAdapter,
@@ -20,7 +21,16 @@ from anonreq.providers.capabilities import CapabilityResolver
 from anonreq.providers.registry import resolve_api_key
 from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent, ToolCallDelta
 
-_OPENAI_BASE_URL = "https://api.openai.com/v1"
+
+
+def _openai_base_url() -> str:
+    """OpenAI-compatible base URL, honouring ``PROVIDER_BASE_URL``.
+
+    The streaming path used to hard-code ``https://api.openai.com/v1`` while the
+    non-streaming path honoured ``PROVIDER_BASE_URL``; both now agree. This is
+    also what lets tests and Azure/OpenAI-compatible endpoints be targeted.
+    """
+    return f"{settings.PROVIDER_BASE_URL.rstrip('/')}/v1"
 
 
 class OpenAIAdapter(ProviderAdapter):
@@ -52,7 +62,7 @@ class OpenAIAdapter(ProviderAdapter):
 
         api_key = resolve_api_key("openai")
         return ProviderRequest(
-            url=f"{_OPENAI_BASE_URL}/chat/completions",
+            url=f"{_openai_base_url()}/chat/completions",
             headers={
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",

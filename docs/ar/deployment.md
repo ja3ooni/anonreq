@@ -14,7 +14,7 @@
 
 ### أمن الشبكة
 
-ترتبط البوابة بالمنفذ 8000. يتم عزل Presidio Analyzer و Valkey على شبكة Docker داخلية ولا يمكن الوصول إليهما مباشرة من الخارج.
+ترتبط البوابة بالمنفذ 8080. يتم عزل Presidio Analyzer و Valkey على شبكة Docker داخلية ولا يمكن الوصول إليهما مباشرة من الخارج.
 
 ### إنهاء TLS
 
@@ -26,17 +26,14 @@
 |----------|------|---------|----------|-------------|
 | `ANONREQ_API_KEY` | string | — | نعم | رمز مصادقة API (أكبر من أو يساوي 32 حرفًا) |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | لا | مستوى السجلات: DEBUG, INFO, WARNING, ERROR |
-| `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | لا | عنوان URL الخاص بخادم Valkey |
-| `ANONREQ_CACHE_PASSWORD` | string | — | لا | كلمة مرور Valkey المطلوبة |
-| `ANONREQ_CACHE_TTL` | int | `600` | لا | صلاحية الجلسة بالثواني (60-3600) |
+| `ANONREQ_VALKEY_URL` | string | `redis://localhost:6379/0` | لا | عنوان URL الخاص بخادم Valkey |
+| `ANONREQ_CACHE_TTL_SECONDS` | int | `300` | لا | صلاحية الجلسة بالثواني (60-3600) |
 | `ANONREQ_OPENAI_API_KEY` | string | — | مشروط | مفتاح API الخاص بـ OpenAI |
 | `ANONREQ_ANTHROPIC_API_KEY` | string | — | مشروط | مفتاح API الخاص بـ Anthropic |
 | `ANONREQ_GEMINI_API_KEY` | string | — | مشروط | مفتاح API الخاص بـ Google Gemini |
 | `ANONREQ_OLLAMA_BASE_URL` | string | — | لا | عنوان URL لخادم Ollama |
-| `ANONREQ_LOCALE` | string | `en-US` | لا | الإعداد الإقليمي الافتراضي للكشف |
-| `ANONREQ_COMPLIANCE_PRESET` | string | — | لا | اسم preset الامتثال |
-| `ANONREQ_CONFIDENCE_THRESHOLD` | float | `0.7` | لا | عتبة الثقة للكشف (0.0-1.0) |
-| `PRESIDIO_ANALYZER_URL` | string | `http://presidio-analyzer:5001` | لا | عنوان URL الخاص بـ Presidio Analyzer |
+| `ANONREQ_ACTIVE_PRESETS` | string | — | لا | اسم preset الامتثال |
+| `ANONREQ_PRESIDIO_URL` | string | `http://presidio-analyzer:5001` | لا | عنوان URL الخاص بـ Presidio Analyzer |
 
 ## تكوين الإنتاج لـ Docker Compose
 
@@ -73,7 +70,7 @@ services:
 
 1. اسحب أحدث صورة: `docker compose pull anonreq`
 2. أعد إنشاء الخدمات: `docker compose up -d --force-recreate anonreq`
-3. تحقق من الصحة: `curl http://localhost:8000/health`
+3. تحقق من الصحة: `curl http://localhost:8080/health`
 
 ## الأمان
 

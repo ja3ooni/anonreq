@@ -14,7 +14,7 @@ I log vengono scritti su stdout in formato JSON strutturato. Configurare l'aggre
 
 ### Sicurezza di rete
 
-Il gateway ascolta sulla porta 8000. Presidio Analyzer e Valkey sono isolati su una rete Docker interna e non sono direttamente accessibili dall'esterno.
+Il gateway ascolta sulla porta 8080. Presidio Analyzer e Valkey sono isolati su una rete Docker interna e non sono direttamente accessibili dall'esterno.
 
 ### Terminazione TLS
 
@@ -26,17 +26,14 @@ Terminare TLS sul proxy inverso (nginx, Caddy o un bilanciatore di carico cloud)
 |-----------|------|-------------|-----------|-------------|
 | `ANONREQ_API_KEY` | string | — | Sì | Bearer token per l'autenticazione API (≥ 32 caratteri) |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | No | Livello di log: DEBUG, INFO, WARNING, ERROR |
-| `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | No | URL del server Valkey |
-| `ANONREQ_CACHE_PASSWORD` | string | — | No | Password Valkey |
-| `ANONREQ_CACHE_TTL` | int | `600` | No | TTL della sessione in secondi (60–3600) |
+| `ANONREQ_VALKEY_URL` | string | `redis://localhost:6379/0` | No | URL del server Valkey |
+| `ANONREQ_CACHE_TTL_SECONDS` | int | `300` | No | TTL della sessione in secondi (60–3600) |
 | `ANONREQ_OPENAI_API_KEY` | string | — | Condizionale | Chiave API OpenAI |
 | `ANONREQ_ANTHROPIC_API_KEY` | string | — | Condizionale | Chiave API Anthropic |
 | `ANONREQ_GEMINI_API_KEY` | string | — | Condizionale | Chiave API Google Gemini |
 | `ANONREQ_OLLAMA_BASE_URL` | string | — | No | URL del server Ollama |
-| `ANONREQ_LOCALE` | string | `en-US` | No | Locale predefinito per il rilevamento |
-| `ANONREQ_COMPLIANCE_PRESET` | string | — | No | Nome del preset di conformità |
-| `ANONREQ_CONFIDENCE_THRESHOLD` | float | `0.7` | No | Soglia di confidenza del rilevamento (0.0–1.0) |
-| `PRESIDIO_ANALYZER_URL` | string | `http://presidio-analyzer:5001` | No | URL di Presidio Analyzer |
+| `ANONREQ_ACTIVE_PRESETS` | string | — | No | Nome del preset di conformità |
+| `ANONREQ_PRESIDIO_URL` | string | `http://presidio-analyzer:5001` | No | URL di Presidio Analyzer |
 
 ## Configurazione di produzione Docker Compose
 
@@ -73,7 +70,7 @@ I log JSON strutturati vengono emessi su stdout. Campi chiave: `timestamp`, `lev
 
 1. Scaricare l'immagine più recente: `docker compose pull anonreq`
 2. Ricreare i servizi: `docker compose up -d --force-recreate anonreq`
-3. Verificare lo stato di integrità: `curl http://localhost:8000/health`
+3. Verificare lo stato di integrità: `curl http://localhost:8080/health`
 
 ## Sicurezza
 

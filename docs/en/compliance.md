@@ -35,7 +35,7 @@ curl -H "X-AnonReq-Compliance-Preset: gdpr" \
 Query available presets and their configurations:
 
 ```bash
-curl http://localhost:8000/v1/compliance/presets
+curl http://localhost:8080/v1/compliance/presets
 ```
 
 ## Multiple Presets

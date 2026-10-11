@@ -61,6 +61,10 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 # Copy application source and configuration
 COPY --from=builder /app/src/ src/
 COPY --from=builder /app/config/ config/
+# Migrations: the runtime image must be able to run `alembic upgrade head`
+# (used as a one-off task before each deploy).
+COPY alembic.ini alembic.ini
+COPY alembic/ alembic/
 
 # Create a non-root user for runtime security
 RUN addgroup --system --gid 1001 anonreq && \

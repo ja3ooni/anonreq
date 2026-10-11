@@ -14,7 +14,7 @@ Protokolle werden im strukturierten JSON-Format auf stdout ausgegeben. Konfiguri
 
 ### Netzwerksicherheit
 
-Das Gateway bindet an Port 8000. Presidio Analyzer und Valkey sind in einem internen Docker-Netzwerk isoliert und von außen nicht direkt erreichbar.
+Das Gateway bindet an Port 8080. Presidio Analyzer und Valkey sind in einem internen Docker-Netzwerk isoliert und von außen nicht direkt erreichbar.
 
 ### TLS-Terminierung
 
@@ -26,17 +26,14 @@ Terminieren Sie TLS an Ihrem Reverse-Proxy (nginx, Caddy oder Cloud-Load-Balance
 |----------|-----|----------|--------------|--------------|
 | `ANONREQ_API_KEY` | string | — | Ja | Bearer-Token für API-Authentifizierung (≥ 32 Zeichen) |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | Nein | Protokollierungsstufe: DEBUG, INFO, WARNING, ERROR |
-| `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | Nein | Valkey-Server-URL |
-| `ANONREQ_CACHE_PASSWORD` | string | — | Nein | Valkey requirepass |
-| `ANONREQ_CACHE_TTL` | int | `600` | Nein | Sitzungs-TTL in Sekunden (60–3600) |
+| `ANONREQ_VALKEY_URL` | string | `redis://localhost:6379/0` | Nein | Valkey-Server-URL |
+| `ANONREQ_CACHE_TTL_SECONDS` | int | `300` | Nein | Sitzungs-TTL in Sekunden (60–3600) |
 | `ANONREQ_OPENAI_API_KEY` | string | — | Bedingt | OpenAI API-Schlüssel |
 | `ANONREQ_ANTHROPIC_API_KEY` | string | — | Bedingt | Anthropic API-Schlüssel |
 | `ANONREQ_GEMINI_API_KEY` | string | — | Bedingt | Google Gemini API-Schlüssel |
 | `ANONREQ_OLLAMA_BASE_URL` | string | — | Nein | Ollama-Server-URL |
-| `ANONREQ_LOCALE` | string | `en-US` | Nein | Standard-Erkennungs-Locale |
-| `ANONREQ_COMPLIANCE_PRESET` | string | — | Nein | Name des Compliance-Presets |
-| `ANONREQ_CONFIDENCE_THRESHOLD` | float | `0.7` | Nein | Erkennungs-Konfidenzschwellenwert (0.0–1.0) |
-| `PRESIDIO_ANALYZER_URL` | string | `http://presidio-analyzer:5001` | Nein | Presidio Analyzer URL |
+| `ANONREQ_ACTIVE_PRESETS` | string | — | Nein | Name des Compliance-Presets |
+| `ANONREQ_PRESIDIO_URL` | string | `http://presidio-analyzer:5001` | Nein | Presidio Analyzer URL |
 
 ## Docker Compose Produktivkonfiguration
 
@@ -73,7 +70,7 @@ Strukturierte JSON-Logs werden auf stdout ausgegeben. Wichtige Felder: `timestam
 
 1. Neuestes Image abrufen: `docker compose pull anonreq`
 2. Dienste neu erstellen: `docker compose up -d --force-recreate anonreq`
-3. Zustand prüfen: `curl http://localhost:8000/health`
+3. Zustand prüfen: `curl http://localhost:8080/health`
 
 ## Sicherheit
 

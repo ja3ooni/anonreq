@@ -27,9 +27,9 @@ cp .env.example .env
 |----------|------|---------|-------------|
 | `ANONREQ_API_KEY` | نعم | — | رمز حامل ثابت لمصادقة API (أكبر من أو يساوي 32 حرفًا) |
 | `ANONREQ_LOG_LEVEL` | لا | `INFO` | مستوى تسجيل السجلات |
-| `ANONREQ_CACHE_TTL` | لا | `600` | صلاحية ذاكرة التخزين المؤقت للجلسة بالثواني |
+| `ANONREQ_CACHE_TTL_SECONDS` | لا | `300` | صلاحية ذاكرة التخزين المؤقت للجلسة بالثواني |
 | `ANONREQ_PRESIDIO_URL` | لا | `http://presidio-analyzer:5001` | عنوان URL الخاص بـ Presidio Analyzer |
-| `ANONREQ_VALKEY_URL` | لا | `valkey://localhost:6379` | سلسلة اتصال Valkey |
+| `ANONREQ_VALKEY_URL` | لا | `redis://localhost:6379/0` | سلسلة اتصال Valkey |
 
 يجب تعيين مفتاح API الخاص بموفر خدمة واحد على الأقل (`ANONREQ_OPENAI_API_KEY` أو `ANONREQ_ANTHROPIC_API_KEY` أو `ANONREQ_GEMINI_API_KEY`).
 
@@ -44,7 +44,7 @@ docker compose up -d --wait
 ## التحقق من التثبيت
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 الاستجابة المتوقعة: HTTP 200 مع `{"status":"pass","checks":{"presidio":"pass","valkey":"pass"}}`.
@@ -54,7 +54,7 @@ curl http://localhost:8000/health
 | المشكلة | السبب المرجح | الحل |
 |----------|----------------|----------|
 | اختبار الصحة يعود بـ 503 | نموذج Presidio لا يزال قيد التحميل | انتظر 60 ثانية لتنزيل النموذج، ثم أعد المحاولة |
-| فشل `docker compose up` | المنفذ 8000 قيد الاستخدام | أوقف الخدمات الأخرى أو قم بتغيير تعيين المنافذ |
+| فشل `docker compose up` | المنفذ 8080 قيد الاستخدام | أوقف الخدمات الأخرى أو قم بتغيير تعيين المنافذ |
 | `curl: connection refused` | البوابة ليست جاهزة | قم بتشغيل `docker compose ps` للتحقق من الحالة |
 
 ---

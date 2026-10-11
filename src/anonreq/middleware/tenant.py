@@ -8,6 +8,7 @@ Provides:
 Per D-01 through D-04:
 - Hard reject HTTP 400 for missing/invalid tenant header
 - HTTP 403 for disabled tenants
+- HTTP 503 when the tenant database cannot be read (fail closed)
 - Middleware runs after auth, before classification
 """
 
@@ -21,10 +22,13 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from anonreq.tenant.registry import TenantRegistry
+from anonreq.tenant.store import TenantStoreError
 
 logger = structlog.get_logger("anonreq.middleware.tenant")
 
 _SKIP_PATHS = {"/health", "/health/ready", "/metrics", "/"}
+# Tenant management acts on tenants, so it cannot require acting as one.
+_SKIP_PREFIXES = ("/v1/admin/tenants",)
 
 
 class TenantContextMiddleware(BaseHTTPMiddleware):
@@ -45,7 +49,8 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         call_next: RequestResponseEndpoint,
     ) -> Response:
         # Skip health, metrics, and root paths
-        if request.url.path in _SKIP_PATHS or not request.url.path.startswith("/v1/"):
+        path = request.url.path
+        if path in _SKIP_PATHS or path.startswith(_SKIP_PREFIXES) or not path.startswith("/v1/"):
             return await call_next(request)
 
         # Extract tenant_id from header
@@ -62,7 +67,15 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
             )
 
         # Look up tenant in registry
-        profile = self._registry.get(tenant_id)
+        try:
+            profile = await self._registry.aget(tenant_id)
+        except TenantStoreError:
+            # Fail closed: never guess a tenant when the registry is unreadable.
+            logger.error("tenant_registry.unavailable")
+            return JSONResponse(
+                status_code=503,
+                content={"error": "tenant_registry_unavailable"},
+            )
 
         # Reject unknown tenant
         if profile is None:

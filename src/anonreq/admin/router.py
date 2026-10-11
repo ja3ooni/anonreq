@@ -21,12 +21,13 @@ from anonreq.admin.compliance_routes import router as compliance_router
 from anonreq.admin.incident_routes import router as incident_router
 from anonreq.admin.policy_routes import router as policy_router
 from anonreq.admin.provider_routes import router as provider_router
+from anonreq.admin.tenant_routes import router as tenant_router
 from anonreq.admin.usage_routes import router as usage_router
 from anonreq.config import settings
 from anonreq.middleware.rbac import Role
 
 # Re-export Role so admin routes and tests can reference it
-__all__ = ["Role", "admin_router"]
+__all__ = ["Role", "admin_router", "tenant_admin_router"]
 
 
 async def require_auth(
@@ -73,3 +74,14 @@ admin_router.include_router(incident_router)
 admin_router.include_router(aml_webhook_router)
 admin_router.include_router(compliance_router)
 admin_router.include_router(evidence_router)
+
+
+# Tenant management is mounted on its own, authenticated only by the admin
+# credential (ANONREQ_ADMIN_API_KEY or OIDC). It is deliberately NOT behind the
+# gateway ``auth_context``: both read the ``Authorization`` header, so stacking
+# them would force the gateway key and the admin key to be the same secret.
+tenant_admin_router = APIRouter(
+    prefix="/v1/admin",
+    dependencies=[Depends(require_auth)],
+)
+tenant_admin_router.include_router(tenant_router)

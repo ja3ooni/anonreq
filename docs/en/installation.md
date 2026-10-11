@@ -25,9 +25,9 @@ cp .env.example .env
 |----------|----------|---------|-------------|
 | `ANONREQ_API_KEY` | Yes | — | Static bearer token for API authentication (≥ 32 chars) |
 | `ANONREQ_LOG_LEVEL` | No | `INFO` | Logging level |
-| `ANONREQ_CACHE_TTL` | No | `600` | Session cache TTL in seconds |
+| `ANONREQ_CACHE_TTL_SECONDS` | No | `300` | Session cache TTL in seconds |
 | `ANONREQ_PRESIDIO_URL` | No | `http://presidio-analyzer:5001` | Presilio Analyzer URL |
-| `ANONREQ_VALKEY_URL` | No | `valkey://localhost:6379` | Valkey connection string |
+| `ANONREQ_VALKEY_URL` | No | `redis://localhost:6379/0` | Valkey connection string |
 
 At least one provider API key (`ANONREQ_OPENAI_API_KEY`, `ANONREQ_ANTHROPIC_API_KEY`, or `ANONREQ_GEMINI_API_KEY`) must be set.
 
@@ -42,7 +42,7 @@ This starts all three services: `anonreq` (gateway), `presidio-analyzer` (PII de
 ## Verify Installation
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 Expected response: HTTP 200 with `{"status":"pass","checks":{"presidio":"pass","valkey":"pass"}}`.
@@ -52,5 +52,5 @@ Expected response: HTTP 200 with `{"status":"pass","checks":{"presidio":"pass","
 | Issue | Likely Cause | Solution |
 |-------|-------------|----------|
 | Health check returns 503 | Presidio model still loading | Wait 60s for model download, then retry |
-| `docker compose up` fails | Port 8000 in use | Stop other services or change port mapping |
+| `docker compose up` fails | Port 8080 in use | Stop other services or change port mapping |
 | `curl: connection refused` | Gateway not ready | Run `docker compose ps` to check status |

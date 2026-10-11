@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     # Required fields
     API_KEY: str = Field(min_length=32, validation_alias="ANONREQ_API_KEY")
     VALKEY_URL: str = Field(validation_alias="ANONREQ_VALKEY_URL")
+    API_KEY_PREVIOUS: str | None = Field(
+        default=None,
+        min_length=32,
+        validation_alias="ANONREQ_API_KEY_PREVIOUS",
+        description=(
+            "Optional second key accepted alongside ANONREQ_API_KEY while a key is being "
+            "rotated. Remove it once every client uses the new key."
+        ),
+    )
     PRESIDIO_URL: str = Field(validation_alias="ANONREQ_PRESIDIO_URL")
 
     # Optional fields with defaults
@@ -172,7 +181,7 @@ class Settings(BaseSettings):
         description="Directory for CA certificate storage.",
     )
     PROXY_MODE: str = Field(
-        default="proxy-only",
+        default="full",
         validation_alias="ANONREQ_PROXY_MODE",
         description="Proxy mode: proxy-only | transparent | full",
     )
@@ -194,6 +203,24 @@ class Settings(BaseSettings):
         default="config/tenants.yaml",
         validation_alias="ANONREQ_TENANTS_CONFIG_PATH",
         description="Path to the YAML seed file for tenant configuration.",
+    )
+    TENANT_CACHE_TTL_SECONDS: float = Field(
+        default=10.0,
+        ge=0.0,
+        le=300.0,
+        validation_alias="ANONREQ_TENANT_CACHE_TTL_SECONDS",
+        description=(
+            "How long a replica trusts a cached tenant record before re-reading the "
+            "database. This is the maximum time a disable or update made on another "
+            "replica takes to apply here."
+        ),
+    )
+    TENANT_NEGATIVE_CACHE_TTL_SECONDS: float = Field(
+        default=5.0,
+        ge=0.0,
+        le=60.0,
+        validation_alias="ANONREQ_TENANT_NEGATIVE_CACHE_TTL_SECONDS",
+        description="How long an unknown tenant id is remembered, to protect the database.",
     )
     KMS_BACKEND: str = Field(
         default="local",

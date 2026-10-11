@@ -34,7 +34,7 @@ curl -H "X-AnonReq-Compliance-Preset: gdpr"   -H "Authorization: Bearer $ANONREQ
 Vraag beschikbare presets en hun configuraties op:
 
 ```bash
-curl http://localhost:8000/v1/compliance/presets
+curl http://localhost:8080/v1/compliance/presets
 ```
 
 ## Meerdere presets

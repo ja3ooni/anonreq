@@ -29,11 +29,13 @@ from starlette.responses import StreamingResponse
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
+from anonreq.admin.router import tenant_admin_router
 from anonreq.admin.routes import admin_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
 from anonreq.auth.oidc import build_oidc_verifier
 from anonreq.bootstrap.services import (
     bootstrap_audit_services,
+    bootstrap_tenant_store,
     bootstrap_compliance_services,
     bootstrap_deployment_proxy,
     bootstrap_gateway_services,
@@ -324,6 +326,7 @@ def create_app() -> FastAPI:
         await bootstrap_policy_engine(app, cache_manager)
         await bootstrap_mitm_proxy(app)
         await bootstrap_audit_services(app)
+        await bootstrap_tenant_store(app)
         await bootstrap_slo_services(app, cache_manager)
         await bootstrap_governance_services(app, cache_manager)
         await bootstrap_gateway_services(app)
@@ -375,7 +378,11 @@ def create_app() -> FastAPI:
     # rejects missing/invalid/disabled tenants, sets request.state.tenant_id.
     # Runs after PolicyMiddleware but before ClassificationResponseMiddleware
     # per D-02: after auth, before classification.
-    tenant_registry = TenantRegistry(yaml_path=settings.TENANTS_CONFIG_PATH)
+    tenant_registry = TenantRegistry(
+        yaml_path=settings.TENANTS_CONFIG_PATH,
+        cache_ttl=settings.TENANT_CACHE_TTL_SECONDS,
+        negative_ttl=settings.TENANT_NEGATIVE_CACHE_TTL_SECONDS,
+    )
     app.state.tenant_registry = tenant_registry
     app.add_middleware(TenantContextMiddleware, tenant_registry=tenant_registry)
 
@@ -442,6 +449,8 @@ def create_app() -> FastAPI:
     app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
+    # Tenant management: admin credential only (see admin/router.py).
+    app.include_router(tenant_admin_router)
     app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
 
     # Phase 22: Discovery inventory admin routes

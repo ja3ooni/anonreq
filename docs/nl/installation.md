@@ -27,9 +27,9 @@ cp .env.example .env
 |----------|----------|---------|-------------|
 | `ANONREQ_API_KEY` | Ja | — | Statische bearer token voor API-authenticatie (≥ 32 tekens) |
 | `ANONREQ_LOG_LEVEL` | Nee | `INFO` | Logniveau |
-| `ANONREQ_CACHE_TTL` | Nee | `600` | TTL van de sessiecache in seconden |
+| `ANONREQ_CACHE_TTL_SECONDS` | Nee | `300` | TTL van de sessiecache in seconden |
 | `ANONREQ_PRESIDIO_URL` | Nee | `http://presidio-analyzer:5001` | URL van de Presidio Analyzer |
-| `ANONREQ_VALKEY_URL` | Nee | `valkey://localhost:6379` | Valkey-verbindingsreeks |
+| `ANONREQ_VALKEY_URL` | Nee | `redis://localhost:6379/0` | Valkey-verbindingsreeks |
 
 Er moet ten minste één API-sleutel van een provider (`ANONREQ_OPENAI_API_KEY`, `ANONREQ_ANTHROPIC_API_KEY` of `ANONREQ_GEMINI_API_KEY`) worden ingesteld.
 
@@ -44,7 +44,7 @@ Hiermee worden alle drie de services gestart: `anonreq` (gateway), `presidio-ana
 ## Installatie controleren
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8080/health
 ```
 
 Verwacht antwoord: HTTP 200 met `{"status":"pass","checks":{"presidio":"pass","valkey":"pass"}}`.
@@ -54,7 +54,7 @@ Verwacht antwoord: HTTP 200 met `{"status":"pass","checks":{"presidio":"pass","v
 | Probleem | Waarschijnlijke oorzaak | Oplossing |
 |----------|-------------------------|-----------|
 | Gezondheidscontrole retourneert 503 | Presidio-model laadt nog | Wacht 60 seconden tot het model is gedownload en probeer het opnieuw |
-| `docker compose up` mislukt | Poort 8000 is in gebruik | Stop andere services of wijzig de poorttoewijzing |
+| `docker compose up` mislukt | Poort 8080 is in gebruik | Stop andere services of wijzig de poorttoewijzing |
 | `curl: connection refused` | Gateway is niet gereed | Voer `docker compose ps` uit om de status te controleren |
 
 ---

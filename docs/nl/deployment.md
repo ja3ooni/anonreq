@@ -14,7 +14,7 @@ Logboeken worden naar stdout geschreven in gestructureerd JSON-formaat. Configur
 
 ### Netwerkbeveiliging
 
-De gateway luistert op poort 8000. Presidio Analyzer en Valkey zijn geïsoleerd op een intern Docker-netwerk en zijn niet rechtstreeks van buitenaf toegankelijk.
+De gateway luistert op poort 8080. Presidio Analyzer en Valkey zijn geïsoleerd op een intern Docker-netwerk en zijn niet rechtstreeks van buitenaf toegankelijk.
 
 ### TLS-terminatie
 
@@ -26,17 +26,14 @@ Beëindig TLS op uw reverse proxy (nginx, Caddy, of een cloud load balancer) en 
 |----------|------|---------|----------|-------------|
 | `ANONREQ_API_KEY` | string | — | Ja | Bearer token voor API-authenticatie (≥ 32 tekens) |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | Nee | Logniveau: DEBUG, INFO, WARNING, ERROR |
-| `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | Nee | URL van de Valkey-server |
-| `ANONREQ_CACHE_PASSWORD` | string | — | Nee | Valkey-wachtwoord |
-| `ANONREQ_CACHE_TTL` | int | `600` | Nee | TTL van de sessie in seconden (60–3600) |
+| `ANONREQ_VALKEY_URL` | string | `redis://localhost:6379/0` | Nee | URL van de Valkey-server |
+| `ANONREQ_CACHE_TTL_SECONDS` | int | `300` | Nee | TTL van de sessie in seconden (60–3600) |
 | `ANONREQ_OPENAI_API_KEY` | string | — | Conditioneel | OpenAI API-sleutel |
 | `ANONREQ_ANTHROPIC_API_KEY` | string | — | Conditioneel | Anthropic API-sleutel |
 | `ANONREQ_GEMINI_API_KEY` | string | — | Conditioneel | Google Gemini API-sleutel |
 | `ANONREQ_OLLAMA_BASE_URL` | string | — | Nee | URL van de Ollama-server |
-| `ANONREQ_LOCALE` | string | `en-US` | Nee | Standaard detectielocale |
-| `ANONREQ_COMPLIANCE_PRESET` | string | — | Nee | Naam van compliance preset |
-| `ANONREQ_CONFIDENCE_THRESHOLD` | float | `0.7` | Nee | Minimale betrouwbaarheidsscore voor detectie (0.0–1.0) |
-| `PRESIDIO_ANALYZER_URL` | string | `http://presidio-analyzer:5001` | Nee | URL van de Presidio Analyzer |
+| `ANONREQ_ACTIVE_PRESETS` | string | — | Nee | Naam van compliance preset |
+| `ANONREQ_PRESIDIO_URL` | string | `http://presidio-analyzer:5001` | Nee | URL van de Presidio Analyzer |
 
 ## Docker Compose Productieconfiguratie
 
@@ -73,7 +70,7 @@ Gestructureerde JSON-logboeken worden naar stdout gestuurd. Belangrijke velden: 
 
 1. Haal de nieuwste image op: `docker compose pull anonreq`
 2. Recreëer de services: `docker compose up -d --force-recreate anonreq`
-3. Controleer de gezondheid: `curl http://localhost:8000/health`
+3. Controleer de gezondheid: `curl http://localhost:8080/health`
 
 ## Beveiliging
 

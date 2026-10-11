@@ -12,7 +12,7 @@ Logs are written to stdout in structured JSON format. Configure log aggregation 
 
 ### Network Security
 
-The gateway binds to port 8000. Presidio Analyzer and Valkey are isolated on an internal Docker network and are not directly accessible from outside.
+The gateway binds to port 8080. Presidio Analyzer and Valkey are isolated on an internal Docker network and are not directly accessible from outside.
 
 ### TLS Termination
 
@@ -24,17 +24,30 @@ Terminate TLS at your reverse proxy (nginx, Caddy, or a cloud load balancer) and
 |----------|------|---------|----------|-------------|
 | `ANONREQ_API_KEY` | string | — | Yes | Bearer token for API authentication (≥ 32 chars) |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | No | Log level: DEBUG, INFO, WARNING, ERROR |
-| `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | No | Valkey server URL |
-| `ANONREQ_CACHE_PASSWORD` | string | — | No | Valkey requirepass |
-| `ANONREQ_CACHE_TTL` | int | `600` | No | Session TTL in seconds (60–3600) |
+| `ANONREQ_VALKEY_URL` | string | — | Yes | Valkey URL, for example `redis://valkey:6379/0`. Include the password in the URL if one is set. |
+| `ANONREQ_CACHE_TTL_SECONDS` | int | `300` | No | Session TTL in seconds (60–3600) |
 | `ANONREQ_OPENAI_API_KEY` | string | — | Conditional | OpenAI API key |
 | `ANONREQ_ANTHROPIC_API_KEY` | string | — | Conditional | Anthropic API key |
 | `ANONREQ_GEMINI_API_KEY` | string | — | Conditional | Google Gemini API key |
 | `ANONREQ_OLLAMA_BASE_URL` | string | — | No | Ollama server URL |
-| `ANONREQ_LOCALE` | string | `en-US` | No | Default detection locale |
-| `ANONREQ_COMPLIANCE_PRESET` | string | — | No | Compliance preset name |
-| `ANONREQ_CONFIDENCE_THRESHOLD` | float | `0.7` | No | Detection confidence threshold (0.0–1.0) |
-| `PRESIDIO_ANALYZER_URL` | string | `http://presidio-analyzer:5001` | No | Presilio Analyzer URL |
+| `ANONREQ_ACTIVE_PRESETS` | string | empty | No | Compliance preset names, deployment-wide |
+| `ANONREQ_PRESIDIO_URL` | string | — | Yes | Presidio Analyzer URL, for example `http://presidio-analyzer:5001` |
+| `ANONREQ_DATABASE_URL` | string | `sqlite+aiosqlite:///./anonreq.db` | Production: Yes | Audit, governance, and tenant registry. Use PostgreSQL when running more than one replica. |
+| `ANONREQ_ADMIN_API_KEY` | string | — | For the admin API | Credential for `/v1/admin/tenants*`. Keep separate from `ANONREQ_API_KEY`. |
+| `ANONREQ_TENANT_CACHE_TTL_SECONDS` | float | `10` | No | Max time a replica trusts a cached tenant |
+| `ANONREQ_TENANT_NEGATIVE_CACHE_TTL_SECONDS` | float | `5` | No | How long an unknown tenant id is remembered |
+
+Run `alembic upgrade head` before the first start and after upgrades. See [multi-tenant.md](multi-tenant.md).
+
+## Rotating the gateway key
+
+`ANONREQ_API_KEY` is the key clients use for chat requests. To rotate without failed requests:
+
+1. Set `ANONREQ_API_KEY_PREVIOUS` to the **old** key and `ANONREQ_API_KEY` to the **new** key, then roll the gateway. It now accepts both.
+2. Move every client to the new key.
+3. Remove `ANONREQ_API_KEY_PREVIOUS` and roll again.
+
+The admin key (`ANONREQ_ADMIN_API_KEY`) has no previous-key support; change it during a short window.
 
 ## Docker Compose Production Configuration
 
@@ -71,7 +84,7 @@ Structured JSON logs are emitted to stdout. Key fields: `timestamp`, `level`, `e
 
 1. Pull the latest image: `docker compose pull anonreq`
 2. Recreate services: `docker compose up -d --force-recreate anonreq`
-3. Verify health: `curl http://localhost:8000/health`
+3. Verify health: `curl http://localhost:8080/health`
 
 ## Security
 

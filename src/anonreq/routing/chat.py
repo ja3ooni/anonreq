@@ -56,6 +56,7 @@ from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.pipeline.tool_governance import ToolGovernanceStage
 from anonreq.providers.registry import ProviderNotFoundError, resolve_api_key
 from anonreq.routing.alias_registry import AliasNotFoundError
+from anonreq.tenant.policy import enforce_tenant_model_policy
 from anonreq.secrets.store import (
     RuntimeSecretStore,
     push_runtime_secret_store,
@@ -466,6 +467,8 @@ async def chat_completions(
     Raises:
         HTTPException: With appropriate status code on pipeline failure.
     """
+    enforce_tenant_model_policy(request, body.model)
+
     if body.stream:
         return await _stream_chat_completions(body, request, ctx)
 
