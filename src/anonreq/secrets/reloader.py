@@ -126,6 +126,11 @@ class SecretVolumeReloader:
         handler = _SecretFileHandler(self, debounce=debounce)
         # None keeps PollingObserver's default interval. Tests pass a shorter
         # one so a deadline poll is not tied to that default.
+        # Secret rotation must use an atomic replace: write a temp file in this
+        # directory, then rename it over the target, as Kubernetes secret mounts
+        # do. This polling watcher reports a change only when mtime, size, or
+        # inode changes, so an in-place same-size rewrite inside one mtime tick
+        # can be missed.
         observer = Observer() if poll_interval is None else Observer(timeout=poll_interval)
         observer.schedule(handler, str(self.secret_path.parent), recursive=False)
         observer.daemon = True
