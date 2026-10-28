@@ -57,10 +57,22 @@ To choose your own admin key instead of the generated one, add these lines to `.
 ANONREQ_ADMIN_API_KEY=<long-random-admin-key>
 ANONREQ_ADMIN_TENANT_ID=default
 ```
-Later steps need the keys in your shell:
+Later steps (curl examples below) need the keys in your shell. `make demo` prints these two lines at the end; paste them (a new terminal needs them again):
 ```bash
-set -a; . ./.env; set +a
+# from the repo root; loads the keys without printing them (CRLF-safe)
+export ANONREQ_API_KEY="$(grep '^ANONREQ_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+export ANONREQ_ADMIN_API_KEY="$(grep '^ANONREQ_ADMIN_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
 ```
+
+**Key rotation.** `make demo` only fills in *missing* values (empty, a `<...>` placeholder, or `minioadmin`); it never regenerates an existing `ANONREQ_API_KEY`, `ANONREQ_ADMIN_API_KEY`, KMS key or DB/MinIO password, so re-running it keeps your keys. To rotate the gateway or admin key, either delete its line from `.env`:
+```bash
+grep -v '^ANONREQ_API_KEY=' .env > .env.tmp && mv .env.tmp .env && chmod 600 .env   # same for ANONREQ_ADMIN_API_KEY
+```
+or set a value yourself with the helper the script uses:
+```bash
+bash -c '. scripts/lib/demo_env.sh; set_env_var ANONREQ_API_KEY "$(python3 -c "import secrets;print(secrets.token_urlsafe(32))")" .env'
+```
+then `make demo-down && make demo` (a new key is generated if the line was deleted) and re-run the two `export` lines above. The web UI reads the keys from `.env` when its container starts, so `make demo` restarts it with the new key; old keys stop working immediately. Do not rotate `ANONREQ_KMS_MASTER_KEY` this way: existing encrypted mappings would become unreadable (run `down -v` to reset instead).
 
 ## 3. One-command start  [not yet verified end to end]
 
@@ -76,6 +88,13 @@ Everything is published on **127.0.0.1 only**: UI 3000, gateway 8080 (Grafana 30
 **Port 3000 must be free before `make demo`** (see Troubleshooting: "port 3000 in use").
 
 ## 4. Health check
+
+Load the keys first if this is a new terminal (see section 2):
+```bash
+# from the repo root; loads the keys without printing them (CRLF-safe)
+export ANONREQ_API_KEY="$(grep '^ANONREQ_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+export ANONREQ_ADMIN_API_KEY="$(grep '^ANONREQ_ADMIN_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+```
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.germany.yml -f docker-compose.demo.yml ps   # all "healthy"

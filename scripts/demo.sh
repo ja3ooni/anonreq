@@ -80,4 +80,11 @@ fi
 ANONREQ_DEMO_MODEL=$(get_env_var ANONREQ_DEMO_MODEL)
 if [[ -n "$UI_URL" ]]; then echo "Demo UI ready: $UI_URL"; fi
 echo "Gateway API: http://localhost:8080  (model: $ANONREQ_DEMO_MODEL)"
+# Keys are never printed. These lines (literal, single-quoted heredoc) load
+# them from .env into the user's shell; tr strips a CRLF ending.
+echo "Load the keys into your shell (run from the repo root; values are not shown):"
+cat <<'EOS'
+  export ANONREQ_API_KEY="$(grep '^ANONREQ_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+  export ANONREQ_ADMIN_API_KEY="$(grep '^ANONREQ_ADMIN_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+EOS
 echo "Try: curl -s localhost:8080/v1/chat/completions -H \"Authorization: Bearer \$ANONREQ_API_KEY\" -H 'X-AnonReq-Tenant-ID: default' -H 'X-AnonReq-Locale: de-DE' -H 'Content-Type: application/json' -d '{\"model\":\"$ANONREQ_DEMO_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hallo, ich bin Max Mustermann\"}]}'"

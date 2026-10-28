@@ -181,3 +181,113 @@ def test_demo_sh_has_no_raw_env_writes():
     for src in (demo, lib):
         assert '>> "$ENV_FILE"' not in src
         assert "sed -i" not in src
+
+
+# --- full demo.sh run with a stub docker: no secrets in output, no rotation --
+
+_REPO = LIB.parents[2]
+_SECRET_KEYS = (
+    "ANONREQ_API_KEY",
+    "ANONREQ_ADMIN_API_KEY",
+    "ANONREQ_KMS_MASTER_KEY",
+    "ANONREQ_ANCHOR_SIGNING_KEY",
+    "MINIO_ROOT_PASSWORD",
+    "POSTGRES_PASSWORD",
+    "XAI_API_KEY",
+    "PROVIDER_API_KEY",
+)
+_FAKE_XAI = "xai-FAKE-test-key-0123456789abcdef"
+
+
+def _demo_tree(tmp_path: Path) -> Path:
+    root = tmp_path / "repo"
+    (root / "scripts" / "lib").mkdir(parents=True)
+    shutil.copy(_REPO / "scripts" / "demo.sh", root / "scripts" / "demo.sh")
+    shutil.copy(LIB, root / "scripts" / "lib" / "demo_env.sh")
+    shutil.copy(_REPO / ".env.example", root / ".env")
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    docker = bindir / "docker"
+    # info -> 8 GiB; every compose subcommand succeeds silently.
+    docker.write_text('#!/bin/sh\nif [ "$1" = info ]; then echo 8589934592; fi\nexit 0\n')
+    docker.chmod(0o755)
+    return root
+
+
+def _run_demo(root: Path, bindir: Path) -> str:
+    proc = subprocess.run(
+        ["bash", str(root / "scripts" / "demo.sh")],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={
+            "PATH": f"{bindir}:/usr/local/bin:/usr/bin:/bin",
+            "XAI_API_KEY": _FAKE_XAI,
+            "HOME": str(root),
+        },
+    )
+    return proc.stdout + proc.stderr
+
+
+def _env_values(root: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for line in (root / ".env").read_text().splitlines():
+        if "=" in line and not line.startswith("#"):
+            k, v = line.split("=", 1)
+            out[k] = v
+    return out
+
+
+@pytest.mark.skipif(shutil.which("python3") is None, reason="python3 required")
+def test_demo_sh_never_prints_secrets_and_does_not_rotate(tmp_path):
+    root = _demo_tree(tmp_path)
+    bindir = tmp_path / "bin"
+    out1 = _run_demo(root, bindir)
+    vals1 = _env_values(root)
+    for key in _SECRET_KEYS:
+        value = vals1.get(key, "")
+        assert len(value) >= 16, key
+        assert value not in out1, f"{key} value leaked into demo.sh output"
+    assert "Try: curl" in out1
+    assert "export ANONREQ_API_KEY=" in out1
+
+    out2 = _run_demo(root, bindir)
+    vals2 = _env_values(root)
+    for key in _SECRET_KEYS:
+        assert vals2[key] == vals1[key], f"{key} was rotated on re-run"
+        assert vals2[key] not in out2
+
+    # The printed export lines load exactly the .env values (CRLF-safe).
+    exports = "\n".join(
+        ln.strip() for ln in out2.splitlines() if ln.strip().startswith("export ANONREQ_")
+    )
+    env_file = root / ".env"
+    env_file.write_text(env_file.read_text().replace("\n", "\r\n"))
+    loaded = subprocess.run(
+        ["bash", "-c", exports + '\nprintf "%s\\n%s" "$ANONREQ_API_KEY" "$ANONREQ_ADMIN_API_KEY"'],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert loaded == f"{vals1['ANONREQ_API_KEY']}\n{vals1['ANONREQ_ADMIN_API_KEY']}"
+
+
+@pytest.mark.skipif(shutil.which("python3") is None, reason="python3 required")
+def test_deleting_key_line_rotates_only_that_key(tmp_path):
+    root = _demo_tree(tmp_path)
+    bindir = tmp_path / "bin"
+    _run_demo(root, bindir)
+    before = _env_values(root)
+    env_file = root / ".env"
+    env_file.write_text(
+        "\n".join(
+            ln for ln in env_file.read_text().splitlines() if not ln.startswith("ANONREQ_API_KEY=")
+        )
+        + "\n"
+    )
+    _run_demo(root, bindir)
+    after = _env_values(root)
+    assert after["ANONREQ_API_KEY"] != before["ANONREQ_API_KEY"]
+    assert after["ANONREQ_ADMIN_API_KEY"] == before["ANONREQ_ADMIN_API_KEY"]
+    assert after["ANONREQ_KMS_MASTER_KEY"] == before["ANONREQ_KMS_MASTER_KEY"]
