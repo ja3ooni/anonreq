@@ -90,6 +90,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 markers = [
     "load: load and concurrency tests",
+    "presidio: integration tests that need a running Presidio analyzer sidecar",
 ]
 
 [tool.coverage.run]

@@ -10,6 +10,11 @@
 # mock, local, and ollama need no key.
 #
 # The container image listens on 8080. Point ingress TLS at that Service.
+#
+# Presidio is not deployed by this chart. The analyzer at ANONREQ_PRESIDIO_URL
+# must be the bilingual image built from docker/presidio/Dockerfile
+# (en_core_web_lg + de_core_news_lg, languages en and de). The stock
+# mcr.microsoft.com/presidio-analyzer:2.2.354 image only loads English.
 
 replicaCount: 1
 
@@ -58,6 +63,7 @@ env:
   ANONREQ_PORT: "8080"
   ANONREQ_VALKEY_URL: "redis://valkey:6379/0"
   ANONREQ_PRESIDIO_URL: "http://presidio-analyzer:3000"
+  ANONREQ_PRESIDIO_LANGUAGES: "en,de"
 
 secrets:
   # Gateway client credential. Do not copy this into the provider keys.

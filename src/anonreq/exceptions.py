@@ -153,6 +153,33 @@ class PipelineAbortError(AnonReqError):
         )
 
 
+class PresidioLanguageUnsupportedError(PipelineAbortError):
+    """Fail closed when Presidio cannot run the negotiated language.
+
+    The English model is not a substitute. It misses German names and street
+    addresses, so the gateway must not retry the same text with ``language=en``.
+    ``message`` is fixed aside from a 2-3 letter language code and never
+    includes request text.
+    """
+
+    def __init__(self, language: str, request_id: str | None = None) -> None:
+        if len(language) < 2 or len(language) > 3 or not language.isalpha():
+            language = "unknown"
+        else:
+            language = language.lower()
+        self.language = language
+        super().__init__(
+            status_code=503,
+            message=(
+                f"Presidio analyzer does not support language '{language}'. "
+                "Refusing to fall back to English."
+            ),
+            request_id=request_id,
+        )
+        self.error_type = "presidio_unsupported_language"
+        self.code = "presidio_unsupported_language"
+
+
 class PipelineBlockedError(PipelineAbortError):
     """Raised when DLP or PDP #2 blocks a request (HTTP 451).
 

@@ -28,11 +28,11 @@ _SKIP_PATHS = {"/health", "/health/ready", "/metrics", "/"}
 
 
 def _single_tenant_default(request: Request) -> str:
-    """Tenant for a header-less request in single-tenant mode, else ``""``.
+    """Tenant for a header-less admin-key request in single-tenant mode.
 
-    The admin key maps to ``ANONREQ_ADMIN_TENANT_ID``; any other request
-    maps to ``ANONREQ_DEFAULT_TENANT_ID``. The credential itself is still
-    verified later by the route's auth dependency.
+    Only the admin API key gets a default (``ANONREQ_ADMIN_TENANT_ID``). Any
+    other request without ``X-AnonReq-Tenant-ID`` still gets 400
+    ``missing_tenant``. The key itself is verified later by the route.
     """
     import hmac
 
@@ -49,7 +49,28 @@ def _single_tenant_default(request: Request) -> str:
         and hmac.compare_digest(token, admin_key)
     ):
         return settings.ADMIN_TENANT_ID.strip()
-    return (settings.DEFAULT_TENANT_ID or "").strip()
+    return ""
+
+
+def validate_single_tenant(registry: TenantRegistry) -> None:
+    """Fail startup when single-tenant mode meets a multi-tenant config.
+
+    Counts every tenant loaded from ``ANONREQ_TENANTS_CONFIG_PATH`` (enabled
+    or not). Single-tenant mode defaults a missing header, which is only
+    safe when there is exactly one tenant.
+    """
+    from anonreq.config import settings
+
+    if not settings.SINGLE_TENANT:
+        return
+    tenants = sorted(profile.tenant_id for profile in registry.list_all())
+    if len(tenants) > 1:
+        raise RuntimeError(
+            "ANONREQ_SINGLE_TENANT=true but "
+            f"{len(tenants)} tenants are configured in "
+            f"{settings.TENANTS_CONFIG_PATH} ({', '.join(tenants)}). "
+            "Configure exactly one tenant or set ANONREQ_SINGLE_TENANT=false."
+        )
 
 
 class TenantContextMiddleware(BaseHTTPMiddleware):

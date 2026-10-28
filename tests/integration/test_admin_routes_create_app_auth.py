@@ -146,14 +146,21 @@ async def test_single_tenant_defaults_missing_header(
     admin = {"Authorization": f"Bearer {settings.ADMIN_API_KEY}"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         ok = await client.get(path, headers=admin)
+        # Only the admin key gets a default tenant; others need the header.
         chat = await client.get(path, headers={"Authorization": f"Bearer {settings.API_KEY}"})
         none = await client.get(path)
+        chat_hdr = await client.get(
+            path, headers={"Authorization": f"Bearer {settings.API_KEY}", **_TENANT},
+        )
         monkeypatch.setattr(admin_auth.settings, "ADMIN_TENANT_ID", "tenant-b")
         # Header present but not the admin key's tenant: still 403.
         mismatch = await client.get(path, headers={**admin, **_TENANT})
     assert ok.status_code == 200, ok.text
-    assert chat.status_code == 403
-    assert none.status_code == 401
+    assert chat.status_code == 400
+    assert chat.json()["error"] == "missing_tenant"
+    assert none.status_code == 400
+    assert none.json()["error"] == "missing_tenant"
+    assert chat_hdr.status_code == 403
     assert mismatch.status_code == 403
     for call in app.state.audit_chain.get_events.await_args_list:
         assert call.kwargs["tenant_id"] == "default"
@@ -173,3 +180,29 @@ async def test_missing_header_is_400_without_single_tenant(
             headers={"Authorization": f"Bearer {settings.ADMIN_API_KEY}"},
         )
     assert resp.status_code == 400
+
+
+def test_single_tenant_with_several_tenants_fails_startup(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any,
+) -> None:
+    import anonreq.config as config
+
+    tenants = tmp_path / "tenants.yaml"
+    tenants.write_text(
+        "tenants:\n"
+        "  - tenant_id: default\n    enabled: true\n"
+        "  - tenant_id: acme\n    enabled: true\n",
+    )
+    monkeypatch.setattr(config.settings, "TENANTS_CONFIG_PATH", str(tenants))
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", True)
+    with pytest.raises(RuntimeError, match="2 tenants are configured"):
+        create_app()
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", False)
+    create_app()
+
+
+def test_single_tenant_with_one_tenant_starts(monkeypatch: pytest.MonkeyPatch) -> None:
+    import anonreq.config as config
+
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", True)
+    create_app()

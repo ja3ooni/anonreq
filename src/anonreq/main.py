@@ -79,7 +79,7 @@ from anonreq.middleware.content_type import ContentTypeMiddleware
 from anonreq.middleware.mtls import IngressMTLSMiddleware
 from anonreq.middleware.policy import PolicyMiddleware
 from anonreq.middleware.response_headers import ClassificationResponseMiddleware
-from anonreq.middleware.tenant import TenantContextMiddleware
+from anonreq.middleware.tenant import TenantContextMiddleware, validate_single_tenant
 from anonreq.models.request_context import RequestContext
 from anonreq.monitoring.middleware import MetricsMiddleware
 from anonreq.multimodal.dispatcher import ContentTypeDispatcher
@@ -395,6 +395,7 @@ def create_app() -> FastAPI:
     # per D-02: after auth, before classification.
     tenant_registry = TenantRegistry(yaml_path=settings.TENANTS_CONFIG_PATH)
     app.state.tenant_registry = tenant_registry
+    validate_single_tenant(tenant_registry)
     app.add_middleware(TenantContextMiddleware, tenant_registry=tenant_registry)
 
     # ClassificationResponseMiddleware — conditionally returns classification result headers

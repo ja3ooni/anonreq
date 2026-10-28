@@ -30,8 +30,10 @@ class TestStartupChecks:
 
     @patch("anonreq.startup_checks.check_cache_health", new_callable=AsyncMock)
     @patch("anonreq.startup_checks.check_presidio", new_callable=AsyncMock)
+    @patch("anonreq.startup_checks.check_presidio_language", new_callable=AsyncMock)
     async def test_startup_checks_success(
         self,
+        mock_language,
         mock_presidio,
         mock_cache_health,
         test_settings,
@@ -47,11 +49,13 @@ class TestStartupChecks:
             "status": "healthy",
         }
         mock_presidio.return_value = True
+        mock_language.return_value = True
 
         await run_startup_checks(test_settings, cache_manager)
 
         mock_cache_health.assert_awaited_once_with(cache_manager)
         mock_presidio.assert_awaited_once_with(test_settings.PRESIDIO_URL)
+        mock_language.assert_awaited_once_with(test_settings.PRESIDIO_URL, "en")
 
     @patch("anonreq.startup_checks.check_cache_health", new_callable=AsyncMock)
     @patch("anonreq.startup_checks.check_presidio", new_callable=AsyncMock)
@@ -114,8 +118,10 @@ class TestStartupChecks:
 
     @patch("anonreq.startup_checks.check_cache_health", new_callable=AsyncMock)
     @patch("anonreq.startup_checks.check_presidio", new_callable=AsyncMock)
+    @patch("anonreq.startup_checks.check_presidio_language", new_callable=AsyncMock)
     async def test_startup_checks_logs_results(
         self,
+        mock_language,
         mock_presidio,
         mock_cache_health,
         test_settings,
@@ -133,9 +139,52 @@ class TestStartupChecks:
             "status": "healthy",
         }
         mock_presidio.return_value = True
+        mock_language.return_value = True
 
         setup_logging(level="INFO")
         await run_startup_checks(test_settings, cache_manager)
 
         captured = capsys.readouterr()
         assert "cache" in captured.err.lower() or "cache" in captured.out.lower()
+
+    @patch("anonreq.startup_checks.check_cache_health", new_callable=AsyncMock)
+    @patch("anonreq.startup_checks.check_presidio", new_callable=AsyncMock)
+    @patch("anonreq.startup_checks.check_presidio_language", new_callable=AsyncMock)
+    async def test_startup_refuses_when_configured_language_is_missing(
+        self,
+        mock_language,
+        mock_presidio,
+        mock_cache_health,
+        cache_manager,
+    ):
+        """de is configured, but the analyzer cannot run it."""
+        from anonreq.exceptions import DependencyUnavailableError
+        from anonreq.startup_checks import run_startup_checks
+
+        settings = Settings(
+            API_KEY="a" * 32,
+            VALKEY_URL="redis://localhost:6379/0",
+            PRESIDIO_URL="http://localhost:5001",
+            PRESIDIO_LANGUAGES="en,de",
+        )
+        mock_cache_health.return_value = {
+            "reachable": True,
+            "persistence_disabled": True,
+            "healthy": True,
+        }
+        mock_presidio.return_value = True
+
+        async def _supports(_url: str, language: str) -> bool:
+            return language != "de"
+
+        mock_language.side_effect = _supports
+
+        # Provider-key validation (#9) is not under test here.
+        with patch("anonreq.startup_checks.validate_provider_credentials"), pytest.raises(
+            DependencyUnavailableError
+        ) as exc_info:
+            await run_startup_checks(settings, cache_manager)
+
+        assert exc_info.value.dependency == "presidio"
+        checked = [call.args[1] for call in mock_language.await_args_list]
+        assert checked == ["en", "de"]
