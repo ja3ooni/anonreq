@@ -9,10 +9,35 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from starlette.datastructures import State
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from anonreq.middleware.policy import PolicyMiddleware
 from anonreq.policy.models import PolicyAction, PolicyDecision
 from anonreq.policy.pep import PolicyEnforcementResult
+
+
+class _TenantStateMiddleware:
+    """Stamp a tenant the way TenantContextMiddleware does in production.
+
+    PolicyMiddleware fail-closes when neither ``request.state.tenant_id``
+    nor ``ANONREQ_SINGLE_TENANT`` is set. Tests must supply a tenant;
+    they must not disable that check.
+    """
+
+    def __init__(self, app: ASGIApp, tenant_id: str = "test_tenant") -> None:
+        self.app = app
+        self.tenant_id = tenant_id
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            state = scope.get("state")
+            if not isinstance(state, State):
+                state = State()
+                scope["state"] = state
+            if not getattr(state, "tenant_id", None):
+                state.tenant_id = self.tenant_id
+        await self.app(scope, receive, send)
 
 
 def _make_app(
@@ -36,6 +61,8 @@ def _make_app(
         app.state.pep.enforce.return_value = pep_result
 
     app.add_middleware(PolicyMiddleware)
+    # Added last so it runs first and the policy layer sees a tenant.
+    app.add_middleware(_TenantStateMiddleware)
 
     @app.get("/v1/chat/completions")
     async def chat() -> dict[str, str]:

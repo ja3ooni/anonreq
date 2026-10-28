@@ -220,18 +220,21 @@ def assert_middleware_ordering(app: Any) -> None:
     except Exception:
         return
     order = [getattr(m, "cls", None) and m.cls.__name__ for m in stack]
-    if "PolicyMiddleware" in order and "TenantContextMiddleware" in order:
-        # Last-added runs first: TenantContext must be added AFTER Policy.
-        if order.index("TenantContextMiddleware") < order.index("PolicyMiddleware"):
-            logger.error(
-                "middleware_ordering_invalid",
-                component="startup_checks",
-                order=order,
-            )
-            raise RuntimeError(
-                "TenantContextMiddleware must be added after PolicyMiddleware "
-                "so it runs first on requests"
-            )
+    # Last-added runs first: TenantContext must be added AFTER Policy.
+    if (
+        "PolicyMiddleware" in order
+        and "TenantContextMiddleware" in order
+        and order.index("TenantContextMiddleware") < order.index("PolicyMiddleware")
+    ):
+        logger.error(
+            "middleware_ordering_invalid",
+            component="startup_checks",
+            order=order,
+        )
+        raise RuntimeError(
+            "TenantContextMiddleware must be added after PolicyMiddleware "
+            "so it runs first on requests"
+        )
     logger.info("middleware_ordering_ok", component="startup_checks", order=order)
 
 
