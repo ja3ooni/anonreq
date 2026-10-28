@@ -30,4 +30,6 @@ services:
       ANONREQ_TENANT_ID: ${ANONREQ_TENANT_ID:-${ANONREQ_ADMIN_TENANT_ID:-default}}
       ANONREQ_ALLOWED_HOSTS: ${ANONREQ_ALLOWED_HOSTS:-}
     ports:
+      # Changing the host port (left side)? Also set ANONREQ_ALLOWED_HOSTS=localhost:<port>,127.0.0.1:<port>,
+      # or /api/* returns 403: the default allowlist uses the container PORT.
       - "127.0.0.1:3000:3000"

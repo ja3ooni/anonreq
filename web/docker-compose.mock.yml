@@ -4,7 +4,9 @@
 #
 # Builds the `dev` target (NODE_ENV=development, `next dev`) so the
 # "production refuses ANONREQ_MOCK" rule stays intact. The host publish
-# from the base file (127.0.0.1:3000:3000) still applies.
+# from the base file (127.0.0.1:3000:3000) still applies. If you change its
+# host port, also set ANONREQ_ALLOWED_HOSTS=localhost:<port>,127.0.0.1:<port>
+# or /api/* returns 403 (the default allowlist uses the container PORT).
 
 services:
   anonreq-web:

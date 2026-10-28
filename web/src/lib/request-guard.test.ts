@@ -55,3 +55,18 @@ test("state-changing methods require an Origin", () => {
   assert.equal(checkApiRequest({ ...base, method: "POST", origin: "null" }).ok, false);
   assert.equal(checkApiRequest({ ...base, method: "HEAD" }).ok, true);
 });
+
+test("error messages never echo request headers", () => {
+  const evil = "evil.example:3000<script>";
+  const results = [
+    checkApiRequest({ ...base, host: evil }),
+    checkApiRequest({ ...base, method: "POST", origin: "https://attacker.example" }),
+    checkApiRequest({ ...base, secFetchSite: "cross-site<x>" }),
+  ];
+  for (const r of results) {
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+      assert.doesNotMatch(r.message, /evil|attacker|<script>|<x>/);
+    }
+  }
+});

@@ -66,6 +66,7 @@ Both publish `127.0.0.1:3000:3000` with the container listening on `0.0.0.0`.
 The middleware rejects with 403 and a JSON `error`:
 
 - a `Host` header not in the allowlist (blocks DNS rebinding). Default: `localhost:$PORT` and `127.0.0.1:$PORT` (`PORT` defaults to 3000). Override with a comma-separated `ANONREQ_ALLOWED_HOSTS`, e.g. `ANONREQ_ALLOWED_HOSTS=localhost:4000,127.0.0.1:4000`.
+  **Docker port remaps:** the default is built from the container `PORT`, not the host port. If you publish `127.0.0.1:3001:3000`, the browser sends `Host: 127.0.0.1:3001` and every `/api/*` call gets 403. Set `ANONREQ_ALLOWED_HOSTS=localhost:3001,127.0.0.1:3001` to match the host side.
 - `Sec-Fetch-Site` other than `same-origin` or `none`.
 - an `Origin` whose host does not match `Host`, on any method.
 - `POST`, `PUT`, `PATCH` or `DELETE` without an `Origin`.
@@ -94,7 +95,7 @@ model_aliases:
     model: grok-4
 ```
 
-The UI sends the alias name (default `grok`). Chat completions use `Authorization: Bearer $ANONREQ_API_KEY`. Every admin route (`/v1/admin/*`, including events, export, and config history) and the preview use `Authorization: Bearer $ANONREQ_ADMIN_API_KEY`. The gateway key is rejected with 403 on those routes.
+The UI sends the alias name (default `grok-4`). Chat completions use `Authorization: Bearer $ANONREQ_API_KEY`. Every admin route (`/v1/admin/*`, including events, export, and config history) and the preview use `Authorization: Bearer $ANONREQ_ADMIN_API_KEY`. The gateway key is rejected with 403 on those routes.
 
 Every one of those calls also sends `X-AnonReq-Tenant-ID`. Set it with `ANONREQ_TENANT_ID` (seed tenant `default` in `config/tenants.yaml`). A `tenant_id` that is not that caller is HTTP 403.
 

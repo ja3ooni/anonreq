@@ -46,7 +46,7 @@ export function checkApiRequest(input: {
     return {
       ok: false,
       status: 403,
-      message: `Forbidden: Host "${host || "(missing)"}" is not allowed. This demo only answers on ${[...input.allowedHosts].join(", ")}. Set ANONREQ_ALLOWED_HOSTS to change that.`,
+      message: "Forbidden: Host is not allowed. Set ANONREQ_ALLOWED_HOSTS to change the allowlist.",
     };
   }
 
@@ -55,7 +55,7 @@ export function checkApiRequest(input: {
     return {
       ok: false,
       status: 403,
-      message: `Forbidden: cross-site request (Sec-Fetch-Site: ${site}). The API only accepts requests from this app.`,
+      message: "Forbidden: cross-site request. The API only accepts requests from this app.",
     };
   }
 
@@ -67,7 +67,7 @@ export function checkApiRequest(input: {
       return {
         ok: false,
         status: 403,
-        message: `Forbidden: Origin "${origin}" does not match Host "${host}".`,
+        message: "Forbidden: Origin does not match Host.",
       };
     }
   } else if (!SAFE_METHODS.has(method)) {
