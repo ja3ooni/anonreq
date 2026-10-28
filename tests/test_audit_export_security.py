@@ -38,6 +38,12 @@ _BASE = {
     "locale": "de-DE",
     "compliance_preset": "germany",
 }
+from anonreq.admin.auth import bind_governance_role
+
+
+async def _principal_from_test_middleware() -> None:
+    """Keep the principal the test middleware put on request.state."""
+    return None
 
 
 def _event(**overrides: object) -> SimpleNamespace:
@@ -101,6 +107,9 @@ def _app(service: AuditChainService, mode: str = "header") -> FastAPI:
         return await call_next(request)
 
     app.include_router(admin_audit_router)
+    # Route-logic tests: the middleware above stands in for auth.
+    # Real credential checks are in test_governance_create_app_auth.py.
+    app.dependency_overrides[bind_governance_role] = _principal_from_test_middleware
     app.include_router(governance_router)
     return app
 
