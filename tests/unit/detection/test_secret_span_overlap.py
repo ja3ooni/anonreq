@@ -42,6 +42,7 @@ class _EmptyNer:
     async def analyze_text_nodes(
         self,
         text_nodes: list[dict[str, Any]],
+        language: str = "en",
         entities: list[str] | None = None,
         score_threshold: float = 0.7,
     ) -> list[list[dict[str, Any]]]:
