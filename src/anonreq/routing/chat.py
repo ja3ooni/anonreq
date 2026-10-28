@@ -67,7 +67,6 @@ from anonreq.streaming.emitter import SSEEmitter
 from anonreq.streaming.restoration import StreamingRestorationStage
 from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
 from anonreq.streaming.tail_buffer import TailBuffer
-from anonreq.tokenization.tokenizer import Tokenizer
 
 router = APIRouter(prefix="/v1", tags=["chat"])
 logger = get_logger("anonreq.routing.chat")
@@ -137,7 +136,6 @@ def build_pre_provider_pipeline(
         InboundDLPStage(app_state=app_state),
         ToolGovernanceStage(app_state=app_state),
         TokenizationStage(
-            tokenizer=Tokenizer(),
             cache_manager=cache_manager,
         ),
         ForwardingGuard(),
@@ -331,16 +329,16 @@ async def _stream_chat_completions(
         logger.warning(
             "chat.alias_not_found",
             request_id=ctx.request_id,
-            error=type(exc).__name__,
+            error_type=type(exc).__name__,
         )
-        raise HTTPException(status_code=400, detail="Unknown model alias") from exc
+        raise HTTPException(status_code=400, detail="Unknown model alias") from None
     except ProviderNotFoundError as exc:
         logger.warning(
             "chat.provider_not_found",
             request_id=ctx.request_id,
-            error=type(exc).__name__,
+            error_type=type(exc).__name__,
         )
-        raise HTTPException(status_code=400, detail="Unknown provider") from exc
+        raise HTTPException(status_code=400, detail="Unknown provider") from None
     except ValueError:
         raise HTTPException(  # noqa: B904
             status_code=502,

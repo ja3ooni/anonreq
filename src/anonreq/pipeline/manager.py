@@ -95,7 +95,7 @@ class PipelineManager:
                     "pipeline.stage.exception",
                     stage=stage.name,
                     request_id=ctx.request_id,
-                    error=type(exc).__name__,
+                    error_type=type(exc).__name__,
                 )
                 break
 
@@ -104,7 +104,7 @@ class PipelineManager:
                     "pipeline.stage.failed",
                     stage=stage.name,
                     request_id=ctx.request_id,
-                    error=type(ctx.errors[-1]).__name__,
+                    error_type=type(ctx.errors[-1]).__name__,
                 )
                 break
 

@@ -62,7 +62,7 @@ def _exclusion_exempt(detection: dict[str, Any]) -> bool:
     an exact overlap (``API_KEY`` and the other irreversible types) is
     exempt for the same reason.
     """
-    if detection.get("source") in _PROTECTED_SOURCES:
+    if detection.get("protected") or detection.get("source") in _PROTECTED_SOURCES:
         return True
     entity_type = str(detection.get("entity_type", ""))
     return entity_type in IRREVERSIBLE_ENTITY_TYPES or entity_type.startswith("MNPI_")
@@ -238,6 +238,13 @@ class DetectionStage(PipelineStage):
                         detection.setdefault("source", "enterprise")
                     enterprise_results.extend(per_node)
 
+                # Config-irreversible types are flagged before the merge so
+                # the flag survives when an ordinary type wins the overlap.
+                for results in (regex_results, ner_results):
+                    for detection in results:
+                        if str(detection.get("entity_type", "")) in irreversible_names:
+                            detection["irreversible"] = True
+
                 merged = self._span_arbiter.merge(
                     regex_results,
                     ner_results,
@@ -254,7 +261,9 @@ class DetectionStage(PipelineStage):
                     validated
                     for detection in final
                     if (
-                        validated := validate_detection(
+                        validated := detection
+                        if detection.get("protected")
+                        else validate_detection(
                             detection,
                             self._checksum_registry,
                             node_value,
@@ -268,7 +277,10 @@ class DetectionStage(PipelineStage):
                     d["node_index"] = i
                     entity_type = str(d.get("entity_type", ""))
                     d["reversible"] = (
-                        entity_type not in irreversible_names and d.get("source") != "enterprise"
+                        entity_type not in irreversible_names
+                        and d.get("source") != "enterprise"
+                        and not d.get("irreversible")
+                        and not d.get("protected")
                     )
 
                 all_detections.extend(final)

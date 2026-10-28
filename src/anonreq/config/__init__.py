@@ -99,6 +99,15 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_ADMIN_API_KEY",
         description="Separate API key for admin endpoints. If unset, admin endpoints return 401.",
     )
+    ADMIN_TENANT_ID: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_ADMIN_TENANT_ID",
+        description=(
+            "Tenant the legacy admin API key is bound to. Required when "
+            "ANONREQ_ADMIN_API_KEY is set; startup fails without it. A request "
+            "whose X-AnonReq-Tenant-ID names a different tenant gets 403."
+        ),
+    )
     ADMIN_ROLE: str = Field(
         default="administrator",
         validation_alias="ANONREQ_ADMIN_ROLE",
