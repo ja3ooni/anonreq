@@ -17,8 +17,23 @@ services:
       ANONREQ_KMS_MASTER_KEY: ${ANONREQ_KMS_MASTER_KEY:?ANONREQ_KMS_MASTER_KEY must be set in demo mode}
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?ANONREQ_ADMIN_API_KEY must be set in demo mode}
       ANONREQ_SINGLE_TENANT: "true"
+  # Bilingual analyzer from PR #4 (docker/presidio/Dockerfile), built locally
+  # by `make demo` — never pulled from or pushed to a registry.
+  # RAM: en_core_web_lg + de_core_news_lg need >= 4 GB for this container
+  # (Docker Desktop on macOS: Settings > Resources > Memory >= 6 GB total
+  # recommended). The reservation documents the need; scripts/demo.sh checks
+  # the Docker VM memory before starting. No hard mem_limit, so a model
+  # load spike is not OOM-killed mid-demo.
   presidio-analyzer:
+    build:
+      context: ./docker/presidio
+      dockerfile: Dockerfile
+    image: anonreq/presidio-analyzer:2.2.354-de
+    pull_policy: build
+    deploy:
+      resources:
+        reservations:
+          memory: 4g
     healthcheck:
-      # German spaCy models make the first load slow; give it room.
-      start_period: 90s
+      start_period: 120s
       retries: 10
