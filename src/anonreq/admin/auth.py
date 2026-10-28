@@ -120,6 +120,13 @@ def validate_admin_settings() -> None:
             "ANONREQ_ADMIN_API_KEY is set but ANONREQ_ADMIN_TENANT_ID is missing "
             "or invalid; set the tenant the admin key is bound to."
         )
+    if settings.ADMIN_API_KEY and settings.API_KEY and hmac.compare_digest(
+        settings.ADMIN_API_KEY, settings.API_KEY,
+    ):
+        raise RuntimeError(
+            "ANONREQ_ADMIN_API_KEY must differ from ANONREQ_API_KEY; the "
+            "gateway chat key must never be an admin credential."
+        )
 
 
 def _reject_header_mismatch(request: Request, tenant: str) -> None:
