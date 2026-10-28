@@ -10,3 +10,6 @@ fakeredis==2.30.0
 ruff==0.9.10
 mypy==1.15.0
 aiosqlite==0.22.1
+# test extra (also available as [storage] / [exports])
+minio==7.2.20
+pyarrow==24.0.0
