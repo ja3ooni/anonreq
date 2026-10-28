@@ -1,0 +1,35 @@
+# Demo UI against a real gateway. Production image. No login.
+#
+#   docker compose up --build
+#
+# Needs ANONREQ_GATEWAY_URL, ANONREQ_API_KEY and ANONREQ_ADMIN_API_KEY in
+# your shell or a .env file next to this one. Mock mode is NOT set here:
+# production refuses ANONREQ_MOCK=true. For fixtures, use the override:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.mock.yml up --build
+#
+# The process listens on 0.0.0.0 inside the container so this publish
+# can reach it. The host side is 127.0.0.1:3000:3000, which is what
+# keeps other machines off the app.
+# Never change this to 0.0.0.0:3000. That exposes the gateway and admin
+# keys. Anyone who can reach the app can export audit logs, see raw PII
+# through the preview, and spend provider credits.
+
+services:
+  anonreq-web:
+    build:
+      context: .
+      target: runtime
+    environment:
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+      NODE_ENV: production
+      ANONREQ_GATEWAY_URL: ${ANONREQ_GATEWAY_URL:-}
+      ANONREQ_API_KEY: ${ANONREQ_API_KEY:-}
+      ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:-}
+      ANONREQ_TENANT_ID: ${ANONREQ_TENANT_ID:-${ANONREQ_ADMIN_TENANT_ID:-default}}
+      ANONREQ_ALLOWED_HOSTS: ${ANONREQ_ALLOWED_HOSTS:-}
+    ports:
+      # Changing the host port (left side)? Also set ANONREQ_ALLOWED_HOSTS=localhost:<port>,127.0.0.1:<port>,
+      # or /api/* returns 403: the default allowlist uses the container PORT.
+      - "127.0.0.1:3000:3000"

@@ -1,0 +1,26 @@
+# Join the PR #20 demo stack (make demo / docker-compose.demo.yml at repo root).
+#
+#   cd ..; make demo                       # gateway, Presidio, Valkey on anonreq-net
+#   cd web; docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#
+# --env-file only feeds compose variable substitution. The container gets
+# just the values listed under environment: ANONREQ_API_KEY (gateway key,
+# chat) and ANONREQ_ADMIN_API_KEY (preview + audit), never the provider,
+# KMS or other secrets in the root .env. The gateway must run with
+# ANONREQ_DEBUG_PREVIEW_ENABLED=true, which #20 sets. The UI reaches the
+# gateway over the compose network by container name; it is still only
+# published on 127.0.0.1:3000.
+services:
+  anonreq-web:
+    environment:
+      ANONREQ_API_KEY: ${ANONREQ_API_KEY:?set ANONREQ_API_KEY (use --env-file ../.env)}
+      ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?set ANONREQ_ADMIN_API_KEY (use --env-file ../.env)}
+      ANONREQ_GATEWAY_URL: ${ANONREQ_GATEWAY_URL:-http://anonreq-gateway:8080}
+    networks:
+      - anonreq-net
+
+networks:
+  anonreq-net:
+    external: true
+    # Root compose project "anonreq" -> network "anonreq_anonreq-net".
+    name: ${ANONREQ_COMPOSE_NETWORK:-anonreq_anonreq-net}
