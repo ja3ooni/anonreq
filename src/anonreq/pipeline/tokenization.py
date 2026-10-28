@@ -168,8 +168,16 @@ class TokenizationStage(PipelineStage):
                 written = _write_path(transformed, path, tokenized_texts[i])
                 # A detected node that cannot be written back would be
                 # forwarded in clear text. Fail closed.
-                if not written and detections_by_node.get(i):
-                    raise ValueError("unwritable text node path")
+                if not written:
+                    # Log the path shape only (indices replaced), never values.
+                    logger.warning(
+                        "tokenization.unwritable_path",
+                        request_id=ctx.request_id,
+                        path_shape=_INDEX.sub("[]", str(path)),
+                        has_detections=bool(detections_by_node.get(i)),
+                    )
+                    if detections_by_node.get(i):
+                        raise ValueError("unwritable text node path")
 
             ctx.transformed_request = transformed
 
@@ -198,18 +206,30 @@ class TokenizationStage(PipelineStage):
         except DependencyUnavailableError:
             raise
         except (KeyError, TypeError, ValueError, IndexError) as exc:
+            logger.warning(
+                "tokenization.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Tokenization stage failed: {type(exc).__name__}",
+                    message="Tokenization stage failed",
                     request_id=ctx.request_id,
                 )
             )
         except Exception as exc:
+            logger.warning(
+                "tokenization.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Tokenization stage failed: {type(exc).__name__}",
+                    message="Tokenization stage failed",
                     request_id=ctx.request_id,
                 )
             )

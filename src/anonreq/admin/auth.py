@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import logging
 from typing import Any
 
 from fastapi import Header, HTTPException, Request
@@ -11,6 +12,8 @@ from fastapi.responses import JSONResponse
 from anonreq.auth.oidc import OIDCVerificationError, build_oidc_verifier
 from anonreq.config import settings
 from anonreq.state import get_app_state
+
+logger = logging.getLogger("anonreq.admin.auth")
 
 
 def _oidc_configured() -> bool:
@@ -65,8 +68,9 @@ async def _verify_admin_credential(
         try:
             verifier = _get_oidc_verifier(request)
             principal = await verifier.verify_authorization(authorization)
-        except OIDCVerificationError:
+        except OIDCVerificationError as exc:
             # Do not echo verifier text (issuer, claim names, key ids).
+            logger.warning("admin.auth_failed type=%s", type(exc).__name__)
             raise HTTPException(status_code=401, detail="Invalid token") from None
         request.state.oidc_principal = _oidc_role_principal(request, principal)
         return True

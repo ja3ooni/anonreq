@@ -18,7 +18,7 @@ from typing import Any
 import httpx
 from prometheus_client import Counter
 
-from anonreq.soc.sinks import SinkStatus
+from anonreq.soc.sinks import SinkStatus, scrubbed_normalized_event
 
 logger = logging.getLogger("anonreq.soc.sinks.datadog_logs")
 
@@ -92,20 +92,21 @@ class DatadogLogsSink:
             Datadog log entry dict with ddsource, ddtags, hostname,
             service, and message fields.
         """
+        safe = scrubbed_normalized_event(event)
         return {
             "ddsource": self._source_tag,
             "ddtags": (
-                f"env:production,tenant:{event.tenant_id},"
-                f"gateway_version:{event.gateway_version}"
+                f"env:production,tenant:{safe['tenant_id']},"
+                f"gateway_version:{safe['gateway_version']}"
             ),
-            "hostname": event.appliance_instance_id,
+            "hostname": safe["appliance_instance_id"],
             "service": "anonreq",
             "message": json.dumps({
-                "severity": event.severity.value,
-                "event_type": event.event_type,
-                "session_id": event.session_id,
-                "mitre_technique_id": event.mitre_technique_id,
-                "metadata": event.metadata,
+                "severity": safe["severity"],
+                "event_type": safe["event_type"],
+                "session_id": safe["session_id"],
+                "mitre_technique_id": safe["mitre_technique_id"],
+                "metadata": safe["metadata"],
             }),
         }
 
@@ -127,7 +128,7 @@ class DatadogLogsSink:
         except Exception as exc:
             logger.warning(
                 "Datadog Logs send error: %s",
-                str(exc),
+                type(exc).__name__,
                 extra={"sink_name": self.name, "event_type": event.event_type},
             )
             return False
@@ -150,7 +151,7 @@ class DatadogLogsSink:
         except Exception as exc:
             logger.warning(
                 "Datadog Logs batch send error: %s",
-                str(exc),
+                type(exc).__name__,
                 extra={"sink_name": self.name},
             )
             return False
@@ -230,5 +231,5 @@ class DatadogLogsSink:
             return SinkStatus(
                 healthy=False,
                 reachable=False,
-                last_error=str(exc),
+                last_error=type(exc).__name__,
             )

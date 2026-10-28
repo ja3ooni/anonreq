@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
+from structlog import get_logger
+
 from anonreq.exceptions import PipelineAbortError
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiationError, LocaleNegotiator
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.base import PipelineStage
+
+logger = get_logger("anonreq.pipeline.locale")
 
 
 class LocaleNegotiationStage(PipelineStage):
@@ -36,10 +40,16 @@ class LocaleNegotiationStage(PipelineStage):
             if parse_result.was_fallback or parse_result.dropped_codes:
                 ctx.audit_metadata["negotiation_fallback"] = True
         except LocaleNegotiationError as exc:
+            logger.warning(
+                "locale.negotiation_failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=exc.status_code,
-                    message=str(exc),
+                    message="Locale negotiation failed",
                     request_id=ctx.request_id,
                 )
             )

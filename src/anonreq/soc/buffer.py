@@ -248,10 +248,10 @@ class SinkBuffer:
                             break
                     except Exception as exc:
                         logger.debug(
-                            "Sink send attempt %d failed for '%s': %s",
+                            "Sink send attempt %d failed for '%s' type=%s",
                             attempt + 1,
                             self._sink_label,
-                            str(exc),
+                            type(exc).__name__,
                         )
 
                     # If not the last attempt, wait with backoff

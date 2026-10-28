@@ -95,11 +95,12 @@ async def update_rules(payload: RulesConfigPayload) -> dict[str, Any]:
             ],
             thresholds=payload.thresholds,
         )
-    except Exception as e:
-        raise HTTPException(  # noqa: B904
+    except Exception as exc:
+        logger.warning("admin.rules_invalid type=%s", type(exc).__name__)
+        raise HTTPException(
             status_code=422,
-            detail=f"Invalid config structure: {e}",
-        )
+            detail="Invalid config structure",
+        ) from exc
 
     success, error = registry.validate_and_swap(new_config)
     if not success:

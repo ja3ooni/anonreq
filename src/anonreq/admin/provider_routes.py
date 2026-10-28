@@ -12,6 +12,7 @@ All endpoints require ADMINISTRATOR role per T-15-02-03/04 mitigation.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -20,6 +21,13 @@ from anonreq.governance.provider_inventory import ProviderInventory
 from anonreq.middleware.rbac import Role, require_role
 
 router = APIRouter(dependencies=[Depends(require_role(Role.ADMINISTRATOR))])
+logger = logging.getLogger("anonreq.admin.providers")
+
+
+def _provider_not_found(exc: BaseException) -> HTTPException:
+    """Generic 404. The exception message is not returned to the client."""
+    logger.warning("admin.provider_not_found type=%s", type(exc).__name__)
+    return HTTPException(status_code=404, detail="Provider not found")
 
 
 def _get_provider_inventory(request: Request) -> ProviderInventory:
@@ -103,7 +111,7 @@ async def suspend_provider(
             suspended_by=suspended_by,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
+        raise _provider_not_found(exc) from exc
 
     return record.model_dump()
 
@@ -133,7 +141,7 @@ async def unsuspend_provider(
             unsuspended_by=unsuspended_by,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
+        raise _provider_not_found(exc) from exc
 
     return record.model_dump()
 
@@ -164,6 +172,6 @@ async def flag_concentration_risk(
             justification=justification,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))  # noqa: B904
+        raise _provider_not_found(exc) from exc
 
     return record.model_dump()

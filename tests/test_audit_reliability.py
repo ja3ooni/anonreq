@@ -41,6 +41,23 @@ class _Cache:
         self.deleted.append((tenant_id, session_id))
 
 
+@pytest.fixture(autouse=True)
+def _fresh_loggers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Fresh structlog proxies so ``capture_logs`` sees them in any test order.
+
+    ``configure_logging`` sets ``cache_logger_on_first_use=True``; a logger
+    cached by an earlier test would bypass ``capture_logs``.
+    """
+    import structlog
+
+    import anonreq.pipeline.audit_emit as audit_emit
+    import anonreq.pipeline.cleanup as cleanup_mod
+
+    for module in (audit_emit, cleanup_mod):
+        if hasattr(module, "logger"):
+            monkeypatch.setattr(module, "logger", structlog.get_logger(module.__name__))
+
+
 def _ctx() -> ProcessingContext:
     ctx = ProcessingContext(request_id="req-audit", tenant_id="tenant-a")
     ctx.context_id = "sess-audit"
@@ -362,3 +379,57 @@ async def test_audit_write_timeout_reads_setting(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(settings, "AUDIT_WRITE_TIMEOUT_SECONDS", 0.5)
     assert _timeout_policy(None) == 0.5
     assert _timeout_policy(1000) == 30.0
+
+
+@pytest.mark.asyncio
+async def test_mapping_delete_failure_logs_error_type_only() -> None:
+    """Exception text can carry user data; only the type is logged."""
+    ctx = _ctx()
+    ctx.audit_chain = _Chain()
+    stage = CleanupStage(_Cache(error=KeyError("person@example.com")))
+
+    with capture_logs() as logs:
+        await stage.execute(ctx)
+
+    failed = [e for e in logs if e["event"] == "cleanup.mapping_delete_failed"]
+    assert failed
+    assert failed[0]["error_type"] == "KeyError"
+    assert "person@example.com" not in repr(logs)
+    assert ctx.audit_chain.calls[0][0] == "anonymization"
+
+
+@pytest.mark.asyncio
+async def test_forwarding_guard_blocks_untokenized_before_provider_and_still_audits() -> None:
+    from anonreq.pipeline.forwarding_guard import ForwardingGuard
+
+    ctx = _ctx()
+    ctx.transformed_request = None
+    chain = _Chain()
+    ctx.audit_chain = chain
+    cache = _Cache()
+    provider = _Provider()
+    manager = PipelineManager()
+    manager.register(ForwardingGuard())
+    manager.register(provider)
+    manager.register(CleanupStage(cache))
+
+    result = await manager.run(ctx)
+
+    assert provider.called is False
+    assert result.errors[-1].status_code == 503
+    assert cache.deleted == [("tenant-a", "sess-audit")]
+    assert [event for event, _fields in chain.calls] == ["anonymization"]
+
+
+def test_chat_pipeline_order_guard_before_provider_cleanup_last() -> None:
+    from anonreq.pipeline.forwarding_guard import ForwardingGuard
+    from anonreq.pipeline.provider import ProviderStage
+    from anonreq.routing.chat import build_pipeline, build_pre_provider_pipeline
+
+    full = build_pipeline(MagicMock(), MagicMock()).stages
+    kinds = [type(stage) for stage in full]
+    assert kinds.index(ForwardingGuard) < kinds.index(ProviderStage)
+    assert isinstance(full[-1], CleanupStage)
+    assert full[-1].guaranteed is True
+    pre = build_pre_provider_pipeline(MagicMock(), MagicMock()).stages
+    assert isinstance(pre[-1], ForwardingGuard)
