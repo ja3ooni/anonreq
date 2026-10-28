@@ -1,0 +1,24 @@
+# xAI demo overlay — layer on top of the base + Germany files:
+#   docker compose -f docker-compose.yml -f docker-compose.germany.yml -f docker-compose.demo.yml up -d --build
+# or simply:  make demo   (generates local secrets into .env, never committed)
+#
+# NOTE: ProviderStage appends "/v1/chat/completions" itself, so the base URL
+# is https://api.x.ai (NOT .../v1) — the effective endpoint is
+# https://api.x.ai/v1/chat/completions (OpenAI-compatible).
+services:
+  anonreq:
+    environment:
+      ANONREQ_ENV: demo
+      PROVIDER_BASE_URL: ${XAI_BASE_URL:-https://api.x.ai}
+      PROVIDER_API_KEY: ${XAI_API_KEY:?XAI_API_KEY must be set for the xAI demo}
+      ANONREQ_DEMO_MODEL: ${ANONREQ_DEMO_MODEL:-grok-4}
+      # Demo mode refuses to boot without a stable AES-256-GCM master key.
+      ANONREQ_KMS_BACKEND: local
+      ANONREQ_KMS_MASTER_KEY: ${ANONREQ_KMS_MASTER_KEY:?ANONREQ_KMS_MASTER_KEY must be set in demo mode}
+      ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?ANONREQ_ADMIN_API_KEY must be set in demo mode}
+      ANONREQ_SINGLE_TENANT: "true"
+  presidio-analyzer:
+    healthcheck:
+      # German spaCy models make the first load slow; give it room.
+      start_period: 90s
+      retries: 10
