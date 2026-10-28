@@ -71,8 +71,6 @@ The table calls `GET /v1/admin/anonymization-events` and expects `{ total, limit
 
 CSV is `GET /v1/admin/anonymization-events/export` (no `.csv` suffix). The `entity_types` cell is a JSON array. A trailer row with `request_id=#error` and `decision=export_failed` means the stream failed partway: the file drops that row and the page warns that the download may be incomplete.
 
-Preview is rate-limited per admin. HTTP 429 shows a retry message in English and German.
-
 If that route is missing (404), the UI falls back to `GET /v1/admin/audit/anonymization-export`. That dump has no cursor and no separate total. Config history (`GET /v1/admin/audit/config-history`) and chain verify (`GET /v1/governance/audit/verify`) stay on the page.
 
 ## Depends on the gateway PR
