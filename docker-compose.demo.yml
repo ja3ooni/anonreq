@@ -7,6 +7,10 @@
 # https://api.x.ai/v1/chat/completions (OpenAI-compatible).
 services:
   anonreq:
+    # Create/upgrade the audit + anonymization-event tables on the data volume
+    # before serving. Without this a fresh volume returns 500 on every chat
+    # (audit chain write fails with OperationalError: no such table).
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn anonreq.main:app --host 0.0.0.0 --port 8080 --no-server-header --no-access-log"]
     environment:
       ANONREQ_ENV: demo
       PROVIDER_BASE_URL: ${XAI_BASE_URL:-https://api.x.ai}
@@ -22,6 +26,9 @@ services:
       # Single-tenant demo: bind the admin key to the "default" tenant.
       ANONREQ_ADMIN_TENANT_ID: ${ANONREQ_ADMIN_TENANT_ID:-default}
       ANONREQ_SINGLE_TENANT: "true"
+      # The three-column UI (PR #12) fills its "anonymized" column from the
+      # admin-only preview route, which 404s unless enabled.
+      ANONREQ_DEBUG_PREVIEW_ENABLED: "true"
     # The gateway reads aliases from the fixed path config/model_aliases.yaml
     # (AliasRegistry and the provider-key startup check from PR #9). There is
     # no env var to select another file, so the demo bind-mounts its own
@@ -35,6 +42,11 @@ services:
   # two large spaCy models need. No hard mem_limit, so a model-load spike is
   # not OOM-killed mid-demo; scripts/demo.sh checks Docker VM memory first.
   presidio-analyzer:
+    # Base mcr.microsoft.com/presidio-analyzer:2.2.354 is published for
+    # linux/amd64 only (checked with buildx imagetools inspect, 2026-10-28;
+    # 2.2.360+ is multi-arch but bumping is post-Friday work). On Apple
+    # Silicon this runs under Rosetta/QEMU: slower start, same results.
+    platform: linux/amd64
     pull_policy: build
     deploy:
       resources:
