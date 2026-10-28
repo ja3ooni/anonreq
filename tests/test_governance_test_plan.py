@@ -40,6 +40,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
+# ── Shared Fixtures ──────────────────────────────────────────────────────
+from anonreq.admin.auth import bind_governance_role
 from anonreq.exceptions import global_exception_handler, http_exception_handler
 from anonreq.models.audit import Base
 from anonreq.models.governance import (
@@ -55,7 +57,10 @@ from anonreq.services.lifecycle import LifecycleService, LifecycleStage
 from anonreq.services.oversight import OversightService
 from anonreq.services.transparency import TransparencyService
 
-# ── Shared Fixtures ──────────────────────────────────────────────────────
+
+async def _principal_from_test_middleware() -> None:
+    """Keep the principal the test middleware put on request.state."""
+    return None
 
 
 @pytest.fixture
@@ -407,6 +412,12 @@ def _create_governance_app() -> FastAPI:
                 "tenant_id": tenant_id,
             }
         return await call_next(request)
+
+    # Route-logic tests: the middleware above stands in for auth.
+
+    # Real credential checks are in test_governance_create_app_auth.py.
+
+    app.dependency_overrides[bind_governance_role] = _principal_from_test_middleware
 
     app.include_router(governance_router)
     return app
