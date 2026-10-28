@@ -32,6 +32,7 @@ Appending them after overlap resolution tokenizes one character range twice.
 from __future__ import annotations
 
 import inspect
+import re
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -77,6 +78,71 @@ def _exclusion_exempt(detection: dict[str, Any]) -> bool:
         return True
     entity_type = str(detection.get("entity_type", ""))
     return entity_type in IRREVERSIBLE_ENTITY_TYPES or entity_type.startswith("MNPI_")
+
+
+# Checksum failures on these types are still masked on format, at lower
+# confidence, because a mistyped IBAN or tax ID is still personal data.
+_MASK_ON_FORMAT = {
+    "IBAN_DE": "IBAN_UNVERIFIED",
+    "IBAN_CODE": "IBAN_UNVERIFIED",
+    "TAX_ID_DE": "TAX_ID_DE_UNVERIFIED",
+}
+_UNVERIFIED_SCORE = 0.6
+
+
+def _validate_or_downgrade(
+    detection: dict[str, Any],
+    registry: ChecksumValidatorRegistry,
+    text: str,
+) -> dict[str, Any] | None:
+    """Validate a checksum; mask-on-format types are downgraded, not dropped."""
+    validated = validate_detection(detection, registry, text)
+    if validated is not None:
+        return validated
+    downgraded = _MASK_ON_FORMAT.get(str(detection.get("entity_type", "")))
+    if downgraded is None:
+        return None
+    return {
+        **detection,
+        "entity_type": downgraded,
+        "score": min(float(detection.get("score", 1.0)), _UNVERIFIED_SCORE),
+    }
+
+
+_PERSON_TYPES = frozenset({"PERSON", "PER"})
+_WORD = re.compile(r"\S+")
+
+
+def _trim_person_spans(spans: list[dict[str, Any]], text: str) -> list[dict[str, Any]]:
+    """Trim leading and trailing lowercase words from NER person spans.
+
+    Names are capitalised. An English model run on German text returns
+    spans such as "Anna prüfen"; the trailing verb is not part of the name
+    and masking it breaks exact boundaries. Spans are only ever trimmed,
+    never dropped: if no capitalised word remains (all-lowercase input such
+    as "bitte anna müller anrufen") the original span is kept.
+    """
+    trimmed: list[dict[str, Any]] = []
+    for span in spans:
+        if str(span.get("entity_type", "")) not in _PERSON_TYPES:
+            trimmed.append(span)
+            continue
+        start, end = int(span["start"]), int(span["end"])
+        words = [
+            (start + m.start(), start + m.end()) for m in _WORD.finditer(text[start:end])
+        ]
+        while words and not text[words[0][0]].isupper():
+            words.pop(0)
+        while words and not text[words[-1][0]].isupper():
+            words.pop()
+        if not words:
+            trimmed.append(span)
+            continue
+        new_start, new_end = words[0][0], words[-1][1]
+        while new_end > new_start and not text[new_end - 1].isalnum():
+            new_end -= 1
+        trimmed.append({**span, "start": new_start, "end": new_end})
+    return trimmed
 
 
 class DetectionStage(PipelineStage):
@@ -236,6 +302,7 @@ class DetectionStage(PipelineStage):
 
                 # Get NER results for this node
                 ner_results = ner_results_list[i] if i < len(ner_results_list) else []
+                ner_results = _trim_person_spans(ner_results, node_value)
 
                 # Secret, API-key, and MNPI detectors contribute spans to the
                 # same resolution as regex and NER. Resolving them afterwards
@@ -304,7 +371,7 @@ class DetectionStage(PipelineStage):
                     if (
                         validated := detection
                         if detection.get("protected")
-                        else validate_detection(
+                        else _validate_or_downgrade(
                             detection,
                             self._checksum_registry,
                             node_value,
