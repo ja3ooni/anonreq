@@ -16,7 +16,24 @@ traceability.
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+from anonreq.exceptions import PipelineAbortError
+
+# Deepest JSON-schema nesting the walker scans. Deeper schemas are rejected
+# rather than partly scanned, so no description can bypass masking.
+MAX_SCHEMA_DEPTH = 12
+
+# OpenAI requires messages[].name to match this pattern.
+NAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+class UnscannableRequestError(PipelineAbortError):
+    """A request part cannot be fully scanned or written back (HTTP 400)."""
+
+    def __init__(self, message: str = "Request contains a tool schema that cannot be scanned") -> None:
+        super().__init__(status_code=400, message=message)
 
 
 class TextExtractor:
@@ -69,7 +86,14 @@ class TextExtractor:
                             for key in _TEXT_PART_KEYS:
                                 add(f"{base}.content[{part_idx}].{key}", role, part.get(key))
 
-                add(f"{base}.name", role, message.get("name"))
+                # Scanned for PII but never tokenized: a [TYPE_N] token is not
+                # a valid name. TokenizationStage swaps a name with PII for a
+                # safe placeholder (see NAME_PATTERN).
+                name = message.get("name")
+                if isinstance(name, str) and name.strip():
+                    nodes.append(
+                        {"path": f"{base}.name", "role": role, "value": name, "kind": "name"}
+                    )
 
                 tool_calls = message.get("tool_calls")
                 if isinstance(tool_calls, list):
@@ -123,15 +147,23 @@ def _safe_key(key: Any) -> bool:
 
 
 def _walk_schema_descriptions(schema: Any, path: str, add: Any, depth: int = 0) -> None:
-    """Collect ``description`` strings inside a JSON schema."""
-    if depth > 12 or not isinstance(schema, dict):
+    """Collect ``description`` strings inside a JSON schema.
+
+    Fails closed: a schema nested deeper than ``MAX_SCHEMA_DEPTH`` or a
+    property name that cannot be written back ('.', '[' or ']') rejects
+    the request instead of leaving a description unscanned.
+    """
+    if not isinstance(schema, dict):
         return
+    if depth > MAX_SCHEMA_DEPTH:
+        raise UnscannableRequestError("Tool schema nesting exceeds the supported depth")
     add(f"{path}.description", "tool_definition", schema.get("description"))
     properties = schema.get("properties")
     if isinstance(properties, dict):
         for name, sub in properties.items():
-            if _safe_key(name):
-                _walk_schema_descriptions(sub, f"{path}.properties.{name}", add, depth + 1)
+            if not _safe_key(name):
+                raise UnscannableRequestError("Tool schema property name is not supported")
+            _walk_schema_descriptions(sub, f"{path}.properties.{name}", add, depth + 1)
     items = schema.get("items")
     if isinstance(items, dict):
         _walk_schema_descriptions(items, f"{path}.items", add, depth + 1)

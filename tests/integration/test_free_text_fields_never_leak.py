@@ -167,3 +167,46 @@ async def test_planted_pii_in_any_free_text_field_never_reaches_provider() -> No
     # Structure survives: image part and tool name are untouched.
     assert forwarded["messages"][2]["content"][1]["image_url"]["url"] == "https://img.example/x.png"
     assert forwarded["tools"][0]["function"]["name"] == "crm_create"
+
+
+def test_forwarded_message_name_matches_provider_schema_via_pipeline_output() -> None:
+    """Covered end to end below; kept as a pattern guard."""
+    from anonreq.pipeline.extraction import NAME_PATTERN
+
+    assert NAME_PATTERN.fullmatch("user_0")
+    assert not NAME_PATTERN.fullmatch("[PERSON_123]")
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_pii_in_message_name_becomes_safe_placeholder() -> None:
+    from anonreq.pipeline.extraction import NAME_PATTERN
+
+    route = respx.post(f"{PROVIDER}/v1/chat/completions").mock(
+        return_value=httpx.Response(
+            200,
+            json={"id": "x", "object": "chat.completion", "created": 0, "model": "gpt-4o",
+                  "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"},
+                               "finish_reason": "stop"}]},
+        )
+    )
+    request = {
+        "model": "gpt-4o",
+        "messages": [
+            {"role": "user", "name": "kunde@beispiel.de", "content": "Hallo kunde@beispiel.de"},
+            {"role": "user", "name": "alice_01", "content": "hi"},
+        ],
+    }
+    pipeline = build_pre_provider_pipeline(_Cache(), _NoNer())
+    pipeline.register(ProviderStage(openai_base_url=PROVIDER, api_key="k", timeout=5.0))
+    ctx = ProcessingContext(
+        request_id="n", tenant_id="default", context_id="n", original_request=request,
+    )
+    ctx = await pipeline.run(ctx)
+    assert not ctx.errors, ctx.errors
+    forwarded = json.loads(route.calls.last.request.content.decode("utf-8"))
+    names = [m["name"] for m in forwarded["messages"]]
+    assert all(NAME_PATTERN.fullmatch(n) for n in names)
+    assert names[1] == "alice_01"
+    assert "beispiel" not in names[0]
+    assert "kunde@beispiel.de" not in json.dumps(forwarded)
