@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from anonreq.middleware.rbac import Role, require_role
 from anonreq.services.audit_chain import AuditChainService
-from anonreq.services.audit_export import safe_anonymization_row
+from anonreq.services.audit_export import iter_filtered_events, safe_anonymization_row
 
 # Prefix "/v1/admin/audit" is used when registered as a standalone router,
 # or "/audit" if registered under the global admin router prefix.
@@ -157,12 +157,53 @@ async def export_config_history(
     )
 
 
+_ANON_EXPORT_FIELDS = [
+    "timestamp",
+    "request_id",
+    "tenant_id",
+    "operator_id",
+    "model",
+    "locale",
+    "entity_types",
+    "token_count",
+    "decision",
+    "compliance_preset",
+]
+
+
+async def _anonymization_csv_stream(
+    service: AuditChainService,
+    tenant_id: str | None,
+    date_from: datetime | None,
+    date_to: datetime | None,
+    entity_type: str | None,
+) -> AsyncGenerator[str, None]:
+    """Stream every matching anonymization row. No 10k cap."""
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=_ANON_EXPORT_FIELDS, lineterminator="\n")
+    writer.writeheader()
+    yield buf.getvalue()
+    async for event in iter_filtered_events(
+        service,
+        tenant_id=tenant_id,
+        event_type="anonymization",
+        date_from=date_from,
+        date_to=date_to,
+        entity_type=entity_type,
+    ):
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=_ANON_EXPORT_FIELDS, lineterminator="\n")
+        writer.writerow(safe_anonymization_row(event))
+        yield buf.getvalue()
+
+
 @router.get("/anonymization-export")
 async def export_anonymization_activity(
     request: Request,
     tenant_id: str = Query(default=None),
     date_from: datetime = Query(default=None),
     date_to: datetime = Query(default=None),
+    entity_type: str = Query(default=None),
     export_format: str = Query(default="json", alias="format", pattern="^(json|csv)$"),
     _auth: Annotated[bool | None, Depends(require_admin_role)] = None,
 ) -> Response:
@@ -170,44 +211,31 @@ async def export_anonymization_activity(
 
     Columns are metadata only: who, when, which model, which entity *types*
     were masked. Raw identifiers are never exported.
+
+    CSV is a ``StreamingResponse`` that pages through every matching row.
+    JSON remains a single document for callers that expect a list.
     """
     service = getattr(request.app.state, "audit_chain", None)
     if service is None:
         raise HTTPException(status_code=503, detail="Audit chain service not initialized")
+
+    if export_format == "csv":
+        return StreamingResponse(
+            _anonymization_csv_stream(service, tenant_id, date_from, date_to, entity_type),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=anonymization-export.csv"},
+        )
 
     events = await service.get_events(
         tenant_id=tenant_id,
         event_type="anonymization",
         date_from=date_from,
         date_to=date_to,
+        entity_type=entity_type,
         limit=10000,
         offset=0,
     )
     rows = [safe_anonymization_row(e) for e in events]
-    if export_format == "csv":
-        buf = io.StringIO()
-        writer = csv.DictWriter(
-            buf,
-            fieldnames=[
-                "timestamp",
-                "request_id",
-                "tenant_id",
-                "operator_id",
-                "model",
-                "locale",
-                "entity_types",
-                "token_count",
-                "decision",
-                "compliance_preset",
-            ],
-        )
-        writer.writeheader()
-        writer.writerows(rows)
-        return Response(
-            content=buf.getvalue(),
-            media_type="text/csv",
-            headers={"Content-Disposition": "attachment; filename=anonymization-export.csv"},
-        )
     return Response(
         content=json.dumps(rows, ensure_ascii=False, indent=2),
         media_type="application/json",

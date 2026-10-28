@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -177,6 +178,63 @@ class TestAuditChainService:
         assert len(page) == 2
         page2 = await chain.get_events(tenant_id="t1", limit=2, offset=2)
         assert len(page2) == 2
+
+    @pytest.mark.anyio
+    async def test_anonymization_entity_filter_and_timestamp_sort(
+        self, chain: AuditChainService,
+    ) -> None:
+        older = _make_event("old", "acme", event_type="anonymization")
+        older.request_id = "r-old"
+        older.decision = "ANONYMIZE"
+        older.timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+        older.metadata_json = json.dumps({
+            "entity_types": ["EMAIL_ADDRESS"],
+            "entity_counts": {"EMAIL_ADDRESS": 2},
+            "model": "gpt-4o",
+            "locale": "en",
+            "token_count": 2,
+        })
+        newer = _make_event("new", "acme", event_type="anonymization")
+        newer.request_id = "r-new"
+        newer.decision = "PASS"
+        newer.timestamp = datetime(2026, 6, 1, tzinfo=UTC)
+        newer.metadata_json = json.dumps({
+            "entity_counts": {"EMAIL_ADDRESS": 1, "PERSON": 1},
+            "model": "gpt-4o",
+        })
+        other = _make_event("person", "acme", event_type="anonymization")
+        other.request_id = "r-person"
+        other.timestamp = datetime(2026, 3, 1, tzinfo=UTC)
+        other.metadata_json = json.dumps({"entity_types": ["PERSON"]})
+        await chain.store_event(older)
+        await chain.store_event(newer)
+        await chain.store_event(other)
+
+        emails = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="EMAIL_ADDRESS",
+            sort="timestamp:asc",
+        )
+        assert [event.request_id for event in emails] == ["r-old", "r-new"]
+        desc = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="EMAIL_ADDRESS",
+            sort="timestamp:desc",
+        )
+        assert [event.request_id for event in desc] == ["r-new", "r-old"]
+        assert await chain.count_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="PERSON",
+        ) == 2
+        assert await chain.count_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="EMAIL_ADDRESS",
+            date_from=datetime(2026, 5, 1, tzinfo=UTC),
+        ) == 1
 
     @pytest.mark.anyio
     async def test_metadata_json_preserved(self, chain: AuditChainService) -> None:

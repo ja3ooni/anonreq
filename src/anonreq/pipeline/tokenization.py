@@ -31,17 +31,30 @@ class TokenizationStage(PipelineStage):
     ``Tokenizer.tokenize()``, and records the mapping.
     """
 
-    def __init__(self, tokenizer: Any, cache_manager: Any) -> None:
+    def __init__(
+        self,
+        tokenizer: Any,
+        cache_manager: Any,
+        *,
+        persist_mappings: bool = True,
+        run_when_pass: bool = False,
+    ) -> None:
         """Initialise with tokenizer and cache manager.
 
         Args:
             tokenizer: A ``Tokenizer`` instance.
             cache_manager: A ``CacheManager`` for storing token mappings
-                in Valkey.
+                in Valkey. Ignored when ``persist_mappings`` is false.
+            persist_mappings: When false, tokens are generated in memory
+                and ``store_mapping`` is not called.
+            run_when_pass: When true, PASS classification still tokenizes.
+                BLOCK still skips.
         """
         super().__init__("TokenizationStage")
         self._tokenizer = tokenizer
         self._cache_manager = cache_manager
+        self._persist_mappings = persist_mappings
+        self._run_when_pass = run_when_pass
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Replace detected entities with tokens.
@@ -58,10 +71,11 @@ class TokenizationStage(PipelineStage):
         Returns:
             The mutated ``ProcessingContext``.
         """
-        # Skip if classification says PASS or BLOCK
+        # Skip if classification says PASS or BLOCK. Preview mode still
+        # tokenizes PASS so the response can show replacement tokens.
         if ctx.classification_result:
             action = ctx.classification_result.get("action")
-            if action in ("PASS", "BLOCK"):
+            if action == "BLOCK" or (action == "PASS" and not self._run_when_pass):
                 return ctx
 
         # No detections → forward unchanged (TOKN-06/07)
@@ -130,8 +144,9 @@ class TokenizationStage(PipelineStage):
 
             ctx.transformed_request = transformed
 
-            # Store mapping in Valkey if non-empty
-            if all_mappings:
+            # Store mapping in Valkey if non-empty. Debug preview sets
+            # persist_mappings=False and must not touch the token cache.
+            if all_mappings and self._persist_mappings:
                 store_result = self._cache_manager.store_mapping(
                     ctx.tenant_id,
                     ctx.context_id,

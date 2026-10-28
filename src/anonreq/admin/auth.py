@@ -92,3 +92,21 @@ async def verify_admin_api_key(
 def get_admin_api_key() -> str | None:
     """Return the configured legacy admin API key, if any."""
     return settings.ADMIN_API_KEY
+
+
+async def require_administrator(
+    request: Request,
+    authorization: str | None = Header(None),
+) -> None:
+    """Require a valid admin credential and the administrator role.
+
+    Checks the feature-independent admin dependency used by policy and
+    provider routes (``verify_admin_api_key`` plus RBAC). A missing or
+    invalid credential is 401. A known principal below administrator is 403.
+    """
+    from anonreq.admin.router import require_auth
+    from anonreq.middleware.rbac import Role, require_role
+
+    await verify_admin_api_key(request, authorization)
+    await require_auth(request, _authorized=True)
+    await require_role(Role.ADMINISTRATOR)(request)

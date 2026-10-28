@@ -29,7 +29,9 @@ from starlette.responses import StreamingResponse
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
+from anonreq.admin.router import admin_router as rbac_admin_router
 from anonreq.admin.routes import admin_router
+from anonreq.api.v1.admin.anonymization_events import router as anonymization_events_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
 from anonreq.auth.oidc import build_oidc_verifier
 from anonreq.bootstrap.services import (
@@ -47,6 +49,8 @@ from anonreq.bootstrap.services import (
 )
 from anonreq.cache.manager import CacheManager
 from anonreq.config import settings
+from anonreq.cors import apply_cors
+from anonreq.debug.preview import router as debug_preview_router
 from anonreq.dependencies import auth_context
 from anonreq.deployment.modes import DeploymentMode, TopologyConfig, get_deployment_config
 from anonreq.discovery.admin_router import router as discovery_admin_router
@@ -443,6 +447,13 @@ def create_app() -> FastAPI:
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
+    # Policies, providers, and the other RBAC admin routes. The router
+    # already depends on admin auth (OIDC or ANONREQ_ADMIN_API_KEY) plus
+    # per-route roles. It is not wrapped in the gateway API-key dependency
+    # so a distinct admin credential can authorize the call.
+    app.include_router(rbac_admin_router)
+    app.include_router(anonymization_events_router)
+    app.include_router(debug_preview_router)
 
     # Phase 22: Discovery inventory admin routes
     app.include_router(discovery_admin_router, dependencies=[Depends(auth_context)])
@@ -486,6 +497,10 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def root(_ctx: Any = Depends(auth_context)) -> dict[str, str]:
         return {"service": "AnonReq", "version": __version__}
+
+    # Outermost when configured, so browser preflight is not blocked by auth.
+    # No-op unless ANONREQ_CORS_ORIGINS lists at least one origin.
+    apply_cors(app)
 
     return app
 

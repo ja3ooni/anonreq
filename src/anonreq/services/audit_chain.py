@@ -283,6 +283,88 @@ class AuditChainService:
 
         return ChainVerificationResult(is_intact=True, checked_count=checked)
 
+    def _event_where(
+        self,
+        *,
+        tenant_id: str | None = None,
+        event_type: str | None = None,
+        operator_id: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        entity_type: str | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        """Shared WHERE clause for event list and count queries."""
+        clauses = ["1=1"]
+        params: dict[str, Any] = {}
+
+        if tenant_id is not None:
+            clauses.append("tenant_id = :tenant_id")
+            params["tenant_id"] = tenant_id
+        if event_type is not None:
+            clauses.append("event_type = :event_type")
+            params["event_type"] = event_type
+        if operator_id is not None:
+            clauses.append("operator_id = :operator_id")
+            params["operator_id"] = operator_id
+        if date_from is not None:
+            clauses.append("timestamp >= :date_from")
+            params["date_from"] = date_from
+        if date_to is not None:
+            clauses.append("timestamp <= :date_to")
+            params["date_to"] = date_to
+        if entity_type is not None:
+            clauses.append(self._entity_type_clause())
+            params["entity_type"] = entity_type
+
+        return " AND ".join(clauses), params
+
+    def _entity_type_clause(self) -> str:
+        """Match an entity type stored in metadata_json without raw values.
+
+        ``entity_types`` is a JSON array and ``entity_counts`` is a JSON
+        object. The clause is dialect-specific and always bound.
+        """
+        dialect = self._engine.dialect.name
+        if dialect == "postgresql":
+            return (
+                "("
+                "EXISTS ("
+                "SELECT 1 FROM jsonb_array_elements_text("
+                "CASE WHEN metadata_json IS NOT NULL "
+                "AND jsonb_typeof(metadata_json::jsonb -> 'entity_types') = 'array' "
+                "THEN metadata_json::jsonb -> 'entity_types' "
+                "ELSE '[]'::jsonb END"
+                ") AS entity_type_elem(value) "
+                "WHERE entity_type_elem.value = :entity_type"
+                ") OR ("
+                "metadata_json IS NOT NULL "
+                "AND jsonb_typeof(metadata_json::jsonb -> 'entity_counts') = 'object' "
+                "AND jsonb_exists(metadata_json::jsonb -> 'entity_counts', :entity_type)"
+                "))"
+            )
+        return (
+            "("
+            "EXISTS ("
+            "SELECT 1 FROM json_each("
+            "COALESCE(json_extract(metadata_json, '$.entity_types'), '[]')"
+            ") AS entity_types_json "
+            "WHERE entity_types_json.value = :entity_type"
+            ") OR EXISTS ("
+            "SELECT 1 FROM json_each("
+            "COALESCE(json_extract(metadata_json, '$.entity_counts'), '{}')"
+            ") AS entity_counts_json "
+            "WHERE entity_counts_json.key = :entity_type"
+            "))"
+        )
+
+    @staticmethod
+    def _order_by(sort: str | None) -> str:
+        if sort == "timestamp:asc":
+            return " ORDER BY timestamp ASC, id ASC"
+        if sort == "timestamp:desc":
+            return " ORDER BY timestamp DESC, id DESC"
+        return " ORDER BY id DESC"
+
     async def get_events(
         self,
         tenant_id: str | None = None,
@@ -292,32 +374,26 @@ class AuditChainService:
         operator_id: str | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
+        entity_type: str | None = None,
+        sort: str | None = None,
     ) -> list[AuditEvent]:
         """Paginated, filterable event query."""
-        query = "SELECT * FROM audit_event WHERE 1=1"
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
-
-        if tenant_id is not None:
-            query += " AND tenant_id = :tenant_id"
-            params["tenant_id"] = tenant_id
-
-        if event_type is not None:
-            query += " AND event_type = :event_type"
-            params["event_type"] = event_type
-
-        if operator_id is not None:
-            query += " AND operator_id = :operator_id"
-            params["operator_id"] = operator_id
-
-        if date_from is not None:
-            query += " AND timestamp >= :date_from"
-            params["date_from"] = date_from
-
-        if date_to is not None:
-            query += " AND timestamp <= :date_to"
-            params["date_to"] = date_to
-
-        query += " ORDER BY id DESC LIMIT :limit OFFSET :offset"
+        where, params = self._event_where(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            operator_id=operator_id,
+            date_from=date_from,
+            date_to=date_to,
+            entity_type=entity_type,
+        )
+        params["limit"] = limit
+        params["offset"] = offset
+        query = (
+            "SELECT * FROM audit_event WHERE "
+            + where
+            + self._order_by(sort)
+            + " LIMIT :limit OFFSET :offset"
+        )
 
         async with self._session_factory() as session:
             result = await session.execute(text(query), params)
@@ -330,30 +406,18 @@ class AuditChainService:
         operator_id: str | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
+        entity_type: str | None = None,
     ) -> int:
         """Count events matching the given filters."""
-        query = "SELECT COUNT(*) FROM audit_event WHERE 1=1"
-        params: dict[str, Any] = {}
-
-        if tenant_id is not None:
-            query += " AND tenant_id = :tenant_id"
-            params["tenant_id"] = tenant_id
-
-        if event_type is not None:
-            query += " AND event_type = :event_type"
-            params["event_type"] = event_type
-
-        if operator_id is not None:
-            query += " AND operator_id = :operator_id"
-            params["operator_id"] = operator_id
-
-        if date_from is not None:
-            query += " AND timestamp >= :date_from"
-            params["date_from"] = date_from
-
-        if date_to is not None:
-            query += " AND timestamp <= :date_to"
-            params["date_to"] = date_to
+        where, params = self._event_where(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            operator_id=operator_id,
+            date_from=date_from,
+            date_to=date_to,
+            entity_type=entity_type,
+        )
+        query = "SELECT COUNT(*) FROM audit_event WHERE " + where
 
         async with self._session_factory() as session:
             result = await session.execute(text(query), params)

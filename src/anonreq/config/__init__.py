@@ -236,6 +236,22 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_ENV",
         description="Deployment environment: development | staging | production.",
     )
+    DEBUG_PREVIEW_ENABLED: bool = Field(
+        default=False,
+        validation_alias="ANONREQ_DEBUG_PREVIEW_ENABLED",
+        description=(
+            "Enable admin POST /v1/debug/anonymize-preview. "
+            "When false the route responds 404 and is not advertised."
+        ),
+    )
+    CORS_ORIGINS: str = Field(
+        default="",
+        validation_alias="ANONREQ_CORS_ORIGINS",
+        description=(
+            "Comma-separated browser origins allowed to call the gateway. "
+            "Empty or unset disables CORS."
+        ),
+    )
 
     @field_validator("API_KEY", mode="before")
     @classmethod
