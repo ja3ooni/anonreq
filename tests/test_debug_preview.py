@@ -20,7 +20,10 @@ ADMIN_KEY = "adminkey12345678901234567890"
 
 
 class _EmptyPresidio:
-    async def analyze_text_nodes(self, text_nodes, entities=None, score_threshold=0.7):
+    async def analyze_text_nodes(
+        self, text_nodes, entities=None, score_threshold=0.7, *, language=None,
+    ):
+        # language: accepted for PR #4's DetectionStage, which passes it.
         return [[] for _ in text_nodes]
 
 
