@@ -10,6 +10,7 @@ Per PIPE-01:
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import uuid4
@@ -90,10 +91,10 @@ def build_pre_provider_pipeline(
         )
         rules, yaml_default = ClassificationRuleLoader.load_yaml(class_path)
         override = getattr(_settings, "CLASSIFICATION_DEFAULT_ACTION", None)
-        default_action = (override or yaml_default or "PASS").upper()
+        default_action = (override or yaml_default or "ANONYMIZE").upper()
     except FileNotFoundError:
         rules = []
-        default_action = "PASS"
+        default_action = "ANONYMIZE"
 
     classification_engine = ClassificationEngine(
         rules=rules,
@@ -313,7 +314,7 @@ async def _stream_chat_completions(
         proc_ctx = await pre_provider.run(proc_ctx)
         _raise_for_pipeline_errors(proc_ctx)
 
-        action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
+        action = proc_ctx.classification_result.get("action", "ANONYMIZE") if proc_ctx.classification_result else "ANONYMIZE"  # noqa: E501
         if action == "BLOCK":
             entity_types = list({d["entity_type"] for d in (proc_ctx.detections or [])})
             exc = HTTPException(status_code=403, detail="Request blocked by policy")
@@ -328,12 +329,11 @@ async def _stream_chat_completions(
         if action == "ROUTE_LOCAL":
             raise HTTPException(status_code=501, detail="ROUTE_LOCAL not yet implemented")
 
-        provider_request_body = (
-            proc_ctx.transformed_request
-            if action == "ANONYMIZE" and proc_ctx.transformed_request
-            else proc_ctx.original_request
-        )
-        provider_request_body = dict(provider_request_body or {})
+        # Only a tokenized body may leave the gateway. Never fall back to the
+        # original request.
+        if proc_ctx.transformed_request is None:
+            raise HTTPException(status_code=503, detail="Request was not tokenized")
+        provider_request_body = dict(proc_ctx.transformed_request)
         provider_request_body["stream"] = True
 
         try:
@@ -352,10 +352,10 @@ async def _stream_chat_completions(
 
             proc_ctx.original_request = provider_request_body
             provider_request = adapter.translate_request(proc_ctx)
-        except AliasNotFoundError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))  # noqa: B904
-        except ProviderNotFoundError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))  # noqa: B904
+        except AliasNotFoundError:
+            raise HTTPException(status_code=400, detail="Unknown model alias")  # noqa: B904
+        except ProviderNotFoundError:
+            raise HTTPException(status_code=400, detail="Unknown provider")  # noqa: B904
         except ValueError:
             raise HTTPException(  # noqa: B904
                 status_code=502,
@@ -364,7 +364,10 @@ async def _stream_chat_completions(
 
         if cache_manager is None:
             raise HTTPException(status_code=503, detail="Cache manager not initialized")
-    except BaseException:
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        # Never swallow or replace cancellation or an interrupt.
+        raise
+    except Exception:
         # Early exit before the stream starts (policy block, unknown alias,
         # unsupported provider, ...): tokenization may already have stored
         # mappings, so delete them and audit the rejected request.
@@ -527,7 +530,7 @@ async def chat_completions(
     _raise_for_pipeline_errors(proc_ctx)
 
     # ── Determine response body ───────────────────────────────────────────
-    action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
+    action = proc_ctx.classification_result.get("action", "ANONYMIZE") if proc_ctx.classification_result else "ANONYMIZE"  # noqa: E501
 
     if action in ("BLOCK",):
         entity_types = list({d["entity_type"] for d in (proc_ctx.detections or [])})
@@ -547,7 +550,7 @@ async def chat_completions(
     # Determine response data
     if action == "ANONYMIZE" and proc_ctx.restored_response:
         response_data = proc_ctx.restored_response
-    elif proc_ctx.provider_response or (action == "PASS" and proc_ctx.provider_response):
+    elif proc_ctx.provider_response:
         response_data = proc_ctx.provider_response
     else:
         raise HTTPException(status_code=500, detail="No response produced")
