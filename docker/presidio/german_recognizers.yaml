@@ -1,0 +1,38 @@
+# German, Austrian, and Swiss address patterns for language=de.
+# global_regex_flags: 0 turns off Presidio's default IGNORECASE so a
+# capital-letter class stays capital. "10000 mitarbeiter" must not match.
+# Street lines are case-insensitive through an inline (?i:...) group, so
+# "hauptstraße 12", "HAUPTSTRASSE 12" and "bahnhofstr. 3" still match.
+# A short denylist also blocks count-nouns such as "10000 Mitarbeiter".
+# 4-digit postcodes skip a bare 19xx/20xx so a year is not a PLZ. Those
+# postcodes still match with a country prefix (CH-1950, A-2000) or right
+# after a house number and comma ("Hauptstraße 5, 1900 Montreux").
+recognizers:
+  - name: German Street Line
+    supported_language: de
+    supported_entity: LOCATION
+    global_regex_flags: 0
+    patterns:
+      - name: de_street_line
+        regex: '(?i:\b[a-zäöü][\wäöüß.\-]*?(?:straße|strasse|str\.|weg|platz|allee|ring|gasse|damm|ufer)\s+\d{1,4}[a-z]?(?:\s*[-/]\s*\d{1,4}[a-z]?)?\b)'
+        score: 0.85
+      - name: de_prefixed_street
+        regex: '\b(?:Am|An|Im|Zum|Zur)\s+[A-ZÄÖÜ][a-zäöüß]+(?:[- ][A-ZÄÖÜ][a-zäöüß]+)*\s+(?!(?:19|20)\d{2}\b)\d{1,4}[a-z]?(?:\s*[-/]\s*\d{1,4}[a-z]?)?\b'
+        score: 0.85
+  - name: German Postal City
+    supported_language: de
+    supported_entity: LOCATION
+    global_regex_flags: 0
+    patterns:
+      - name: de_postal_city
+        regex: '\b\d{5}\s+(?!Mitarbeiter\b|Personen\b|Jahre\b|Euro\b|Stück\b|Stunden\b|Prozent\b|Meter\b|Kilometer\b|Einwohner\b|Tage\b|Wochen\b|Monate\b|Menschen\b|Kunden\b)[A-ZÄÖÜ][a-zäöüß]+(?:[- ](?:am|an|im|der|und|[A-ZÄÖÜ][a-zäöüß]+))*\b'
+        score: 0.85
+      - name: at_ch_postal_city
+        regex: '\b(?!19\d{2}\b)(?!20\d{2}\b)[1-9]\d{3}\s+(?!Mitarbeiter\b|Personen\b|Jahre\b|Euro\b|Stück\b|Stunden\b|Prozent\b|Meter\b|Kilometer\b|Einwohner\b|Tage\b|Wochen\b|Monate\b|Menschen\b|Kunden\b)[A-ZÄÖÜ][a-zäöüßàâçéèêëîïôûù]+(?:[- ](?:am|an|im|der|und|[A-ZÄÖÜ][a-zäöüßàâçéèêëîïôûù]+))*\b'
+        score: 0.8
+      - name: at_ch_prefixed_postal_city
+        regex: '\b(?:CH|A|AT|FL)-[1-9]\d{3}\s+(?!Mitarbeiter\b|Personen\b|Jahre\b|Euro\b|Stück\b|Stunden\b|Prozent\b|Meter\b|Kilometer\b|Einwohner\b|Tage\b|Wochen\b|Monate\b|Menschen\b|Kunden\b)[A-ZÄÖÜ][a-zäöüßàâçéèêëîïôûù]+(?:[- ](?:am|an|im|der|und|[A-ZÄÖÜ][a-zäöüßàâçéèêëîïôûù]+))*\b'
+        score: 0.85
+      - name: at_ch_year_like_postal_city_after_street
+        regex: '(?:(?<=\d,\s)|(?<=\d[a-z],\s))(?:19|20)\d{2}\s+(?!Mitarbeiter\b|Personen\b|Jahre\b|Euro\b|Stück\b|Stunden\b|Prozent\b|Meter\b|Kilometer\b|Einwohner\b|Tage\b|Wochen\b|Monate\b|Menschen\b|Kunden\b)[A-ZÄÖÜ][a-zäöüßàâçéèêëîïôûù]+(?:[- ](?:am|an|im|der|und|[A-ZÄÖÜ][a-zäöüßàâçéèêëîïôûù]+))*\b'
+        score: 0.8
