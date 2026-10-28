@@ -1,9 +1,10 @@
 # Germany demo overlay — one-day CISO PoC.
 # Usage: docker compose -f docker-compose.yml -f docker-compose.germany.yml up --build
 #
-# Point the customer's OpenAI/Anthropic/Gemini key at PROVIDER_API_KEY.
-# Clients send X-AnonReq-Locale: de-DE and use the OpenAI-compatible
-# /v1/chat/completions path.
+# This demo profile sets provider credentials explicitly. The gateway does
+# not fall back to ANONREQ_API_KEY when an upstream key is missing.
+# mock, local, and ollama need no key. Clients send X-AnonReq-Locale: de-DE
+# and use the OpenAI-compatible /v1/chat/completions path.
 
 services:
   anonreq:
@@ -12,3 +13,10 @@ services:
       ANONREQ_CLASSIFICATION_CONFIG_PATH: config/classification.germany.yaml
       ANONREQ_CLASSIFICATION_DEFAULT_ACTION: ANONYMIZE
       ANONREQ_PROXY_MODE: ${ANONREQ_PROXY_MODE:-full}
+      PROVIDER_API_KEY: "${PROVIDER_API_KEY:?Set PROVIDER_API_KEY to the customer model key. Do not reuse ANONREQ_API_KEY.}"
+      # ANONREQ_OPENAI_API_KEY wins over PROVIDER_API_KEY when both are set.
+      ANONREQ_OPENAI_API_KEY: "${ANONREQ_OPENAI_API_KEY:-${PROVIDER_API_KEY}}"
+      # Optional here so an overlay can render without them. `:?` runs before
+      # overlays. Startup still enforces these when the aliases stay configured.
+      ANONREQ_ANTHROPIC_API_KEY: "${ANONREQ_ANTHROPIC_API_KEY:-}"
+      ANONREQ_GEMINI_API_KEY: "${ANONREQ_GEMINI_API_KEY:-}"

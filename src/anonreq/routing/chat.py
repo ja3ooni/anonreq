@@ -54,7 +54,7 @@ from anonreq.pipeline.stages import (
 )
 from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.pipeline.tool_governance import ToolGovernanceStage
-from anonreq.providers.registry import ProviderNotFoundError, resolve_api_key
+from anonreq.providers.registry import ProviderNotFoundError, resolve_upstream_api_key
 from anonreq.routing.alias_registry import AliasNotFoundError
 from anonreq.secrets.store import (
     RuntimeSecretStore,
@@ -166,13 +166,12 @@ def build_pipeline(
     runtime_secret_store = secret_store
     if runtime_secret_store is None and app_state is not None:
         runtime_secret_store = getattr(app_state, "secret_store", None)
-    try:
-        provider_api_key = resolve_api_key(
-            "openai",
-            secret_store=runtime_secret_store,
-        )
-    except ValueError:
-        provider_api_key = settings.PROVIDER_API_KEY or settings.API_KEY
+    # Upstream credential only. settings.API_KEY is the gateway client
+    # key and must never be forwarded to a model provider.
+    provider_api_key = resolve_upstream_api_key(
+        secret_store=runtime_secret_store,
+        provider_api_key=settings.PROVIDER_API_KEY,
+    ) or ""
     provider_timeout = settings.REQUEST_TIMEOUT_SECONDS
 
     # Create pipeline stages

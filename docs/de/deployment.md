@@ -24,7 +24,8 @@ Terminieren Sie TLS an Ihrem Reverse-Proxy (nginx, Caddy oder Cloud-Load-Balance
 
 | Variable | Typ | Standard | Erforderlich | Beschreibung |
 |----------|-----|----------|--------------|--------------|
-| `ANONREQ_API_KEY` | string | — | Ja | Bearer-Token für API-Authentifizierung (≥ 32 Zeichen) |
+| `ANONREQ_API_KEY` | string | — | Ja | Bearer-Token für API-Authentifizierung (≥ 32 Zeichen). Wird nie upstream gesendet. |
+| `PROVIDER_API_KEY` | string | — | Bedingt | Schlüssel des Modell-Anbieters. Nicht der Gateway-Client-Schlüssel. |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | Nein | Protokollierungsstufe: DEBUG, INFO, WARNING, ERROR |
 | `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | Nein | Valkey-Server-URL |
 | `ANONREQ_CACHE_PASSWORD` | string | — | Nein | Valkey requirepass |
