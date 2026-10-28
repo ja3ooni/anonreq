@@ -24,7 +24,8 @@
 #   - Loads both models via conf/default.yaml
 #   - Adds conf/german_recognizers.yaml (street line and PLZ+city)
 #   - Patches app.py so supported languages are ["en", "de"]
-#   - Drops to USER presidio (uid 10001) after the installs
+#   - Drops to USER presidio (uid 10001) after the installs; only HOME is
+#     chowned (no recursive chown of the venv, which doubled the image)
 #   - Healthcheck POSTs /analyze with language=de and requires a PERSON span
 #
 # Size and runtime:
@@ -84,7 +85,13 @@ RUN pipenv run python /tmp/enable_german.py /usr/bin/presidio-analyzer/app.py \
     && grep -F "de_core_news_lg" /usr/bin/presidio-analyzer/conf/default.yaml \
     && groupadd --system --gid 10001 presidio \
     && useradd --system --uid 10001 --gid presidio --home-dir /home/presidio --create-home --shell /usr/sbin/nologin presidio \
-    && chown -R presidio:presidio /usr/bin/presidio-analyzer /home/presidio
+    && chown presidio:presidio /home/presidio \
+    && runuser -u presidio -- /usr/bin/presidio-analyzer/.venv/bin/python -c "import spacy; spacy.load('de_core_news_lg'); open('/usr/bin/presidio-analyzer/app.py').read(); open('/usr/bin/presidio-analyzer/conf/default.yaml').read()"
+
+# No recursive chown of /usr/bin/presidio-analyzer: on overlayfs it copied
+# the whole venv into a new 6.59 GB layer (16.2 GB image at b7cd532). The
+# app, venv and models stay root-owned and world-readable; uid 10001 only
+# needs to read them (checked above) and to write its own HOME.
 
 ENV HOME=/home/presidio
 USER presidio
