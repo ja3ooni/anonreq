@@ -63,15 +63,15 @@ The demo sends a prompt-only body: `{ "prompt": "..." }`. Then `anonymized_text`
 
 The completion is a separate `POST /v1/chat/completions`. Each call has its own `request_id`. The header strip shows `X-AnonReq-Request-ID` from the completion and the preview’s `request_id` beside it.
 
-A 404 leaves a labeled placeholder in the middle column. The answer and the completion headers still render.
+A 404 leaves a labeled placeholder in the middle column. The answer and the completion headers still render. HTTP 429, the per-admin preview limit, shows a retry message in English and German.
 
 ## Audit
 
-The table calls `GET /v1/admin/anonymization-events` and expects `{ total, limit, next_cursor, items }`. The next page is a `cursor` query parameter. There is no offset control. Tenant is `X-AnonReq-Tenant-ID` for the caller (`ANONREQ_DEFAULT_TENANT`), not a query filter. **Load more** appends the next cursor.
+The table calls `GET /v1/admin/anonymization-events` and expects `{ total, limit, next_cursor, items }`. `next_cursor` is the string `timestamp|id`, or null on the last page. The next page is `?cursor=<next_cursor>&limit=50&sort=timestamp:desc` or `timestamp:asc`. There is no offset. Tenant is the caller (`X-AnonReq-Tenant-ID`, from `ANONREQ_DEFAULT_TENANT`). A `tenant_id` that is not that caller is HTTP 403, and the table shows an error instead of rows. **Load more** appends the next cursor.
 
-Mock mode uses that cursor shape. If a live response still has `offset` and no `next_cursor`, `src/lib/events-page.ts` turns it into a cursor so the screen does not page by offset itself.
+CSV is `GET /v1/admin/anonymization-events/export` (no `.csv` suffix). The `entity_types` cell is a JSON array. A trailer row with `request_id=#error` and `decision=export_failed` means the stream failed partway: the file drops that row and the page warns that the download may be incomplete.
 
-CSV is `GET /v1/admin/anonymization-events/export` (no `.csv` suffix). The `entity_types` cell is a JSON array. Filters match the list, without a page cursor.
+Preview is rate-limited per admin. HTTP 429 shows a retry message in English and German.
 
 If that route is missing (404), the UI falls back to `GET /v1/admin/audit/anonymization-export`. That dump has no cursor and no separate total. Config history (`GET /v1/admin/audit/config-history`) and chain verify (`GET /v1/governance/audit/verify`) stay on the page.
 

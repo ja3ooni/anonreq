@@ -26,21 +26,31 @@ const PATTERNS: AnonymizationEvent["entity_types"][] = [
 
 const NEWEST = Date.parse("2026-10-30T15:00:00Z");
 
-export const ANONYMIZATION_EVENTS: AnonymizationEvent[] = Array.from({ length: 30 }, (_, index) => {
+export interface FixtureRow {
+  rowId: number;
+  event: AnonymizationEvent;
+}
+
+export const FIXTURE_ROWS: FixtureRow[] = Array.from({ length: 30 }, (_, index) => {
   const decision = index % 11 === 0 ? "BLOCK" : index % 7 === 0 ? "PASS" : "ANONYMIZE";
   const entityTypes = decision === "PASS" ? [] : (PATTERNS[index % PATTERNS.length] ?? []);
   const tokenCount = entityTypes.reduce((sum, entity) => sum + entity.count, 0);
   return {
-    request_id: `req_demo_${String(index + 1).padStart(2, "0")}`,
-    timestamp: new Date(NEWEST - index * 5 * 60 * 60 * 1000).toISOString(),
-    tenant_id: index % 3 === 0 ? "contoso" : "default",
-    model: index % 2 === 0 ? "grok-4" : "grok-3",
-    locale: index % 2 === 0 ? "de-DE" : "en",
-    entity_types: entityTypes,
-    token_count: decision === "PASS" ? 0 : tokenCount,
-    decision,
+    rowId: index + 1,
+    event: {
+      request_id: `req_demo_${String(index + 1).padStart(2, "0")}`,
+      timestamp: new Date(NEWEST - index * 5 * 60 * 60 * 1000).toISOString(),
+      tenant_id: index % 3 === 0 ? "contoso" : "default",
+      model: index % 2 === 0 ? "grok-4" : "grok-3",
+      locale: index % 2 === 0 ? "de-DE" : "en",
+      entity_types: entityTypes,
+      token_count: decision === "PASS" ? 0 : tokenCount,
+      decision,
+    },
   };
 });
+
+export const ANONYMIZATION_EVENTS: AnonymizationEvent[] = FIXTURE_ROWS.map((row) => row.event);
 
 export const CONFIG_HISTORY: ConfigHistoryItem[] = [
   {
@@ -95,25 +105,20 @@ function inRange(timestamp: string, from?: string, to?: string): boolean {
   return true;
 }
 
-export function filterEvents(
-  events: AnonymizationEvent[],
-  query: Pick<AnonymizationEventQuery, "date_from" | "date_to" | "entity_type" | "sort">,
+export function filterFixtureRows(
+  rows: FixtureRow[],
+  query: Pick<AnonymizationEventQuery, "date_from" | "date_to" | "entity_type">,
   callerTenant?: string,
-): AnonymizationEvent[] {
-  const filtered = events.filter((event) => {
-    if (callerTenant && event.tenant_id !== callerTenant) {
+): FixtureRow[] {
+  return rows.filter((row) => {
+    if (callerTenant && row.event.tenant_id !== callerTenant) {
       return false;
     }
-    if (query.entity_type && !event.entity_types.some((entity) => entity.type === query.entity_type)) {
+    if (query.entity_type && !row.event.entity_types.some((entity) => entity.type === query.entity_type)) {
       return false;
     }
-    return inRange(event.timestamp, query.date_from, query.date_to);
+    return inRange(row.event.timestamp, query.date_from, query.date_to);
   });
-  filtered.sort((a, b) => {
-    const delta = Date.parse(a.timestamp) - Date.parse(b.timestamp);
-    return query.sort === "timestamp:asc" ? delta : -delta;
-  });
-  return filtered;
 }
 
 export function filterConfig(

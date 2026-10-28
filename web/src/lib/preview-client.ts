@@ -18,7 +18,7 @@ export interface PreviewCallContext {
 export type PreviewClientResult =
   | { ok: true; data: AnonymizePreviewResponse }
   | { ok: false; reason: "disabled"; status: 404; message: string }
-  | { ok: false; reason: "invalid" | "error"; status: number; message: string };
+  | { ok: false; reason: "rate_limited" | "invalid" | "error"; status: number; message: string };
 
 /**
  * Client for POST /v1/debug/anonymize-preview.
@@ -118,6 +118,14 @@ function liveClient(): AnonymizePreviewClient {
       const body = await readGatewayJson(response);
       if (response.status === 404) {
         return { ok: false, reason: "disabled", status: 404, message: DISABLED };
+      }
+      if (response.status === 429) {
+        return {
+          ok: false,
+          reason: "rate_limited",
+          status: 429,
+          message: "Preview rate limit exceeded",
+        };
       }
       if (!response.ok) {
         return {

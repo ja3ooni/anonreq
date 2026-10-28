@@ -1,86 +1,110 @@
 import type { AnonymizationEventSort } from "@/lib/types";
 
 /**
- * Pagination for GET /v1/admin/anonymization-events.
+ * Keyset pagination for GET /v1/admin/anonymization-events.
  *
- * The screen only sees an opaque cursor and `next_cursor`. It never
- * sends or reads `offset`.
- *
- * Target wire (keyset, PR #5):
- *   ?cursor=&limit=&sort=&date_from=&date_to=&entity_type=
+ *   ?cursor=<timestamp|id>&limit=50&sort=timestamp:desc|asc
  *   → { total, limit, next_cursor, items }
  *
- * `tenant_id` is the caller (`X-AnonReq-Tenant-ID`), not a query filter.
- *
- * If a response still includes `offset` and omits `next_cursor`, the
- * adapter mints a bridge cursor and the next request sends `offset`
- * as well as dropping that bridge token. That translation stays here.
+ * `next_cursor` is `timestamp|id` of the last row when the page is full,
+ * and null on the last page. There is no offset.
  */
 
-const MOCK_PREFIX = "cur.";
-const OFFSET_BRIDGE_PREFIX = "off.";
+export interface KeyedRow<T> {
+  rowId: number;
+  timestamp: string;
+  item: T;
+}
 
-export interface EventsCursorQuery {
+export interface KeysetQuery {
+  sort: AnonymizationEventSort;
+  limit: number;
+  cursor?: string;
+}
+
+export interface KeysetPage<T> {
+  items: T[];
+  next_cursor: string | null;
+}
+
+export class InvalidEventCursorError extends Error {
+  constructor() {
+    super("Invalid cursor");
+    this.name = "InvalidEventCursorError";
+  }
+}
+
+export function encodeEventCursor(timestamp: string, rowId: number): string {
+  return `${timestamp}|${rowId}`;
+}
+
+export function decodeEventCursor(cursor: string): { timestamp: string; rowId: number } {
+  const splitAt = cursor.lastIndexOf("|");
+  if (splitAt <= 0 || splitAt === cursor.length - 1) {
+    throw new InvalidEventCursorError();
+  }
+  const timestamp = cursor.slice(0, splitAt);
+  const rowId = Number(cursor.slice(splitAt + 1));
+  if (!timestamp || !Number.isInteger(rowId) || rowId < 1 || Number.isNaN(Date.parse(timestamp))) {
+    throw new InvalidEventCursorError();
+  }
+  return { timestamp, rowId };
+}
+
+/**
+ * Page rows the way the gateway does: timestamp then id, descending by default.
+ * A full page (length === limit) carries `next_cursor`. A short page is the last.
+ */
+export function pageByKeyset<T>(rows: KeyedRow<T>[], query: KeysetQuery): KeysetPage<T> {
+  const cursor = query.cursor ? decodeEventCursor(query.cursor) : null;
+  const direction = query.sort === "timestamp:asc" ? 1 : -1;
+  const sorted = [...rows].sort((left, right) => {
+    const delta = Date.parse(left.timestamp) - Date.parse(right.timestamp);
+    if (delta !== 0) {
+      return delta * direction;
+    }
+    return (left.rowId - right.rowId) * direction;
+  });
+  const rest = cursor
+    ? sorted.filter((row) => isAfterCursor(row, cursor, query.sort))
+    : sorted;
+  const page = rest.slice(0, query.limit);
+  const last = page.at(-1);
+  const nextCursor =
+    page.length < query.limit || !last ? null : encodeEventCursor(last.timestamp, last.rowId);
+  return {
+    items: page.map((row) => row.item),
+    next_cursor: nextCursor,
+  };
+}
+
+export function eventsWireQuery(query: {
   date_from?: string;
   date_to?: string;
   entity_type?: string;
   sort: AnonymizationEventSort;
   limit: number;
   cursor?: string;
-}
-
-export function mockCursor(index: number): string {
-  return `${MOCK_PREFIX}${index.toString(36)}`;
-}
-
-export function sliceByCursor<T>(
-  items: T[],
-  cursor: string | undefined,
-  limit: number,
-): { items: T[]; next_cursor: string | null } {
-  const start = mockCursorIndex(cursor);
-  const page = items.slice(start, start + limit);
-  const next = start + page.length;
-  return {
-    items: page,
-    next_cursor: next < items.length ? mockCursor(next) : null,
-  };
-}
-
-export function nextCursorFromOffset(offset: number, pageLength: number, total: number): string | null {
-  const next = offset + pageLength;
-  if (next >= total) {
-    return null;
-  }
-  return `${OFFSET_BRIDGE_PREFIX}${next}`;
-}
-
-/** Query string for the gateway. No tenant filter. No offset unless bridging. */
-export function eventsWireQuery(query: EventsCursorQuery): Record<string, string | undefined> {
-  const bridged = bridgeOffset(query.cursor);
+}): Record<string, string | undefined> {
   return {
     date_from: query.date_from,
     date_to: query.date_to,
     entity_type: query.entity_type,
     sort: query.sort,
     limit: String(query.limit),
-    cursor: bridged == null ? query.cursor : undefined,
-    offset: bridged == null ? undefined : String(bridged),
+    cursor: query.cursor,
   };
 }
 
-function mockCursorIndex(cursor: string | undefined): number {
-  if (!cursor || !cursor.startsWith(MOCK_PREFIX)) {
-    return 0;
+function isAfterCursor(
+  row: KeyedRow<unknown>,
+  cursor: { timestamp: string; rowId: number },
+  sort: AnonymizationEventSort,
+): boolean {
+  const rowTime = Date.parse(row.timestamp);
+  const cursorTime = Date.parse(cursor.timestamp);
+  if (sort === "timestamp:asc") {
+    return rowTime > cursorTime || (rowTime === cursorTime && row.rowId > cursor.rowId);
   }
-  const index = Number.parseInt(cursor.slice(MOCK_PREFIX.length), 36);
-  return Number.isInteger(index) && index >= 0 ? index : 0;
-}
-
-function bridgeOffset(cursor: string | undefined): number | undefined {
-  if (!cursor?.startsWith(OFFSET_BRIDGE_PREFIX)) {
-    return undefined;
-  }
-  const offset = Number(cursor.slice(OFFSET_BRIDGE_PREFIX.length));
-  return Number.isInteger(offset) && offset >= 0 ? offset : undefined;
+  return rowTime < cursorTime || (rowTime === cursorTime && row.rowId < cursor.rowId);
 }

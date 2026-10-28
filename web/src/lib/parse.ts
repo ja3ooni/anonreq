@@ -1,4 +1,3 @@
-import { nextCursorFromOffset } from "@/lib/events-page";
 import { headerOrNull } from "@/lib/gateway";
 import type {
   AnonymizationEvent,
@@ -180,7 +179,7 @@ export function parseEventPage(json: unknown): AnonymizationEventPage | null {
     }
     items.push(event);
   }
-  let nextCursor: string | null;
+  let nextCursor: string | null = null;
   if ("next_cursor" in json) {
     if (json.next_cursor == null) {
       nextCursor = null;
@@ -189,10 +188,6 @@ export function parseEventPage(json: unknown): AnonymizationEventPage | null {
     } else {
       return null;
     }
-  } else if (typeof json.offset === "number") {
-    nextCursor = nextCursorFromOffset(json.offset, items.length, total);
-  } else {
-    nextCursor = null;
   }
   return {
     total,

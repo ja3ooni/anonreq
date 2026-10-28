@@ -24,7 +24,7 @@ const DETECTION_LOCALES = [
 
 type PreviewPayload =
   | { ok: true; data: AnonymizePreviewResponse }
-  | { ok: false; reason: "disabled" | "invalid" | "error"; status: number; message: string };
+  | { ok: false; reason: "disabled" | "rate_limited" | "invalid" | "error"; status: number; message: string };
 
 type Phase = "idle" | "running" | "done";
 
@@ -283,7 +283,12 @@ export function Playground() {
               <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("previewDisabledBody")}</p>
             </div>
           ) : null}
-          {phase === "done" && preview && !preview.ok && preview.reason !== "disabled" ? (
+          {phase === "done" && preview && !preview.ok && preview.reason === "rate_limited" ? (
+            <p role="alert" className="text-sm leading-6">
+              {t("rateLimited")}
+            </p>
+          ) : null}
+          {phase === "done" && preview && !preview.ok && preview.reason !== "disabled" && preview.reason !== "rate_limited" ? (
             <p role="alert" className="text-sm leading-6">
               {t("previewError")}: {preview.message}
             </p>

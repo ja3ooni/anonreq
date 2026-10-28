@@ -65,6 +65,9 @@ export function AuditPanel() {
     fetch(`/api/audit/events?${activityParams(applied)}`, { signal: controller.signal })
       .then(async (response) => {
         const body = (await response.json()) as EventsResponse;
+        if (response.status === 403) {
+          throw new Error(t("tenantForbidden"));
+        }
         if (!response.ok) {
           throw new Error(body.error?.message ?? t("loading"));
         }
@@ -115,6 +118,9 @@ export function AuditPanel() {
     try {
       const response = await fetch(`/api/audit/events?${activityParams(applied, nextCursor)}`);
       const body = (await response.json()) as EventsResponse;
+      if (response.status === 403) {
+        throw new Error(t("tenantForbidden"));
+      }
       if (!response.ok) {
         throw new Error(body.error?.message ?? t("loading"));
       }
@@ -135,9 +141,16 @@ export function AuditPanel() {
     setExportError(null);
     try {
       const response = await fetch(`/api/audit/export?${activityParams(applied)}`);
+      if (response.status === 403) {
+        throw new Error(t("tenantForbidden"));
+      }
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: { message?: string } } | null;
         throw new Error(body?.error?.message ?? t("exportError"));
+      }
+      const partial = response.headers.get("x-anonreq-export-status") === "partial";
+      if (partial) {
+        setExportError(t("exportPartial"));
       }
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
