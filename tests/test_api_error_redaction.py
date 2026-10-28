@@ -86,3 +86,15 @@ async def test_appliance_disk_and_config_errors_omit_exception_text(
     assert body["error"]["request_id"].startswith("req_")
     assert "OSError" in caplog.text
     assert SENTINEL not in caplog.text
+
+    caplog.clear()
+    with patch(
+        "anonreq.appliance.agent.asyncio.create_subprocess_shell",
+        side_effect=OSError(SENTINEL),
+    ):
+        compose = await agent._run_compose_command("ps")
+    rendered = json.dumps(compose)
+    assert SENTINEL not in rendered
+    assert compose["stderr"] == "Command failed"
+    assert "OSError" in caplog.text
+    assert SENTINEL not in caplog.text

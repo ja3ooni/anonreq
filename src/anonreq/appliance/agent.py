@@ -559,9 +559,9 @@ class ApplianceAgent:
                 "stderr": "docker compose not found",
             }
         except Exception as exc:
-            logger.error("Failed to run compose command: %s", exc)
+            logger.error("Failed to run compose command type=%s", type(exc).__name__)
             return {
                 "returncode": -1,
                 "stdout": "",
-                "stderr": str(exc),
+                "stderr": "Command failed",
             }
