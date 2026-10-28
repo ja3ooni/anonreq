@@ -27,6 +27,31 @@ logger = structlog.get_logger("anonreq.middleware.tenant")
 _SKIP_PATHS = {"/health", "/health/ready", "/metrics", "/"}
 
 
+def _single_tenant_default(request: Request) -> str:
+    """Tenant for a header-less request in single-tenant mode, else ``""``.
+
+    The admin key maps to ``ANONREQ_ADMIN_TENANT_ID``; any other request
+    maps to ``ANONREQ_DEFAULT_TENANT_ID``. The credential itself is still
+    verified later by the route's auth dependency.
+    """
+    import hmac
+
+    from anonreq.config import settings
+
+    if not settings.SINGLE_TENANT:
+        return ""
+    scheme, _, token = request.headers.get("Authorization", "").partition(" ")
+    admin_key = settings.ADMIN_API_KEY or ""
+    if (
+        scheme.lower() == "bearer"
+        and admin_key
+        and settings.ADMIN_TENANT_ID
+        and hmac.compare_digest(token, admin_key)
+    ):
+        return settings.ADMIN_TENANT_ID.strip()
+    return (settings.DEFAULT_TENANT_ID or "").strip()
+
+
 class TenantContextMiddleware(BaseHTTPMiddleware):
     """Middleware that validates tenant context from the request header.
 
@@ -50,6 +75,12 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
 
         # Extract tenant_id from header
         tenant_id = request.headers.get("X-AnonReq-Tenant-ID", "").strip()
+
+        # Single-tenant mode: a missing header defaults to the configured
+        # tenant. A header that is present is still validated, and the admin
+        # routes still reject one that does not match the credential (403).
+        if not tenant_id:
+            tenant_id = _single_tenant_default(request)
 
         # D-01: Hard reject for missing tenant header
         if not tenant_id:

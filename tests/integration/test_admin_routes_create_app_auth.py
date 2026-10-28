@@ -106,3 +106,70 @@ def test_startup_fails_when_admin_key_equals_gateway_key(
     monkeypatch.setattr(settings, "ADMIN_API_KEY", settings.API_KEY)
     with pytest.raises(RuntimeError, match="must differ"):
         create_app()
+
+
+_AUDIT_ROUTES = (
+    "/v1/admin/audit/config-history",
+    "/v1/admin/audit/anonymization-export?format=json",
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", _AUDIT_ROUTES)
+async def test_admin_key_alone_works_without_gateway_key(
+    monkeypatch: pytest.MonkeyPatch, path: str,
+) -> None:
+    """Only the admin key is sent: no gateway key is needed on audit routes."""
+    app = _app(monkeypatch)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        admin = await client.get(
+            path, headers={"Authorization": f"Bearer {settings.ADMIN_API_KEY}", **_TENANT},
+        )
+        chat = await client.get(
+            path, headers={"Authorization": f"Bearer {settings.API_KEY}", **_TENANT},
+        )
+        none = await client.get(path, headers=dict(_TENANT))
+    assert admin.status_code == 200, admin.text
+    assert chat.status_code == 403
+    assert none.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", _AUDIT_ROUTES)
+async def test_single_tenant_defaults_missing_header(
+    monkeypatch: pytest.MonkeyPatch, path: str,
+) -> None:
+    import anonreq.config as config
+
+    app = _app(monkeypatch)
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", True)
+    admin = {"Authorization": f"Bearer {settings.ADMIN_API_KEY}"}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        ok = await client.get(path, headers=admin)
+        chat = await client.get(path, headers={"Authorization": f"Bearer {settings.API_KEY}"})
+        none = await client.get(path)
+        monkeypatch.setattr(admin_auth.settings, "ADMIN_TENANT_ID", "tenant-b")
+        # Header present but not the admin key's tenant: still 403.
+        mismatch = await client.get(path, headers={**admin, **_TENANT})
+    assert ok.status_code == 200, ok.text
+    assert chat.status_code == 403
+    assert none.status_code == 401
+    assert mismatch.status_code == 403
+    for call in app.state.audit_chain.get_events.await_args_list:
+        assert call.kwargs["tenant_id"] == "default"
+
+
+@pytest.mark.asyncio
+async def test_missing_header_is_400_without_single_tenant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import anonreq.config as config
+
+    app = _app(monkeypatch)
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", False)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(
+            "/v1/admin/audit/config-history",
+            headers={"Authorization": f"Bearer {settings.ADMIN_API_KEY}"},
+        )
+    assert resp.status_code == 400

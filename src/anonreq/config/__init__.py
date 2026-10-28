@@ -263,6 +263,15 @@ class Settings(BaseSettings):
             "context fails secure with HTTP 503."
         ),
     )
+    DEFAULT_TENANT_ID: str = Field(
+        default="default",
+        validation_alias="ANONREQ_DEFAULT_TENANT_ID",
+        description=(
+            "Tenant used when ANONREQ_SINGLE_TENANT=true and a request has no "
+            "X-AnonReq-Tenant-ID header (the admin key uses "
+            "ANONREQ_ADMIN_TENANT_ID instead)."
+        ),
+    )
     METRICS_NO_AUTH: bool = Field(
         default=False,
         validation_alias="ANONREQ_METRICS_NO_AUTH",
