@@ -34,10 +34,10 @@ export function Playground() {
   const samples = useTranslations("samples");
   const uiLocale = useLocale();
   const [prompt, setPrompt] = useState(samples("pii"));
-  const [model, setModel] = useState("grok");
+  const [model, setModel] = useState("grok-4");
   const [pinnedTenant, setPinnedTenant] = useState("");
   const [detectionLocale, setDetectionLocale] = useState(uiLocale === "de" ? "de-DE" : "en");
-  const [models, setModels] = useState<string[]>(["grok", "grok-4", "grok-3"]);
+  const [models, setModels] = useState<string[]>(["grok-4", "grok", "grok-3"]);
   const [phase, setPhase] = useState<Phase>("idle");
   const [submitted, setSubmitted] = useState("");
   const [preview, setPreview] = useState<PreviewPayload | null>(null);

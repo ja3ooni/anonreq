@@ -13,7 +13,9 @@ export const MAX_PROMPT_CHARS = 8_000;
 /** Pinned caller tenant. Client-supplied tenant ids are ignored. */
 export function defaultTenant(): string {
   try {
-    return resolveServerTenant(process.env.ANONREQ_TENANT_ID);
+    return resolveServerTenant(
+      process.env.ANONREQ_TENANT_ID || process.env.ANONREQ_ADMIN_TENANT_ID,
+    );
   } catch (error) {
     if (error instanceof DemoPolicyError) {
       throw new GatewayRequestError(error.message, 500);

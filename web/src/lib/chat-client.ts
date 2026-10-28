@@ -19,7 +19,7 @@ export interface ModelListClient {
   list(tenantId: string): Promise<{ models: string[]; source: "gateway" | "fallback" | "mock" }>;
 }
 
-const FALLBACK_MODELS = ["grok", "grok-4", "grok-3"];
+const FALLBACK_MODELS = ["grok-4", "grok", "grok-3"];
 
 function headersFromRedaction(redaction: ReturnType<typeof redactText>, requestId: string): AnonReqHeaders {
   return {
