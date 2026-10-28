@@ -69,7 +69,11 @@ COPY alembic/ alembic/
 # Create a non-root user for runtime security
 RUN addgroup --system --gid 1001 anonreq && \
     adduser --system --uid 1001 --gid 1001 anonreq && \
+    mkdir -p /app/data/ca && \
     chown -R anonreq:anonreq /app
+# /app/data must exist in the image, owned by uid 1001: a fresh named volume
+# (anonreq_data) copies this directory's ownership on first mount. Without it
+# Docker creates the volume root-owned and SQLite cannot open/create the DB.
 USER anonreq
 
 # Service port

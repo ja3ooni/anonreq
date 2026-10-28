@@ -8,6 +8,9 @@ COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.germany.yml -f d
 WEB_COMPOSE=(docker compose -p anonreq-web --env-file "$ENV_FILE" -f web/docker-compose.yml -f web/docker-compose.demo.yml)
 
 touch "$ENV_FILE"; chmod 600 "$ENV_FILE"
+# shellcheck source=scripts/lib/demo_env.sh
+. scripts/lib/demo_env.sh   # cwd is the repo root (cd above)
+sanitize_db_url "$ENV_FILE"
 gen() { python3 -c "import secrets;print(secrets.token_urlsafe($1))"; }
 ensure() { # ensure VAR value-if-missing
   local cur; cur=$(grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- || true)

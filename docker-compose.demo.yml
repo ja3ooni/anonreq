@@ -13,6 +13,11 @@ services:
     command: ["sh", "-c", "alembic upgrade head && exec uvicorn anonreq.main:app --host 0.0.0.0 --port 8080 --no-server-header --no-access-log"]
     environment:
       ANONREQ_ENV: demo
+      # Pinned (not ${...}-interpolated) so a stale ANONREQ_DATABASE_URL in
+      # .env, e.g. the old relative sqlite:///./anonreq.db from .env.example,
+      # cannot move the DB off the anonreq_data volume. alembic (command
+      # above) reads the same variable, so migrations hit the same file.
+      ANONREQ_DATABASE_URL: sqlite+aiosqlite:////app/data/anonreq.db
       PROVIDER_BASE_URL: ${XAI_BASE_URL:-https://api.x.ai}
       PROVIDER_API_KEY: ${XAI_API_KEY:?XAI_API_KEY must be set for the xAI demo}
       # PR #9 resolves openai via ANONREQ_OPENAI_API_KEY first; pin it to xAI
