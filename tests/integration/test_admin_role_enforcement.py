@@ -79,3 +79,7 @@ def test_administrator_can_access_admin_only_routes(app):
 
     response = client.get("/v1/admin/incidents", headers=headers)
     assert response.status_code == 200
+
+
+# Test middleware injects the principal; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

@@ -12,6 +12,8 @@ from anonreq.models.processing_context import ProcessingContext
 logger = get_logger("anonreq.middleware.policy")
 
 _SKIP_PATHS = {"/health", "/health/ready", "/metrics", "/"}
+# Preview must not increment rate-limit counters (evaluate_all writes Redis).
+_NO_SIDE_EFFECT_PATHS = {"/v1/debug/anonymize-preview"}
 
 
 class PolicyMiddleware(BaseHTTPMiddleware):
@@ -53,7 +55,11 @@ class PolicyMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: RequestResponseEndpoint,
     ) -> Response:
-        if request.url.path in _SKIP_PATHS or not request.url.path.startswith("/v1/"):
+        if (
+            request.url.path in _SKIP_PATHS
+            or request.url.path in _NO_SIDE_EFFECT_PATHS
+            or not request.url.path.startswith("/v1/")
+        ):
             return await call_next(request)
 
         pdp = getattr(request.app.state, "pdp", None)

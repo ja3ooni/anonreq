@@ -79,18 +79,31 @@ class TokenizationStage(PipelineStage):
     ``Tokenizer.tokenize()``, and records the mapping.
     """
 
-    def __init__(self, tokenizer: Any | None = None, cache_manager: Any = None) -> None:
+    def __init__(
+        self,
+        tokenizer: Any | None = None,
+        cache_manager: Any = None,
+        *,
+        persist_mappings: bool = True,
+        run_when_pass: bool = False,
+    ) -> None:
         """Initialise with an optional tokenizer and a cache manager.
 
         Args:
             tokenizer: A ``Tokenizer`` instance. When omitted, each request
                 gets a new tokenizer so session state is not shared.
             cache_manager: A ``CacheManager`` for storing token mappings
-                in Valkey.
+                in Valkey. Ignored when ``persist_mappings`` is false.
+            persist_mappings: When false, tokens are generated in memory
+                and ``store_mapping`` is not called.
+            run_when_pass: When true, PASS classification still tokenizes.
+                BLOCK still skips.
         """
         super().__init__("TokenizationStage")
         self._tokenizer = tokenizer
         self._cache_manager = cache_manager
+        self._persist_mappings = persist_mappings
+        self._run_when_pass = run_when_pass
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Replace detected entities with tokens.
@@ -168,8 +181,9 @@ class TokenizationStage(PipelineStage):
 
             ctx.transformed_request = transformed
 
-            # Store mapping in Valkey if non-empty
-            if all_mappings:
+            # Store mapping in Valkey if non-empty. Debug preview sets
+            # persist_mappings=False and must not touch the token cache.
+            if all_mappings and self._persist_mappings:
                 store_result = self._cache_manager.store_mapping(
                     ctx.tenant_id,
                     ctx.context_id,

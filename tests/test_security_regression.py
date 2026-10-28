@@ -66,8 +66,13 @@ class TestAdminLegacyKeyComparison:
         """Admin legacy fallback must use compare_digest (Finding 2)."""
         import anonreq.admin.auth as admin_auth
 
-        source = inspect.getsource(admin_auth.verify_admin_api_key)
-        assert "compare_digest" in source
+        source = inspect.getsource(admin_auth._verify_admin_credential)
+        # safe_compare wraps hmac.compare_digest on UTF-8 bytes so a
+        # non-ASCII key cannot raise TypeError (500).
+        assert "safe_compare(" in source or "compare_digest" in source
+        assert "hmac.compare_digest" in inspect.getsource(admin_auth.safe_compare)
+        assert admin_auth.safe_compare("clé", "clé") is True
+        assert admin_auth.safe_compare("clé", "cle") is False
 
     async def test_admin_legacy_wrong_key_is_401(
         self, monkeypatch: pytest.MonkeyPatch

@@ -72,6 +72,7 @@ from anonreq.streaming.emitter import SSEEmitter
 from anonreq.streaming.restoration import StreamingRestorationStage
 from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
 from anonreq.streaming.tail_buffer import TailBuffer
+from anonreq.tokenization.tokenizer import Tokenizer
 
 router = APIRouter(prefix="/v1", tags=["chat"])
 logger = get_logger("anonreq.routing.chat")
@@ -84,6 +85,8 @@ def build_pre_provider_pipeline(
     recognizer_merger: RecognizerMerger | None = None,
     checksum_registry: ChecksumValidatorRegistry | None = None,
     app_state: Any = None,
+    *,
+    preview: bool = False,
 ) -> PipelineManager:
     """Construct stages shared by streaming and non-streaming requests."""
     try:
@@ -135,23 +138,64 @@ def build_pre_provider_pipeline(
                 restricted_names_mgr=restricted_names_mgr,
             ),
             enterprise_recognizers=load_enterprise_recognizers(),
+            run_when_pass=preview,
             presidio_languages=settings.configured_presidio_languages(),
         ),
         SensitivityClassificationStage(),
-        PolicyEnforcementStage(app_state=app_state),
-        InboundDLPStage(app_state=app_state),
-        ToolGovernanceStage(app_state=app_state),
-        TokenizationStage(
-            cache_manager=cache_manager,
-        ),
-        ForwardingGuard(),
     ]
+    if preview:
+        # Same detection and tokenization stages as the live gateway.
+        # No policy/DLP/tool side effects, no forwarding, no cache write.
+        stages.append(
+            # Preview builds a fresh pipeline per request, so this tokenizer
+            # is not shared; the route reads its mapping afterwards.
+            TokenizationStage(
+                tokenizer=Tokenizer(),
+                cache_manager=cache_manager,
+                persist_mappings=False,
+                run_when_pass=True,
+            )
+        )
+    else:
+        stages.extend([
+            PolicyEnforcementStage(app_state=app_state),
+            InboundDLPStage(app_state=app_state),
+            ToolGovernanceStage(app_state=app_state),
+            TokenizationStage(
+                cache_manager=cache_manager,
+            ),
+            ForwardingGuard(),
+        ])
 
     manager = PipelineManager()
     for stage in stages:
         manager.register(stage)
 
     return manager
+
+
+def build_preview_pipeline(
+    cache_manager: CacheManager | None,
+    presidio_client: PresidioClient,
+    locale_negotiator: LocaleNegotiator | None = None,
+    recognizer_merger: RecognizerMerger | None = None,
+    checksum_registry: ChecksumValidatorRegistry | None = None,
+) -> PipelineManager:
+    """Detection and tokenization only, with cache writes disabled.
+
+    Reuses ``build_pre_provider_pipeline`` so preview cannot drift from
+    the gateway's recognizers, locale merge, or tokenizer. Provider,
+    restoration, cleanup, and forwarding stages are omitted.
+    """
+    return build_pre_provider_pipeline(
+        cache_manager,  # type: ignore[arg-type]
+        presidio_client,
+        locale_negotiator=locale_negotiator,
+        recognizer_merger=recognizer_merger,
+        checksum_registry=checksum_registry,
+        app_state=None,
+        preview=True,
+    )
 
 
 def build_pipeline(

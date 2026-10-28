@@ -110,6 +110,7 @@ class AuditEvent:
     new_value_hash: str | None
     metadata_json: str | None
     retention_days: int = 2557
+    row_id: int | None = None
 
 
 def compute_event_hash(event: AuditEvent) -> str:

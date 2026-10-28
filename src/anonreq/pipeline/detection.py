@@ -167,6 +167,7 @@ class DetectionStage(PipelineStage):
         config_registry: AtomicConfigRegistry | None = None,
         mnpi_recognizers: list[MNPIRecognizer] | None = None,
         enterprise_recognizers: dict[str, Any] | None = None,
+        run_when_pass: bool = False,
         presidio_languages: tuple[str, ...] | list[str] | None = None,
     ) -> None:
         """Initialise with detection dependencies.
@@ -183,6 +184,9 @@ class DetectionStage(PipelineStage):
                 for MNPI detection (Phase 15, D-001).
             enterprise_recognizers: Optional dict of enabled enterprise
                 recognizers (Phase 26, GUARD-01).
+            run_when_pass: When true, PASS classification still runs
+                detection. BLOCK still skips. Used by the side-effect-free
+                debug preview so callers can see tokens without a provider call.
             presidio_languages: ISO 639-1 codes this deployment's analyzer
                 supports (``ANONREQ_PRESIDIO_LANGUAGES``). Defaults to English.
         """
@@ -195,6 +199,7 @@ class DetectionStage(PipelineStage):
         self._config_registry = config_registry
         self._mnpi_recognizers = mnpi_recognizers or []
         self._enterprise_recognizers = enterprise_recognizers or {}
+        self._run_when_pass = run_when_pass
         self._presidio_languages = tuple(presidio_languages or ("en",))
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
