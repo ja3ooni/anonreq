@@ -34,17 +34,21 @@ services:
       # The three-column UI (PR #12) fills its "anonymized" column from the
       # admin-only preview route, which 404s unless enabled.
       ANONREQ_DEBUG_PREVIEW_ENABLED: "true"
-    # The gateway reads aliases from the fixed path config/model_aliases.yaml
-    # (AliasRegistry and the provider-key startup check from PR #9). There is
-    # no env var to select another file, so the demo bind-mounts its own
-    # alias file over it: only grok-4 (provider openai) is configured, and
-    # the smart/gemini-pro aliases (Anthropic/Gemini keys) are not.
+      # Demo alias file (only grok-4, provider openai -> api.x.ai) baked into
+      # the image under config/. Routing AND the provider-key startup check
+      # read this path, so Anthropic/Gemini keys are not required. Selected by
+      # env instead of a single-file bind mount (which silently fails on some
+      # Docker Desktop setups and left the base aliases -> "Provider API key
+      # missing for: anthropic, gemini").
+      ANONREQ_MODEL_ALIASES_PATH: config/model_aliases.demo.yaml
     # Loopback only: the demo gateway must not be reachable from the LAN.
     # !override replaces (not appends to) the base "8080:8080" mapping.
     ports: !override
       - "127.0.0.1:8080:8080"
+    # SQLite DB + CA dir live on a named volume (also declared in the base
+    # file; repeated here so the demo never runs without it).
     volumes:
-      - ./config/model_aliases.demo.yaml:/app/config/model_aliases.yaml:ro
+      - anonreq_data:/app/data
   # Bilingual analyzer: build, tag, pinned spaCy models, de health check and
   # 120s start_period all come from docker-compose.yml (PR #4). The demo only
   # forces a local build (never a registry pull) and reserves the >= 4 GB the
@@ -76,3 +80,6 @@ networks:
     # anonreq_anonreq-net) finds it regardless of the clone's directory name
     # (default would be <dirname>_anonreq-net, e.g. annon_anonreq-net).
     name: anonreq_anonreq-net
+
+volumes:
+  anonreq_data:

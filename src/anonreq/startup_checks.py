@@ -200,13 +200,20 @@ async def validate_single_tenant_mode(settings: Settings) -> None:
 
 
 def configured_provider_names(
-    aliases_path: str = "config/model_aliases.yaml",
+    aliases_path: str | None = None,
 ) -> list[str]:
     """Return provider names referenced by the model-alias file.
 
-    The shipped alias file is the set of providers the gateway can route
-    to. A missing file is treated as the OpenAI-compatible upstream.
+    The alias file in effect (``ANONREQ_MODEL_ALIASES_PATH`` or
+    ``config/model_aliases.yaml``, the same file routing loads) is the set
+    of providers the gateway can route to. Only those need keys; every one
+    of them is still enforced in every environment. A missing file is
+    treated as the OpenAI-compatible upstream.
     """
+    if aliases_path is None:
+        from anonreq.routing.alias_registry import model_aliases_path
+
+        aliases_path = model_aliases_path()
     path = Path(aliases_path)
     if not path.is_file():
         return ["openai"]
