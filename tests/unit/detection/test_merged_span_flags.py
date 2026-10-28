@@ -89,7 +89,9 @@ class TestArbiterFlagInheritance:
 
 
 class _EmptyNer:
-    async def analyze_text_nodes(self, text_nodes, entities=None, score_threshold=0.7):  # type: ignore[no-untyped-def]
+    async def analyze_text_nodes(  # type: ignore[no-untyped-def]
+        self, text_nodes, language="en", entities=None, score_threshold=0.7
+    ):
         return [[] for _ in text_nodes]
 
 

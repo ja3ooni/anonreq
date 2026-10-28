@@ -5,10 +5,19 @@
 # not fall back to ANONREQ_API_KEY when an upstream key is missing.
 # mock, local, and ollama need no key. Clients send X-AnonReq-Locale: de-DE
 # and use the OpenAI-compatible /v1/chat/completions path.
+#
+# Point the customer's OpenAI/Anthropic/Gemini key at PROVIDER_API_KEY.
+#
+# presidio-analyzer is inherited from docker-compose.yml. That service
+# builds docker/presidio/Dockerfile (en_core_web_lg + de_core_news_lg).
+# Do not point this demo at the stock Microsoft image: it only loads
+# English recognizers, so de-DE names and street addresses stay in cleartext
+# or the analyze call fails closed.
 
 services:
   anonreq:
     environment:
+      ANONREQ_PRESIDIO_LANGUAGES: ${ANONREQ_PRESIDIO_LANGUAGES:-en,de}
       ANONREQ_ACTIVE_PRESETS: germany
       ANONREQ_CLASSIFICATION_CONFIG_PATH: config/classification.germany.yaml
       ANONREQ_CLASSIFICATION_DEFAULT_ACTION: ANONYMIZE
