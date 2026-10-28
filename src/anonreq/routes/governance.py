@@ -11,10 +11,15 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from anonreq.admin.auth import bind_governance_role
 from anonreq.middleware.rbac import Role, require_role
 from anonreq.services.tenant_scope import resolve_scoped_tenant
 
-router = APIRouter(prefix="/v1/governance", tags=["governance"])
+router = APIRouter(
+    prefix="/v1/governance",
+    tags=["governance"],
+    dependencies=[Depends(bind_governance_role)],
+)
 
 
 @router.get("/audit/status")

@@ -437,7 +437,9 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, dependencies=[Depends(auth_context)])
     app.include_router(models_router, dependencies=[Depends(auth_context)])
     app.include_router(compliance_router, dependencies=[Depends(auth_context)])
-    app.include_router(governance_router, dependencies=[Depends(auth_context)])
+    # bind_governance_role is on the router. auth_context only accepts the
+    # gateway chat key, which must not be promoted to an admin principal.
+    app.include_router(governance_router)
     app.include_router(governance_record_router, dependencies=[Depends(auth_context)])
     app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])

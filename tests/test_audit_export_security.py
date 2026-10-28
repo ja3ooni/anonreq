@@ -30,7 +30,7 @@ from anonreq.services.audit_export import (
 
 FAKE_IBAN = "DE22710190115300059797"
 FAKE_EMAIL = "jürgen.groß@beispiel-mail.example"
-_FORMULA_LEAD = "=+-@\t\r|\uff1d\uff0b\uff0d\uff20"
+_FORMULA_LEAD = "=+-@\t\r\n|\uff1d\uff0b\uff0d\uff20"
 _BASE = {
     "entity_types": ["IBAN_DE", "EMAIL_ADDRESS"],
     "entity_counts": {"IBAN_DE": 1, "EMAIL_ADDRESS": 1},
@@ -550,7 +550,7 @@ def test_csv_preserves_unicode_when_the_field_is_allowed() -> None:
 
 
 def test_csv_escapes_pipe_and_fullwidth_formula_leads() -> None:
-    leads = ("|", "\uff1d", "\uff0b", "\uff0d", "\uff20")
+    leads = ("|", "\n", "\uff1d", "\uff0b", "\uff0d", "\uff20")
     for lead in leads:
         escaped = escape_csv_formula(lead + "cmd")
         assert escaped == "'" + lead + "cmd"

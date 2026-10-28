@@ -47,7 +47,7 @@ AnonReq tracks 4 primary SLOs to guarantee system safety and performance:
 
 System operators use curl requests to query status, fetch metrics, and perform updates.
 
-The legacy admin API key authenticates as principal tenant `*`. That value means the key is not bound to a tenant, so these reads use the `X-AnonReq-Tenant-ID` header. A `tenant_id` query for a different tenant, or `*`, returns HTTP 403. See [issue #7](https://github.com/ja3ooni/anonreq/issues/7).
+Governance routes accept the admin API key or an OIDC token. The gateway chat key is rejected with HTTP 403. The admin key is not stored against a tenant: the route copies `X-AnonReq-Tenant-ID` onto the principal and never keeps `*`. A `tenant_id` query for a different tenant returns HTTP 403. See [issue #7](https://github.com/ja3ooni/anonreq/issues/7).
 
 ### 1. Check Active Policies
 ```bash
@@ -60,7 +60,7 @@ curl -X GET http://localhost:8080/v1/admin/policies \
 ### 2. Query Real-Time SLO Compliance
 ```bash
 curl -H "Authorization: Bearer <ADMIN_API_KEY>" \
-     -H "X-AnonReq-Role: administrator" \
+     -H "X-AnonReq-Tenant-ID: default" \
      http://localhost:8080/v1/governance/status
 ```
 
@@ -68,7 +68,6 @@ curl -H "Authorization: Bearer <ADMIN_API_KEY>" \
 ```bash
 curl -X GET http://localhost:8080/v1/governance/audit/verify \
   -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  -H "X-AnonReq-Role: administrator" \
   -H "X-AnonReq-Tenant-ID: default"
 ```
 

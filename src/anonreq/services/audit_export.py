@@ -31,8 +31,8 @@ _OPERATOR_MAX_DIGITS = 6
 # Model ids (gpt-4o, llama3.3:70b, claude-sonnet-4). No spaces or addresses.
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
 _IBAN_RE = re.compile(r"^[A-Za-z]{2}\d{2}[A-Za-z0-9]{11,30}$")
-# ASCII formula leads, the DDE pipe, and full-width forms of = + - @.
-_FORMULA_LEAD = frozenset("=+-@\t\r|\uff1d\uff0b\uff0d\uff20")
+# ASCII formula leads, LF, the DDE pipe, and full-width forms of = + - @.
+_FORMULA_LEAD = frozenset("=+-@\t\r\n|\uff1d\uff0b\uff0d\uff20")
 
 ANONYMIZATION_CSV_FIELDS: tuple[str, ...] = (
     "timestamp",
@@ -148,8 +148,9 @@ def sanitize_request_id(value: object) -> str | None:
 def escape_csv_formula(value: object) -> str:
     """Prefix a leading spreadsheet formula so the cell is stored as text.
 
-    Triggers are ``=``, ``+``, ``-``, ``@``, ``|``, tab, CR, and the full-width
-    forms U+FF1D, U+FF0B, U+FF0D, and U+FF20, including after leading spaces.
+    Triggers are ``=``, ``+``, ``-``, ``@``, ``|``, tab, CR, LF, and the
+    full-width forms U+FF1D, U+FF0B, U+FF0D, and U+FF20, including after
+    leading spaces.
     """
     if value is None:
         return ""
