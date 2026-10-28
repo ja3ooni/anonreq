@@ -5,7 +5,7 @@ Per GUARD-01:
 - Detects AWS access keys (AKIA...)
 - Detects GitHub tokens (ghp_/ghs_/gho_/ghu_/ghr_/ghb_)
 - Detects internal hostnames based on a configurable list of domains
-- Integrates into the detection stage after core and MNPI detection
+- Spans are resolved in the same overlap pass as regex, NER, and MNPI
 """
 
 from __future__ import annotations

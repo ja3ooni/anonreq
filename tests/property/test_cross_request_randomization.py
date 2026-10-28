@@ -302,10 +302,12 @@ def test_different_values_unique(value_a: str, value_b: str) -> None:
         tokenizer2.initialize_session()
         combined_text = f"Email: {value_a} and {value_b}"
 
-        # Recompute positions in combined text
+        # Recompute positions in combined text. Search for value_b after
+        # value_a so a shorter value that is a substring of value_a does
+        # not land inside the first span.
         idx_a = combined_text.index(value_a)
         end_a = idx_a + len(value_a)
-        idx_b = combined_text.index(value_b)
+        idx_b = combined_text.index(value_b, end_a)
         end_b = idx_b + len(value_b)
 
         combined_detections = [
