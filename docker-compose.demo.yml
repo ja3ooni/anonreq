@@ -19,6 +19,8 @@ services:
       ANONREQ_KMS_BACKEND: local
       ANONREQ_KMS_MASTER_KEY: ${ANONREQ_KMS_MASTER_KEY:?ANONREQ_KMS_MASTER_KEY must be set in demo mode}
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?ANONREQ_ADMIN_API_KEY must be set in demo mode}
+      # Single-tenant demo: bind the admin key to the "default" tenant.
+      ANONREQ_ADMIN_TENANT_ID: ${ANONREQ_ADMIN_TENANT_ID:-default}
       ANONREQ_SINGLE_TENANT: "true"
     # The gateway reads aliases from the fixed path config/model_aliases.yaml
     # (AliasRegistry and the provider-key startup check from PR #9). There is

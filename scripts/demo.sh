@@ -16,6 +16,7 @@ ensure() { # ensure VAR value-if-missing
 }
 ensure ANONREQ_API_KEY "$(gen 32)"
 ensure ANONREQ_ADMIN_API_KEY "$(gen 32)"
+ensure ANONREQ_ADMIN_TENANT_ID "default"
 ensure ANONREQ_KMS_MASTER_KEY "$(gen 32)"
 ensure ANONREQ_ANCHOR_SIGNING_KEY "$(gen 32)"
 ensure POSTGRES_USER "anonreq"

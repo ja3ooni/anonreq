@@ -122,6 +122,8 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:-}
+      # Tenant the admin key is bound to (PR #6: required whenever the admin key is set).
+      ANONREQ_ADMIN_TENANT_ID: ${ANONREQ_ADMIN_TENANT_ID:-}
       ANONREQ_KMS_BACKEND: ${ANONREQ_KMS_BACKEND:-local}
       ANONREQ_KMS_MASTER_KEY: ${ANONREQ_KMS_MASTER_KEY:-}
       MINIO_SECURE: "false"
