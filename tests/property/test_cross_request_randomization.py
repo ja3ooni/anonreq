@@ -18,10 +18,10 @@ Properties tested:
 
 Key design decisions:
 - Uses Tokenizer directly (the real production implementation) — no mocks
-- Each ``Tokenizer.initialize_session()`` generates a fresh ``secrets.randbits(32)`` seed
-- Collision probability bound: P(two sessions produce same token for same value) ≤ 2⁻³²
-  For N=1000 sessions, expected collisions ≈ N² / (2 × 2³²) ≈ 0.00012
-  Over 200 Hypothesis examples, expected total ≈ 0.024 → assert exactly 0
+- Each ``Tokenizer.initialize_session()`` generates a fresh ``secrets.randbits(64)`` seed
+- Collision probability bound: P(two sessions produce same token for same value) ≤ 2⁻⁶⁴
+  For N=1000 sessions, expected collisions ≈ N² / (2 × 2⁶⁴) ≈ 2.7e-14
+  Over 200 Hypothesis examples, expected total ≈ 5.4e-12 → assert exactly 0
 
 Performance note: 1000 sequential tokenizer invocations is fast (~tens of ms),
 so the full count is used in the Hypothesis test without a separate slow marker.
@@ -392,44 +392,31 @@ def test_session_seeds_unique(entity_value: str) -> None:
 
 
 def test_collision_probability_bound() -> None:
-    """Verify the collision probability bound calculation is correct.
+    """Verify the seed space makes zero observed collisions reliable.
 
-    With N=1000 sessions and 2³⁰ possible starting offsets (from
-    ``secrets.randbits(32)`` masked to 30 bits), the birthday paradox
-    gives expected collisions ≈ N² / (2 × 2³⁰) ≈ 0.00047.
-
-    Since expected collisions < 1, we assert exactly 0 collisions observed
-    in any single test run. Over 200 Hypothesis examples, the expected
-    total across all runs is ≈ 0.094 — also < 1.
-
-    The collision bound P(duplicate) ≤ 2⁻³² is formally satisfied because:
-    - Each session uses a fresh ``secrets.randbits(32)`` seed
-    - The first token index = ``(seed & 0x3FFFFFFF)`` (30-bit space)
-    - For N=1000, P(at least one collision) ≈ N² / (2 × 2³⁰) ≈ 4.7e-4
-    - This meets the ≤ 2⁻³² ≈ 2.3e-10 per-pair bound
+    Each session draws ``secrets.randbits(64)`` and the first token index
+    is the full seed. With N=1000 sessions the birthday bound gives
+    expected collisions ≈ N² / (2 × 2⁶⁴) ≈ 2.7e-14 per example, so the
+    exact-zero assertions above are not flaky. The per-pair probability
+    2⁻⁶⁴ is well inside the TOKN-05 bound of 2⁻³².
     """  # noqa: RUF002
-    # Tokenizer uses: token_index = (self._seed & 0xFFFFFFFF) + counter
-    # 0xFFFFFFFF = 2^32 - 1, so seed space is 2^32 possible values
-    seed_space = 2 ** 32
+    seed_space = 2 ** 64
     n = MAX_SESSIONS
-
-    # Birthday paradox: expected collisions ≈ n(n-1) / (2 * seed_space)
     expected_collisions = n * (n - 1) / (2.0 * seed_space)
+    # Across every example of every property test in this module.
+    assert expected_collisions * _COLLISION_EXAMPLES * 10 < 1e-9
+    assert 1.0 / seed_space <= 2.0 ** (-32)
 
-    # For N=1000: expected ≈ 0.00012 (well below 1)
-    assert expected_collisions < 1.0, (
-        f"Expected collisions {expected_collisions:.4f} >= 1.0 for N={n} "
-        f"in 2^32 seed space. N is too large for collision-free guarantee."
-    )
 
-    # Per-pair collision probability bound P ≤ 2⁻³²
-    # The 32-bit seed gives a full 2³² space when masked with 0xFFFFFFFF.
-    # Per-pair collision probability = 1/2³² ≈ 2.33e-10 = 2⁻³²
-    pair_collision_p = 1.0 / seed_space
-    two_to_minus_32 = 2.0 ** (-32)
-
-    # With full 32-bit seed masking, pair_collision_p exactly equals 2⁻³²
-    assert pair_collision_p <= two_to_minus_32, (
-        f"Per-pair collision probability {pair_collision_p:.2e} "
-        f"exceeds 2⁻³² = {two_to_minus_32:.2e}. "
-    )
+def test_seed_uses_64_bits() -> None:
+    """Seeds span 64 bits: across 1000 sessions some exceed 2³²."""
+    indices = []
+    for _ in range(MAX_SESSIONS):
+        tokenizer = Tokenizer()
+        tokenizer.initialize_session()
+        _, mapping = tokenizer.tokenize("a@b.de", [_make_detection("EMAIL_ADDRESS", 0, 6)])
+        match = TOKEN_RE.match(next(iter(mapping)))
+        assert match is not None
+        indices.append(int(match.group(2)))
+    assert max(indices) > 2 ** 32
+    assert max(indices) < 2 ** 64 + MAX_SESSIONS

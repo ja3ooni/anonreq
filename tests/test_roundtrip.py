@@ -285,7 +285,7 @@ def test_session_isolation(text: str) -> None:
     _, m2 = t2.tokenize(text, [span])
 
     # Tokens should be different across sessions (different seed)
-    # With secrets.randbits(32), probability of collision is ~2^-32
+    # With secrets.randbits(64), probability of collision is ~2^-64
     token1 = next(iter(m1.keys())) if m1 else "<none>"
     token2 = next(iter(m2.keys())) if m2 else "<none>"
 
