@@ -22,12 +22,13 @@ Terminate TLS at your reverse proxy (nginx, Caddy, or a cloud load balancer) and
 
 | Variable | Type | Default | Required | Description |
 |----------|------|---------|----------|-------------|
-| `ANONREQ_API_KEY` | string | — | Yes | Bearer token for API authentication (≥ 32 chars) |
+| `ANONREQ_API_KEY` | string | — | Yes | Bearer token for API authentication (≥ 32 chars). Never sent upstream. |
+| `PROVIDER_API_KEY` | string | — | Conditional | Upstream model key. Required for keyed providers. Not the gateway client key. |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | No | Log level: DEBUG, INFO, WARNING, ERROR |
 | `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | No | Valkey server URL |
 | `ANONREQ_CACHE_PASSWORD` | string | — | No | Valkey requirepass |
 | `ANONREQ_CACHE_TTL` | int | `600` | No | Session TTL in seconds (60–3600) |
-| `ANONREQ_OPENAI_API_KEY` | string | — | Conditional | OpenAI API key |
+| `ANONREQ_OPENAI_API_KEY` | string | — | Conditional | OpenAI API key. `PROVIDER_API_KEY` is used when this is unset. |
 | `ANONREQ_ANTHROPIC_API_KEY` | string | — | Conditional | Anthropic API key |
 | `ANONREQ_GEMINI_API_KEY` | string | — | Conditional | Google Gemini API key |
 | `ANONREQ_OLLAMA_BASE_URL` | string | — | No | Ollama server URL |

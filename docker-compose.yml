@@ -84,8 +84,20 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Gateway client credential. Never reuse this as an upstream model key.
       ANONREQ_API_KEY: ${ANONREQ_API_KEY:?err}
-      PROVIDER_API_KEY: ${PROVIDER_API_KEY:?err}
+      # Optional at compose render time so an overlay can supply this after
+      # interpolation. `:?` is evaluated before overlays and blocks
+      # `docker compose config` when only XAI_API_KEY is set. Startup still
+      # requires a real upstream key. Never reuse ANONREQ_API_KEY.
+      PROVIDER_API_KEY: "${PROVIDER_API_KEY:-}"
+      # ANONREQ_OPENAI_API_KEY wins over PROVIDER_API_KEY when both are set.
+      ANONREQ_OPENAI_API_KEY: "${ANONREQ_OPENAI_API_KEY:-${PROVIDER_API_KEY}}"
+      # Optional at compose render time (`:-`, not `:?`). `:?` is evaluated
+      # before overlays, which blocks an xAI-only demo that does not set
+      # these. Startup still requires them while smart / gemini-pro are configured.
+      ANONREQ_ANTHROPIC_API_KEY: "${ANONREQ_ANTHROPIC_API_KEY:-}"
+      ANONREQ_GEMINI_API_KEY: "${ANONREQ_GEMINI_API_KEY:-}"
       PROVIDER_BASE_URL: ${PROVIDER_BASE_URL:-https://api.openai.com}
       ANONREQ_VALKEY_URL: redis://valkey:6379/0
       ANONREQ_PRESIDIO_URL: http://presidio-analyzer:3000
