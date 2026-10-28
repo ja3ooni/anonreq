@@ -160,18 +160,30 @@ class TokenizationStage(PipelineStage):
         except DependencyUnavailableError:
             raise
         except (KeyError, TypeError, ValueError, IndexError) as exc:
+            logger.warning(
+                "tokenization.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Tokenization stage failed: {type(exc).__name__}",
+                    message="Tokenization stage failed",
                     request_id=ctx.request_id,
                 )
             )
         except Exception as exc:
+            logger.warning(
+                "tokenization.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Tokenization stage failed: {type(exc).__name__}",
+                    message="Tokenization stage failed",
                     request_id=ctx.request_id,
                 )
             )

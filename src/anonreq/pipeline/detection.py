@@ -412,10 +412,16 @@ class DetectionStage(PipelineStage):
                 tenant_id=ctx.tenant_id,
                 failure_type="detection_error",
             ).inc()
+            logger.warning(
+                "detection.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Detection stage failed: {type(exc).__name__}: {exc}",
+                    message="Detection stage failed",
                     request_id=ctx.request_id,
                 )
             )
@@ -424,10 +430,16 @@ class DetectionStage(PipelineStage):
                 tenant_id=ctx.tenant_id,
                 failure_type="detection_error",
             ).inc()
+            logger.warning(
+                "detection.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Detection stage failed: {type(exc).__name__}",
+                    message="Detection stage failed",
                     request_id=ctx.request_id,
                 )
             )

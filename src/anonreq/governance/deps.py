@@ -26,7 +26,7 @@ def _log_task_exception(task: asyncio.Task[object]) -> None:
     if exc is not None:
         logger.error(
             "background_task_failed",
-            error=str(exc),
+            error=type(exc).__name__,
             task_name=task.get_name(),
         )
 

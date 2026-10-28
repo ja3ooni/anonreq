@@ -333,10 +333,18 @@ async def _stream_chat_completions(
         proc_ctx.original_request = provider_request_body
         provider_request = adapter.translate_request(proc_ctx)
     except AliasNotFoundError as exc:
-        logger.warning("chat.alias_not_found", error_type=type(exc).__name__)
+        logger.warning(
+            "chat.alias_not_found",
+            request_id=ctx.request_id,
+            error_type=type(exc).__name__,
+        )
         raise HTTPException(status_code=400, detail="Unknown model alias") from None
     except ProviderNotFoundError as exc:
-        logger.warning("chat.provider_not_found", error_type=type(exc).__name__)
+        logger.warning(
+            "chat.provider_not_found",
+            request_id=ctx.request_id,
+            error_type=type(exc).__name__,
+        )
         raise HTTPException(status_code=400, detail="Unknown provider") from None
     except ValueError:
         raise HTTPException(  # noqa: B904
