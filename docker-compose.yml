@@ -117,11 +117,11 @@ services:
       ANONREQ_POLICY_CONFIG_PATH: config/enterprise-policy.yaml
       ANONREQ_ACTIVE_PRESETS: ${ANONREQ_ACTIVE_PRESETS:-}
       ANONREQ_DATABASE_URL: ${ANONREQ_DATABASE_URL:-sqlite+aiosqlite:////app/data/anonreq.db}
-      ANONREQ_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-}
-      ANONREQ_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
+      ANONREQ_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?err}
+      ANONREQ_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?err}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
-      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-}
-      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?err}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?err}
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:-}
       # Tenant the admin key is bound to (PR #6: required whenever the admin key is set).
       ANONREQ_ADMIN_TENANT_ID: ${ANONREQ_ADMIN_TENANT_ID:-}
@@ -170,7 +170,7 @@ services:
       # production mode (ANONREQ_ENV=production) the gateway refuses to
       # boot when POSTGRES_PASSWORD / MINIO_ROOT_* are unset or default.
       POSTGRES_USER: ${POSTGRES_USER:-anonreq}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
       POSTGRES_DB: ${POSTGRES_DB:-anonreq}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -191,7 +191,7 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: anonreq-postgres-exporter
     environment:
-      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-anonreq}:${POSTGRES_PASSWORD:-}@postgres:5432/${POSTGRES_DB:-anonreq}?sslmode=disable"
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-anonreq}?sslmode=disable"
     depends_on:
       postgres:
         condition: service_healthy
@@ -208,8 +208,8 @@ services:
     container_name: anonreq-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?err}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?err}
     volumes:
       - minio_data:/data
     healthcheck:

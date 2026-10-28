@@ -50,10 +50,16 @@ echo "Building images (incl. local anonreq/presidio-analyzer:2.2.354-de; first b
 "${COMPOSE[@]}" up -d --wait --wait-timeout 420
 
 echo "Warming Presidio (first analyze loads models)..."
+WARM_OK=0
 for _ in $(seq 1 30); do
   if "${COMPOSE[@]}" exec -T presidio-analyzer python -c "import json,urllib.request as u;r=u.Request('http://localhost:3000/analyze',data=json.dumps({'text':'Max Mustermann wohnt in Berlin','language':'de'}).encode(),headers={'Content-Type':'application/json'});u.urlopen(r,timeout=60).read()" >/dev/null 2>&1; then
-    echo "Presidio warm."; break; fi; sleep 3
+    WARM_OK=1; echo "Presidio warm."; break; fi; sleep 3
 done
+if [[ "$WARM_OK" -ne 1 ]]; then
+  echo "ERROR: Presidio warm-up failed after 30 attempts (German /analyze never succeeded)." >&2
+  echo "Check: ${COMPOSE[*]} logs presidio-analyzer   (memory >= 6 GB? still loading models?)" >&2
+  exit 1
+fi
 
 # Demo UI (web/, PR #12). Started after the gateway stack is healthy so it can
 # join anonreq_anonreq-net and reach anonreq-gateway:8080. --env-file: the web

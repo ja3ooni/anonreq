@@ -13,6 +13,7 @@ Tags used below:
 
 | | Mac mini M4 | Windows PC |
 |---|---|---|
+| Docker Compose | **>= 2.24** (`docker compose version`; the demo overlay uses `ports: !override`). Current Docker Desktop ships newer. | same |
 | Docker | Docker Desktop, **Memory ≥ 6 GB** (8 GB is fine). Settings › General: enable *"Use Rosetta for x86_64/amd64 emulation on Apple Silicon"*. | Docker Desktop with the **WSL 2 backend**. Settings › Resources › WSL integration: enable for *Ubuntu*. |
 | Disk | ≥ 25 GB free: the Presidio image alone is ~9.65 GB, plus the app image, build cache, and headroom. | Same, on the WSL disk. |
 | Tools | `git`, `make`, `python3`. `xcode-select --install` provides `make`. | Inside Ubuntu (WSL): `sudo apt update && sudo apt install -y make git python3 curl` |
@@ -39,9 +40,9 @@ If WSL is short on memory, create `C:\Users\<you>\.wslconfig` containing the lin
 memory=12GB
 ```
 
-**Mac:** the repo is at `/Users/aljaunia/Documents/Develop/annon`.
+**Mac:** `cd` into your existing clone (shown as `<repo-dir>`).
 ```bash
-cd /Users/aljaunia/Documents/Develop/annon && git pull
+cd <repo-dir> && git pull
 ```
 
 ## 2. `.env` setup
@@ -101,11 +102,11 @@ Expected: **200**, with headers `x-anonreq-entity-count: 5` and `x-anonreq-proce
 
 ## 6. Demo: three-column UI (raw / anonymized / restored)
 
-Demo URL: **http://localhost:3000** (started by `make demo` when PR #12's `web/` is present).
+Demo URL: **<http://localhost:3000>** (started by `make demo` when PR #12's `web/` is present).
 Container start via compose: [not yet verified]. Same UI run with `next dev` against the gateway: [verified] (chat 200 restored, preview 200, audit 200, CSV 200).
 
 Click-through:
-1. Open http://localhost:3000/de. Model `grok-4`, detection locale *Deutsch (de-DE)*.
+1. Open <http://localhost:3000/de>. Model `grok-4`, detection locale *Deutsch (de-DE)*.
 2. Paste: `Bitte bestätige Hans Müller, Hauptstraße 12, 60311 Frankfurt, IBAN DE89370400440532013000, Tel. +49 69 12345678.`
 3. Send. Columns: **raw** (your text) · **anonymized** (`[PERSON_NAME_DE_…]`, `[STREET_ADDRESS_DE_…]`, `[POSTCODE_CITY_DE_…]`, `[IBAN_DE_…]`, phone token = what xAI saw) · **restored** (Grok's answer with real values back).
 4. **Audit** tab: new row, `de-DE`, token count 5, entity types.
@@ -116,7 +117,7 @@ Fallback without Docker for the UI (from `web/`):
 npm ci && ANONREQ_GATEWAY_URL=http://127.0.0.1:8080 ANONREQ_API_KEY=$ANONREQ_API_KEY \
 ANONREQ_ADMIN_API_KEY=$ANONREQ_ADMIN_API_KEY ANONREQ_TENANT_ID=default npx next dev -H 127.0.0.1 --port 3100
 ```
-then use http://127.0.0.1:3100/de.
+then use <http://127.0.0.1:3100/de>.
 
 ## 7. Stop / reset
 

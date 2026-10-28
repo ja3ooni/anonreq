@@ -2,7 +2,11 @@
 
 import pytest
 
-from anonreq.startup_checks import DemoKmsKeyMissingError, resolve_kms_master_key
+from anonreq.startup_checks import (
+    DemoKmsKeyMissingError,
+    KmsKeyPlaceholderError,
+    resolve_kms_master_key,
+)
 
 KEY = "k" * 44
 
@@ -38,3 +42,26 @@ async def test_demo_key_roundtrips_aes256gcm():
     ct = await kms.encrypt("tenant-a", b"Max Mustermann")
     assert b"Max Mustermann" not in ct
     assert await kms.decrypt("tenant-a", ct) == b"Max Mustermann"
+
+
+PLACEHOLDERS = [
+    "<generate-32+-char-random-key>",
+    "<base64-encoded-32-byte-key>",
+    "  <generate-32+-char-random-key-padded-to-be-long-enough>  ",
+    "<x>",
+]
+
+
+@pytest.mark.parametrize("env", ["development", "demo", "staging", "production"])
+@pytest.mark.parametrize("value", PLACEHOLDERS)
+def test_placeholder_key_rejected_in_every_mode(env, value):
+    with pytest.raises(KmsKeyPlaceholderError, match="placeholder"):
+        resolve_kms_master_key(env, value)
+
+
+def test_placeholder_error_is_runtime_error_so_lifespan_aborts():
+    assert issubclass(KmsKeyPlaceholderError, RuntimeError)
+
+
+def test_development_with_real_key_returns_bytes():
+    assert resolve_kms_master_key("development", KEY) == KEY.encode()

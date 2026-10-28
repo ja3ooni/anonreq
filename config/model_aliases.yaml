@@ -23,11 +23,3 @@ model_aliases:
     metadata:
       description: Google Gemini for multimodal tasks
       tier: standard
-  # xAI demo (docker-compose.demo.yml): served through the OpenAI-compatible
-  # path, so provider is "openai" and PROVIDER_BASE_URL points at api.x.ai.
-  grok-4:
-    provider: openai
-    model: grok-4
-    metadata:
-      description: xAI Grok 4 via OpenAI-compatible API (demo)
-      tier: premium
