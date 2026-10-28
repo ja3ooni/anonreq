@@ -1,9 +1,10 @@
-import { spawn } from "node:child_process";
-
+// Runtime entrypoint for the production image (Next standalone server).
 // Inside the container, listen on every interface so the published port
 // can reach the process. The host restriction is the compose publish
 // 127.0.0.1:3000:3000, not this bind.
 const host = process.env.HOSTNAME?.trim() || "0.0.0.0";
+process.env.HOSTNAME = host;
+process.env.PORT = process.env.PORT?.trim() || "3000";
 if (host !== "0.0.0.0") {
   console.warn(
     [
@@ -19,14 +20,4 @@ if (host !== "0.0.0.0") {
   );
 }
 
-const port = process.env.PORT?.trim() || "3000";
-const child = spawn("npx", ["next", "start", "-H", host, "--port", port], {
-  stdio: "inherit",
-});
-child.on("exit", (code, signal) => {
-  if (signal) {
-    process.kill(process.pid, signal);
-    return;
-  }
-  process.exit(code ?? 1);
-});
+await import("../server.js");
