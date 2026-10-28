@@ -134,6 +134,30 @@ class TestStartupProviderKeys:
             _settings(PROVIDER_API_KEY="upstream-key", API_KEY=_GATEWAY_KEY)
         )
 
+    @pytest.mark.parametrize(
+        "placeholder",
+        [
+            "change-me-customer-model-key",
+            "CHANGE-ME-anthropic-key",
+            "changeme",
+            "changeme-placeholder",
+            "<your-provider-api-key>",
+            "your-openai-key",
+            "Your-Gemini-Key",
+        ],
+    )
+    def test_placeholder_provider_key_is_missing(
+        self, monkeypatch: pytest.MonkeyPatch, placeholder: str
+    ) -> None:
+        """Template values fail closed at startup instead of a provider 401."""
+        monkeypatch.setattr(
+            "anonreq.startup_checks.configured_provider_names",
+            _only(["openai"]),
+        )
+        monkeypatch.setenv("PROVIDER_API_KEY", placeholder)
+        with pytest.raises(RuntimeError, match="missing for: openai"):
+            validate_provider_credentials(_settings(PROVIDER_API_KEY=placeholder))
+
     def test_blank_provider_api_key_is_unset(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -253,6 +253,9 @@ def validate_provider_credentials(settings: Settings) -> None:
 
     Runs in every environment. ``PROVIDER_API_KEY`` satisfies only the
     OpenAI-compatible upstream. The gateway client key is ignored.
+    Placeholder values (``change-me*``, ``changeme``, ``<...>``,
+    ``your-...-key``) count as unset, so startup fails closed instead of
+    forwarding a template key and receiving HTTP 401 from the provider.
     """
     flags = load_provider_key_requirements()
     shared_key = getattr(settings, "PROVIDER_API_KEY", None)

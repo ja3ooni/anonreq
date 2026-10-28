@@ -152,11 +152,29 @@ class ProviderRegistry:
 KEYLESS_PROVIDERS = frozenset({"mock", "local", "ollama"})
 
 
+def is_placeholder_credential(value: str) -> bool:
+    """Return True for template values that must not be sent upstream.
+
+    Missing means: starts with ``change-me``, equals or starts with
+    ``changeme``, is an angle-bracket template (``<...>``), or matches
+    ``your-...-key``. Comparison is case-insensitive.
+    """
+    stripped = value.strip()
+    if not stripped:
+        return False
+    folded = stripped.casefold()
+    if folded.startswith("change-me") or folded.startswith("changeme"):
+        return True
+    if stripped.startswith("<") and stripped.endswith(">"):
+        return True
+    return folded.startswith("your-") and folded.endswith("-key")
+
+
 def _nonblank(value: str | None) -> str | None:
-    """Return a stripped credential, or None when the value is missing."""
+    """Return a stripped credential, or None when missing or a placeholder."""
     if isinstance(value, str):
         stripped = value.strip()
-        if stripped:
+        if stripped and not is_placeholder_credential(stripped):
             return stripped
     return None
 
