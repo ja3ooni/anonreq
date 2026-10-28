@@ -1,0 +1,80 @@
+# AnonReq demo UI
+
+Next.js console for the anonymization gateway. One screen shows the raw prompt, the masked prompt, and the re-identified answer. Another lists anonymization events and exports CSV. English and German.
+
+API calls go through Next.js route handlers. `ANONREQ_API_KEY` and `ANONREQ_ADMIN_API_KEY` never reach the browser.
+
+## Run
+
+```bash
+cd web
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+Open http://localhost:3000. The middleware sends `/` to `/en`. `/de` is the German copy.
+
+Offline demo, no gateway:
+
+```bash
+ANONREQ_MOCK=true npm run dev
+```
+
+`ANONREQ_MOCK=true` serves fixtures. Set `ANONREQ_MOCK_PREVIEW=404` to show the middle-column placeholder.
+
+Checks:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+```
+
+## Point the gateway at xAI Grok
+
+The playground calls `POST /v1/chat/completions` on the gateway (OpenAI-compatible). The gateway’s `ProviderStage` posts to `{PROVIDER_BASE_URL}/v1/chat/completions`.
+
+xAI’s public base is `https://api.x.ai/v1`. Because the gateway appends `/v1/chat/completions`, set:
+
+```bash
+PROVIDER_BASE_URL=https://api.x.ai
+PROVIDER_API_KEY=<xAI key>
+```
+
+`PROVIDER_BASE_URL=https://api.x.ai/v1` would call `https://api.x.ai/v1/v1/chat/completions`.
+
+Non-streaming chat resolves `model` through `config/model_aliases.yaml` and rewrites it to the alias’s upstream model id. Add an alias whose `model` is a Grok id, for example:
+
+```yaml
+model_aliases:
+  grok:
+    provider: openai
+    model: grok-4
+```
+
+The UI sends the alias name (default `grok`). Every `/v1/*` call also needs `X-AnonReq-Tenant-ID` (seed tenant `default` in `config/tenants.yaml`) and `Authorization: Bearer $ANONREQ_API_KEY` for chat.
+
+## Preview
+
+The masked column is `POST /v1/debug/anonymize-preview`. It does not call a provider. The gateway returns **404** unless `ANONREQ_DEBUG_PREVIEW_ENABLED=true` and the caller presents an admin credential (`ANONREQ_ADMIN_API_KEY`). This UI sends that key from the server.
+
+The demo sends a prompt-only body: `{ "prompt": "..." }`. Then `anonymized_text` is set, and `anonymized_messages` and each entity’s `message_index` are null. Token offsets index `anonymized_text`. `start` / `end` are Unicode code points; `start_utf16` / `end_utf16` and `token_*_utf16` are UTF-16, which this UI uses for highlighting. The original text is the field `span`.
+
+The completion is a separate `POST /v1/chat/completions`. Each call has its own `request_id`. The header strip shows `X-AnonReq-Request-ID` from the completion and the preview’s `request_id` beside it.
+
+A 404 leaves a labeled placeholder in the middle column. The answer and the completion headers still render.
+
+## Audit
+
+The table calls `GET /v1/admin/anonymization-events` and expects `{ total, limit, next_cursor, items }`. The next page is a `cursor` query parameter. There is no offset control. Tenant is `X-AnonReq-Tenant-ID` for the caller (`ANONREQ_DEFAULT_TENANT`), not a query filter. **Load more** appends the next cursor.
+
+Mock mode uses that cursor shape. If a live response still has `offset` and no `next_cursor`, `src/lib/events-page.ts` turns it into a cursor so the screen does not page by offset itself.
+
+CSV is `GET /v1/admin/anonymization-events/export` (no `.csv` suffix). The `entity_types` cell is a JSON array. Filters match the list, without a page cursor.
+
+If that route is missing (404), the UI falls back to `GET /v1/admin/audit/anonymization-export`. That dump has no cursor and no separate total. Config history (`GET /v1/admin/audit/config-history`) and chain verify (`GET /v1/governance/audit/verify`) stay on the page.
+
+## Depends on the gateway PR
+
+The preview route and the cursor events API are added in [PR #5](https://github.com/ja3ooni/anonreq/pull/5) (`cursor/demo-admin-endpoints-5306`), which is not merged. This UI is based on `main`. Until that PR lands, run with `ANONREQ_MOCK=true`, or expect 404s and the fallbacks above. The full three-column view and the cursor audit log need PR #5, `ANONREQ_DEBUG_PREVIEW_ENABLED=true`, and `ANONREQ_ADMIN_API_KEY`.
