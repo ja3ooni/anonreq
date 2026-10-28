@@ -24,7 +24,8 @@ Beëindig TLS op uw reverse proxy (nginx, Caddy, of een cloud load balancer) en 
 
 | Variabele | Type | Standaard | Vereist | Beschrijving |
 |----------|------|---------|----------|-------------|
-| `ANONREQ_API_KEY` | string | — | Ja | Bearer token voor API-authenticatie (≥ 32 tekens) |
+| `ANONREQ_API_KEY` | string | — | Ja | Bearer token voor API-authenticatie (≥ 32 tekens). Wordt nooit upstream gestuurd. |
+| `PROVIDER_API_KEY` | string | — | Conditioneel | Upstream-modelsleutel. Dit is niet de client-sleutel van de gateway. |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | Nee | Logniveau: DEBUG, INFO, WARNING, ERROR |
 | `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | Nee | URL van de Valkey-server |
 | `ANONREQ_CACHE_PASSWORD` | string | — | Nee | Valkey-wachtwoord |

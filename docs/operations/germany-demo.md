@@ -13,7 +13,11 @@ A Frankfurt CISO should be able to drop AnonReq in front of **their** Claude / C
 
 ```bash
 cp .env.example .env
-# set ANONREQ_API_KEY (>= 32 chars) and PROVIDER_API_KEY (customer key)
+# ANONREQ_API_KEY                 gateway client key (>= 32 chars)
+# PROVIDER_API_KEY                customer OpenAI-compatible key (not ANONREQ_API_KEY)
+# ANONREQ_ANTHROPIC_API_KEY       required while the smart alias is configured
+# ANONREQ_GEMINI_API_KEY          required while the gemini-pro alias is configured
+# mock, local, and ollama need no key. Startup refuses to boot otherwise.
 
 docker compose -f docker-compose.yml -f docker-compose.germany.yml up --build
 ```
@@ -70,6 +74,8 @@ helm upgrade --install anonreq ./helm/anonreq \
   -f ./helm/anonreq/values-germany.yaml \
   --set secrets.ANONREQ_API_KEY="$ANONREQ_API_KEY" \
   --set secrets.PROVIDER_API_KEY="$PROVIDER_API_KEY" \
+  --set secrets.ANONREQ_ANTHROPIC_API_KEY="$ANONREQ_ANTHROPIC_API_KEY" \
+  --set secrets.ANONREQ_GEMINI_API_KEY="$ANONREQ_GEMINI_API_KEY" \
   --set env.ANONREQ_VALKEY_URL="redis://valkey:6379/0" \
   --set env.ANONREQ_PRESIDIO_URL="http://presidio-analyzer:3000"
 ```

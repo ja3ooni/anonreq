@@ -25,13 +25,14 @@ cp .env.example .env
 
 | Variable | Requis | Par défaut | Description |
 |----------|--------|------------|-------------|
-| `ANONREQ_API_KEY` | Oui | — | Jeton porteur statique pour l'authentification API (≥ 32 caractères) |
+| `ANONREQ_API_KEY` | Oui | — | Jeton porteur statique pour l'authentification API (≥ 32 caractères). Jamais envoyé en amont. |
+| `PROVIDER_API_KEY` | Conditionnel | — | Clé du modèle en amont. Requise sauf si chaque fournisseur configuré est mock, local ou ollama. Ne pas réutiliser `ANONREQ_API_KEY`. |
 | `ANONREQ_LOG_LEVEL` | Non | `INFO` | Niveau de journalisation |
 | `ANONREQ_CACHE_TTL` | Non | `600` | Durée de vie (TTL) du cache de session en secondes |
 | `ANONREQ_PRESIDIO_URL` | Non | `http://presidio-analyzer:5001` | URL de l'analyseur Presidio |
 | `ANONREQ_VALKEY_URL` | Non | `valkey://localhost:6379` | Chaîne de connexion Valkey |
 
-Au moins une clé API de fournisseur (`ANONREQ_OPENAI_API_KEY`, `ANONREQ_ANTHROPIC_API_KEY` ou `ANONREQ_GEMINI_API_KEY`) doit être configurée.
+Le démarrage échoue si un fournisseur configuré qui exige une clé n'en a pas. OpenAI accepte `PROVIDER_API_KEY`, `ANONREQ_OPENAI_API_KEY` ou `OPENAI_API_KEY`. `ANONREQ_ANTHROPIC_API_KEY` et `ANONREQ_GEMINI_API_KEY` sont requis tant que les alias `smart` et `gemini-pro` restent dans `config/model_aliases.yaml`. `mock`, `local` et `ollama` n'ont pas besoin de clé. La clé client de la passerelle n'est jamais une clé de fournisseur.
 
 ## Configuration Docker Compose
 

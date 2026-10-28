@@ -152,7 +152,7 @@
 **Fix applied (`docker-compose.yml`):**
 1. Pinned `mcr.microsoft.com/presidio-analyzer:2.2.354`, `minio/minio:RELEASE.2025-04-22T22-12-26Z`, `valkey/valkey:8.0` (postgres/prometheus/grafana/exporters were already pinned).
 2. Replaced `user: root` + runtime `su anonreq` with `user: "1001:1001"` and a direct `uvicorn` command — the `Dockerfile` already creates the `anonreq` user, chowns `/app` at build time, and runs as `USER anonreq`.
-3. Production guard: `ANONREQ_ENV=production` + unset/default `PROVIDER_API_KEY` / `MINIO_ROOT_*` / `POSTGRES_PASSWORD` → startup refusal via `validate_production_secrets()`; `ANONREQ_ENV`, `ANONREQ_SINGLE_TENANT`, `ANONREQ_METRICS_NO_AUTH` wired through compose with safe defaults.
+3. Production guard: `ANONREQ_ENV=production` + unset/default `MINIO_ROOT_*` / `POSTGRES_PASSWORD` → startup refusal via `validate_production_secrets()`. Provider keys are checked in every environment by `validate_provider_credentials()`: a configured provider that needs a key and has none refuses to boot, and `ANONREQ_API_KEY` is never sent upstream. `mock`, `local`, and `ollama` need no key. `ANONREQ_ENV`, `ANONREQ_SINGLE_TENANT`, `ANONREQ_METRICS_NO_AUTH` are wired through compose with safe defaults.
 
 **Claim (report):** MinIO `minioadmin:minioadmin`, Postgres `anonreq:anonreq`, `user: root` with a runtime `su` privilege drop; unpinned `latest` images for Presidio and MinIO.
 

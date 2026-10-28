@@ -279,7 +279,7 @@ def create_app() -> FastAPI:
 
         try:
             await run_startup_checks(settings, cache_manager)
-        except DependencyUnavailableError:
+        except (DependencyUnavailableError, RuntimeError):
             await cache_manager.close()
             log.error("Pre-flight check failed", component="lifespan")
             raise

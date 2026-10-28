@@ -23,13 +23,14 @@ cp .env.example .env
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `ANONREQ_API_KEY` | Yes | — | Static bearer token for API authentication (≥ 32 chars) |
+| `ANONREQ_API_KEY` | Yes | — | Static bearer token for API authentication (≥ 32 chars). Never sent upstream. |
+| `PROVIDER_API_KEY` | Conditional | — | Upstream model key. Required unless every configured provider is mock, local, or ollama. Do not reuse `ANONREQ_API_KEY`. |
 | `ANONREQ_LOG_LEVEL` | No | `INFO` | Logging level |
 | `ANONREQ_CACHE_TTL` | No | `600` | Session cache TTL in seconds |
 | `ANONREQ_PRESIDIO_URL` | No | `http://presidio-analyzer:5001` | Presilio Analyzer URL |
 | `ANONREQ_VALKEY_URL` | No | `valkey://localhost:6379` | Valkey connection string |
 
-At least one provider API key (`ANONREQ_OPENAI_API_KEY`, `ANONREQ_ANTHROPIC_API_KEY`, or `ANONREQ_GEMINI_API_KEY`) must be set.
+Startup fails when a configured provider that needs a key has none. OpenAI accepts `PROVIDER_API_KEY`, `ANONREQ_OPENAI_API_KEY`, or `OPENAI_API_KEY`. `ANONREQ_ANTHROPIC_API_KEY` and `ANONREQ_GEMINI_API_KEY` are required while the `smart` and `gemini-pro` aliases stay in `config/model_aliases.yaml`. `mock`, `local`, and `ollama` do not need a key. The gateway client key is never used as a provider credential.
 
 ## Docker Compose Setup
 
