@@ -47,7 +47,7 @@ cd <repo-dir> && git pull
 
 ## 2. `.env` setup
 
-`make demo` creates `.env` itself. It is gitignored and `chmod 600`. The script generates every missing secret (gateway key, admin key, KMS master key, signing key, DB and MinIO passwords) and sets `ANONREQ_ADMIN_TENANT_ID=default` and `ANONREQ_DEMO_MODEL=grok-4`. The only thing you supply is the xAI key:
+`make demo` creates `.env` itself. It is gitignored and `chmod 600`. The script generates every missing secret (gateway key, admin key, KMS master key, signing key, DB and MinIO passwords) and sets `ANONREQ_ADMIN_TENANT_ID=default`. MinIO and Postgres get random credentials; `<...>` placeholders and `minioadmin` are replaced, never used and `ANONREQ_DEMO_MODEL=grok-4`. The only thing you supply is the xAI key:
 
 ```bash
 export XAI_API_KEY='<your-xai-api-key>'     # or put XAI_API_KEY=<...> in .env
@@ -131,7 +131,7 @@ make demo-down && docker compose -f docker-compose.yml -f docker-compose.germany
 
 - **Port 3000 in use** (UI fails to start, "port is already allocated"): `lsof -i :3000` (Windows/WSL: `sudo ss -ltnp | grep :3000`, or in PowerShell `netstat -ano | findstr :3000`) to find the owner, stop it, `make demo` again. Same for 8080 (gateway). Last resort: run the UI with the `next dev --port 3100` fallback in section 6.
 - **UI shows gateway errors / "network anonreq_anonreq-net not found"**: the gateway stack is not up; run `make demo` (not the web compose alone). The network name is fixed in `docker-compose.demo.yml`, independent of the clone folder name.
-- **Slow first Presidio start**: the two large spaCy models load on the first request. The compose start window is 120 s, and on the M4 under Rosetta it is slower. `make demo` warms Presidio before printing "Demo ready". If chats are slow at first, wait and retry. Watch progress with `docker compose ... logs -f presidio-analyzer`.
+- **Slow first Presidio start**: the two large spaCy models load on the first request. The compose start window is 120 s, and on the M4 under Rosetta it is slower. `make demo` warms Presidio before printing `Demo UI ready: http://localhost:3000` (or only `Gateway API: ...` when the UI is skipped). If chats are slow at first, wait and retry. Watch progress with `docker compose ... logs -f presidio-analyzer`.
 - **"Docker has N MiB RAM"**: raise Docker Desktop memory to 6 GB or more. On Windows, also raise `.wslconfig`.
 - **401 vs 403 vs 400**:
   - 401 means no key or an unknown key.

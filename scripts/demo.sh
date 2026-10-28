@@ -11,7 +11,8 @@ touch "$ENV_FILE"; chmod 600 "$ENV_FILE"
 gen() { python3 -c "import secrets;print(secrets.token_urlsafe($1))"; }
 ensure() { # ensure VAR value-if-missing
   local cur; cur=$(grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- || true)
-  if [[ -z "$cur" || "$cur" == \<* ]]; then
+  # Treat empty, <placeholder> and well-known default creds (minioadmin) as missing.
+  if [[ -z "$cur" || "$cur" == \<* || "$cur" == "minioadmin" ]]; then
     sed -i.bak "/^$1=/d" "$ENV_FILE" && rm -f "$ENV_FILE.bak"; echo "$1=$2" >> "$ENV_FILE"; echo "generated $1"
   fi
 }
@@ -21,7 +22,7 @@ ensure ANONREQ_ADMIN_TENANT_ID "default"
 ensure ANONREQ_KMS_MASTER_KEY "$(gen 32)"
 ensure ANONREQ_ANCHOR_SIGNING_KEY "$(gen 32)"
 ensure POSTGRES_USER "anonreq"
-ensure MINIO_ROOT_USER "anonreq-demo"
+ensure MINIO_ROOT_USER "anonreq-$(python3 -c "import secrets;print(secrets.token_hex(6))")"
 ensure MINIO_ROOT_PASSWORD "$(gen 24)"
 ensure POSTGRES_PASSWORD "$(gen 24)"
 ensure ANONREQ_DEMO_MODEL "grok-4"
