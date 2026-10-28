@@ -29,6 +29,8 @@ from anonreq.routing.chat import _raise_for_pipeline_errors, build_preview_pipel
 from anonreq.services.tenant_scope import resolve_scoped_tenant
 from anonreq.state import get_app_state
 
+_NO_STORE_HEADERS = {"Cache-Control": "no-store"}
+
 router = APIRouter(prefix="/v1/debug", tags=["debug"])
 
 
@@ -119,7 +121,11 @@ class PreviewRateLimiter:
         now = time.monotonic()
         recent = [stamp for stamp in self._hits.get(principal_id, []) if now - stamp < 60.0]
         if len(recent) >= limit:
-            raise HTTPException(status_code=429, detail="Preview rate limit exceeded")
+            raise HTTPException(
+                429,
+                detail="Preview rate limit exceeded",
+                headers=_NO_STORE_HEADERS,
+            )
         recent.append(now)
         self._hits[principal_id] = recent
 
@@ -133,8 +139,16 @@ async def require_preview_admin(
 ) -> None:
     """404 when preview is off, otherwise require an administrator."""
     if not settings.DEBUG_PREVIEW_ENABLED:
-        raise HTTPException(status_code=404, detail="Not Found")
-    await require_administrator(request, authorization)
+        raise HTTPException(404, detail="Not Found", headers=_NO_STORE_HEADERS)
+    try:
+        await require_administrator(request, authorization)
+    except HTTPException as exc:
+        # Auth failures (401/403) on the preview are never cached either.
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.detail,
+            headers={**(exc.headers or {}), **_NO_STORE_HEADERS},
+        ) from None
 
 
 def _scoped_tenant(request: Request, body: AnonymizePreviewRequest) -> str:
@@ -147,9 +161,17 @@ def _scoped_tenant(request: Request, body: AnonymizePreviewRequest) -> str:
         raise HTTPException(
             status_code=403,
             detail="tenant_id does not match the caller tenant",
+            headers=_NO_STORE_HEADERS,
         )
     requested = body.tenant_id if body.tenant_id is not None else body.tenant
-    return resolve_scoped_tenant(request, requested)
+    try:
+        return resolve_scoped_tenant(request, requested)
+    except HTTPException as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.detail,
+            headers={**(exc.headers or {}), **_NO_STORE_HEADERS},
+        ) from None
 
 
 def _principal_id(request: Request) -> str:
@@ -167,14 +189,18 @@ async def _enforce_policy(request: Request, tenant_id: str, policy_id: str | Non
         return
     store = get_app_state(request.app).policy_store
     if store is None:
-        raise HTTPException(status_code=503, detail="Policy store not available")
+        raise HTTPException(503, detail="Policy store not available", headers=_NO_STORE_HEADERS)
     rule = await store.get_policy(policy_id, tenant_id)
     if rule is None or not rule.enabled:
-        raise HTTPException(status_code=404, detail="Policy not found")
+        raise HTTPException(404, detail="Policy not found", headers=_NO_STORE_HEADERS)
     if rule.action == PolicyAction.BLOCK:
-        raise HTTPException(status_code=403, detail="Request blocked by policy")
+        raise HTTPException(403, detail="Request blocked by policy", headers=_NO_STORE_HEADERS)
     if rule.action == PolicyAction.ROUTE_LOCAL:
-        raise HTTPException(status_code=501, detail="ROUTE_LOCAL not yet implemented")
+        raise HTTPException(
+            501,
+            detail="ROUTE_LOCAL not yet implemented",
+            headers=_NO_STORE_HEADERS,
+        )
 
 
 def _classification_of(ctx: ProcessingContext) -> tuple[str, str, int]:
@@ -195,7 +221,11 @@ async def _run_preview(
     state = get_app_state(request.app)
     presidio = state.presidio_client
     if presidio is None:
-        raise HTTPException(status_code=503, detail="Detection service not initialized")
+        raise HTTPException(
+            503,
+            detail="Detection service not initialized",
+            headers=_NO_STORE_HEADERS,
+        )
 
     pipeline = build_preview_pipeline(
         state.cache_manager,

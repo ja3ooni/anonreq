@@ -131,6 +131,7 @@ async def test_preview_rejects_insufficient_role(preview_app: FastAPI) -> None:
             json={"prompt": "ada@example.com"},
         )
     assert response.status_code == 403
+    assert response.headers.get("cache-control") == "no-store"
 
 
 @pytest.mark.asyncio
@@ -254,6 +255,7 @@ async def test_preview_rate_limit_is_per_admin(
             json={"prompt": "hello"},
         )
     assert limited.status_code == 429
+    assert limited.headers.get("cache-control") == "no-store"
 
 
 @pytest.mark.asyncio
@@ -299,3 +301,20 @@ def _admin_key_bound_to_acme(monkeypatch: pytest.MonkeyPatch) -> None:
 
     # Patch the settings object auth reads, even if another test swapped it.
     monkeypatch.setattr(admin_auth.settings, "ADMIN_TENANT_ID", "acme")
+
+
+@pytest.mark.asyncio
+async def test_preview_errors_are_no_store(preview_app: FastAPI) -> None:
+    """401 and tenant-mismatch 403 from the preview are never cached."""
+    transport = ASGITransport(app=preview_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        missing = await client.post("/v1/debug/anonymize-preview", json={"prompt": "x"})
+        mismatch = await client.post(
+            "/v1/debug/anonymize-preview",
+            headers=_headers(),
+            json={"prompt": "x", "tenant_id": "someone-else"},
+        )
+    assert missing.status_code == 401
+    assert missing.headers.get("cache-control") == "no-store"
+    assert mismatch.status_code == 403
+    assert mismatch.headers.get("cache-control") == "no-store"
