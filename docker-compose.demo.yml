@@ -11,6 +11,9 @@ services:
       ANONREQ_ENV: demo
       PROVIDER_BASE_URL: ${XAI_BASE_URL:-https://api.x.ai}
       PROVIDER_API_KEY: ${XAI_API_KEY:?XAI_API_KEY must be set for the xAI demo}
+      # PR #9 resolves openai via ANONREQ_OPENAI_API_KEY first; pin it to xAI
+      # so an unrelated OpenAI key in .env can't be sent to api.x.ai.
+      ANONREQ_OPENAI_API_KEY: ${XAI_API_KEY:?XAI_API_KEY must be set for the xAI demo}
       ANONREQ_DEMO_MODEL: ${ANONREQ_DEMO_MODEL:-grok-4}
       # Demo mode refuses to boot without a stable AES-256-GCM master key.
       ANONREQ_KMS_BACKEND: local
