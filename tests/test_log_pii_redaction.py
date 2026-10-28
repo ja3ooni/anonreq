@@ -161,6 +161,83 @@ class TestFormattedLogRedaction:
         assert EMAIL not in json.dumps(nested)
         assert entries[0]["data"]["phone"] == "[REDACTED]"
 
+    def test_exc_info_keeps_raise_site_without_message(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import sys
+
+        setup_logging(level="ERROR")
+        try:
+            _raise_for_log()
+        except RuntimeError:
+            tb = sys.exc_info()[2]
+            assert tb is not None
+            while tb.tb_next is not None:
+                tb = tb.tb_next
+            expected_line = tb.tb_lineno
+            expected_file = tb.tb_frame.f_code.co_filename
+            logging.getLogger("anonreq.test.site").error("exploded", exc_info=True)
+
+        rendered = _stderr_text(capsys)
+        _assert_pii_absent(rendered)
+        entry = json.loads(rendered.strip().splitlines()[-1])
+        assert entry["error_type"] == "RuntimeError"
+        assert entry["error_function"] == "_raise_for_log"
+        assert entry["error_line"] == expected_line
+        assert entry["error_file"] == expected_file
+
+    def test_oversized_value_skips_regex_past_the_cap(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import structlog
+
+        from anonreq.logging_config import LOG_SCRUB_MAX_CHARS
+
+        setup_logging(level="INFO")
+        log = structlog.get_logger()
+        log.info("capped-tail", error=("x" * LOG_SCRUB_MAX_CHARS) + EMAIL)
+        tail_rendered = _stderr_text(capsys)
+        assert EMAIL not in tail_rendered
+        assert "[TRUNCATED]" in tail_rendered
+
+        log.info("capped-head", error=EMAIL + ("y" * LOG_SCRUB_MAX_CHARS))
+        head_rendered = _stderr_text(capsys)
+        assert EMAIL not in head_rendered
+        assert "[REDACTED]" in head_rendered
+        assert "[TRUNCATED]" in head_rendered
+
+
+def _raise_for_log() -> None:
+    raise RuntimeError(f"{SENTINEL} {EMAIL}")
+
+
+class TestUvicornHandlerRedaction:
+    """uvicorn.access and uvicorn.error do not propagate to the root handler."""
+
+    def test_handlers_scrub_pii(self, capsys: pytest.CaptureFixture[str]) -> None:
+        from anonreq.logging_config import PiiRedactingFilter
+
+        setup_logging(level="INFO")
+        access = logging.getLogger("uvicorn.access")
+        error = logging.getLogger("uvicorn.error")
+        access.handlers.clear()
+        error.handlers.clear()
+        access.propagate = False
+        error.propagate = False
+        access.setLevel(logging.INFO)
+        error.setLevel(logging.INFO)
+        access.addHandler(logging.StreamHandler())
+        error.addHandler(logging.StreamHandler())
+
+        assert any(isinstance(item, PiiRedactingFilter) for item in access.handlers[0].filters)
+        assert any(isinstance(item, PiiRedactingFilter) for item in error.handlers[0].filters)
+
+        access.info("GET /search?q=%s", EMAIL)
+        error.error("listener failed for %s", EMAIL)
+        rendered = _stderr_text(capsys)
+        assert EMAIL not in rendered
+        assert "[REDACTED]" in rendered
+
 
 class TestCleanupExceptionLogging:
     """Mapping-delete failures log the exception type and nothing else."""

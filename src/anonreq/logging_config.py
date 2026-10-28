@@ -13,8 +13,9 @@ Per D-04, D-05, D-06, AUDT-01, AUDT-02, AUDT-03:
 - Strict field allowlist — non-allowlisted fields dropped before serialization.
 - Nested values under allowlisted keys (``error``, ``data``, ``extra``, lists)
   are scrubbed with the project regex recognizers before serialization.
-- Exception objects and ``exc_info`` are reduced to the exception type.
-  Messages and args are never emitted.
+- Exception objects and ``exc_info`` are reduced to the exception type plus
+  the file, line, and function of the raise site. Messages and args are
+  never emitted.
 - request_id propagated via structlog contextvars for trace correlation.
 - Log level configurable by settings.LOG_LEVEL.
 
@@ -24,6 +25,13 @@ Threat model coverage:
   the logging path: it needs the analyzer service and must not block or
   fail open while a log record is being formatted. Regex detection, including
   Luhn checks for card numbers, is the practical detector.
+
+Free-text person names and street addresses are not caught. The scrubber
+only applies deterministic regex recognizers and checksum validators. A
+value such as "Jane Doe" or "10 Downing Street" is left unchanged unless it
+also matches a structured pattern (email, phone, national identifier, and
+similar). Regex scans are capped at ``LOG_SCRUB_MAX_CHARS``; the remainder
+is replaced with ``[TRUNCATED]`` so a long field cannot drive ReDoS.
 """
 
 import logging
@@ -52,6 +60,9 @@ ALLOWLIST: frozenset[str] = frozenset({
     "status_code",
     "duration_ms",
     "error_type",
+    "error_file",
+    "error_line",
+    "error_function",
     "version",
     "session_id",
     "provider",
@@ -107,7 +118,11 @@ _SENSITIVE_KEY = re.compile(
     r"secret|api_key|authorization|credential|access_token|private_key)$"
 )
 _REDACTED = "[REDACTED]"
+_TRUNCATED = "[TRUNCATED]"
+# Bound regex work in the logging path. Detection of request bodies is unchanged.
+LOG_SCRUB_MAX_CHARS = 4096
 _MAX_DEPTH = 12
+_UVICORN_LOGGERS = ("uvicorn.access", "uvicorn.error")
 _PII_DETECTOR = RegexDetector()
 _GERMAN_ENTITY_TYPES = (
     "TAX_ID_DE",
@@ -223,6 +238,9 @@ def _checksum_accepts(entity_type: str, value: str) -> bool:
 
 
 def _redact_text(value: str) -> str:
+    truncated = len(value) > LOG_SCRUB_MAX_CHARS
+    if truncated:
+        value = value[:LOG_SCRUB_MAX_CHARS]
     redacted = value
     for pattern in _SECRET_PATTERNS:
         redacted = pattern.sub(_REDACTED, redacted)
@@ -240,6 +258,8 @@ def _redact_text(value: str) -> str:
             continue
         spans.append((start, end))
     if not spans:
+        if truncated:
+            return f"{redacted}{_TRUNCATED}"
         return redacted
 
     merged: list[list[int]] = []
@@ -256,7 +276,10 @@ def _redact_text(value: str) -> str:
         parts.append(_REDACTED)
         cursor = end
     parts.append(redacted[cursor:])
-    return "".join(parts)
+    redacted = "".join(parts)
+    if truncated:
+        return f"{redacted}{_TRUNCATED}"
+    return redacted
 
 
 def _is_exc_info(value: tuple[Any, ...]) -> bool:
@@ -268,6 +291,31 @@ def _is_exc_info(value: tuple[Any, ...]) -> bool:
     )
     exc_ok = exc is None or isinstance(exc, BaseException)
     return type_ok and exc_ok
+
+
+def _raise_location(value: Any) -> dict[str, Any]:
+    """File, line, and function of the innermost raise, without the message."""
+    tb: types.TracebackType | None = None
+    if value is True:
+        tb = sys.exc_info()[2]
+    elif isinstance(value, BaseException):
+        tb = value.__traceback__
+    elif isinstance(value, tuple) and _is_exc_info(value):
+        candidate = value[2]
+        if isinstance(candidate, types.TracebackType):
+            tb = candidate
+        elif isinstance(value[1], BaseException):
+            tb = value[1].__traceback__
+    while tb is not None and tb.tb_next is not None:
+        tb = tb.tb_next
+    if tb is None:
+        return {}
+    code = tb.tb_frame.f_code
+    return {
+        "error_file": code.co_filename,
+        "error_line": tb.tb_lineno,
+        "error_function": code.co_name,
+    }
 
 
 def _exception_type_from(value: Any) -> str | None:
@@ -293,6 +341,10 @@ def scrub_log_value(value: Any, *, _depth: int = 0, _seen: set[int] | None = Non
     are walked. Exception instances and ``exc_info`` tuples become the
     exception type name. Strings are scanned with the secret patterns and
     ``RegexDetector`` (Luhn-validated card numbers included).
+
+    Free-text names and addresses are not recognized. Strings longer than
+    ``LOG_SCRUB_MAX_CHARS`` are scanned only up to that limit and then marked
+    ``[TRUNCATED]``.
     """
     if _depth > _MAX_DEPTH:
         return _REDACTED
@@ -364,11 +416,17 @@ def strip_exception_details_processor(
     _method_name: str,
     event_dict: dict[str, Any],
 ) -> dict[str, Any]:
-    """Drop exception messages and args before they are formatted."""
+    """Drop exception messages and args before they are formatted.
+
+    The raise site's file, line, and function are kept. The message is not.
+    """
     if "exc_info" in event_dict:
-        name = _exception_type_from(event_dict.pop("exc_info"))
+        raw_exc = event_dict.pop("exc_info")
+        name = _exception_type_from(raw_exc)
         if name and not event_dict.get("error_type"):
             event_dict["error_type"] = name
+        for key, loc in _raise_location(raw_exc).items():
+            event_dict.setdefault(key, loc)
     event_dict.pop("stack_info", None)
     if "positional_args" in event_dict:
         event_dict["positional_args"] = _replace_exceptions(event_dict["positional_args"])
@@ -411,6 +469,9 @@ class PiiRedactingFilter(logging.Filter):
             name = _exception_type_from(record.exc_info)
             if name and not getattr(record, "error_type", None):
                 record.error_type = name
+            for key, loc in _raise_location(record.exc_info).items():
+                if not getattr(record, key, None):
+                    setattr(record, key, loc)
             record.exc_info = None
             record.exc_text = None
         if isinstance(record.stack_info, str):
@@ -531,6 +592,38 @@ def setup_logging(level: str = "INFO") -> None:
     root_logger.addFilter(PiiRedactingFilter())
     root_logger.addHandler(handler)
     root_logger.setLevel(level.upper())
+    _attach_uvicorn_redaction()
+
+
+def _attach_filter(target: logging.Logger | logging.Handler) -> None:
+    if any(isinstance(existing, PiiRedactingFilter) for existing in target.filters):
+        return
+    target.addFilter(PiiRedactingFilter())
+
+
+def _attach_uvicorn_redaction() -> None:
+    """Scrub uvicorn's own access and error handlers.
+
+    Those loggers do not propagate to the root handler, so the root filter
+    never sees their records. Filters are attached to the loggers and to
+    every current handler, and ``addHandler`` is wrapped so a handler uvicorn
+    installs later is covered too.
+    """
+    for name in _UVICORN_LOGGERS:
+        target = logging.getLogger(name)
+        _attach_filter(target)
+        for handler in list(target.handlers):
+            _attach_filter(handler)
+        if getattr(target, "_anonreq_pii_add_handler", False):
+            continue
+        original = target.addHandler
+
+        def _adding(handler: logging.Handler, _original: Any = original) -> None:
+            _attach_filter(handler)
+            _original(handler)
+
+        target.addHandler = _adding  # type: ignore[method-assign]
+        target._anonreq_pii_add_handler = True  # type: ignore[attr-defined]
 
 
 def get_logger(component: str | None = None) -> BoundLogger:
