@@ -15,7 +15,20 @@ from typing import Any
 
 DEFAULT_PRESIDIO_LANGUAGE = "en"
 _LANGUAGE_CODE = re.compile(r"^[a-z]{2,3}$")
-_LOCALE_LABEL = re.compile(r"^[a-z]{2,3}(?:-[a-z]{2})?$", re.IGNORECASE)
+# Fixed Prometheus label set. A new locale bundle must be added here before
+# it can appear on anonreq_presidio_unsupported_locales_total.
+PRESIDIO_LOCALE_METRIC_LABELS = frozenset({
+    "ar",
+    "de-DE",
+    "en",
+    "es",
+    "fr-FR",
+    "it-IT",
+    "nl-NL",
+    "pt-BR",
+    "other",
+})
+_LOCALE_LABEL_BY_FOLDED = {label.casefold(): label for label in PRESIDIO_LOCALE_METRIC_LABELS}
 
 
 @dataclass(frozen=True)
@@ -71,10 +84,8 @@ def languages_to_probe(configured: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def locale_metric_label(locale_code: str) -> str:
-    """Bound the unsupported-locale metric label to a locale tag."""
-    if _LOCALE_LABEL.fullmatch(locale_code):
-        return locale_code
-    return "invalid"
+    """Map a locale onto the fixed metric label set, or ``other``."""
+    return _LOCALE_LABEL_BY_FOLDED.get(locale_code.casefold(), "other")
 
 
 def plan_presidio_languages(

@@ -20,6 +20,7 @@ from anonreq.exceptions import PresidioLanguageUnsupportedError, global_exceptio
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.presidio_language import (
+    locale_metric_label,
     plan_presidio_languages,
     presidio_language_from_locale,
 )
@@ -312,6 +313,86 @@ def test_image_patch_refuses_unknown_app_layout() -> None:
         enable_german.patch_app_source("self.engine = AnalyzerEngineProvider().create()\n")
 
 
+def test_fetch_models_keeps_canonical_wheel_names(tmp_path: Path) -> None:
+    import hashlib
+
+    fetch_models = importlib.util.spec_from_file_location(
+        "fetch_models",
+        Path(__file__).resolve().parents[3] / "docker" / "presidio" / "fetch_models.py",
+    )
+    assert fetch_models is not None
+    assert fetch_models.loader is not None
+    module = importlib.util.module_from_spec(fetch_models)
+    fetch_models.loader.exec_module(module)
+
+    url = "https://example.com/en_core_web_lg-3.7.1-py3-none-any.whl"
+    assert module.canonical_wheel_name(url) == "en_core_web_lg-3.7.1-py3-none-any.whl"
+    with pytest.raises(ValueError, match="not canonical"):
+        module.canonical_wheel_name("https://example.com/en_core_web_lg.whl")
+
+    payload = b"not-a-real-wheel"
+    digest = hashlib.sha256(payload).hexdigest()
+    source = tmp_path / "en_core_web_lg-3.7.1-py3-none-any.whl"
+    source.write_bytes(payload)
+    dest_dir = tmp_path / "out"
+    dest = dest_dir / module.canonical_wheel_name(source.as_uri())
+    module.fetch_wheel(source.as_uri(), digest, dest)
+    assert dest.name == "en_core_web_lg-3.7.1-py3-none-any.whl"
+    assert dest.is_file()
+    with pytest.raises(ValueError, match="sha256 mismatch"):
+        module.fetch_wheel(source.as_uri(), "0" * 64, dest)
+    assert not dest.exists()
+
+    dockerfile_path = Path(__file__).resolve().parents[3] / "docker" / "presidio" / "Dockerfile"
+    dockerfile = dockerfile_path.read_text()
+    assert "<<'PY'" not in dockerfile
+    assert "/tmp/en_core_web_lg.whl" not in dockerfile
+    assert "EN_CORE_WEB_LG_URL=\"${EN_CORE_WEB_LG_URL}\"" in dockerfile
+    plan = module.download_plan(
+        {
+            "EN_CORE_WEB_LG_URL": (
+                "https://github.com/explosion/spacy-models/releases/download/"
+                "en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl"
+            ),
+            "EN_CORE_WEB_LG_SHA256": "ab" * 32,
+            "DE_CORE_NEWS_LG_URL": (
+                "https://github.com/explosion/spacy-models/releases/download/"
+                "de_core_news_lg-3.7.0/de_core_news_lg-3.7.0-py3-none-any.whl"
+            ),
+            "DE_CORE_NEWS_LG_SHA256": "cd" * 32,
+        },
+        Path("/tmp"),
+    )
+    assert [item[2].name for item in plan] == [
+        "en_core_web_lg-3.7.1-py3-none-any.whl",
+        "de_core_news_lg-3.7.0-py3-none-any.whl",
+    ]
+
+
+def test_unsupported_locale_metric_label_is_a_fixed_set() -> None:
+    assert locale_metric_label("fr-FR") == "fr-FR"
+    assert locale_metric_label("DE-de") == "de-DE"
+    assert locale_metric_label("zz-ZZ") == "other"
+    assert locale_metric_label("not a locale") == "other"
+    assert locale_metric_label("other") == "other"
+
+    class _Bundle:
+        def __init__(self, code: str) -> None:
+            self.code = code
+
+    plan = plan_presidio_languages([_Bundle("zz-ZZ")], ("en",))
+    assert plan.languages == ("en",)
+    assert plan.unsupported_locales == ("other",)
+
+
+def _recognized(by_name: dict, text: str) -> list[str]:
+    covered = []
+    for recognizer in by_name.values():
+        for hit in recognizer.analyze(text, entities=["LOCATION"]):
+            covered.append(text[hit.start:hit.end])
+    return covered
+
+
 def test_german_recognizer_yaml_loads_every_pattern() -> None:
     from presidio_analyzer import RecognizerRegistry
 
@@ -320,13 +401,22 @@ def test_german_recognizer_yaml_loads_every_pattern() -> None:
     by_name = {recognizer.name: recognizer for recognizer in registry.recognizers}
     assert "German Street Line" in by_name
     assert "German Postal City" in by_name
-    text = "Hans Müller, Hauptstraße 12, 60311 Frankfurt"
-    covered = []
     for recognizer in by_name.values():
-        for hit in recognizer.analyze(text, entities=["LOCATION"]):
-            covered.append(text[hit.start:hit.end])
-    assert "Hauptstraße 12" in covered
-    assert "60311 Frankfurt" in covered
+        assert recognizer.global_regex_flags == 0
+    samples = {
+        "Hans Müller, Hauptstraße 12, 60311 Frankfurt": ("Hauptstraße 12", "60311 Frankfurt"),
+        "Am Markt 3": ("Am Markt 3",),
+        "Hauptstraße 12-14": ("Hauptstraße 12-14",),
+        "1010 Wien": ("1010 Wien",),
+        "8001 Zürich": ("8001 Zürich",),
+        "01067 Dresden": ("01067 Dresden",),
+    }
+    for text, expected in samples.items():
+        covered = _recognized(by_name, text)
+        for piece in expected:
+            assert piece in covered, text
+    for text in ("10000 Mitarbeiter", "10000 mitarbeiter", "2024 Berlin", "1990 Wien"):
+        assert _recognized(by_name, text) == [], text
 
 
 def test_regex_detector_does_not_mask_german_name_or_street() -> None:

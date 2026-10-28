@@ -101,7 +101,7 @@ The demo stack, including this Germany overlay, does **not** run the stock `mcr.
 | Item | Stock image | Demo image |
 | --- | --- | --- |
 | Base | `mcr.microsoft.com/presidio-analyzer:2.2.354` | same pin, then a local build |
-| spaCy models | unpinned `en_core_web_lg` | **pinned** `en_core_web_lg==3.7.1` (`sha256:ab70aeb6172cde82508f7739f35ebc9918a3d07debeed637403c8f794ba3d3dc`) and `de_core_news_lg==3.7.0` (`sha256:1451e06dedb5c3bb096127bf7c2117c253265fdfcad29ee488ff57bec5f78eaa`) |
+| spaCy models | unpinned `en_core_web_lg` | **pinned** `en_core_web_lg==3.7.1` and `de_core_news_lg==3.7.0`, sha256 checked before install, canonical wheel filenames |
 | Recognizer languages | `en` only (`AnalyzerEngine()` default) | `en` and `de` |
 | Address patterns | none for German streets | `docker/presidio/german_recognizers.yaml` (street line and PLZ+city, score 0.85) |
 | Process user | root | `presidio` (uid 10001) after the installs |
@@ -109,7 +109,7 @@ The demo stack, including this Germany overlay, does **not** run the stock `mcr.
 | RAM | stock | budget at least 4 GB once both models are loaded |
 | Healthcheck | `GET /health` | `POST /analyze` with `language=de`; must return a `PERSON` span. Start period 120s |
 
-`X-AnonReq-Locale: de-DE` is mapped to Presidio `language=de`. Publishing the image:
+`X-AnonReq-Locale: de-DE` is sent as Presidio `language=de` only when `de` is in `ANONREQ_PRESIDIO_LANGUAGES`. The wheel download reads those build args from the environment and saves canonical `*.whl` names. DevOps must run the first real image build; it has not been built in this pull request. Publishing the image:
 
 ```bash
 docker compose build presidio-analyzer

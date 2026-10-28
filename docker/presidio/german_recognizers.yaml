@@ -1,22 +1,28 @@
-# German address patterns for language=de.
-# Each pattern is its own recognizer entry. Presidio's YAML loader registers
-# every item under "recognizers"; keeping street and postal code as separate
-# entries means a loader that walks the list does not drop the second pattern.
-# Scores sit above the gateway's 0.7 threshold.
-#
-# Presidio 2.2.354 PatternRecognizer compiles with IGNORECASE.
+# German, Austrian, and Swiss address patterns for language=de.
+# global_regex_flags: 0 turns off Presidio's default IGNORECASE so a
+# capital-letter class stays capital. "10000 mitarbeiter" must not match.
+# A short denylist also blocks count-nouns such as "10000 Mitarbeiter".
+# 4-digit postcodes skip 19xx and 20xx so a year is not a PLZ.
 recognizers:
   - name: German Street Line
     supported_language: de
     supported_entity: LOCATION
+    global_regex_flags: 0
     patterns:
       - name: de_street_line
-        regex: '\b[A-ZÄÖÜ][\wÄÖÜäöüß.\-]*?(?:straße|strasse|str\.|weg|platz|allee|ring|gasse|damm|ufer)\s+\d{1,4}[a-z]?\b'
+        regex: '\b[A-ZÄÖÜ][\wÄÖÜäöüß.\-]*?(?:straße|strasse|str\.|weg|platz|allee|ring|gasse|damm|ufer)\s+\d{1,4}[a-z]?(?:\s*[-/]\s*\d{1,4}[a-z]?)?\b'
+        score: 0.85
+      - name: de_prefixed_street
+        regex: '\b(?:Am|An|Im|Zum|Zur)\s+[A-ZÄÖÜ][a-zäöüß]+(?:[- ][A-ZÄÖÜ][a-zäöüß]+)*\s+\d{1,4}[a-z]?(?:\s*[-/]\s*\d{1,4}[a-z]?)?\b'
         score: 0.85
   - name: German Postal City
     supported_language: de
     supported_entity: LOCATION
+    global_regex_flags: 0
     patterns:
       - name: de_postal_city
-        regex: '\b\d{5}\s+[A-ZÄÖÜ][a-zäöüß]+(?:[- ][A-ZÄÖÜa-zäöüß]+)*\b'
+        regex: '\b\d{5}\s+(?!Mitarbeiter\b|Personen\b|Jahre\b|Euro\b|Stück\b|Stunden\b|Prozent\b|Meter\b|Kilometer\b|Einwohner\b|Tage\b|Wochen\b|Monate\b|Menschen\b|Kunden\b)[A-ZÄÖÜ][a-zäöüß]+(?:[- ](?:am|an|im|der|und|[A-ZÄÖÜ][a-zäöüß]+))*\b'
         score: 0.85
+      - name: at_ch_postal_city
+        regex: '\b(?!19\d{2}\b)(?!20\d{2}\b)[1-9]\d{3}\s+(?!Mitarbeiter\b|Personen\b|Jahre\b|Euro\b|Stück\b|Stunden\b|Prozent\b|Meter\b|Kilometer\b|Einwohner\b|Tage\b|Wochen\b|Monate\b|Menschen\b|Kunden\b)[A-ZÄÖÜ][a-zäöüß]+(?:[- ](?:am|an|im|der|und|[A-ZÄÖÜ][a-zäöüß]+))*\b'
+        score: 0.8
