@@ -50,6 +50,7 @@ ALLOWLIST: frozenset[str] = frozenset({
     "latency_ms",
     "compliance_preset",
     "locale",
+    "presidio_language",
     "actor_id",
     "decision_id",
     "action",

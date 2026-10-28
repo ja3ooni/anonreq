@@ -194,6 +194,11 @@ class TestStartupProviderKeys:
             "anonreq.startup_checks.configured_provider_names",
             _only(["mock", "local", "ollama"]),
         )
+        # PR #4's language probe also runs at startup; stub it here.
+        monkeypatch.setattr(
+            "anonreq.startup_checks.check_presidio_language",
+            AsyncMock(return_value=True),
+        )
         mock_cache_health.return_value = {
             "reachable": True,
             "persistence_disabled": True,
