@@ -110,3 +110,9 @@ env:
 
 secrets:
   ANONREQ_AUTH_SECRET_KEY: "change-me-in-production"
+  # Upstream model key. Not the gateway client key. Empty fails startup
+  # for any configured provider that requires a key (openai, anthropic,
+  # gemini). mock, local, and ollama do not need a key.
+  PROVIDER_API_KEY: ""
+  ANONREQ_ANTHROPIC_API_KEY: ""
+  ANONREQ_GEMINI_API_KEY: ""

@@ -13,10 +13,18 @@ A Frankfurt CISO should be able to drop AnonReq in front of **their** Claude / C
 
 ```bash
 cp .env.example .env
-# set ANONREQ_API_KEY (>= 32 chars) and PROVIDER_API_KEY (customer key)
+# ANONREQ_API_KEY                 gateway client key (>= 32 chars)
+# PROVIDER_API_KEY                customer OpenAI-compatible key (not ANONREQ_API_KEY)
+# ANONREQ_OPENAI_API_KEY          optional; if set, it takes precedence over PROVIDER_API_KEY
+# ANONREQ_ANTHROPIC_API_KEY       optional in Compose; startup still requires it while smart is configured
+# ANONREQ_GEMINI_API_KEY          optional in Compose; startup still requires it while gemini-pro is configured
+# mock, local, and ollama need no key. Startup refuses to boot otherwise.
+# Placeholder values (change-me*, changeme, <...>, your-...-key) count as unset.
 
 docker compose -f docker-compose.yml -f docker-compose.germany.yml up --build
 ```
+
+`ANONREQ_OPENAI_API_KEY` is resolved before `PROVIDER_API_KEY`. When both are set, the OpenAI-compatible upstream receives `ANONREQ_OPENAI_API_KEY`. The xAI demo sets `ANONREQ_OPENAI_API_KEY` from `XAI_API_KEY` so that key is the one forwarded; `PROVIDER_API_KEY` is not used for OpenAI in that case. Compose leaves `ANONREQ_ANTHROPIC_API_KEY` and `ANONREQ_GEMINI_API_KEY` optional (`:-`) because `:?` is evaluated before overlays and would block an xAI-only render. Startup still refuses to boot while the `smart` or `gemini-pro` aliases exist and those keys are missing.
 
 Gateway: `http://localhost:8080`
 
@@ -70,6 +78,8 @@ helm upgrade --install anonreq ./helm/anonreq \
   -f ./helm/anonreq/values-germany.yaml \
   --set secrets.ANONREQ_API_KEY="$ANONREQ_API_KEY" \
   --set secrets.PROVIDER_API_KEY="$PROVIDER_API_KEY" \
+  --set secrets.ANONREQ_ANTHROPIC_API_KEY="$ANONREQ_ANTHROPIC_API_KEY" \
+  --set secrets.ANONREQ_GEMINI_API_KEY="$ANONREQ_GEMINI_API_KEY" \
   --set env.ANONREQ_VALKEY_URL="redis://valkey:6379/0" \
   --set env.ANONREQ_PRESIDIO_URL="http://presidio-analyzer:3000"
 ```
