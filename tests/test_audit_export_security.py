@@ -216,7 +216,7 @@ async def test_qa_probe_csv_and_json(audit_service: AuditChainService) -> None:
         assert FAKE_IBAN not in response.text
         assert FAKE_EMAIL not in response.text
         assert "Özlem Şahin" not in response.text
-        assert "Jörg Müßig" not in response.text
+        assert "Jörg Müßig" in response.text
         assert "+cmd" not in response.text
         assert "@SUM" not in response.text
         rows = _csv_rows(response.text)
@@ -263,6 +263,8 @@ async def test_qa_probe_csv_and_json(audit_service: AuditChainService) -> None:
         assert payload.status_code == 200
         assert FAKE_IBAN not in payload.text
         assert FAKE_EMAIL not in payload.text
+        assert "Jörg Müßig" in payload.text
+        assert "Özlem Şahin" not in payload.text
         body = payload.json()
         assert sorted({row["tenant_id"] for row in body}) == ["tenant_a"]
         assert all("\r" not in (row["request_id"] or "") for row in body)
@@ -429,7 +431,7 @@ def test_safe_row_drops_free_text_and_pii() -> None:
     dumped = json.dumps(row)
     assert raw_iban not in dumped
     assert FAKE_EMAIL not in dumped
-    assert row["operator_id"] is None
+    assert row["operator_id"] == "Jörg Müßig"
     assert row["model"] == "openai"
     assert row["entity_types"] == "IBAN_DE,EMAIL_ADDRESS"
     assert row["token_count"] is None
@@ -457,6 +459,40 @@ def test_safe_row_keeps_identifier_fields_and_strips_request_id_breaks() -> None
     assert row["model"] == "llama3.3:70b"
     assert row["entity_types"] == "TAX_ID_DE,IBAN_DE"
     assert row["token_count"] == 2
+
+
+def test_operator_id_keeps_unicode_names_and_rejects_secrets() -> None:
+    kept = (
+        "Jörg Müßig",
+        "Özlem Şahin",
+        "Anne-Marie O'Brien",
+        "O\u2019Brien",
+        "dpo1",
+        "op_1",
+    )
+    for name in kept:
+        assert safe_anonymization_row(_event(operator_id=name))["operator_id"] == name
+
+    padded = safe_anonymization_row(_event(operator_id="  Anne-Marie  "))
+    assert padded["operator_id"] == "Anne-Marie"
+    decomposed = safe_anonymization_row(_event(operator_id="Jo\u0308rg Mu\u0308ßig"))
+    assert decomposed["operator_id"] == "Jörg Müßig"
+
+    rejected = (
+        "+cmd|' /C calc'!A0",
+        "=HYPERLINK()",
+        "@SUM(1+1)",
+        "-2+3",
+        "\tcmd",
+        "jörg@example.com",
+        FAKE_EMAIL,
+        FAKE_IBAN,
+        "DE89 3704 0044 0532 0130 00",
+        "x" * 65,
+        "not/a name",
+    )
+    for value in rejected:
+        assert safe_anonymization_row(_event(operator_id=value))["operator_id"] is None
 
 
 def test_safe_row_rejects_account_shaped_model_and_operator() -> None:

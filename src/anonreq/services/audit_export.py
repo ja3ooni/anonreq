@@ -6,6 +6,7 @@ import csv
 import io
 import json
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -21,8 +22,11 @@ _EXPORT_METADATA_KEYS = (
 # Presidio-style labels: letters and underscores, no digits, so an IBAN or
 # other numeric identifier cannot pass as an entity type.
 _ENTITY_TYPE_RE = re.compile(r"^[A-Z][A-Z_]{1,63}$")
-# Operator ids are account identifiers, not display names or addresses.
-_OPERATOR_ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
+# Operator names: one Unicode letter, then letters, digits, spaces, and
+# common separators (space, period, apostrophe, underscore, hyphen). The
+# str pattern is Unicode-aware. 64 characters matches the audit column.
+_OPERATOR_MAX_LEN = 64
+_OPERATOR_ID_RE = re.compile("^[^\\W\\d_](?:[^\\W\\d_]|[\\d ._'\\-\u2019]){0,63}\\Z")
 _OPERATOR_MAX_DIGITS = 6
 # Model ids (gpt-4o, llama3.3:70b, claude-sonnet-4). No spaces or addresses.
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$")
@@ -64,12 +68,37 @@ def _entity_types_cell(metadata: Mapping[str, Any]) -> str:
     return ",".join(names)
 
 
+def _is_iban_like(text: str) -> bool:
+    if _IBAN_RE.fullmatch(text):
+        return True
+    compact = re.sub(r"[\s-]", "", text)
+    return bool(compact) and compact != text and _IBAN_RE.fullmatch(compact) is not None
+
+
 def _valid_operator_id(value: object) -> str | None:
-    if not isinstance(value, str) or not _OPERATOR_ID_RE.fullmatch(value):
+    """Keep a Unicode personal name or short id. Drop formulas, emails, IBANs."""
+    if not isinstance(value, str):
         return None
-    if sum(char.isdigit() for char in value) > _OPERATOR_MAX_DIGITS:
+    raw = unicodedata.normalize("NFC", value)
+    if not raw.strip():
         return None
-    return value
+    # Reject formula leads before stripping, so a leading tab is not dropped
+    # and then accepted as a name.
+    probe = raw.lstrip(" ")
+    if raw[0] in _FORMULA_LEAD or (probe and probe[0] in _FORMULA_LEAD):
+        return None
+    text = raw.strip()
+    if len(text) > _OPERATOR_MAX_LEN:
+        return None
+    if "@" in text:
+        return None
+    if _is_iban_like(text):
+        return None
+    if sum(char.isdigit() for char in text) > _OPERATOR_MAX_DIGITS:
+        return None
+    if _OPERATOR_ID_RE.fullmatch(text) is None:
+        return None
+    return text
 
 
 def _valid_model_name(value: object) -> str | None:
@@ -135,9 +164,10 @@ def escape_csv_formula(value: object) -> str:
 def safe_anonymization_row(event: Any) -> dict[str, Any]:
     """Project an audit event into a regulator-safe row (no raw values).
 
-    ``model``, ``entity_types``, and ``operator_id`` are kept only when the
-    value has the expected type and matches an identifier pattern. Free text,
-    addresses, and raw identifiers are dropped instead of exported.
+    ``model`` and ``entity_types`` must match an identifier pattern.
+    ``operator_id`` may be a Unicode name: letters, digits, spaces, and
+    common separators, at most 64 characters. Formula prefixes, emails,
+    and IBAN-like values are dropped.
     """
     metadata: dict[str, Any] = {}
     if event.metadata_json:
