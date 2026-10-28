@@ -46,7 +46,11 @@ class Restorer:
         if not mapping or not text:
             return text
 
-        lookup = {token.casefold(): value for token, value in mapping.items()}
+        # Empty keys would compile to an empty alternative that matches
+        # everywhere; drop them.
+        lookup = {token.casefold(): value for token, value in mapping.items() if token}
+        if not lookup:
+            return text
         # Longer tokens first. ``re`` tries alternatives left to right, so
         # ``[NAME_10]`` wins over ``[NAME_1]`` at the same position.
         ordered = sorted(lookup, key=len, reverse=True)

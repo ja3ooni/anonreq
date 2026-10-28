@@ -18,7 +18,7 @@ _CHAIN = {
 
 
 def test_overlapping_spans_are_applied_once() -> None:
-    """A span that overlaps an earlier one is not sliced in with stale offsets."""
+    """Overlapping spans are replaced once, as their union (nothing leaks)."""
     tokenizer = Tokenizer()
     tokenizer.initialize_session()
     tokenizer._seed = 0
@@ -31,9 +31,8 @@ def test_overlapping_spans_are_applied_once() -> None:
         ],
     )
 
-    assert tokenized.endswith("ghij")
-    assert "abcdef" not in tokenized
-    assert tokenized.count("[") == 1
+    assert tokenized == "[PERSON_0]"
+    assert list(mapping.values()) == ["abcdefghij"]
     assert Restorer.restore_text(tokenized, mapping) == "abcdefghij"
 
 

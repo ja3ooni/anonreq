@@ -23,6 +23,12 @@ Groups:
 """
 
 
+
+def _is_reversible(span: dict[str, Any]) -> bool:
+    """Return False when a span must never be restored."""
+    return bool(span.get("reversible", True))
+
+
 class Tokenizer:
     """Generates ``[TYPE_N]`` tokens with deduplication and random seed offsets.
 
@@ -38,7 +44,7 @@ class Tokenizer:
 
     def __init__(self) -> None:
         self._per_type_counters: dict[str, int] = {}
-        self._value_to_token: dict[str, str] = {}
+        self._value_to_token: dict[tuple[str, bool], str] = {}
         self._seed: int = 0
 
     # ------------------------------------------------------------------
@@ -112,11 +118,12 @@ class Tokenizer:
         text: str,
         detections: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        """Return spans that do not overlap, in left-to-right order.
+        """Return non-overlapping spans, in left-to-right order.
 
-        Invalid spans are ignored. When two spans overlap, the one that
-        starts earlier (and, on a tie, the longer one) is kept. The other
-        is not applied on top of it.
+        Invalid spans are ignored. Overlapping spans are merged into one
+        span covering their union, so no character of either span is left
+        in clear text. The merged span keeps the earliest (on a tie, the
+        longest) span's type and is irreversible if any part was.
         """
         valid: list[dict[str, Any]] = []
         text_len = len(text)
@@ -132,13 +139,18 @@ class Tokenizer:
 
         valid.sort(key=lambda span: (int(span["start"]), -int(span["end"])))
         accepted: list[dict[str, Any]] = []
-        covered_until = 0
         for span in valid:
-            start = int(span["start"])
-            if start < covered_until:
+            start, end = int(span["start"]), int(span["end"])
+            if accepted and start < int(accepted[-1]["end"]):
+                last = accepted[-1]
+                merged = {**last, "end": max(int(last["end"]), end)}
+                if not _is_reversible(last) or not _is_reversible(span):
+                    merged["reversible"] = False
+                if last.get("protected") or span.get("protected"):
+                    merged["protected"] = True
+                accepted[-1] = merged
                 continue
             accepted.append(span)
-            covered_until = int(span["end"])
         return accepted
 
     def _token_for(
@@ -148,7 +160,12 @@ class Tokenizer:
         mapping: dict[str, str],
     ) -> str:
         """Return the session token for ``original_value``, creating it if needed."""
-        token = self._value_to_token.get(original_value)
+        # Key on reversibility too: the same text seen once as a secret and
+        # once as ordinary PII must not share a token, or the secret would
+        # become restorable through the ordinary span's mapping entry.
+        reversible = _is_reversible(span)
+        key = (original_value, reversible)
+        token = self._value_to_token.get(key)
         if token is None:
             entity_type_short = str(span["entity_type"])[:20]
             counter = self._per_type_counters.get(entity_type_short, 0)
@@ -158,9 +175,9 @@ class Tokenizer:
             # is 1/2³² ≈ 2.3·10⁻¹⁰, satisfying P ≤ 2⁻³² bound.
             token_index = (self._seed & 0xFFFFFFFF) + counter
             token = f"[{entity_type_short}_{token_index}]"
-            self._value_to_token[original_value] = token
+            self._value_to_token[key] = token
             self._per_type_counters[entity_type_short] = counter + 1
-            if span.get("reversible", True):
+            if reversible:
                 mapping[token] = original_value
         return token
 
@@ -174,4 +191,4 @@ class Tokenizer:
         The returned ``dict`` is a shallow copy; mutating it does not
         affect internal state.
         """
-        return self._value_to_token.copy()
+        return {value: token for (value, _), token in self._value_to_token.items()}
