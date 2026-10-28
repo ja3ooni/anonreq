@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from pathlib import Path
@@ -90,6 +91,14 @@ class _SecretFileHandler(FileSystemEventHandler):
         self._reloader.reload()
 
 
+def _same_path(candidate: bytes | str, target: Path) -> bool:
+    text = os.fsdecode(candidate) if isinstance(candidate, bytes) else candidate
+    try:
+        return Path(text).resolve() == target
+    except OSError:
+        return False
+
+
 class SecretVolumeReloader:
     """Reload a mounted secret file into the in-memory runtime store."""
 
@@ -99,6 +108,7 @@ class SecretVolumeReloader:
         store: RuntimeSecretStore | None = None,
         rotation_buffer: SecretRotationBuffer | None = None,
         debounce: float = 0.5,
+        poll_interval: float | None = None,
     ) -> None:
         self.secret_path = Path(secret_path)
         self._store = store or get_runtime_secret_store() or RuntimeSecretStore()
@@ -108,17 +118,49 @@ class SecretVolumeReloader:
         self._snapshot = load_secret_snapshot(self.secret_path)
         self._store.replace(self._snapshot)
         self._observer: _PollingObserverType | None = None
-        self._start_watcher(debounce)
+        self._start_watcher(debounce, poll_interval)
 
-    def _start_watcher(self, debounce: float) -> None:
+    def _start_watcher(self, debounce: float, poll_interval: float | None) -> None:
         if Observer is None:
             return
         handler = _SecretFileHandler(self, debounce=debounce)
-        observer = Observer()
+        # None keeps PollingObserver's default interval. Tests pass a shorter
+        # one so a deadline poll is not tied to that default.
+        observer = Observer() if poll_interval is None else Observer(timeout=poll_interval)
         observer.schedule(handler, str(self.secret_path.parent), recursive=False)
         observer.daemon = True
         observer.start()
         self._observer = observer
+
+    def wait_until_baseline(self, timeout: float = 5.0) -> bool:
+        """Poll until the watcher has snapshotted the secret file.
+
+        Changes made before that snapshot never produce an event. Callers
+        that mutate the file (tests) wait here first. Returns False when no
+        watcher is running or the deadline passes.
+        """
+        deadline = time.monotonic() + timeout
+        while True:
+            if self._secret_is_in_baseline():
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.01)
+
+    def _secret_is_in_baseline(self) -> bool:
+        observer = self._observer
+        if observer is None:
+            return False
+        emitters = tuple(getattr(observer, "emitters", ()))
+        if not emitters:
+            return False
+        target = self.secret_path.resolve()
+        for emitter in emitters:
+            snapshot = getattr(emitter, "_snapshot", None)
+            paths = getattr(snapshot, "paths", None)
+            if not paths or not any(_same_path(path, target) for path in paths):
+                return False
+        return True
 
     def reload(self) -> tuple[SecretSnapshot, SecretSnapshot]:
         """Load the latest secrets and atomically replace the runtime snapshot."""
@@ -151,6 +193,9 @@ class SecretVolumeReloader:
 def bootstrap_runtime_secret_reloader(
     app: Any,
     secret_path: str | None = None,
+    *,
+    debounce: float = 0.5,
+    poll_interval: float | None = None,
 ) -> SecretVolumeReloader | None:
     """Attach a secret volume reloader when the app exposes a secret path."""
     path = secret_path or getattr(app.state, "secret_volume_path", None)
@@ -162,6 +207,8 @@ def bootstrap_runtime_secret_reloader(
         secret_path=path,
         store=getattr(app.state, "secret_store", None),
         rotation_buffer=getattr(app.state, "secret_rotation_buffer", None),
+        debounce=debounce,
+        poll_interval=poll_interval,
     )
     app.state.secret_reloader = reloader
     return reloader
