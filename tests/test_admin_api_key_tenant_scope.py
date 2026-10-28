@@ -1,7 +1,7 @@
-"""Gateway and legacy admin API keys are tenant-scoped administrators.
+"""The legacy admin API key is a tenant-scoped administrator.
 
-The demo admin key can read its own tenant and is rejected for another.
-A missing key is 401. The role principal is never ``"*"``.
+The gateway (client) key is not. It gets 403 on admin routes. A missing
+key is 401. The admin principal tenant is never ``"*"``.
 """
 
 from __future__ import annotations
@@ -70,17 +70,13 @@ async def test_admin_key_reads_own_tenant_and_rejects_another(
 
 
 @pytest.mark.asyncio
-async def test_gateway_key_is_scoped_administrator_too(keyed_app: FastAPI) -> None:
+@pytest.mark.parametrize("route", _ROUTES)
+async def test_gateway_key_is_forbidden_on_admin_routes(
+    keyed_app: FastAPI,
+    route: str,
+) -> None:
     transport = ASGITransport(app=keyed_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        response = await client.get(
-            "/v1/admin/anonymization-events",
-            headers=_headers(settings.API_KEY, _OWN),
-        )
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert body["total"] == 0
-    assert body["limit"] == 50
-    assert body["next_cursor"] is None
-    assert body["items"] == []
-    assert "offset" not in body
+        response = await client.get(route, headers=_headers(settings.API_KEY, _OWN))
+    assert response.status_code == 403, response.text
+    keyed_app.state.audit_chain.get_events.assert_not_called()

@@ -117,13 +117,14 @@ async def accept_gateway_or_admin_key(
     request: Request,
     authorization: str | None = Header(None),
 ) -> None:
-    """Accept the gateway API key or the legacy admin API key.
+    """Accept the legacy admin API key for administrator routes.
 
-    Either key attaches an administrator role principal scoped to
-    ``X-AnonReq-Tenant-ID``. A missing or unknown key is 401. When a
-    principal with a role is already on the request (tests or an upstream
-    OIDC layer), the key is not checked again and a wildcard tenant is
-    narrowed to this request.
+    The admin key attaches an administrator role principal scoped to
+    ``X-AnonReq-Tenant-ID``. The gateway (client) key is a known credential
+    but is not an administrator: it gets no role principal and these routes
+    reject it with 403. A missing or unknown key is 401. When a principal
+    with a role is already on the request (tests or an upstream OIDC layer),
+    the key is not checked again and a wildcard tenant is narrowed.
     """
     existing = getattr(request.state, "role_principal", None)
     if isinstance(existing, dict) and existing.get("role"):
@@ -131,11 +132,18 @@ async def accept_gateway_or_admin_key(
         return
 
     token = _bearer_token(authorization)
+    admin_key_ok = not _oidc_configured() and _token_matches(token, settings.ADMIN_API_KEY)
+    if admin_key_ok:
+        principal = _api_key_principal(request, "admin")
+        request.state.oidc_principal = principal
+        request.state.role_principal = dict(principal)
+        return
     if _token_matches(token, settings.API_KEY):
-        principal_id = "gateway"
-    elif not _oidc_configured() and _token_matches(token, settings.ADMIN_API_KEY):
-        principal_id = "admin"
-    elif _oidc_configured():
+        raise HTTPException(
+            status_code=403,
+            detail="Gateway API key cannot access admin routes",
+        )
+    if _oidc_configured():
         await verify_admin_api_key(request, authorization)
         if getattr(request.state, "role_principal", None) is None:
             oidc_principal = getattr(request.state, "oidc_principal", None)
@@ -143,11 +151,7 @@ async def accept_gateway_or_admin_key(
                 request.state.role_principal = dict(oidc_principal)
         narrow_wildcard_principal(request)
         return
-    else:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-    principal = _api_key_principal(request, principal_id)
-    request.state.oidc_principal = principal
-    request.state.role_principal = dict(principal)
+    raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 def get_admin_api_key() -> str | None:
