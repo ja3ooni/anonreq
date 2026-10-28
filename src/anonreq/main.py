@@ -195,9 +195,18 @@ def bootstrap_runtime_secrets(app: FastAPI) -> None:
     app.state.secret_rotation_buffer = state.secret_rotation_buffer
 
 
-def bootstrap_secret_volume_reloader(app: FastAPI) -> Any:
+def bootstrap_secret_volume_reloader(
+    app: FastAPI,
+    *,
+    debounce: float = 0.5,
+    poll_interval: float | None = None,
+) -> Any:
     """Attach a secret volume reloader when the app exposes a secret path."""
-    return bootstrap_runtime_secret_reloader(app)
+    return bootstrap_runtime_secret_reloader(
+        app,
+        debounce=debounce,
+        poll_interval=poll_interval,
+    )
 
 
 def create_app() -> FastAPI:
@@ -279,7 +288,7 @@ def create_app() -> FastAPI:
 
         try:
             await run_startup_checks(settings, cache_manager)
-        except DependencyUnavailableError:
+        except (DependencyUnavailableError, RuntimeError):
             await cache_manager.close()
             log.error("Pre-flight check failed", component="lifespan")
             raise

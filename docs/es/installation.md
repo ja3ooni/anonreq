@@ -25,13 +25,14 @@ cp .env.example .env
 
 | Variable | Requerido | Por defecto | Descripción |
 |----------|-----------|-------------|-------------|
-| `ANONREQ_API_KEY` | Sí | — | Token estático para la autenticación de la API (≥ 32 caracteres) |
+| `ANONREQ_API_KEY` | Sí | — | Token estático para la autenticación de la API (≥ 32 caracteres). Nunca se envía aguas arriba. |
+| `PROVIDER_API_KEY` | Condicional | — | Clave del modelo aguas arriba. Obligatoria salvo que cada proveedor configurado sea mock, local u ollama. No reutilice `ANONREQ_API_KEY`. |
 | `ANONREQ_LOG_LEVEL` | No | `INFO` | Nivel de registro |
 | `ANONREQ_CACHE_TTL` | No | `600` | TTL del caché de sesión en segundos |
 | `ANONREQ_PRESIDIO_URL` | No | `http://presidio-analyzer:5001` | URL de Presidio Analyzer |
 | `ANONREQ_VALKEY_URL` | No | `valkey://localhost:6379` | Cadena de conexión de Valkey |
 
-Debe configurarse al menos una clave de API de proveedor (`ANONREQ_OPENAI_API_KEY`, `ANONREQ_ANTHROPIC_API_KEY` o `ANONREQ_GEMINI_API_KEY`).
+El arranque falla si un proveedor configurado que necesita clave no la tiene. OpenAI acepta `PROVIDER_API_KEY`, `ANONREQ_OPENAI_API_KEY` u `OPENAI_API_KEY`. `ANONREQ_ANTHROPIC_API_KEY` y `ANONREQ_GEMINI_API_KEY` son obligatorias mientras los alias `smart` y `gemini-pro` sigan en `config/model_aliases.yaml`. `mock`, `local` y `ollama` no necesitan clave. La clave de cliente de la pasarela nunca es una clave de proveedor.
 
 ## Configuración de Docker Compose
 
