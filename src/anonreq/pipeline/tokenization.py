@@ -134,7 +134,11 @@ class TokenizationStage(PipelineStage):
                 node_value = node.get("value", "")
                 node_detections = detections_by_node.get(i, [])
 
-                if node_detections:
+                if node.get("kind") == "name":
+                    # Names must match ^[a-zA-Z0-9_-]{1,64}$; never tokenize.
+                    # One with PII becomes a placeholder that restores nothing.
+                    tokenized_texts[i] = f"user_{i}" if node_detections else node_value
+                elif node_detections:
                     tokenized_text, node_mapping = self._tokenizer.tokenize(
                         node_value, node_detections,
                     )

@@ -43,18 +43,26 @@ class TestTextExtractor:
         assert nodes[3]["role"] == "tool"
         assert nodes[4]["role"] == "function"
 
-    def test_extract_skips_non_string_content(self):
-        """Skip content that is None or a list (multimodal content)."""
+    def test_extract_skips_none_and_reads_multipart_text(self):
+        """None content is skipped; text parts of list content are extracted."""
         body = {
             "messages": [
                 {"role": "user", "content": None},
-                {"role": "assistant", "content": [{"type": "text", "text": "hello"}]},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": "hello"},
+                        {"type": "image_url", "image_url": {"url": "https://x/y.png"}},
+                    ],
+                },
                 {"role": "user", "content": "valid text"},
             ]
         }
         nodes = TextExtractor.extract(body)
-        assert len(nodes) == 1
-        assert nodes[0]["value"] == "valid text"
+        assert [(n["path"], n["value"]) for n in nodes] == [
+            ("messages[1].content[0].text", "hello"),
+            ("messages[2].content", "valid text"),
+        ]
 
     def test_extract_skips_empty_string_content(self):
         """Skip content that is an empty or whitespace-only string."""
