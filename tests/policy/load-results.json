@@ -1,7 +1,0 @@
-{
-  "profile": "baseline",
-  "concurrency": 10,
-  "total_requests": 50,
-  "p95_ms": 0.012258999959158245,
-  "timestamp": "2026-10-28T10:10:44.448916+00:00"
-}

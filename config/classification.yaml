@@ -19,9 +19,11 @@
 #     regex:    List of regex patterns (ANDed within a rule)
 #     keywords: List of case-insensitive keywords (OR'd with regex)
 #
-# default_action: PASS — unmatched requests pass through unmodified.
+# default_action: ANONYMIZE — unmatched requests are detected and tokenized.
+# Classification only decides BLOCK or ROUTE_LOCAL; PASS is treated as
+# ANONYMIZE so raw PII never reaches the provider by default.
 
-default_action: PASS
+default_action: ANONYMIZE
 
 rules:
   - id: CLS-001

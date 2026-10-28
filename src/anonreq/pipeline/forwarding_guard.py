@@ -4,8 +4,8 @@ Per D-03 (FAIL-05) and D-48:
 - Runs immediately before ProviderStage
 - Verifies that classification, detection, and tokenisation completed
   successfully (when applicable)
-- PASS classification → no prerequisite checks needed (forward unchanged)
-- ANONYMIZE classification → verifies detections and token_mappings exist
+- Every request must have detections, token mappings and a tokenized
+  ``transformed_request``; there is no PASS bypass
 - Any check fails → 503 fail-secure: request is never forwarded
 
 Instrumentation (D-140, D-161):
@@ -61,78 +61,33 @@ class ForwardingGuard(PipelineStage):
             )
             return ctx
 
-        action = ctx.classification_result.get("action", "PASS")
+        action = ctx.classification_result.get("action", "ANONYMIZE")
 
         # Record provider dispatch time for overhead calculation (D-140).
-        # Set early (before PASS/ANONYMIZE branches) because both paths
-        # that allow forwarding need the timestamp.
         ctx.provider_dispatch_time = time.monotonic()
 
-        if action == "PASS":
-            # PASS requests need no detection or tokenisation
-            logger.info(
-                "forwarding_guard.check",
-                stage=self.name,
-                request_id=ctx.request_id,
-                action="PASS",
-                passed=True,
+        # Every forwarded request must have been detected and tokenized.
+        # There is no PASS bypass: the original request never leaves.
+        failure: str | None = None
+        if ctx.detections is None:
+            failure = "detection did not complete"
+        elif ctx.token_mappings is None:
+            failure = "tokenisation did not complete"
+        elif ctx.transformed_request is None:
+            failure = "request was not tokenized"
+        if failure is not None:
+            fail_secure_events.labels(
+                tenant_id=ctx.tenant_id,
+                failure_type="forwarding_denied",
+            ).inc()
+            ctx.fail_secure(
+                PipelineAbortError(
+                    status_code=503,
+                    message=f"ForwardingGuard: {failure}",
+                    request_id=ctx.request_id,
+                )
             )
             return ctx
-
-        if action == "ANONYMIZE":
-            # Verify detection ran
-            if ctx.detections is None:
-                fail_secure_events.labels(
-                    tenant_id=ctx.tenant_id,
-                    failure_type="forwarding_denied",
-                ).inc()
-                ctx.fail_secure(
-                    PipelineAbortError(
-                        status_code=503,
-                        message=(
-                            "ForwardingGuard: detection did not complete "
-                            "for ANONYMIZE request"
-                        ),
-                        request_id=ctx.request_id,
-                    )
-                )
-                return ctx
-
-            # Verify tokenisation ran (or no mapping needed per TOKN-06/07)
-            if ctx.token_mappings is None:
-                fail_secure_events.labels(
-                    tenant_id=ctx.tenant_id,
-                    failure_type="forwarding_denied",
-                ).inc()
-                ctx.fail_secure(
-                    PipelineAbortError(
-                        status_code=503,
-                        message=(
-                            "ForwardingGuard: tokenisation did not complete "
-                            "for ANONYMIZE request"
-                        ),
-                        request_id=ctx.request_id,
-                    )
-                )
-                return ctx
-
-            # Verify transformed_request exists (but not for empty detections)
-            if ctx.detections and ctx.transformed_request is None:
-                fail_secure_events.labels(
-                    tenant_id=ctx.tenant_id,
-                    failure_type="forwarding_denied",
-                ).inc()
-                ctx.fail_secure(
-                    PipelineAbortError(
-                        status_code=503,
-                        message=(
-                            "ForwardingGuard: transformed request not built "
-                            "for ANONYMIZE request"
-                        ),
-                        request_id=ctx.request_id,
-                    )
-                )
-                return ctx
 
         logger.info(
             "forwarding_guard.check",

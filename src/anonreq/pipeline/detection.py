@@ -140,10 +140,10 @@ class DetectionStage(PipelineStage):
         Returns:
             The mutated ``ProcessingContext`` with ``ctx.detections`` set.
         """
-        # Skip if classification says PASS or BLOCK
+        # Skip only for BLOCK: detection and tokenization always run otherwise
         if ctx.classification_result:
             action = ctx.classification_result.get("action")
-            if action in ("PASS", "BLOCK"):
+            if action == "BLOCK":
                 return ctx
 
         # Ensure text nodes are extracted

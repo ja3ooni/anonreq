@@ -58,7 +58,7 @@ class ClassificationRuleLoader:
                 "YAML config must contain a 'rules' key at the top level"
             )
 
-        default_action = str(data.get("default_action", "PASS")).upper()
+        default_action = str(data.get("default_action", "ANONYMIZE")).upper()
         if default_action not in {"PASS", "ANONYMIZE", "BLOCK", "ROUTE_LOCAL"}:
             raise ValueError(
                 f"Invalid default_action '{default_action}' in {path}"
