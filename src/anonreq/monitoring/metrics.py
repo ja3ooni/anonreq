@@ -66,6 +66,12 @@ unrestored_tokens = Counter(
     labelnames=["entity_type"],
 )
 
+presidio_unsupported_locales = Counter(
+    "anonreq_presidio_unsupported_locales_total",
+    "Negotiated locales outside ANONREQ_PRESIDIO_LANGUAGES; analyzed as English",
+    labelnames=["locale"],
+)
+
 # Per D-11: fail_secure_events now carries tenant_id label
 fail_secure_events = Counter(
     "anonreq_fail_secure_events_total",

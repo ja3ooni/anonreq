@@ -2,7 +2,8 @@
 
 Per D-38 through D-41 and D-50:
 - Runs RegexDetector on each text node's value (deterministic patterns)
-- Runs PresidioClient.analyze_text_nodes() for NER detection
+- Runs PresidioClient.analyze_text_nodes() for NER detection, with the
+  negotiated locale mapped to a Presidio language (``de-DE`` -> ``de``)
 - Merges both result sets via SpanArbiter (regex wins on exact overlap)
 - Applies ExclusionList to suppress false positives
 - On any error: ctx.fail_secure() per D-50
@@ -21,10 +22,11 @@ Instrumentation (D-160, D-161):
 
 Phase 15 Financial Services Compliance — MNPI Integration:
 - DetectionStage optionally accepts a list of MNPI recognizers
-- After core detection completes, MNPI recognizers run against text nodes
-- MNPI results are merged into ``ctx.detections`` alongside core results
-- Per D-001, D-003: MNPI entity types (tickers, deal codenames) do not
-  overlap with core entity types — no arbitration needed
+- MNPI recognizers run against each text node alongside regex and NER
+- MNPI spans join the same SpanArbiter pass as every other detector
+
+Phase 26 enterprise API-key and secret recognizers also join that pass.
+Appending them after overlap resolution tokenizes one character range twice.
 """
 
 from __future__ import annotations
@@ -35,12 +37,22 @@ from typing import TYPE_CHECKING, Any
 
 from structlog import get_logger
 
+from anonreq.detection.presidio_client import PresidioUnsupportedLanguageError
 from anonreq.detection.regex_patterns import IRREVERSIBLE_ENTITY_TYPES
-from anonreq.exceptions import PipelineAbortError
+from anonreq.exceptions import PipelineAbortError, PresidioLanguageUnsupportedError
 from anonreq.locale.bundle import RecognizerTier
 from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
+from anonreq.locale.presidio_language import (
+    DEFAULT_PRESIDIO_LANGUAGE,
+    plan_presidio_languages,
+)
 from anonreq.models.processing_context import ProcessingContext
-from anonreq.monitoring.metrics import detection_latency, entities_detected, fail_secure_events
+from anonreq.monitoring.metrics import (
+    detection_latency,
+    entities_detected,
+    fail_secure_events,
+    presidio_unsupported_locales,
+)
 from anonreq.pipeline.base import PipelineStage
 from anonreq.pipeline.extraction import TextExtractor
 
@@ -50,6 +62,22 @@ if TYPE_CHECKING:
 
 logger = get_logger("anonreq.pipeline.detection")
 
+_PROTECTED_SOURCES = frozenset({"enterprise", "mnpi"})
+
+
+def _exclusion_exempt(detection: dict[str, Any]) -> bool:
+    """Return True when an exclusion must not drop this span.
+
+    Enterprise secret detectors and MNPI recognizers stay masked even if
+    their text matches an exclusion entry. A regex secret type that won
+    an exact overlap (``API_KEY`` and the other irreversible types) is
+    exempt for the same reason.
+    """
+    if detection.get("protected") or detection.get("source") in _PROTECTED_SOURCES:
+        return True
+    entity_type = str(detection.get("entity_type", ""))
+    return entity_type in IRREVERSIBLE_ENTITY_TYPES or entity_type.startswith("MNPI_")
+
 
 class DetectionStage(PipelineStage):
     """Runs regex and NER PII detection against request text nodes.
@@ -57,10 +85,10 @@ class DetectionStage(PipelineStage):
     Processes each text node independently:
     1. Runs RegexDetector on the node's value
     2. Runs Presidio NER (via analyze_text_nodes) concurrently across all nodes
-    3. Merges regex + NER results per node via SpanArbiter
-    4. Filters through ExclusionList per node
-    5. Collects all detections into ``ctx.detections``
-    6. Optionally runs MNPI recognizers after core detection (Phase 15)
+    3. Runs MNPI and enterprise API-key/secret recognizers on the same node
+    4. Merges every detector's spans in one SpanArbiter pass
+    5. Filters through ExclusionList per node
+    6. Collects all detections into ``ctx.detections``
     """
 
     def __init__(
@@ -73,6 +101,7 @@ class DetectionStage(PipelineStage):
         config_registry: AtomicConfigRegistry | None = None,
         mnpi_recognizers: list[MNPIRecognizer] | None = None,
         enterprise_recognizers: dict[str, Any] | None = None,
+        presidio_languages: tuple[str, ...] | list[str] | None = None,
     ) -> None:
         """Initialise with detection dependencies.
 
@@ -88,6 +117,8 @@ class DetectionStage(PipelineStage):
                 for MNPI detection (Phase 15, D-001).
             enterprise_recognizers: Optional dict of enabled enterprise
                 recognizers (Phase 26, GUARD-01).
+            presidio_languages: ISO 639-1 codes this deployment's analyzer
+                supports (``ANONREQ_PRESIDIO_LANGUAGES``). Defaults to English.
         """
         super().__init__("DetectionStage")
         self._regex_detector = regex_detector
@@ -98,6 +129,7 @@ class DetectionStage(PipelineStage):
         self._config_registry = config_registry
         self._mnpi_recognizers = mnpi_recognizers or []
         self._enterprise_recognizers = enterprise_recognizers or {}
+        self._presidio_languages = tuple(presidio_languages or ("en",))
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Detect PII in request text nodes.
@@ -152,17 +184,46 @@ class DetectionStage(PipelineStage):
                 [config.confidence_threshold for config in entity_configs],
                 default=0.7,
             )
-
-            # Run Presidio NER across all nodes concurrently
-            ner_call = self._presidio_client.analyze_text_nodes(
-                ctx.text_nodes,
-                entities=ner_entities,
-                score_threshold=score_threshold,
+            # Every negotiated bundle is considered. Languages outside
+            # ANONREQ_PRESIDIO_LANGUAGES are analyzed as English. A configured
+            # language the sidecar rejects is not retried as English.
+            plan = plan_presidio_languages(
+                getattr(ctx, "locale_bundles", None),
+                self._presidio_languages,
             )
-            # iscoroutine, not isawaitable: MagicMock is awaitable and hangs.
-            ner_results_list = await ner_call if inspect.iscoroutine(ner_call) else ner_call
+            presidio_language = ",".join(plan.languages)
+            for locale_code in plan.unsupported_locales:
+                presidio_unsupported_locales.labels(locale=locale_code).inc()
+                logger.warning(
+                    "detection.presidio_locale_not_configured",
+                    stage=self.name,
+                    request_id=ctx.request_id,
+                    locale=locale_code,
+                    presidio_language=DEFAULT_PRESIDIO_LANGUAGE,
+                    error_type="presidio_locale_not_configured",
+                )
+
+            # Run Presidio once per selected language and merge the spans.
+            ner_results_list: list[list[dict[str, Any]]] = [
+                [] for _ in ctx.text_nodes
+            ]
+            for language in plan.languages:
+                ner_call = self._presidio_client.analyze_text_nodes(
+                    ctx.text_nodes,
+                    language=language,
+                    entities=ner_entities,
+                    score_threshold=score_threshold,
+                )
+                # iscoroutine, not isawaitable: MagicMock is awaitable and hangs.
+                batch = await ner_call if inspect.iscoroutine(ner_call) else ner_call
+                for index, hits in enumerate(batch):
+                    if index < len(ner_results_list):
+                        ner_results_list[index].extend(hits or [])
 
             all_detections: list[dict[str, Any]] = []
+            irreversible_names = {
+                config.name for config in entity_configs if not config.reversible
+            } | set(IRREVERSIBLE_ENTITY_TYPES)
 
             for i, node in enumerate(ctx.text_nodes):
                 node_value = node.get("value", "")
@@ -176,79 +237,96 @@ class DetectionStage(PipelineStage):
                 # Get NER results for this node
                 ner_results = ner_results_list[i] if i < len(ner_results_list) else []
 
-                # Merge via SpanArbiter
-                merged = self._span_arbiter.merge(regex_results, ner_results)
+                # Secret, API-key, and MNPI detectors contribute spans to the
+                # same resolution as regex and NER. Resolving them afterwards
+                # leaves overlapping ranges, and tokenization then replaces
+                # the same characters twice.
+                mnpi_results: list[dict[str, Any]] = []
+                for recognizer in self._mnpi_recognizers:
+                    mnpi_results.extend(recognizer.analyze(node_value))
 
-                # Apply exclusion list
-                final = self._exclusion_list.filter_detections(merged, node_value)
+                enterprise_results: list[dict[str, Any]] = []
+                for name, recognizer in self._enterprise_recognizers.items():
+                    error_type: str | None = None
+                    try:
+                        per_node = recognizer.analyze(node_value)
+                    except Exception as exc:
+                        # The exception text can contain the span that crashed
+                        # the recognizer. Remember only the type, then log
+                        # after this handler exits so the traceback is not active.
+                        error_type = type(exc).__name__
+                        per_node = []
+                    if error_type is not None:
+                        logger.warning(
+                            "Enterprise recognizer failed",
+                            recognizer_name=name,
+                            node_index=i,
+                            error_type=error_type,
+                        )
+                        fail_secure_events.labels(
+                            tenant_id=ctx.tenant_id,
+                            failure_type="detection_error",
+                        ).inc()
+                        ctx.fail_secure(
+                            PipelineAbortError(
+                                status_code=500,
+                                message=f"Detection stage failed: {error_type}",
+                                request_id=ctx.request_id,
+                            )
+                        )
+                        return ctx
+                    for detection in per_node:
+                        detection.setdefault("source", "enterprise")
+                    enterprise_results.extend(per_node)
+
+                # Config-irreversible types are flagged before the merge so
+                # the flag survives when an ordinary type wins the overlap.
+                for results in (regex_results, ner_results):
+                    for detection in results:
+                        if str(detection.get("entity_type", "")) in irreversible_names:
+                            detection["irreversible"] = True
+
+                merged = self._span_arbiter.merge(
+                    regex_results,
+                    ner_results,
+                    mnpi_results,
+                    enterprise_results,
+                )
+
+                # Exclusions suppress false positives. Secret and MNPI spans
+                # are exempt: an exclusion must not unmask them.
+                exempt = [d for d in merged if _exclusion_exempt(d)]
+                eligible = [d for d in merged if not _exclusion_exempt(d)]
+                final = exempt + self._exclusion_list.filter_detections(eligible, node_value)
                 final = [
                     validated
                     for detection in final
-                    if (validated := validate_detection(
-                        detection,
-                        self._checksum_registry,
-                        node_value,
-                    )) is not None
+                    if (
+                        validated := detection
+                        if detection.get("protected")
+                        else validate_detection(
+                            detection,
+                            self._checksum_registry,
+                            node_value,
+                        )
+                    )
+                    is not None
                 ]
 
                 # Tag each detection with its node index for tokenization
-                irreversible_names = {
-                    config.name
-                    for config in entity_configs
-                    if not config.reversible
-                } | set(IRREVERSIBLE_ENTITY_TYPES)
                 for d in final:
                     d["node_index"] = i
                     entity_type = str(d.get("entity_type", ""))
-                    d["reversible"] = entity_type not in irreversible_names
+                    d["reversible"] = (
+                        entity_type not in irreversible_names
+                        and d.get("source") != "enterprise"
+                        and not d.get("irreversible")
+                        and not d.get("protected")
+                    )
 
                 all_detections.extend(final)
 
             ctx.detections = all_detections
-
-            # Phase 15: MNPI detection — runs after core detection pipeline.
-            # MNPI entity types (MNPI_TICKER, MNPI_DEAL, MNPI_RESTRICTED_NAME)
-            # do not overlap with core entity types; no arbitration needed.
-            if self._mnpi_recognizers:
-                mnpi_results: list[dict[str, Any]] = []
-                for i, node in enumerate(ctx.text_nodes):
-                    node_value = node.get("value", "")
-                    for recognizer in self._mnpi_recognizers:
-                        per_node = recognizer.analyze(node_value)
-                        for d in per_node:
-                            d["node_index"] = i
-                        mnpi_results.extend(per_node)
-                ctx.detections.extend(mnpi_results)
-
-            # Phase 26: Enterprise detection — runs after core and MNPI detection.
-            if self._enterprise_recognizers:
-                enterprise_results: list[dict[str, Any]] = []
-                for i, node in enumerate(ctx.text_nodes):
-                    node_value = node.get("value", "")
-                    for name, recognizer in self._enterprise_recognizers.items():
-                        try:
-                            per_node = recognizer.analyze(node_value)
-                            for d in per_node:
-                                d["node_index"] = i
-                                d["reversible"] = False
-                            enterprise_results.extend(per_node)
-                        except (TypeError, ValueError, KeyError) as exc:
-                            logger.warning(
-                                "Enterprise recognizer failed",
-                                recognizer_name=name,
-                                node_index=i,
-                                error=str(exc),
-                                exc_info=True,
-                            )
-                        except Exception as exc:
-                            logger.warning(
-                                "Enterprise recognizer unhandled error",
-                                recognizer_name=name,
-                                node_index=i,
-                                error=f"{type(exc).__name__}: {exc}",
-                                exc_info=True,
-                            )
-                ctx.detections.extend(enterprise_results)
 
             # Phase 15, D-013: Apply context-word boosting to financial crime
             # entities using the bridge from the detection pipeline module.
@@ -264,8 +342,7 @@ class DetectionStage(PipelineStage):
                 for i, node in enumerate(ctx.text_nodes):
                     node_value = node.get("value", "")
                     node_detections: list[dict[str, Any]] = [
-                        d for d in ctx.detections
-                        if d.get("node_index") == i
+                        d for d in ctx.detections if d.get("node_index") == i
                     ]
                     if node_detections:
                         boosted_detections.extend(
@@ -285,6 +362,7 @@ class DetectionStage(PipelineStage):
                 request_id=ctx.request_id,
                 total_detections=len(all_detections),
                 entity_counts=entity_counts,
+                presidio_language=presidio_language,
             )
 
             # Record detection latency (D-160)
@@ -308,6 +386,27 @@ class DetectionStage(PipelineStage):
                 failure_type="detection_error",
             ).inc()
             raise
+        except PresidioUnsupportedLanguageError as exc:
+            # Do not retry with language=en. The English model misses German
+            # names and street addresses, so a fallback would forward PII.
+            logger.warning(
+                "detection.presidio_language_unsupported",
+                stage=self.name,
+                request_id=ctx.request_id,
+                presidio_language=exc.language,
+                error_type="presidio_unsupported_language",
+                status_code=503,
+            )
+            fail_secure_events.labels(
+                tenant_id=ctx.tenant_id,
+                failure_type="presidio_unsupported_language",
+            ).inc()
+            ctx.fail_secure(
+                PresidioLanguageUnsupportedError(
+                    exc.language,
+                    request_id=ctx.request_id,
+                )
+            )
         except (KeyError, TypeError, ValueError, IndexError) as exc:
             fail_secure_events.labels(
                 tenant_id=ctx.tenant_id,
