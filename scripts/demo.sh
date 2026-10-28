@@ -56,4 +56,4 @@ done
 
 ANONREQ_DEMO_MODEL=$(grep -E "^ANONREQ_DEMO_MODEL=" "$ENV_FILE" | tail -1 | cut -d= -f2-)
 echo "Demo ready: http://localhost:8080  (model: $ANONREQ_DEMO_MODEL)"
-echo "Try: curl -s localhost:8080/v1/chat/completions -H \"Authorization: Bearer \$ANONREQ_API_KEY\" -H 'X-AnonReq-Locale: de-DE' -H 'Content-Type: application/json' -d '{\"model\":\"$ANONREQ_DEMO_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hallo, ich bin Max Mustermann\"}]}'"
+echo "Try: curl -s localhost:8080/v1/chat/completions -H \"Authorization: Bearer \$ANONREQ_API_KEY\" -H 'X-AnonReq-Tenant-ID: default' -H 'X-AnonReq-Locale: de-DE' -H 'Content-Type: application/json' -d '{\"model\":\"$ANONREQ_DEMO_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hallo, ich bin Max Mustermann\"}]}'"
