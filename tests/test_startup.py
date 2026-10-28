@@ -179,7 +179,10 @@ class TestStartupChecks:
 
         mock_language.side_effect = _supports
 
-        with pytest.raises(DependencyUnavailableError) as exc_info:
+        # Provider-key validation (#9) is not under test here.
+        with patch("anonreq.startup_checks.validate_provider_credentials"), pytest.raises(
+            DependencyUnavailableError
+        ) as exc_info:
             await run_startup_checks(settings, cache_manager)
 
         assert exc_info.value.dependency == "presidio"
