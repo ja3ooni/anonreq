@@ -90,8 +90,9 @@ def _trim_person_spans(spans: list[dict[str, Any]], text: str) -> list[dict[str,
 
     Names are capitalised. An English model run on German text returns
     spans such as "Anna prüfen"; the trailing verb is not part of the name
-    and masking it breaks exact boundaries. Spans with no capitalised word
-    left are dropped.
+    and masking it breaks exact boundaries. Spans are only ever trimmed,
+    never dropped: if no capitalised word remains (all-lowercase input such
+    as "bitte anna müller anrufen") the original span is kept.
     """
     trimmed: list[dict[str, Any]] = []
     for span in spans:
@@ -107,6 +108,7 @@ def _trim_person_spans(spans: list[dict[str, Any]], text: str) -> list[dict[str,
         while words and not text[words[-1][0]].isupper():
             words.pop()
         if not words:
+            trimmed.append(span)
             continue
         new_start, new_end = words[0][0], words[-1][1]
         while new_end > new_start and not text[new_end - 1].isalnum():

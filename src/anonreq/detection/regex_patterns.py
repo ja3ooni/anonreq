@@ -22,11 +22,14 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+"
         r"[a-zA-Z]{2,}"
     ),
-    # Requires a + country code or a 0 trunk prefix (or US 3-3-4 with
-    # separators) so postcodes, dates and account numbers do not match.
+    # + country code, 0 trunk prefix, US 3-3-4, German mobile without the
+    # trunk 0 (170 1234567) or a 10-digit NANP number. Postcodes, dates and
+    # grouped account numbers do not match.
     "PHONE_NUMBER": re.compile(
         r"(?<![\w+./-])(?:\+\d{1,3}[\s.-]?(?:\(0\)[\s.-]?)?\d{2,5}|\(?0\d{2,5}\)?)(?:[\s./-]?\d{2,}){1,4}(?![\w.-]*\d)"
         r"|(?<![\w+./-])\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?![\w.-]*\d)"
+        r"|(?<![\w+./-])(?:49[\s-]?)?1[5-7]\d[\s/-]?\d{7,8}(?![\w.-]*\d)"
+        r"|(?<![\w+./-])[2-9]\d{9}(?![\w.-]*\d)"
     ),
     "CREDIT_CARD": re.compile(
         r"\b(?:\d[ -]*?){13,19}\b"

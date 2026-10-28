@@ -225,3 +225,78 @@ async def test_phone_numbers_include_plus(number: str) -> None:
     assert masked.startswith("Ruf an: [")
     assert masked.endswith("] bitte")
     assert number in mapping.values()
+
+
+# ── Reviewer 12:00 majors and minors ─────────────────────────────────────────
+
+
+def _regex_hits(text: str) -> list[tuple[str, str]]:
+    checksums = ChecksumValidatorRegistry()
+    registry = LocaleRegistry(checksum_registry=checksums)
+    merged = RecognizerMerger(registry.get("en")).merge([registry.get("de-DE")])
+    detector = RegexDetector()
+    patterns = detector.patterns_from_entity_configs(list(merged.entity_configs.values()))
+    return [(d["entity_type"], text[d["start"]:d["end"]]) for d in detector.detect(text, patterns)]
+
+
+@pytest.mark.asyncio
+async def test_lowercase_person_span_is_kept_not_dropped() -> None:
+    text = "bitte anna müller anrufen"
+    masked, _ = await _run(text, [("anna müller", "PERSON")])
+    assert "anna" not in masked
+    assert "müller" not in masked
+
+
+@pytest.mark.parametrize("text", ["SAP-Aktie steigt", "BASF-Kurs fällt", "AAPL-Optionen kaufen"])
+def test_hyphenated_ticker_compounds_stay_mnpi(text: str) -> None:
+    recognizers = load_mnpi_recognizers(config_path="config/mnpi_recognizers.yaml")
+    hits = [d for r in recognizers for d in r.analyze(text)]
+    ticker = text.split("-")[0]
+    assert any(text[d["start"]:d["end"]] == ticker for d in hits), hits
+
+
+def test_site_id_fragments_are_not_tickers() -> None:
+    recognizers = load_mnpi_recognizers(config_path="config/mnpi_recognizers.yaml")
+    text = "Standort UW-NORD-0417 prüfen"
+    assert [d for r in recognizers for d in r.analyze(text)] == []
+
+
+@pytest.mark.parametrize(
+    "number", ["170 1234567", "1701234567", "49 1701234567", "5551234567", "151 23456789"]
+)
+def test_phone_without_prefix_matches(number: str) -> None:
+    hits = _regex_hits(f"Tel {number} bitte")
+    assert ("PHONE_NUMBER", number) in hits, hits
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Postleitzahl 10115 ist Berlin-Mitte.",
+        "Rechnung vom 03.05.2024 über 12 EUR.",
+        "Kundenkonto 4711-0815-22 belastet.",
+        "Bestellung 1234567 vom Lager.",  # 7 digits, no mobile prefix
+        "Steuer-ID 86095742719 liegt vor",  # 11 digits are not a phone
+    ],
+)
+def test_phone_prefixless_patterns_avoid_false_positives(text: str) -> None:
+    assert not [h for h in _regex_hits(text) if h[0] == "PHONE_NUMBER"], _regex_hits(text)
+
+
+@pytest.mark.parametrize("text", ["am 15. Jan 2026", "Max. 5 Personen", "Ben ist da", "Tim"])
+def test_ambiguous_first_names_need_surname(text: str) -> None:
+    assert not [h for h in _regex_hits(text) if h[0] == "PERSON_NAME_DE"]
+
+
+def test_ambiguous_first_name_with_surname_matches() -> None:
+    assert ("PERSON_NAME_DE", "Max Mustermann") in _regex_hits("Bitte Max Mustermann anrufen")
+
+
+@pytest.mark.parametrize("text", ["COVID-19 Regeln", "ISO-9001 Audit", "RFC-2616 lesen"])
+def test_two_segment_codes_are_not_site_ids(text: str) -> None:
+    assert not [h for h in _regex_hits(text) if h[0] == "SITE_ID"]
+
+
+@pytest.mark.parametrize("code", ["ab12cdef3456ghij", "AB12CDEF3456GHIJ"])
+def test_order_codes_are_not_unverified_ibans(code: str) -> None:
+    assert not [h for h in _regex_hits(f"Bestellung {code}") if h[0] == "IBAN_UNVERIFIED"]
