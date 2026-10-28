@@ -45,6 +45,14 @@ async def verify_admin_api_key(
     request: Request,
     authorization: str | None = Header(None),
 ) -> bool:
+    """FastAPI dependency; see ``_verify_admin_credential``."""
+    return await _verify_admin_credential(request, authorization)
+
+
+async def _verify_admin_credential(
+    request: Request,
+    authorization: str | None,
+) -> bool:
     """Verify admin access using OIDC JWTs or the legacy admin API key.
 
     With OIDC configured only verified tokens are accepted, and the legacy

@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 from unittest.mock import AsyncMock
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -337,3 +338,7 @@ class TestPolicyUpdateValidation:
             headers=headers,
         )
         assert response.status_code == 422
+
+
+# Test middleware injects the principal; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

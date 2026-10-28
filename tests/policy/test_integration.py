@@ -512,3 +512,9 @@ class TestPolicyAdminApiIntegration:
         assert "secret" not in raw_json
         assert "payload" not in raw_json
 
+
+
+
+# admin_app's middleware injects the principal from X-AnonReq-Role and
+# X-AnonReq-Tenant-ID; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

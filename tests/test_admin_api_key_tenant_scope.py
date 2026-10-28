@@ -80,3 +80,25 @@ async def test_gateway_key_is_forbidden_on_admin_routes(
         response = await client.get(route, headers=_headers(settings.API_KEY, _OWN))
     assert response.status_code == 403, response.text
     keyed_app.state.audit_chain.get_events.assert_not_called()
+
+
+@pytest.fixture(autouse=True)
+def _admin_key_bound_to_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ANONREQ_ADMIN_TENANT_ID binds the admin key to _OWN on the server."""
+    monkeypatch.setattr(settings, "ADMIN_TENANT_ID", _OWN)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", _ROUTES)
+async def test_admin_key_header_for_another_tenant_is_403(
+    keyed_app: FastAPI,
+    route: str,
+) -> None:
+    """The tenant header cannot move the admin key to another tenant."""
+    transport = ASGITransport(app=keyed_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            route, headers=_headers(settings.ADMIN_API_KEY or "", _OTHER),
+        )
+    assert response.status_code == 403
+    keyed_app.state.audit_chain.get_events.assert_not_awaited()

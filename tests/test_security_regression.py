@@ -66,7 +66,7 @@ class TestAdminLegacyKeyComparison:
         """Admin legacy fallback must use compare_digest (Finding 2)."""
         import anonreq.admin.auth as admin_auth
 
-        source = inspect.getsource(admin_auth.verify_admin_api_key)
+        source = inspect.getsource(admin_auth._verify_admin_credential)
         assert "compare_digest" in source
 
     async def test_admin_legacy_wrong_key_is_401(

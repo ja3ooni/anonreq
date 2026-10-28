@@ -15,6 +15,7 @@ from datetime import UTC
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -174,3 +175,7 @@ class TestUsageQuery:
         client = TestClient(app)
         response = client.get("/v1/admin/tenants/test_tenant/usage")
         assert response.status_code == 401
+
+
+# Test middleware injects the principal; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

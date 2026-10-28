@@ -236,3 +236,29 @@ def admin_app():
 
     app.include_router(admin_router)
     return app
+
+
+@pytest.fixture
+def trust_injected_principal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let a test middleware's ``request.state.role_principal`` stand in for auth.
+
+    Production auth always verifies the credential and never trusts a
+    principal already on the request. Route-logic and RBAC tests that inject
+    a principal use this fixture to replace credential verification
+    explicitly. Real credential handling is covered by create_app() tests.
+    """
+    from fastapi import HTTPException
+
+    import anonreq.admin.auth as admin_auth
+
+    async def _bind(_request: object, authorization: str | None, *_args: object) -> None:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    async def _verify(_request: object, authorization: str | None) -> bool:
+        if not authorization:
+            raise HTTPException(status_code=401, detail="Missing Authorization header")
+        return True
+
+    monkeypatch.setattr(admin_auth, "_bind_admin_principal", _bind)
+    monkeypatch.setattr(admin_auth, "_verify_admin_credential", _verify)

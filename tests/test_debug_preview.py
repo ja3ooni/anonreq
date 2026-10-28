@@ -126,7 +126,8 @@ async def test_preview_rejects_insufficient_role(preview_app: FastAPI) -> None:
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
             "/v1/debug/anonymize-preview",
-            headers=_headers(**{"X-Test-Role": "operator"}),
+            # Gateway chat key: valid credential, not an administrator.
+            headers={"Authorization": f"Bearer {settings.API_KEY}"},
             json={"prompt": "ada@example.com"},
         )
     assert response.status_code == 403
@@ -288,3 +289,13 @@ def test_preview_pipeline_reuses_detection_and_skips_provider() -> None:
     assert tokenization._persist_mappings is False
     assert tokenization._run_when_pass is True
     assert detection._run_when_pass is True
+
+
+
+@pytest.fixture(autouse=True)
+def _admin_key_bound_to_acme(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The admin key is bound on the server to the tenant these tests use."""
+    import anonreq.admin.auth as admin_auth
+
+    # Patch the settings object auth reads, even if another test swapped it.
+    monkeypatch.setattr(admin_auth.settings, "ADMIN_TENANT_ID", "acme")

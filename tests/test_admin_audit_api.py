@@ -197,3 +197,7 @@ async def test_anonymization_export_json_omits_raw_values(audit_app):
         assert "text/csv" in csv_response.headers["content-type"]
         assert raw_iban not in csv_response.text
         assert "entity_types" in csv_response.text
+
+
+# Test middleware injects the principal; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

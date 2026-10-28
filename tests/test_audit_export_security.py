@@ -607,3 +607,7 @@ def test_formula_prefix_covers_every_trigger(payload: str) -> None:
 @given(st.text(alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ", min_size=1, max_size=12))
 def test_plain_csv_cells_are_unchanged(payload: str) -> None:
     assert escape_csv_formula(payload) == payload
+
+
+# Test middleware injects the principal; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

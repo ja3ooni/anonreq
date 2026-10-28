@@ -14,6 +14,7 @@ from fastapi.exceptions import HTTPException
 from httpx import ASGITransport, AsyncClient
 
 from anonreq.api.v1.admin.anonymization_events import router as events_router
+from anonreq.config import settings
 from anonreq.exceptions import global_exception_handler, http_exception_handler
 from anonreq.models.audit import AuditEvent
 from anonreq.services.audit_chain import AuditChainService
@@ -90,9 +91,11 @@ async def test_events_require_admin(events_app: FastAPI) -> None:
             "/v1/admin/anonymization-events",
             headers={"Authorization": "Bearer wrong-key"},
         )
+        # The gateway chat key is a valid credential but not an admin.
+        # (An injected lower role no longer overrides a verified admin key.)
         forbidden = await client.get(
             "/v1/admin/anonymization-events",
-            headers=_headers(**{"X-Test-Role": "read_only_auditor"}),
+            headers={"Authorization": f"Bearer {settings.API_KEY}"},
         )
     assert missing.status_code == 401
     assert rejected.status_code == 401
@@ -267,3 +270,13 @@ async def test_events_csv_escapes_formulas_and_appends_error_trailer(
     assert rows[-1]["request_id"] == "#error"
     assert rows[-1]["decision"] == "export_failed"
     assert response.headers["cache-control"] == "no-store"
+
+
+
+@pytest.fixture(autouse=True)
+def _admin_key_bound_to_acme(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The admin key is bound on the server to the tenant these tests use."""
+    import anonreq.admin.auth as admin_auth
+
+    # Patch the settings object auth reads, even if another test swapped it.
+    monkeypatch.setattr(admin_auth.settings, "ADMIN_TENANT_ID", "acme")
