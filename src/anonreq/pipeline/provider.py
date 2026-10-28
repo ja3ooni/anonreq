@@ -107,10 +107,16 @@ class ProviderStage(PipelineStage):
             try:
                 model_alias = self._alias_registry.resolve(alias_name)
             except AliasNotFoundError as exc:
+                logger.warning(
+                    "provider.alias_not_found",
+                    stage=self.name,
+                    request_id=ctx.request_id,
+                    error=type(exc).__name__,
+                )
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=400,
-                        message=str(exc),
+                        message="Unknown model alias",
                         request_id=ctx.request_id,
                     )
                 )
@@ -203,10 +209,16 @@ class ProviderStage(PipelineStage):
                 )
             )
         except ValueError as exc:
+            logger.warning(
+                "provider.response_parse_failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=502,
-                    message=f"Provider response parse error: {exc}",
+                    message="Provider response parse error",
                     request_id=ctx.request_id,
                 )
             )

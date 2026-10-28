@@ -129,10 +129,16 @@ class RestorationStage(PipelineStage):
                 tenant_id=ctx.tenant_id,
                 failure_type="restoration_error",
             ).inc()
+            logger.warning(
+                "restoration.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Restoration stage failed: {type(exc).__name__}: {exc}",
+                    message="Restoration stage failed",
                     request_id=ctx.request_id,
                 )
             )
@@ -141,10 +147,16 @@ class RestorationStage(PipelineStage):
                 tenant_id=ctx.tenant_id,
                 failure_type="restoration_error",
             ).inc()
+            logger.warning(
+                "restoration.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Restoration stage failed: {type(exc).__name__}",
+                    message="Restoration stage failed",
                     request_id=ctx.request_id,
                 )
             )
