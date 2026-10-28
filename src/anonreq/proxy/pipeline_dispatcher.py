@@ -17,6 +17,7 @@ from uuid import uuid4
 
 import structlog
 
+from anonreq.exceptions import PresidioLanguageUnsupportedError
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.extraction import TextExtractor
 from anonreq.pipeline.manager import PipelineManager
@@ -97,6 +98,17 @@ class PipelineContentDispatcher:
         proc_ctx = await self._pipeline.run(proc_ctx)
 
         if proc_ctx.has_errors():
+            last_error = proc_ctx.errors[-1]
+            if isinstance(last_error, PresidioLanguageUnsupportedError):
+                return json.dumps(
+                    {
+                        "error": {
+                            "message": last_error.message,
+                            "type": last_error.error_type,
+                            "code": last_error.code,
+                        }
+                    }
+                ).encode("utf-8")
             return FAIL_CLOSED_ERROR
 
         if proc_ctx.restored_response is not None:

@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     REQUEST_TIMEOUT_SECONDS: int = 30
     PRESIDIO_MAX_CONCURRENCY: int = 10
+    PRESIDIO_LANGUAGES: str = Field(
+        default="en",
+        description=(
+            "Comma-separated ISO 639-1 languages this analyzer can run. "
+            "Negotiated locales outside the list are analyzed as English. "
+            "A listed language the analyzer rejects fails closed."
+        ),
+    )
     CACHE_TTL_SECONDS: int = 300
     PROVIDER_BASE_URL: str = Field(
         default="https://api.openai.com",
@@ -98,6 +106,15 @@ class Settings(BaseSettings):
         default=None,
         validation_alias="ANONREQ_ADMIN_API_KEY",
         description="Separate API key for admin endpoints. If unset, admin endpoints return 401.",
+    )
+    ADMIN_TENANT_ID: str | None = Field(
+        default=None,
+        validation_alias="ANONREQ_ADMIN_TENANT_ID",
+        description=(
+            "Tenant the legacy admin API key is bound to. Required when "
+            "ANONREQ_ADMIN_API_KEY is set; startup fails without it. A request "
+            "whose X-AnonReq-Tenant-ID names a different tenant gets 403."
+        ),
     )
     ADMIN_ROLE: str = Field(
         default="administrator",
@@ -252,6 +269,18 @@ class Settings(BaseSettings):
                 f"API_KEY must be at least 32 characters long (got {len(v)})"
             )
         return v
+
+    @field_validator("PRESIDIO_LANGUAGES")
+    @classmethod
+    def validate_presidio_languages(cls, value: str) -> str:
+        from anonreq.locale.presidio_language import parse_presidio_languages
+
+        return ",".join(parse_presidio_languages(value))
+
+    def configured_presidio_languages(self) -> tuple[str, ...]:
+        from anonreq.locale.presidio_language import parse_presidio_languages
+
+        return parse_presidio_languages(self.PRESIDIO_LANGUAGES)
 
 
 settings = Settings()
