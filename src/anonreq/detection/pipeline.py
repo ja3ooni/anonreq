@@ -146,9 +146,9 @@ def merge_mnpi_detections(
 ) -> list[dict[str, Any]]:
     """Merge MNPI detections into the core detection list.
 
-    MNPI detections are appended to the core list. No overlap resolution
-    is needed since MNPI entity types (MNPI_TICKER, MNPI_DEAL,
-    MNPI_RESTRICTED_NAME) do not overlap with core entity types.
+    MNPI detections are appended to the core list. This helper does not
+    resolve overlaps. DetectionStage must pass MNPI spans through
+    SpanArbiter together with regex, NER, and secret-detector spans.
 
     Args:
         core_detections: Detection results from the core pipeline.

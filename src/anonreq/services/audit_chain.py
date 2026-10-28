@@ -130,8 +130,9 @@ class AuditChainService:
         provider = fields.pop("provider", None)
         decision = fields.pop("decision", None)
         latency_ms = fields.pop("latency_ms", None)
+        event_id = fields.pop("event_id", None)
         event = AuditEvent(
-            event_id=uuid4().hex,
+            event_id=str(event_id) if event_id else uuid4().hex,
             prev_hash=None,
             hash="",
             timestamp=datetime.now(UTC),
@@ -177,6 +178,18 @@ class AuditChainService:
             latest = await self._get_latest_event_in_session(
                 session, event.tenant_id, for_update=use_for_update,
             )
+            # Idempotency: a retried write whose earlier attempt already
+            # committed (for example, it timed out after commit) must not
+            # append a second event. The tenant's chain lock is held here.
+            existing = await session.execute(
+                text("SELECT hash, prev_hash FROM audit_event WHERE event_id = :event_id"),
+                {"event_id": event.event_id},
+            )
+            row = existing.first()
+            if row is not None:
+                event.hash = row[0]
+                event.prev_hash = row[1]
+                return event
             event.prev_hash = latest.hash if latest else None
             event.hash = compute_event_hash(event)
 
@@ -283,6 +296,116 @@ class AuditChainService:
 
         return ChainVerificationResult(is_intact=True, checked_count=checked)
 
+    def _event_where(
+        self,
+        *,
+        tenant_id: str | None = None,
+        event_type: str | None = None,
+        operator_id: str | None = None,
+        date_from: datetime | None = None,
+        date_to: datetime | None = None,
+        entity_type: str | None = None,
+        sort: str | None = None,
+        cursor_timestamp: datetime | None = None,
+        cursor_id: int | None = None,
+        max_row_id: int | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        """Shared WHERE clause for event list and count queries."""
+        clauses = ["1=1"]
+        params: dict[str, Any] = {}
+
+        if tenant_id is not None:
+            clauses.append("tenant_id = :tenant_id")
+            params["tenant_id"] = tenant_id
+        if event_type is not None:
+            clauses.append("event_type = :event_type")
+            params["event_type"] = event_type
+        if operator_id is not None:
+            clauses.append("operator_id = :operator_id")
+            params["operator_id"] = operator_id
+        if date_from is not None:
+            clauses.append("timestamp >= :date_from")
+            params["date_from"] = date_from
+        if date_to is not None:
+            clauses.append("timestamp <= :date_to")
+            params["date_to"] = date_to
+        if cursor_timestamp is not None and cursor_id is not None:
+            clauses.append(self._cursor_clause(sort))
+            params["cursor_timestamp"] = cursor_timestamp
+            params["cursor_id"] = cursor_id
+        if entity_type is not None:
+            clauses.append(self._entity_type_clause())
+            params["entity_type"] = entity_type
+        if max_row_id is not None:
+            clauses.append("id <= :max_row_id")
+            params["max_row_id"] = max_row_id
+
+        return " AND ".join(clauses), params
+
+    def _entity_type_clause(self) -> str:
+        """Match an entity type stored in metadata_json without raw values.
+
+        ``entity_types`` is a JSON array and ``entity_counts`` is a JSON
+        object. The clause is dialect-specific and always bound.
+        """
+        dialect = self._engine.dialect.name
+        if dialect == "postgresql":
+            return (
+                "("
+                "EXISTS ("
+                "SELECT 1 FROM jsonb_array_elements_text("
+                "CASE WHEN metadata_json IS NOT NULL "
+                "AND jsonb_typeof(metadata_json::jsonb -> 'entity_types') = 'array' "
+                "THEN metadata_json::jsonb -> 'entity_types' "
+                "ELSE '[]'::jsonb END"
+                ") AS entity_type_elem(value) "
+                "WHERE entity_type_elem.value = :entity_type"
+                ") OR ("
+                "metadata_json IS NOT NULL "
+                "AND jsonb_typeof(metadata_json::jsonb -> 'entity_counts') = 'object' "
+                "AND jsonb_exists(metadata_json::jsonb -> 'entity_counts', :entity_type)"
+                "))"
+            )
+        return (
+            "("
+            "EXISTS ("
+            "SELECT 1 FROM json_each("
+            "COALESCE(json_extract(metadata_json, '$.entity_types'), '[]')"
+            ") AS entity_types_json "
+            "WHERE entity_types_json.value = :entity_type"
+            ") OR EXISTS ("
+            "SELECT 1 FROM json_each("
+            "COALESCE(json_extract(metadata_json, '$.entity_counts'), '{}')"
+            ") AS entity_counts_json "
+            "WHERE entity_counts_json.key = :entity_type"
+            "))"
+        )
+
+    @staticmethod
+    def _cursor_clause(sort: str | None) -> str:
+        """Keyset predicate on ``(timestamp, id)``.
+
+        Descending pages move strictly before the cursor. Ascending pages
+        move strictly after it. Equal timestamps use the integer id.
+        """
+        if sort == "timestamp:asc":
+            return (
+                "(timestamp > :cursor_timestamp OR "
+                "(timestamp = :cursor_timestamp AND id > :cursor_id))"
+            )
+        return (
+            "(timestamp < :cursor_timestamp OR "
+            "(timestamp = :cursor_timestamp AND id < :cursor_id))"
+        )
+
+    @staticmethod
+    def _order_by(sort: str | None) -> str:
+        if sort == "timestamp:asc":
+            return " ORDER BY timestamp ASC, id ASC"
+        if sort == "timestamp:desc":
+            return " ORDER BY timestamp DESC, id DESC"
+        return " ORDER BY id DESC"
+
     async def get_events(
         self,
         tenant_id: str | None = None,
@@ -292,36 +415,56 @@ class AuditChainService:
         operator_id: str | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
+        entity_type: str | None = None,
+        sort: str | None = None,
+        cursor_timestamp: datetime | None = None,
+        cursor_id: int | None = None,
+        max_row_id: int | None = None,
     ) -> list[AuditEvent]:
-        """Paginated, filterable event query."""
-        query = "SELECT * FROM audit_event WHERE 1=1"
-        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        """Paginated, filterable event query.
 
-        if tenant_id is not None:
-            query += " AND tenant_id = :tenant_id"
-            params["tenant_id"] = tenant_id
-
-        if event_type is not None:
-            query += " AND event_type = :event_type"
-            params["event_type"] = event_type
-
-        if operator_id is not None:
-            query += " AND operator_id = :operator_id"
-            params["operator_id"] = operator_id
-
-        if date_from is not None:
-            query += " AND timestamp >= :date_from"
-            params["date_from"] = date_from
-
-        if date_to is not None:
-            query += " AND timestamp <= :date_to"
-            params["date_to"] = date_to
-
-        query += " ORDER BY id DESC LIMIT :limit OFFSET :offset"
+        ``cursor_timestamp`` and ``cursor_id`` together select the next
+        keyset page. ``offset`` remains for callers that still use it.
+        ``max_row_id`` bounds the query to a snapshot taken earlier.
+        """
+        where, params = self._event_where(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            operator_id=operator_id,
+            date_from=date_from,
+            date_to=date_to,
+            entity_type=entity_type,
+            sort=sort,
+            cursor_timestamp=cursor_timestamp,
+            cursor_id=cursor_id,
+            max_row_id=max_row_id,
+        )
+        params["limit"] = limit
+        params["offset"] = offset
+        query = (
+            "SELECT * FROM audit_event WHERE "
+            + where
+            + self._order_by(sort)
+            + " LIMIT :limit OFFSET :offset"
+        )
 
         async with self._session_factory() as session:
             result = await session.execute(text(query), params)
             return [self._row_to_event(dict(row)) for row in result.mappings().all()]
+
+    async def max_row_id(self, tenant_id: str) -> int | None:
+        """Highest ``audit_event.id`` for a tenant, or None when it has none.
+
+        Used as a snapshot bound so a long export ignores rows written
+        after it started.
+        """
+        async with self._session_factory() as session:
+            result = await session.execute(
+                text("SELECT MAX(id) FROM audit_event WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant_id},
+            )
+            value = result.scalar()
+            return int(value) if value is not None else None
 
     async def count_events(
         self,
@@ -330,30 +473,18 @@ class AuditChainService:
         operator_id: str | None = None,
         date_from: datetime | None = None,
         date_to: datetime | None = None,
+        entity_type: str | None = None,
     ) -> int:
         """Count events matching the given filters."""
-        query = "SELECT COUNT(*) FROM audit_event WHERE 1=1"
-        params: dict[str, Any] = {}
-
-        if tenant_id is not None:
-            query += " AND tenant_id = :tenant_id"
-            params["tenant_id"] = tenant_id
-
-        if event_type is not None:
-            query += " AND event_type = :event_type"
-            params["event_type"] = event_type
-
-        if operator_id is not None:
-            query += " AND operator_id = :operator_id"
-            params["operator_id"] = operator_id
-
-        if date_from is not None:
-            query += " AND timestamp >= :date_from"
-            params["date_from"] = date_from
-
-        if date_to is not None:
-            query += " AND timestamp <= :date_to"
-            params["date_to"] = date_to
+        where, params = self._event_where(
+            tenant_id=tenant_id,
+            event_type=event_type,
+            operator_id=operator_id,
+            date_from=date_from,
+            date_to=date_to,
+            entity_type=entity_type,
+        )
+        query = "SELECT COUNT(*) FROM audit_event WHERE " + where
 
         async with self._session_factory() as session:
             result = await session.execute(text(query), params)
@@ -386,4 +517,5 @@ class AuditChainService:
             new_value_hash=row.get("new_value_hash"),
             metadata_json=row.get("metadata_json"),
             retention_days=row.get("retention_days", 2557),
+            row_id=row.get("id"),
         )

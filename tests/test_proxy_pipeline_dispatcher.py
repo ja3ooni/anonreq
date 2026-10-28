@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
 import pytest
 
+from anonreq.exceptions import PresidioLanguageUnsupportedError
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.proxy.pipeline_dispatcher import (
     FAIL_CLOSED_ERROR,
@@ -171,3 +172,23 @@ async def test_no_response_fields_returns_fail_closed():
     )
 
     assert result == FAIL_CLOSED_ERROR
+
+
+@pytest.mark.asyncio
+async def test_unsupported_presidio_language_is_explicit_and_sanitized():
+    pipeline = AsyncMock()
+
+    async def fake_run(ctx: ProcessingContext) -> ProcessingContext:
+        ctx.fail_secure(PresidioLanguageUnsupportedError("de", request_id=ctx.request_id))
+        return ctx
+
+    pipeline.run = AsyncMock(side_effect=fake_run)
+    dispatcher = PipelineContentDispatcher(pipeline)
+
+    result = await dispatcher.dispatch("application/json", SAMPLE_CHAT_BODY, ctx={})
+    text = result.decode()
+
+    assert "does not support language 'de'" in text
+    assert "presidio_unsupported_language" in text
+    assert "987-65-4320" not in text
+    assert "bob@example.com" not in text

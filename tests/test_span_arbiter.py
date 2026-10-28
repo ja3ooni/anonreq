@@ -78,8 +78,10 @@ class TestSpanArbiter:
         ]
         merged = SpanArbiter.merge(regex_results, ner_results)
         assert len(merged) == 1
-        # PHONE_NUMBER (80) > LOCATION (30)
+        # PHONE_NUMBER (80) > LOCATION (30), and the survivor covers the union
         assert merged[0]["entity_type"] == "PHONE_NUMBER"
+        assert merged[0]["start"] == 10
+        assert merged[0]["end"] == 25
 
     def test_non_overlapping_spans_both_kept(self):
         """Non-overlapping spans: both kept."""
@@ -193,3 +195,128 @@ class TestSpanArbiter:
         b = {"entity_type": "PHONE", "start": 10, "end": 20, "score": 1.0, "source": "regex"}
         merged = SpanArbiter.merge([a], [b])
         assert len(merged) == 2
+
+    def test_full_overlap_secret_span_keeps_regex(self):
+        """Exact overlap of an API key and a secret detector keeps one span."""
+        regex_results = [
+            {"entity_type": "API_KEY", "start": 18, "end": 45, "score": 1.0, "source": "regex"},
+        ]
+        secret_results = [
+            {
+                "entity_type": "ENTERPRISE_API_KEY",
+                "start": 18,
+                "end": 45,
+                "score": 0.85,
+                "source": "enterprise",
+            },
+        ]
+        original = [dict(secret_results[0])]
+        merged = SpanArbiter.merge(regex_results, [], secret_results)
+        assert secret_results == original
+        assert len(merged) == 1
+        assert merged[0]["entity_type"] == "API_KEY"
+        assert merged[0]["source"] == "regex"
+        assert "_source" not in merged[0]
+
+    def test_partial_overlap_secret_keeps_more_specific(self):
+        """Partial overlap: the secret span wins when it is more specific."""
+        regex_results = [
+            {
+                "entity_type": "EMAIL_ADDRESS",
+                "start": 8,
+                "end": 30,
+                "score": 1.0,
+                "source": "regex",
+            },
+        ]
+        secret_results = [
+            {
+                "entity_type": "ENTERPRISE_API_KEY",
+                "start": 13,
+                "end": 32,
+                "score": 0.9,
+                "source": "enterprise",
+            },
+        ]
+        merged = SpanArbiter.merge(regex_results, [], secret_results)
+        assert len(merged) == 1
+        assert merged[0]["entity_type"] == "ENTERPRISE_API_KEY"
+        assert merged[0]["start"] == 8
+        assert merged[0]["end"] == 32
+
+    def test_nested_secret_inside_url_keeps_secret(self):
+        """A secret nested in a URL survives as the single more-specific span."""
+        regex_results = [
+            {"entity_type": "URL", "start": 4, "end": 64, "score": 1.0, "source": "regex"},
+        ]
+        secret_results = [
+            {
+                "entity_type": "ENTERPRISE_API_KEY",
+                "start": 30,
+                "end": 57,
+                "score": 0.85,
+                "source": "enterprise",
+            },
+        ]
+        merged = SpanArbiter.merge(regex_results, [], secret_results)
+        assert len(merged) == 1
+        assert merged[0]["entity_type"] == "ENTERPRISE_API_KEY"
+        assert merged[0]["start"] == 4
+        assert merged[0]["end"] == 64
+
+    def test_secret_overlapping_two_entities_stays_disjoint(self):
+        """A secret that meets two other spans resolves to one non-overlapping span."""
+        regex_results = [
+            {
+                "entity_type": "EMAIL_ADDRESS",
+                "start": 0,
+                "end": 20,
+                "score": 1.0,
+                "source": "regex",
+            },
+            {
+                "entity_type": "PHONE_NUMBER",
+                "start": 25,
+                "end": 40,
+                "score": 1.0,
+                "source": "regex",
+            },
+        ]
+        secret_results = [
+            {
+                "entity_type": "ENTERPRISE_API_KEY",
+                "start": 10,
+                "end": 35,
+                "score": 0.9,
+                "source": "enterprise",
+            },
+        ]
+        merged = SpanArbiter.merge(regex_results, [], secret_results)
+        assert len(merged) == 1
+        assert merged[0]["entity_type"] == "ENTERPRISE_API_KEY"
+        assert merged[0]["start"] == 0
+        assert merged[0]["end"] == 40
+
+    def test_non_overlapping_secret_and_email_both_kept(self):
+        """A secret away from other entities is kept alongside them."""
+        regex_results = [
+            {
+                "entity_type": "EMAIL_ADDRESS",
+                "start": 40,
+                "end": 55,
+                "score": 1.0,
+                "source": "regex",
+            },
+        ]
+        secret_results = [
+            {
+                "entity_type": "ENTERPRISE_API_KEY",
+                "start": 4,
+                "end": 31,
+                "score": 0.85,
+                "source": "enterprise",
+            },
+        ]
+        merged = SpanArbiter.merge(regex_results, [], secret_results)
+        assert len(merged) == 2
+        assert [item["start"] for item in merged] == [4, 40]

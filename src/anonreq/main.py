@@ -29,7 +29,11 @@ from starlette.responses import StreamingResponse
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
+from anonreq.admin.auth import validate_admin_settings
+from anonreq.admin.router import admin_router as rbac_admin_router
+from anonreq.admin.router import require_auth as require_rbac_admin_auth
 from anonreq.admin.routes import admin_router
+from anonreq.api.v1.admin.anonymization_events import router as anonymization_events_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
 from anonreq.auth.oidc import build_oidc_verifier
 from anonreq.bootstrap.services import (
@@ -47,6 +51,8 @@ from anonreq.bootstrap.services import (
 )
 from anonreq.cache.manager import CacheManager
 from anonreq.config import settings
+from anonreq.cors import apply_cors
+from anonreq.debug.preview import router as debug_preview_router
 from anonreq.dependencies import auth_context
 from anonreq.deployment.modes import DeploymentMode, TopologyConfig, get_deployment_config
 from anonreq.discovery.admin_router import router as discovery_admin_router
@@ -68,12 +74,13 @@ from anonreq.health import router as health_router
 from anonreq.license.router import router as license_router
 from anonreq.license.validator import require_license
 from anonreq.logging_config import setup_logging
+from anonreq.middleware.access_log import AccessLogMiddleware
 from anonreq.middleware.classification import ClassificationMiddleware
 from anonreq.middleware.content_type import ContentTypeMiddleware
 from anonreq.middleware.mtls import IngressMTLSMiddleware
 from anonreq.middleware.policy import PolicyMiddleware
 from anonreq.middleware.response_headers import ClassificationResponseMiddleware
-from anonreq.middleware.tenant import TenantContextMiddleware
+from anonreq.middleware.tenant import TenantContextMiddleware, validate_single_tenant
 from anonreq.models.request_context import RequestContext
 from anonreq.monitoring.middleware import MetricsMiddleware
 from anonreq.multimodal.dispatcher import ContentTypeDispatcher
@@ -195,9 +202,18 @@ def bootstrap_runtime_secrets(app: FastAPI) -> None:
     app.state.secret_rotation_buffer = state.secret_rotation_buffer
 
 
-def bootstrap_secret_volume_reloader(app: FastAPI) -> Any:
+def bootstrap_secret_volume_reloader(
+    app: FastAPI,
+    *,
+    debounce: float = 0.5,
+    poll_interval: float | None = None,
+) -> Any:
     """Attach a secret volume reloader when the app exposes a secret path."""
-    return bootstrap_runtime_secret_reloader(app)
+    return bootstrap_runtime_secret_reloader(
+        app,
+        debounce=debounce,
+        poll_interval=poll_interval,
+    )
 
 
 def create_app() -> FastAPI:
@@ -218,6 +234,9 @@ def create_app() -> FastAPI:
     """
     # Configure structured logging first
     setup_logging(level="INFO")
+
+    # Refuse to start with an admin key that is not bound to a tenant.
+    validate_admin_settings()
 
     # Resolve proxy mode at startup — immutable for the lifetime of the process
     active_mode: ProxyMode = mode_from_env()
@@ -279,7 +298,7 @@ def create_app() -> FastAPI:
 
         try:
             await run_startup_checks(settings, cache_manager)
-        except DependencyUnavailableError:
+        except (DependencyUnavailableError, RuntimeError):
             await cache_manager.close()
             log.error("Pre-flight check failed", component="lifespan")
             raise
@@ -352,6 +371,9 @@ def create_app() -> FastAPI:
 
     # Register fail-secure exception handlers (order matters — specific first)
     app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
+    from anonreq.admin.auth import InvalidTenantHeaderError, invalid_tenant_header_handler
+
+    app.add_exception_handler(InvalidTenantHeaderError, invalid_tenant_header_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Add MetricsMiddleware for Prometheus request counting and latency
@@ -377,6 +399,7 @@ def create_app() -> FastAPI:
     # per D-02: after auth, before classification.
     tenant_registry = TenantRegistry(yaml_path=settings.TENANTS_CONFIG_PATH)
     app.state.tenant_registry = tenant_registry
+    validate_single_tenant(tenant_registry)
     app.add_middleware(TenantContextMiddleware, tenant_registry=tenant_registry)
 
     # ClassificationResponseMiddleware — conditionally returns classification result headers
@@ -416,6 +439,10 @@ def create_app() -> FastAPI:
                 media_type="text/plain; charset=utf-8",
             )
 
+    # Added before set_request_context so that middleware stays outermost
+    # and this access log runs only after request_id exists.
+    app.add_middleware(AccessLogMiddleware)
+
     # Middleware: set request_id BEFORE auth runs so it's available in
     # 401 error responses (per RESEARCH Open Question 4).
     @app.middleware("http")
@@ -437,12 +464,25 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, dependencies=[Depends(auth_context)])
     app.include_router(models_router, dependencies=[Depends(auth_context)])
     app.include_router(compliance_router, dependencies=[Depends(auth_context)])
-    app.include_router(governance_router, dependencies=[Depends(auth_context)])
+    # bind_governance_role is on the router. auth_context only accepts the
+    # gateway chat key, which must not be promoted to an admin principal.
+    app.include_router(governance_router)
     app.include_router(governance_record_router, dependencies=[Depends(auth_context)])
     app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
-    app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
+    # Audit routes authenticate the gateway key or the legacy admin key
+    # inside the router and attach a tenant-scoped role principal.
+    app.include_router(admin_audit_router)
+    # Policies, providers, and the other RBAC admin routes. Router-level
+    # admin auth (OIDC or ANONREQ_ADMIN_API_KEY) is applied here as well as
+    # on the router itself. A distinct admin credential authorizes the call.
+    app.include_router(
+        rbac_admin_router,
+        dependencies=[Depends(require_rbac_admin_auth)],
+    )
+    app.include_router(anonymization_events_router)
+    app.include_router(debug_preview_router)
 
     # Phase 22: Discovery inventory admin routes
     app.include_router(discovery_admin_router, dependencies=[Depends(auth_context)])
@@ -486,6 +526,10 @@ def create_app() -> FastAPI:
     @app.get("/")
     async def root(_ctx: Any = Depends(auth_context)) -> dict[str, str]:
         return {"service": "AnonReq", "version": __version__}
+
+    # Outermost when configured, so browser preflight is not blocked by auth.
+    # No-op unless ANONREQ_CORS_ORIGINS lists at least one origin.
+    apply_cors(app)
 
     return app
 

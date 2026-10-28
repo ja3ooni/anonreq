@@ -22,7 +22,6 @@ from anonreq.admin.incident_routes import router as incident_router
 from anonreq.admin.policy_routes import router as policy_router
 from anonreq.admin.provider_routes import router as provider_router
 from anonreq.admin.usage_routes import router as usage_router
-from anonreq.config import settings
 from anonreq.middleware.rbac import Role
 
 # Re-export Role so admin routes and tests can reference it
@@ -50,16 +49,12 @@ async def require_auth(
     Raises:
         HTTPException: If the admin API key is invalid.
     """
-    if getattr(request.state, "role_principal", None) is None:
-        oidc_principal = getattr(request.state, "oidc_principal", None)
-        if oidc_principal is not None:
-            request.state.role_principal = oidc_principal
-        else:
-            request.state.role_principal = {
-                "principal_id": "admin",
-                "role": settings.ADMIN_ROLE,
-                "tenant_id": "*",
-            }
+    # verify_admin_api_key always sets a verified, tenant-bound principal
+    # (or raises), so it replaces anything already on request.state. A
+    # pre-set principal never skips verification.
+    oidc_principal = getattr(request.state, "oidc_principal", None)
+    if isinstance(oidc_principal, dict):
+        request.state.role_principal = dict(oidc_principal)
 
 
 admin_router = APIRouter(

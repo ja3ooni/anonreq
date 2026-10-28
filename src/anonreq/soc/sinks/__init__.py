@@ -92,3 +92,30 @@ class SinkBase(Protocol):
             Formatted event in the sink's specific wire format.
         """
         ...
+
+
+def scrubbed_normalized_event(event: Any) -> dict[str, Any]:
+    """Copy a normalized event and remove nested PII before it leaves the process.
+
+    Regex recognizers used by application logs are applied to every string
+    field and to the metadata tree. The original event is not modified.
+    """
+    from anonreq.logging_config import scrub_log_value
+
+    severity = getattr(event, "severity", "")
+    severity_value = severity.value if hasattr(severity, "value") else severity
+    raw = {
+        "severity": severity_value,
+        "event_type": getattr(event, "event_type", ""),
+        "tenant_id": getattr(event, "tenant_id", ""),
+        "session_id": getattr(event, "session_id", ""),
+        "timestamp": getattr(event, "timestamp", ""),
+        "gateway_version": getattr(event, "gateway_version", ""),
+        "appliance_instance_id": getattr(event, "appliance_instance_id", ""),
+        "mitre_technique_id": getattr(event, "mitre_technique_id", "") or "",
+        "metadata": getattr(event, "metadata", None) or {},
+    }
+    scrubbed = scrub_log_value(raw)
+    if isinstance(scrubbed, dict):
+        return scrubbed
+    return {}

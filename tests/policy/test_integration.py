@@ -7,6 +7,8 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
+from starlette.datastructures import State
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.policy.models import PolicyAction, PolicyDecision
@@ -37,6 +39,29 @@ def mock_forwarding_guard():
     return guard
 
 
+class _TenantStateMiddleware:
+    """Stamp a tenant the way TenantContextMiddleware does in production.
+
+    PolicyMiddleware fail-closes when neither ``request.state.tenant_id``
+    nor ``ANONREQ_SINGLE_TENANT`` is set. These fixtures supply a tenant
+    instead of turning that check off.
+    """
+
+    def __init__(self, app: ASGIApp, tenant_id: str = "test_tenant") -> None:
+        self.app = app
+        self.tenant_id = tenant_id
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            state = scope.get("state")
+            if not isinstance(state, State):
+                state = State()
+                scope["state"] = state
+            if not getattr(state, "tenant_id", None):
+                state.tenant_id = self.tenant_id
+        await self.app(scope, receive, send)
+
+
 def create_test_app(pdp, pep) -> FastAPI:
     from anonreq.middleware.policy import PolicyMiddleware
 
@@ -45,6 +70,8 @@ def create_test_app(pdp, pep) -> FastAPI:
     app.state.pep = pep
 
     app.add_middleware(PolicyMiddleware)
+    # Added last so it runs first and the policy layer sees a tenant.
+    app.add_middleware(_TenantStateMiddleware)
 
     @app.post("/v1/chat/completions")
     async def chat_route(_request: Request):
@@ -485,3 +512,9 @@ class TestPolicyAdminApiIntegration:
         assert "secret" not in raw_json
         assert "payload" not in raw_json
 
+
+
+
+# admin_app's middleware injects the principal from X-AnonReq-Role and
+# X-AnonReq-Tenant-ID; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

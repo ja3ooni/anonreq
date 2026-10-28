@@ -160,6 +160,328 @@ paths:
             text/plain:
               schema:
                 type: string
+  /v1/debug/anonymize-preview:
+    post:
+      summary: Preview anonymization without persisting or calling a provider
+      description: |
+        Admin-only. Disabled unless `ANONREQ_DEBUG_PREVIEW_ENABLED=true`;
+        otherwise the route responds **404** before authentication.
+
+        Runs the gateway detection and tokenization stages. Does not call a
+        model, write the token cache, or append audit or anonymization events.
+
+        Send `prompt`, OpenAI-style `messages`, or both. Optional `tenant_id`
+        (alias `tenant`) selects the tenant context. Optional `policy` is a
+        policy rule id evaluated read-only: `BLOCK` returns 403 and
+        `ROUTE_LOCAL` returns 501.
+
+        `X-AnonReq-Locale` selects the locale bundle. The JSON `locale` field
+        is that negotiated locale (`universal` when the header is absent).
+        `classification` is the same value as the `X-AnonReq-Classification`
+        response header (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `RESTRICTED`,
+        or `HIGHLY_RESTRICTED`). `highest_entity` matches
+        `X-AnonReq-Highest-Entity`.
+
+        Entity offsets are 0-based. `start`/`end` and `token_start`/`token_end`
+        are Unicode code points. `*_utf16` fields are UTF-16 code units into
+        the same string (original text for `start_utf16`/`end_utf16`,
+        anonymized text for the token fields). `message_index` is null for
+        prompt spans and the source message index for `messages`.
+        `anonymized_text` is null when `prompt` was omitted.
+        `anonymized_messages` is null when `messages` was omitted.
+
+        Token indexes are a per-request random offset, not a stable counter.
+      operationId: anonymizePreview
+      security:
+        - BearerAuth: []
+      x-rbac:
+        minimum_role: administrator
+      parameters:
+        - name: X-AnonReq-Locale
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Locale bundle code, for example `de-DE`.
+        - name: X-AnonReq-Tenant-ID
+          in: header
+          required: false
+          schema:
+            type: string
+          description: >
+            Tenant header required by the gateway's tenant middleware on
+            `/v1/*`. The body `tenant_id` overrides the pipeline tenant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnonymizePreviewRequest"
+            examples:
+              prompt:
+                summary: Single prompt
+                value:
+                  prompt: "Contact ada@example.com about the invoice"
+                  tenant_id: acme
+              messages:
+                summary: OpenAI-style messages
+                value:
+                  messages:
+                    - role: user
+                      content: "Contact ada@example.com about the invoice"
+                  policy: allow-external
+      responses:
+        "200":
+          description: Anonymized preview. Nothing was persisted.
+          headers:
+            X-AnonReq-Request-ID:
+              schema:
+                type: string
+            X-AnonReq-Classification:
+              schema:
+                type: string
+              description: Same value as `classification`.
+            X-AnonReq-Highest-Entity:
+              schema:
+                type: string
+              description: Same value as `highest_entity`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnonymizePreviewResponse"
+              examples:
+                messages:
+                  summary: Message preview
+                  value:
+                    request_id: req_0123456789abcdef01234567
+                    locale: de-DE
+                    classification: CONFIDENTIAL
+                    highest_entity: EMAIL_ADDRESS
+                    anonymized_text: null
+                    anonymized_messages:
+                      - role: user
+                        content: "Contact [EMAIL_ADDRESS_2847561234] about the invoice"
+                        message_index: 0
+                    entities:
+                      - entity_type: EMAIL_ADDRESS
+                        span: ada@example.com
+                        token: "[EMAIL_ADDRESS_2847561234]"
+                        score: 1.0
+                        start: 8
+                        end: 23
+                        start_utf16: 8
+                        end_utf16: 23
+                        token_start: 8
+                        token_end: 35
+                        token_start_utf16: 8
+                        token_end_utf16: 35
+                        message_index: 0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          description: Preview disabled, or the named policy does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/audit/config-history:
+    get:
+      summary: List config-change audit events
+      description: |
+        Keyset page of config-history rows for the caller's tenant. A
+        `tenant_id` that names another tenant is 403. `cursor` and
+        `next_cursor` are `timestamp|id`, the same shape as
+        `GET /v1/admin/anonymization-events`. `next_cursor` is null on the
+        last page. `total` counts every matching row.
+      operationId: listConfigHistory
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/TenantId"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Previous page `next_cursor` (`timestamp|id`).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        "200":
+          description: Keyset page of config-history events.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigHistoryResponse"
+              examples:
+                page:
+                  value:
+                    total: 1
+                    limit: 100
+                    next_cursor: null
+                    items:
+                      - event_id: evt_1
+                        timestamp: "2026-08-14T09:00:00Z"
+                        tenant_id: acme
+                        change_type: update
+                        operator_id: admin
+                        prev_value_hash: null
+                        new_value_hash: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /v1/admin/anonymization-events:
+    get:
+      summary: List anonymization events
+      description: |
+        One row per anonymized request. Metadata only — raw values are never
+        returned. `timestamp` is ISO-8601 UTC (`Z` suffix).
+
+        Filters match the CSV export: `date_from`, `date_to`, `entity_type`,
+        and `tenant_id`. The tenant is the caller's tenant; a different
+        `tenant_id` is 403. `sort` is `timestamp:desc` (default) or
+        `timestamp:asc`. `limit` defaults to 50 and cannot exceed 200.
+
+        Pagination is a keyset cursor on `timestamp|id`, not an offset.
+        Pass `next_cursor` from the previous page as `cursor`. `next_cursor`
+        is null on the last page. `total` is the full filter match count.
+      operationId: listAnonymizationEvents
+      security:
+        - BearerAuth: []
+      x-rbac:
+        minimum_role: administrator
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/EntityType"
+        - $ref: "#/components/parameters/TenantId"
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["timestamp:desc", "timestamp:asc"]
+            default: "timestamp:desc"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: >
+            Keyset cursor `timestamp|id` from the previous page's
+            `next_cursor`. Omit for the first page.
+      responses:
+        "200":
+          description: Keyset page of anonymization events.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnonymizationEventsResponse"
+              examples:
+                page:
+                  value:
+                    total: 2
+                    limit: 50
+                    next_cursor: "2026-08-14T09:00:00Z|17"
+                    items:
+                      - request_id: req_abc
+                        timestamp: "2026-08-14T09:00:00Z"
+                        tenant_id: acme
+                        model: gpt-4o
+                        locale: de-DE
+                        decision: ANONYMIZE
+                        token_count: 2
+                        entity_types:
+                          - type: EMAIL_ADDRESS
+                            count: 1
+                          - type: IBAN_DE
+                            count: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/anonymization-events/export:
+    get:
+      summary: Stream anonymization events as CSV
+      description: |
+        Streams every row matching the same filters as
+        `GET /v1/admin/anonymization-events`. There is no 10_000-row cap.
+        `limit` and `offset` are not accepted.
+
+        Columns, in order: `request_id`, `timestamp`, `tenant_id`, `model`,
+        `locale`, `decision`, `token_count`, `entity_types`. Null JSON fields
+        are empty CSV cells. `entity_types` is a JSON array in that cell,
+        for example `[{"type":"EMAIL_ADDRESS","count":1}]`.
+      operationId: exportAnonymizationEvents
+      security:
+        - BearerAuth: []
+      x-rbac:
+        minimum_role: administrator
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/EntityType"
+        - $ref: "#/components/parameters/TenantId"
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["timestamp:desc", "timestamp:asc"]
+            default: "timestamp:desc"
+      responses:
+        "200":
+          description: CSV attachment streamed to completion.
+          content:
+            text/csv:
+              schema:
+                type: string
+              example: |
+                request_id,timestamp,tenant_id,model,locale,decision,token_count,entity_types
+                req_abc,2026-08-14T09:00:00Z,acme,gpt-4o,de-DE,ANONYMIZE,2,"[{""type"":""EMAIL_ADDRESS"",""count"":1}]"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /v1/admin/policies:
     get:
       summary: List all policies
@@ -642,6 +964,273 @@ components:
           type: string
           format: date-time
           example: "2026-07-03T12:00:00Z"
+    AnonymizePreviewRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        prompt:
+          type: string
+          nullable: true
+          description: Plain text to anonymize. Required if `messages` is omitted.
+        messages:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/PreviewMessage"
+        tenant_id:
+          type: string
+          nullable: true
+        tenant:
+          type: string
+          nullable: true
+          description: Alias of `tenant_id`. `tenant_id` wins when both are set.
+        policy:
+          type: string
+          nullable: true
+          description: Policy rule id. Evaluated read-only.
+    PreviewMessage:
+      type: object
+      required: [role, content]
+      additionalProperties: false
+      properties:
+        role:
+          type: string
+          example: user
+        content:
+          type: string
+    PreviewEntity:
+      type: object
+      required:
+        - entity_type
+        - span
+        - token
+        - score
+        - start
+        - end
+        - start_utf16
+        - end_utf16
+        - token_start
+        - token_end
+        - token_start_utf16
+        - token_end_utf16
+      additionalProperties: false
+      properties:
+        entity_type:
+          type: string
+          example: EMAIL_ADDRESS
+        span:
+          type: string
+          description: Original text between `start` and `end`.
+          example: ada@example.com
+        token:
+          type: string
+          example: "[EMAIL_ADDRESS_2847561234]"
+        score:
+          type: number
+          format: float
+          example: 1.0
+        start:
+          type: integer
+          description: Code-point offset into the original text.
+        end:
+          type: integer
+          description: Code-point end offset into the original text.
+        start_utf16:
+          type: integer
+        end_utf16:
+          type: integer
+        token_start:
+          type: integer
+          description: Code-point offset of the token in the anonymized text.
+        token_end:
+          type: integer
+        token_start_utf16:
+          type: integer
+        token_end_utf16:
+          type: integer
+        message_index:
+          type: integer
+          nullable: true
+          description: Null for prompt spans. Message index otherwise.
+    AnonymizedMessage:
+      type: object
+      required: [role, content, message_index]
+      additionalProperties: false
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+        message_index:
+          type: integer
+    AnonymizePreviewResponse:
+      type: object
+      required:
+        - request_id
+        - locale
+        - classification
+        - highest_entity
+        - entities
+      additionalProperties: false
+      properties:
+        request_id:
+          type: string
+        locale:
+          type: string
+          example: de-DE
+        classification:
+          type: string
+          enum: [PUBLIC, INTERNAL, CONFIDENTIAL, RESTRICTED, HIGHLY_RESTRICTED]
+        highest_entity:
+          type: string
+        anonymized_text:
+          type: string
+          nullable: true
+        anonymized_messages:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/AnonymizedMessage"
+        entities:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreviewEntity"
+    EntityTypeCount:
+      type: object
+      required: [type, count]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          example: EMAIL_ADDRESS
+        count:
+          type: integer
+          example: 1
+    AnonymizationEventItem:
+      type: object
+      required:
+        - timestamp
+        - tenant_id
+        - entity_types
+      additionalProperties: false
+      properties:
+        request_id:
+          type: string
+          nullable: true
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC with a Z suffix.
+          example: "2026-08-14T09:00:00Z"
+        tenant_id:
+          type: string
+        model:
+          type: string
+          nullable: true
+        locale:
+          type: string
+          nullable: true
+        decision:
+          type: string
+          nullable: true
+        token_count:
+          type: integer
+          nullable: true
+        entity_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/EntityTypeCount"
+    ConfigHistoryItem:
+      type: object
+      required: [event_id, timestamp, tenant_id]
+      additionalProperties: false
+      properties:
+        event_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC.
+        tenant_id:
+          type: string
+        change_type:
+          type: string
+          nullable: true
+        operator_id:
+          type: string
+          nullable: true
+        prev_value_hash:
+          type: string
+          nullable: true
+        new_value_hash:
+          type: string
+          nullable: true
+    ConfigHistoryResponse:
+      type: object
+      required: [items, total, limit]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfigHistoryItem"
+        total:
+          type: integer
+        limit:
+          type: integer
+        next_cursor:
+          type: string
+          nullable: true
+          description: "`timestamp|id` of the last row, or null on the last page."
+          example: "2026-08-14T09:00:00Z|17"
+    AnonymizationEventsResponse:
+      type: object
+      required: [total, limit, items]
+      additionalProperties: false
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        next_cursor:
+          type: string
+          nullable: true
+          description: "`timestamp|id` of the last row, or null on the last page."
+          example: "2026-08-14T09:00:00Z|17"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnonymizationEventItem"
+  parameters:
+    DateFrom:
+      name: date_from
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: Inclusive range start. Same parameter as the anonymization export.
+    DateTo:
+      name: date_to
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: Inclusive range end.
+    EntityType:
+      name: entity_type
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Keep rows whose masked entity types include this value.
+    TenantId:
+      name: tenant_id
+      in: query
+      required: false
+      schema:
+        type: string
   responses:
     BadRequest:
       description: Bad request — invalid payload format

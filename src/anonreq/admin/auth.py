@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import hmac
+import logging
 from typing import Any
 
 from fastapi import Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from anonreq.auth.oidc import OIDCVerificationError, build_oidc_verifier
 from anonreq.config import settings
 from anonreq.state import get_app_state
+
+logger = logging.getLogger("anonreq.admin.auth")
 
 
 def _oidc_configured() -> bool:
@@ -45,19 +49,30 @@ async def verify_admin_api_key(
     request: Request,
     authorization: str | None = Header(None),
 ) -> bool:
-    """Verify admin access using OIDC JWTs or a legacy API-key fallback.
+    """FastAPI dependency; see ``_verify_admin_credential``."""
+    return await _verify_admin_credential(request, authorization)
 
-    The OIDC path is used whenever issuer, audience, and JWKS settings are
-    present. In environments that have not been migrated yet, the legacy
-    API-key path remains available as a compatibility fallback.
+
+async def _verify_admin_credential(
+    request: Request,
+    authorization: str | None,
+) -> bool:
+    """Verify admin access using OIDC JWTs or the legacy admin API key.
+
+    With OIDC configured only verified tokens are accepted, and the legacy
+    admin key is refused (401). Otherwise the admin key is accepted and bound
+    to ``ANONREQ_ADMIN_TENANT_ID``. Either way ``request.state.oidc_principal``
+    is set to a tenant-bound principal (never ``"*"``).
     """
     if _oidc_configured():
         try:
             verifier = _get_oidc_verifier(request)
             principal = await verifier.verify_authorization(authorization)
         except OIDCVerificationError as exc:
-            raise HTTPException(status_code=401, detail=str(exc)) from exc
-        request.state.oidc_principal = principal
+            # Do not echo verifier text (issuer, claim names, key ids).
+            logger.warning("admin.auth_failed type=%s", type(exc).__name__)
+            raise HTTPException(status_code=401, detail="Invalid token") from None
+        request.state.oidc_principal = _oidc_role_principal(request, principal)
         return True
 
     if _legacy_admin_auth_enabled():
@@ -68,19 +83,14 @@ async def verify_admin_api_key(
             )
 
         scheme, _, token = authorization.partition(" ")
-        if scheme.lower() != "bearer" or not hmac.compare_digest(
+        if scheme.lower() != "bearer" or not safe_compare(
             token, settings.ADMIN_API_KEY or ""
         ):
             raise HTTPException(
                 status_code=401,
                 detail="Invalid admin API key",
             )
-        principal = {
-            "principal_id": "admin",
-            "role": settings.ADMIN_ROLE,
-            "tenant_id": "*",
-        }
-        request.state.oidc_principal = principal
+        request.state.oidc_principal = admin_key_principal(request)
         return True
 
     raise HTTPException(
@@ -89,6 +99,202 @@ async def verify_admin_api_key(
     )
 
 
+_MAX_TENANT_LEN = 64
+
+
+def _clean_tenant(value: object) -> str | None:
+    """A concrete tenant id, or None for missing, blank, ``*`` or malformed.
+
+    Malformed means longer than 64 characters, or containing anything other
+    than printable ASCII (control characters, DEL, non-ASCII).
+    """
+    if not isinstance(value, str):
+        return None
+    tenant = value.strip()
+    if not tenant or tenant == "*" or len(tenant) > _MAX_TENANT_LEN:
+        return None
+    if not tenant.isascii() or any(ord(char) < 32 or char == "\x7f" for char in tenant):
+        return None
+    return tenant
+
+
+INVALID_TENANT_HEADER_BODY: dict[str, str] = {
+    "error": "invalid_tenant",
+    "message": "Invalid X-AnonReq-Tenant-ID header",
+}
+
+
+class InvalidTenantHeaderError(Exception):
+    """A present ``X-AnonReq-Tenant-ID`` that ``_clean_tenant`` rejects.
+
+    Mapped to 400 with ``INVALID_TENANT_HEADER_BODY`` (the same shape
+    ``TenantContextMiddleware`` returns) by ``invalid_tenant_header_handler``.
+    """
+
+
+async def invalid_tenant_header_handler(_request: Request, _exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=400, content=dict(INVALID_TENANT_HEADER_BODY))
+
+
+def tenant_header_is_invalid(raw: str | None) -> bool:
+    """True when the header is present but not a usable tenant id."""
+    return raw is not None and raw.strip() != "" and _clean_tenant(raw) is None
+
+
+def safe_compare(a: str, b: str) -> bool:
+    """Constant-time compare that never raises on non-ASCII input."""
+    return hmac.compare_digest(
+        a.encode("utf-8", "surrogatepass"), b.encode("utf-8", "surrogatepass"),
+    )
+
+
+def validate_admin_settings() -> None:
+    """Fail startup when the admin key is not bound to a tenant.
+
+    ``ANONREQ_ADMIN_API_KEY`` without ``ANONREQ_ADMIN_TENANT_ID`` would leave
+    the key unscoped, so the app refuses to start instead.
+    """
+    if settings.ADMIN_API_KEY and _clean_tenant(settings.ADMIN_TENANT_ID) is None:
+        raise RuntimeError(
+            "ANONREQ_ADMIN_API_KEY is set but ANONREQ_ADMIN_TENANT_ID is missing "
+            "or invalid; set the tenant the admin key is bound to."
+        )
+    if settings.ADMIN_API_KEY and settings.API_KEY and hmac.compare_digest(
+        settings.ADMIN_API_KEY, settings.API_KEY,
+    ):
+        raise RuntimeError(
+            "ANONREQ_ADMIN_API_KEY must differ from ANONREQ_API_KEY; the "
+            "gateway chat key must never be an admin credential."
+        )
+
+
+def _reject_header_mismatch(request: Request, tenant: str) -> None:
+    """403 when ``X-AnonReq-Tenant-ID`` is present and names another tenant."""
+    raw = request.headers.get("X-AnonReq-Tenant-ID")
+    if raw is None:
+        return
+    if tenant_header_is_invalid(raw):
+        raise InvalidTenantHeaderError()
+    if raw.strip() != tenant:
+        raise HTTPException(
+            status_code=403,
+            detail="X-AnonReq-Tenant-ID does not match the credential tenant",
+        )
+
+
+def admin_key_principal(request: Request) -> dict[str, Any]:
+    """Role principal for the legacy admin key, bound to ANONREQ_ADMIN_TENANT_ID.
+
+    The tenant comes from server configuration, never from the request. A
+    present but different ``X-AnonReq-Tenant-ID`` is rejected with 403.
+    """
+    tenant = _clean_tenant(settings.ADMIN_TENANT_ID)
+    if tenant is None:
+        raise HTTPException(status_code=403, detail="Admin API key is not bound to a tenant")
+    _reject_header_mismatch(request, tenant)
+    return {
+        "principal_id": "admin",
+        "role": settings.ADMIN_ROLE,
+        "tenant_id": tenant,
+    }
+
+
+def _oidc_role_principal(request: Request, principal: dict[str, Any]) -> dict[str, Any]:
+    tenant = _clean_tenant(principal.get("tenant_id"))
+    if tenant is None:
+        raise HTTPException(status_code=403, detail="Token is not bound to a tenant")
+    _reject_header_mismatch(request, tenant)
+    scoped = dict(principal)
+    scoped["tenant_id"] = tenant
+    return scoped
+
+
+async def _bind_admin_principal(
+    request: Request,
+    authorization: str | None,
+    route_label: str,
+) -> None:
+    """Verify the credential and set ``role_principal`` for governance routes.
+
+    Accepts an OIDC admin token or the legacy admin API key. The admin key's
+    tenant is ``ANONREQ_ADMIN_TENANT_ID``; an OIDC token's tenant is its
+    claim. Neither is ever ``"*"``, and a present but different
+    ``X-AnonReq-Tenant-ID`` is 403. The gateway chat key is a different
+    credential and is rejected with 403. Missing or unknown credentials
+    are 401.
+
+    The credential is always verified. A principal already on
+    ``request.state`` is overwritten, never trusted.
+    """
+    request.state.role_principal = None
+
+    if _oidc_configured():
+        try:
+            verifier = _get_oidc_verifier(request)
+            principal = await verifier.verify_authorization(authorization)
+        except OIDCVerificationError:
+            # Do not echo verifier text (issuer, claim names, key ids). With
+            # OIDC enabled the legacy admin key is refused: it is not a JWT,
+            # so it fails verification here and gets 401.
+            raise HTTPException(status_code=401, detail="Invalid token") from None
+        request.state.oidc_principal = principal
+        request.state.role_principal = _oidc_role_principal(request, principal)
+        return
+
+    if authorization is None:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Invalid Authorization header")
+
+    admin_key = settings.ADMIN_API_KEY or ""
+    gateway_key = settings.API_KEY or ""
+    if admin_key and safe_compare(token, admin_key):
+        request.state.role_principal = admin_key_principal(request)
+        return
+    if gateway_key and safe_compare(token, gateway_key):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Gateway API key cannot access {route_label} routes",
+        )
+    raise HTTPException(status_code=401, detail="Invalid admin API key")
+
+
+async def bind_governance_role(
+    request: Request,
+    authorization: str | None = Header(None),
+) -> None:
+    """Router dependency for ``/v1/governance``. See ``_bind_admin_principal``."""
+    await _bind_admin_principal(request, authorization, "governance")
+
+
+async def accept_gateway_or_admin_key(
+    request: Request,
+    authorization: str | None = Header(None),
+) -> None:
+    """Admin-key or OIDC auth for administrator routes (audit, events, preview).
+
+    Same rules as governance: always verified, tenant bound on the server,
+    chat key 403, missing or unknown credential 401.
+    """
+    await _bind_admin_principal(request, authorization, "admin")
+
+
 def get_admin_api_key() -> str | None:
     """Return the configured legacy admin API key, if any."""
     return settings.ADMIN_API_KEY
+
+
+async def require_administrator(
+    request: Request,
+    authorization: str | None = Header(None),
+) -> None:
+    """Require a verified admin credential and the administrator role.
+
+    A missing or invalid credential is 401. The gateway chat key, a header
+    for another tenant, or a principal below administrator is 403.
+    """
+    from anonreq.middleware.rbac import Role, require_role
+
+    await accept_gateway_or_admin_key(request, authorization)
+    await require_role(Role.ADMINISTRATOR)(request)

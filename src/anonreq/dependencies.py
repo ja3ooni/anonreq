@@ -66,7 +66,9 @@ async def verify_api_key(
             API key.
     """
     token = credentials.credentials
-    if not hmac.compare_digest(token, settings.API_KEY or ""):
+    if not hmac.compare_digest(
+        token.encode("utf-8", "surrogatepass"), (settings.API_KEY or "").encode("utf-8")
+    ):
         raise AuthenticationError()
     return token
 

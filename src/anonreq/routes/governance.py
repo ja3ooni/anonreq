@@ -11,9 +11,15 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from anonreq.admin.auth import bind_governance_role
 from anonreq.middleware.rbac import Role, require_role
+from anonreq.services.tenant_scope import resolve_scoped_tenant
 
-router = APIRouter(prefix="/v1/governance", tags=["governance"])
+router = APIRouter(
+    prefix="/v1/governance",
+    tags=["governance"],
+    dependencies=[Depends(bind_governance_role)],
+)
 
 
 @router.get("/audit/status")
@@ -36,24 +42,30 @@ async def governance_audit_status(request: Request) -> dict[str, Any]:
     }
 
 
-@router.get("/audit/events")
+@router.get(
+    "/audit/events",
+    dependencies=[Depends(require_role(Role.SECURITY_OFFICER))],
+)
 async def list_audit_events(
     request: Request,
-    tenant_id: str = "default",
+    tenant_id: str | None = None,
     limit: int = 100,
     offset: int = 0,
     event_type: str | None = None,
 ) -> dict[str, Any]:
     """GET /v1/governance/audit/events — paginated audit event list.
 
-    Returns events with their hash chain metadata.
+    Requires ``security_officer`` or ``administrator``. Returns events with
+    their hash chain metadata for the caller's tenant. A ``tenant_id`` query
+    that names a different tenant is rejected.
     """
+    scoped_tenant = resolve_scoped_tenant(request, tenant_id)
     chain = getattr(request.app.state, "audit_chain", None)
     if chain is None:
         raise HTTPException(status_code=503, detail="Audit chain service not initialized")
 
     events = await chain.get_events(
-        tenant_id=tenant_id,
+        tenant_id=scoped_tenant,
         limit=limit,
         offset=offset,
         event_type=event_type,
@@ -74,17 +86,26 @@ async def list_audit_events(
     }
 
 
-@router.get("/audit/verify")
-async def verify_audit_chain(request: Request, tenant_id: str = "default") -> dict[str, Any]:
+@router.get(
+    "/audit/verify",
+    dependencies=[Depends(require_role(Role.SECURITY_OFFICER))],
+)
+async def verify_audit_chain(
+    request: Request,
+    tenant_id: str | None = None,
+) -> dict[str, Any]:
     """GET /v1/governance/audit/verify — verify hash chain integrity.
 
-    Walks the entire chain and reports whether any tampering is detected.
+    Requires ``security_officer`` or ``administrator``. Walks the caller's
+    chain and reports whether any tampering is detected. A ``tenant_id``
+    query that names a different tenant is rejected.
     """
+    scoped_tenant = resolve_scoped_tenant(request, tenant_id)
     chain = getattr(request.app.state, "audit_chain", None)
     if chain is None:
         raise HTTPException(status_code=503, detail="Audit chain service not initialized")
 
-    result = await chain.verify_chain(tenant_id=tenant_id)
+    result = await chain.verify_chain(tenant_id=scoped_tenant)
     return {
         "is_intact": result.is_intact,
         "checked_count": result.checked_count,
@@ -95,14 +116,18 @@ async def verify_audit_chain(request: Request, tenant_id: str = "default") -> di
 @router.get("/status", dependencies=[Depends(require_role(Role.ADMINISTRATOR))])
 async def get_governance_status(
     request: Request,
-    tenant_id: str = "default",
+    tenant_id: str | None = None,
 ) -> dict[str, Any]:
-    """Return SLO compliance for all configured SLOs."""
+    """Return SLO compliance for the caller's tenant.
+
+    A ``tenant_id`` query that names a different tenant is rejected.
+    """
+    scoped_tenant = resolve_scoped_tenant(request, tenant_id)
     slo_engine = getattr(request.app.state, "slo_engine", None)
     if slo_engine is None:
         raise HTTPException(status_code=503, detail="SLO engine not initialized")
 
-    compliance = await slo_engine.get_all_compliance(tenant_id)
+    compliance = await slo_engine.get_all_compliance(scoped_tenant)
 
     # Format slos list or dict
     slos_data = {}
@@ -120,7 +145,7 @@ async def get_governance_status(
         ]
 
     return {
-        "tenant_id": tenant_id,
+        "tenant_id": scoped_tenant,
         "timestamp": datetime.now(UTC).isoformat(),
         "slos": slos_data,
     }
@@ -129,17 +154,22 @@ async def get_governance_status(
 @router.get("/breaches", dependencies=[Depends(require_role(Role.ADMINISTRATOR))])
 async def list_governance_breaches(
     request: Request,
-    tenant_id: str = "default",
+    tenant_id: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """Return recent SLO breach events from the audit chain."""
+    """Return recent SLO breach events from the audit chain.
+
+    Results are limited to the caller's tenant. A ``tenant_id`` query that
+    names a different tenant is rejected.
+    """
+    scoped_tenant = resolve_scoped_tenant(request, tenant_id)
     chain = getattr(request.app.state, "audit_chain", None)
     if chain is None:
         raise HTTPException(status_code=503, detail="Audit chain service not initialized")
 
     events = await chain.get_events(
-        tenant_id=tenant_id,
+        tenant_id=scoped_tenant,
         limit=limit,
         offset=offset,
         event_type="slo_breach_detected",
@@ -152,13 +182,15 @@ async def list_governance_breaches(
         if e.metadata_json:
             with contextlib.suppress(Exception):
                 metadata = json.loads(e.metadata_json)
-        data.append({
-            "event_id": e.event_id,
-            "event_type": e.event_type,
-            "timestamp": e.timestamp.isoformat(),
-            "tenant_id": e.tenant_id,
-            "details": metadata,
-        })
+        data.append(
+            {
+                "event_id": e.event_id,
+                "event_type": e.event_type,
+                "timestamp": e.timestamp.isoformat(),
+                "tenant_id": e.tenant_id,
+                "details": metadata,
+            }
+        )
 
     return {
         "object": "list",

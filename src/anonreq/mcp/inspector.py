@@ -134,7 +134,7 @@ class MCPInspector:
         try:
             message = self._parser.parse(body)
         except Exception as exc:
-            logger.debug("MCP parse failed", error=str(exc))
+            logger.debug("MCP parse failed", error=type(exc).__name__)
             return None
 
         # Extract tool calls and results

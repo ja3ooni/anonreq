@@ -62,8 +62,8 @@ class MultipartAnalyzer:
 
             result.entities = all_entities
         except Exception as exc:
-            logger.error("multipart.analyze_error", error=str(exc))
-            result.analyzer_metadata = {"error": str(exc)}
+            logger.error("multipart.analyze_error", error=type(exc).__name__)
+            result.analyzer_metadata = {"error": type(exc).__name__}
 
         return result
 
