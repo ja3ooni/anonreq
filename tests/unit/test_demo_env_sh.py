@@ -291,3 +291,91 @@ def test_deleting_key_line_rotates_only_that_key(tmp_path):
     assert after["ANONREQ_API_KEY"] != before["ANONREQ_API_KEY"]
     assert after["ANONREQ_ADMIN_API_KEY"] == before["ANONREQ_ADMIN_API_KEY"]
     assert after["ANONREQ_KMS_MASTER_KEY"] == before["ANONREQ_KMS_MASTER_KEY"]
+
+
+# --- review of 22d2836: no false splits, export prefix ---------------------
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "URL=https://h/?ANONREQ_FOO=1",
+        "URL=https://h/?ANONREQ_API_KEY=1",
+        "ANONREQ_DATABASE_URL=postgresql://u:p@h/db?POSTGRES_OPT=1",
+        "ANONREQ_DATABASE_URL=postgresql://u:p@h/db?a=1&POSTGRES_PASSWORD=x",
+        "X=a;MINIO_ROOT_USER=b",
+        "X=MY_PROVIDER_API_KEY=abc",
+        'X="https://api.x.aiPROVIDER_API_KEY=quoted"',
+        "X='https://api.x.aiPROVIDER_API_KEY=quoted'",
+        "XAI_BASE_URL=https://api.x.aiXAI_BASE_URL=unmanaged",
+        "# XAI_BASE_URL=https://api.x.aiPROVIDER_API_KEY=x",
+    ],
+)
+def test_repair_does_not_split_valid_values(tmp_path, line):
+    env, proc = _sh(tmp_path, 'repair_glued_env "$ENV_FILE"', env_text=line + "\n")
+    assert env.read_text() == line + "\n"
+    assert proc.stderr == ""
+
+
+@pytest.mark.parametrize(
+    ("glued", "expected"),
+    [
+        (
+            "XAI_BASE_URL=https://api.x.aiPROVIDER_API_KEY=xai-FAKE",
+            ["XAI_BASE_URL=https://api.x.ai", "PROVIDER_API_KEY=xai-FAKE"],
+        ),
+        (
+            "ANONREQ_API_KEY=abcXYZ9POSTGRES_USER=anonreqMINIO_ROOT_PASSWORD=pw",
+            ["ANONREQ_API_KEY=abcXYZ9", "POSTGRES_USER=anonreq", "MINIO_ROOT_PASSWORD=pw"],
+        ),
+        (
+            "export XAI_BASE_URL=https://api.x.aiPROVIDER_API_KEY=xai-FAKE",
+            ["export XAI_BASE_URL=https://api.x.ai", "PROVIDER_API_KEY=xai-FAKE"],
+        ),
+    ],
+)
+def test_repair_still_splits_real_glued_lines(tmp_path, glued, expected):
+    env, proc = _sh(tmp_path, 'repair_glued_env "$ENV_FILE"', env_text=glued)
+    assert _lines(env) == expected
+    assert "xai-FAKE" not in proc.stderr
+    assert "WARNING" in proc.stderr
+
+
+def test_set_and_get_handle_export_prefix(tmp_path):
+    env, proc = _sh(
+        tmp_path,
+        "get_env_var ANONREQ_API_KEY; set_env_var ANONREQ_API_KEY new; get_env_var ANONREQ_API_KEY",
+        env_text="A=1\n  export ANONREQ_API_KEY=old\nB=2\n",
+    )
+    assert proc.stdout == "old\nnew\n"
+    assert _lines(env) == ["A=1", "export ANONREQ_API_KEY=new", "B=2"]
+
+
+def test_sanitizer_handles_export_prefix(tmp_path):
+    env, proc = _sh(
+        tmp_path,
+        'sanitize_db_url "$ENV_FILE"',
+        env_text="export ANONREQ_DATABASE_URL=sqlite+aiosqlite:///./anonreq.db\n",
+    )
+    assert env.read_text().startswith("# disabled by make demo")
+    assert "\nexport ANONREQ_DATABASE_URL" not in "\n" + env.read_text()
+    assert "NOTE" in proc.stdout
+
+
+def test_printed_export_hint_handles_export_prefix_and_crlf(tmp_path):
+    demo = (LIB.parents[1] / "demo.sh").read_text()
+    hint = "\n".join(
+        ln.strip() for ln in demo.splitlines() if ln.strip().startswith("export ANONREQ_")
+    )
+    assert hint.count("export ANONREQ_") == 2
+    (tmp_path / ".env").write_text(
+        "export ANONREQ_API_KEY=gw-val=x\r\nANONREQ_ADMIN_API_KEY=adm+/val\r\n"
+    )
+    out = subprocess.run(
+        ["bash", "-c", hint + '\nprintf "%s|%s" "$ANONREQ_API_KEY" "$ANONREQ_ADMIN_API_KEY"'],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert out == "gw-val=x|adm+/val"

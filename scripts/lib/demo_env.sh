@@ -24,9 +24,11 @@ _env_rewrite() {
       sub(/\r$/, "", line)
       probe = line
       sub(/^[ \t]*/, "", probe)
+      prefix = ""
+      if (probe ~ /^export[ \t]+/) { prefix = "export "; sub(/^export[ \t]+/, "", probe) }
       if (substr(probe, 1, length(k) + 1) == k "=") {
         if (mode == "set") {
-          if (!done) { print k "=" v; done = 1 }
+          if (!done) { print prefix k "=" v; done = 1 }
           next
         }
         if (mode == "comment") { print v line; next }
@@ -49,32 +51,57 @@ get_env_var() {
   [[ -f "$file" ]] || return 0
   ENV_KEY="$1" awk '
     BEGIN { k = ENVIRON["ENV_KEY"]; v = "" }
-    { line = $0; sub(/\r$/, "", line); sub(/^[ \t]*/, "", line)
+    { line = $0; sub(/\r$/, "", line); sub(/^[ \t]*/, "", line); sub(/^export[ \t]+/, "", line)
       if (substr(line, 1, length(k) + 1) == k "=") v = substr(line, length(k) + 2) }
     END { print v }
   ' "$file"
 }
 
+# Keys scripts/demo.sh writes to .env (the only names repair_glued_env splits on).
+DEMO_MANAGED_KEYS="ANONREQ_API_KEY ANONREQ_ADMIN_API_KEY ANONREQ_ADMIN_TENANT_ID ANONREQ_KMS_MASTER_KEY ANONREQ_ANCHOR_SIGNING_KEY POSTGRES_USER POSTGRES_PASSWORD MINIO_ROOT_USER MINIO_ROOT_PASSWORD ANONREQ_DEMO_MODEL XAI_API_KEY PROVIDER_API_KEY"
+
 # repair_glued_env FILE
-# Splits lines where a missing newline glued two assignments together, e.g.
-# XAI_BASE_URL=https://api.x.aiPROVIDER_API_KEY=xai-... . Only known demo
-# variable names are split off, so ordinary values are left alone. Prints
-# variable NAMES only (never values) to stderr.
+# Splits lines where a missing newline glued an assignment of a key this
+# script writes onto the previous line, e.g.
+#   XAI_BASE_URL=https://api.x.aiPROVIDER_API_KEY=xai-...
+# Conservative, so valid values are never corrupted: only exact names from
+# DEMO_MANAGED_KEYS, never when the name follows ?, &, ; or _ (URL query /
+# longer identifier), never inside a quoted value, never on comment lines.
+# Prints variable NAMES only (never values) to stderr.
 repair_glued_env() {
   local file="$1" tmp
   [[ -f "$file" ]] || return 0
   tmp=$(mktemp "${file}.XXXXXX")
   chmod 600 "$tmp"
-  awk '
-    function split_line(line,    eq, head, rest, pos, m) {
+  KEYS="$DEMO_MANAGED_KEYS" awk '
+    BEGIN { nk = split(ENVIRON["KEYS"], keys, " ") }
+    # first position in s (after index 1) where a managed KEY= starts, or 0
+    function find_glue(s,    i, p, best, from, prev, cut) {
+      best = 0
+      for (i = 1; i <= nk; i++) {
+        from = 1
+        while ((p = index(substr(s, from), keys[i] "=")) > 0) {
+          p += from - 1
+          prev = (p > 1) ? substr(s, p - 1, 1) : ""
+          if (p > 1 && prev !~ /[?&;_]/) { if (best == 0 || p < best) { best = p; blen[0] = length(keys[i]) } ; break }
+          from = p + 1
+        }
+      }
+      return best
+    }
+    function split_line(line,    eq, head, rest, p, probe) {
+      probe = line
+      sub(/^[ \t]*/, "", probe)
+      if (probe ~ /^#/) { print line; return }
       eq = index(line, "=")
-      if (eq == 0 || line ~ /^[ \t]*#/) { print line; return }
+      if (eq == 0) { print line; return }
       head = substr(line, 1, eq); rest = substr(line, eq + 1)
-      m = match(rest, /(PROVIDER_API_KEY|XAI_[A-Z0-9_]+|ANONREQ_[A-Z0-9_]+|MINIO_[A-Z0-9_]+|POSTGRES_[A-Z0-9_]+)=/)
-      if (m == 0) { print line; return }
-      print head substr(rest, 1, RSTART - 1)
-      fixed[++n] = substr(rest, RSTART, RLENGTH - 1)
-      split_line(substr(rest, RSTART))
+      if (rest ~ /^["\047]/) { print line; return }
+      p = find_glue(rest)
+      if (p == 0) { print line; return }
+      print head substr(rest, 1, p - 1)
+      fixed[++n] = substr(rest, p, blen[0])
+      split_line(substr(rest, p))
     }
     { l = $0; sub(/\r$/, "", l); split_line(l) }
     END { for (i = 1; i <= n; i++) printf "WARNING: .env had a glued line; split off %s onto its own line\n", fixed[i] > "/dev/stderr" }
