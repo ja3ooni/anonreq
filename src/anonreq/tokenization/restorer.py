@@ -10,6 +10,7 @@ Per PIPE-04, SSE-04, SSE-05:
 
 from __future__ import annotations
 
+import copy
 import re
 from typing import Any
 
@@ -80,6 +81,11 @@ class Restorer:
         if not mapping:
             return response
 
+        # Copy before the OpenAI choices walk. ``dict.copy()`` is shallow, so
+        # assigning ``message.content`` or ``function.arguments`` would rewrite
+        # the provider payload the caller still holds.
+        response = copy.deepcopy(response)
+
         restored: dict[str, Any] = {}
         for key, value in response.items():
             if isinstance(value, str):
@@ -98,15 +104,14 @@ class Restorer:
             else:
                 restored[key] = value
 
-        # Specific handling for OpenAI response structure:
-        # Deep-copy won't help with the nested choices[].message.content
-        # since the recursive walk above already handles it. But we also
-        # specifically walk the known OpenAI response path for clarity.
+        # Known OpenAI response path. ``response`` is already a deep copy,
+        # and each choice is copied again so nested message mutations stay
+        # off any structure shared with the caller.
         if "choices" in response and isinstance(response["choices"], list):
             restored_choices: list[dict[str, Any]] = []
             for choice in response["choices"]:
                 if isinstance(choice, dict):
-                    rc = choice.copy()
+                    rc = copy.deepcopy(choice)
                     if "message" in rc and isinstance(rc["message"], dict):
                         msg = rc["message"]
                         if "content" in msg and isinstance(msg["content"], str):

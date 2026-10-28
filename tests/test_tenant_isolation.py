@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 from starlette.requests import Request
@@ -29,7 +30,7 @@ class _FakeEnforcement:
     should_forward = True
     status_code = 200
     body = None
-    headers: dict[str, str] = {}
+    headers: ClassVar[dict[str, str]] = {}
 
 
 class _FakePEP:
