@@ -94,6 +94,27 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_ANCHOR_SIGNING_KEY",
         description="Optional HMAC signing key for tamper-evident audit chain anchors.",
     )
+    AUDIT_WRITE_ATTEMPTS: int = Field(
+        default=3,
+        ge=1,
+        le=5,
+        validation_alias="ANONREQ_AUDIT_WRITE_ATTEMPTS",
+        description=(
+            "Attempts for the anonymization audit-chain write, including the "
+            "first try. 1 fails closed immediately. The default retries "
+            "transient database errors, then fails closed."
+        ),
+    )
+    AUDIT_WRITE_BACKOFF_SECONDS: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        validation_alias="ANONREQ_AUDIT_WRITE_BACKOFF_SECONDS",
+        description=(
+            "Base delay in seconds for exponential backoff between "
+            "audit-chain write attempts. Capped at 1 second per wait."
+        ),
+    )
     ADMIN_API_KEY: str | None = Field(
         default=None,
         validation_alias="ANONREQ_ADMIN_API_KEY",

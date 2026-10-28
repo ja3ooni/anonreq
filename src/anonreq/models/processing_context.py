@@ -58,8 +58,9 @@ class ProcessingContext:
         processing_overhead_ms: Calculated elapsed milliseconds between
             request receipt and response dispatch, set by restoration.
         errors: List of exceptions recorded during pipeline execution.
-            Any non-empty list prevents downstream stage execution and
-            ensures a fail-secure HTTP 5xx response.
+        Any non-empty list prevents downstream forwarding. Guaranteed
+        cleanup and audit stages still run, and the original error stays
+        last so the HTTP response surfaces that failure.
     """
 
     request_id: str
@@ -117,8 +118,9 @@ class ProcessingContext:
 
         Any stage that encounters a non-recoverable error should call
         this method.  The pipeline manager checks ``has_errors()`` before
-        invoking each subsequent stage and returns immediately if errors
-        are present, ensuring no downstream stage — especially the
-        provider call — ever executes.
+        invoking each subsequent stage and skips it when errors are
+        present, ensuring no downstream stage — especially the provider
+        call — ever executes. Stages marked ``guaranteed`` still run so
+        the mapping is deleted and the audit event is written.
         """
         self.errors.append(error)

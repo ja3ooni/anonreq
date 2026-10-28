@@ -10,6 +10,7 @@ Per PIPE-01:
 
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import uuid4
@@ -350,6 +351,7 @@ async def _stream_chat_completions(
             tenant_id=proc_ctx.tenant_id,
             session_id=proc_ctx.context_id or "",
             audit_logger=logger,
+            processing_context=proc_ctx,
         )
         terminal_state = "FINISH"
         store_token = push_runtime_secret_store(stream_secret_store)
@@ -415,13 +417,27 @@ async def _stream_chat_completions(
             ))
             yield emitter.close_frame()
         finally:
+            propagating = sys.exc_info()[0] is not None
             tail_buffer.terminate()
             restoration.close_session()
             proc_ctx.terminal_state = terminal_state
-            await cleanup.cleanup(terminal_state)
+            cleanup_error: Exception | None = None
+            try:
+                await cleanup.cleanup(terminal_state)
+            except Exception as exc:
+                cleanup_error = exc
+                if propagating:
+                    logger.error(
+                        "stream.audit_failure_suppressed",
+                        request_id=proc_ctx.request_id,
+                        tenant_id=proc_ctx.tenant_id,
+                        error_type=type(exc).__name__,
+                    )
             reset_runtime_secret_store(store_token)
             if secret_rotation_buffer is not None:
                 secret_rotation_buffer.end_session(proc_ctx.context_id or "")
+            if cleanup_error is not None and not propagating:
+                raise cleanup_error
 
     headers = {
         **emitter.get_headers(),

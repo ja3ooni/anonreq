@@ -29,6 +29,10 @@ class PipelineStage(ABC):
             name: Stage name for logging (e.g. ``"ClassificationStage"``).
         """
         self.name = name
+        # Guaranteed stages (cleanup and audit) still run after an earlier
+        # stage has failed. Every other stage is skipped so nothing is
+        # forwarded.
+        self.guaranteed = False
 
     @abstractmethod
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
