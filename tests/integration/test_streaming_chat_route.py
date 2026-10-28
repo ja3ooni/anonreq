@@ -599,3 +599,39 @@ async def test_stream_early_exit_fails_closed_when_audit_fails(
         )
     assert excinfo.value.status_code == 500
     assert await cache.get_mapping("default", SESSION_ID) == {}
+
+
+@pytest.mark.asyncio
+async def test_stream_early_exit_reraises_cancellation_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    class _Cancelled(_AuditPreProvider):
+        async def run(self, proc_ctx: Any) -> Any:
+            raise asyncio.CancelledError
+
+    cache = await _make_cache()
+    app = FastAPI()
+    _install_streaming_state(app, cache, FakeStreamingAdapter(mode="success"))
+    chain = RecordingAuditChain(fail=False)
+    app.state.audit_chain = chain
+    monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
+    monkeypatch.setattr(
+        "anonreq.routing.chat.build_pre_provider_pipeline",
+        lambda *_args, **_kwargs: _Cancelled(),
+    )
+
+    async def is_disconnected() -> bool:
+        return False
+
+    request = SimpleNamespace(
+        app=app, state=SimpleNamespace(), headers={}, is_disconnected=is_disconnected,
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await _stream_chat_completions(
+            ChatRequest(model="fast", messages=[{"role": "user", "content": "hi"}], stream=True),
+            request,  # type: ignore[arg-type]
+            RequestContext(request_id="req_stream_cancel", tenant_id="default"),
+        )
+    assert chain.events == []

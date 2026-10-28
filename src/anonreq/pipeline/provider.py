@@ -102,11 +102,11 @@ class ProviderStage(PipelineStage):
             alias_name = str(request_body.get("model", ""))
             try:
                 model_alias = self._alias_registry.resolve(alias_name)
-            except AliasNotFoundError as exc:
+            except AliasNotFoundError:
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=400,
-                        message=str(exc),
+                        message="Unknown model alias",
                         request_id=ctx.request_id,
                     )
                 )
