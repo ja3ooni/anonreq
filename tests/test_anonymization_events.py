@@ -23,7 +23,7 @@ ADMIN_KEY = "adminkey12345678901234567890"
 RAW_VALUE = "secret-iban-DE89370400440532013000"
 
 
-def _event(index: int, entity_type: str = "EMAIL_ADDRESS") -> AuditEvent:
+def _event(index: int, entity_type: str = "EMAIL_ADDRESS", row_id: int | None = None) -> AuditEvent:
     return AuditEvent(
         event_id=f"e{index}",
         prev_hash=None,
@@ -48,6 +48,7 @@ def _event(index: int, entity_type: str = "EMAIL_ADDRESS") -> AuditEvent:
             "model": "gpt-4o",
             "raw_value": RAW_VALUE,
         }),
+        row_id=index + 1 if row_id is None else row_id,
     )
 
 
@@ -60,6 +61,7 @@ def events_app():
 
     @app.middleware("http")
     async def inject_role(request, call_next):
+        request.state.tenant_id = request.headers.get("X-AnonReq-Tenant-ID", "acme")
         role = request.headers.get("X-Test-Role")
         if role:
             request.state.role_principal = {
@@ -113,14 +115,16 @@ async def test_events_page_filters_and_shape(events_app: FastAPI) -> None:
                 "tenant_id": "acme",
                 "sort": "timestamp:asc",
                 "limit": 2,
-                "offset": 4,
+                "cursor": "2026-08-01T00:00:00Z|4",
             },
         )
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["total"] == 2
     assert body["limit"] == 2
-    assert body["offset"] == 4
+    assert body["next_cursor"] == "2026-08-01T00:00:01Z|2"
+    assert "offset" not in body
+    assert response.headers["cache-control"] == "no-store"
     assert len(body["items"]) == 2
     item = body["items"][0]
     assert item["request_id"] == "req-2"
@@ -142,7 +146,8 @@ async def test_events_page_filters_and_shape(events_app: FastAPI) -> None:
     assert kwargs["tenant_id"] == "acme"
     assert kwargs["sort"] == "timestamp:asc"
     assert kwargs["limit"] == 2
-    assert kwargs["offset"] == 4
+    assert kwargs["offset"] == 0
+    assert kwargs["cursor_id"] == 4
     assert kwargs["date_from"] is not None
     assert kwargs["date_to"] is not None
     count_kwargs = events_app.state.audit_chain.count_events.await_args.kwargs
@@ -163,7 +168,7 @@ async def test_events_default_sort_and_limit_bounds(events_app: FastAPI) -> None
             params={"limit": 201},
         )
     assert ok.status_code == 200
-    assert ok.json() == {"total": 0, "limit": 50, "offset": 0, "items": []}
+    assert ok.json() == {"total": 0, "limit": 50, "next_cursor": None, "items": []}
     assert events_app.state.audit_chain.get_events.await_args.kwargs["sort"] == "timestamp:desc"
     assert too_many.status_code == 422
 
@@ -175,11 +180,12 @@ async def test_events_csv_streams_past_10k(events_app: FastAPI) -> None:
 
     async def get_events(**kwargs):
         calls.append(kwargs)
-        offset = kwargs["offset"]
+        cursor_id = int(kwargs.get("cursor_id") or 0)
         limit = kwargs["limit"]
-        if offset >= total:
+        start = cursor_id
+        if start >= total:
             return []
-        return [_event(index) for index in range(offset, min(offset + limit, total))]
+        return [_event(index) for index in range(start, min(start + limit, total))]
 
     events_app.state.audit_chain.get_events.side_effect = get_events
     transport = ASGITransport(app=events_app)
@@ -212,7 +218,52 @@ async def test_events_csv_streams_past_10k(events_app: FastAPI) -> None:
     ]
     assert calls
     assert all(call["limit"] == ANONYMIZATION_EXPORT_PAGE_SIZE for call in calls)
-    assert any(call["offset"] >= 10000 for call in calls)
+    assert any(int(call.get("cursor_id") or 0) >= 10000 for call in calls)
     assert all(call["entity_type"] == "EMAIL_ADDRESS" for call in calls)
     assert all(call["sort"] == "timestamp:asc" for call in calls)
     assert all(call["limit"] != 10000 for call in calls)
+    assert all(call["tenant_id"] == "acme" for call in calls)
+
+
+@pytest.mark.asyncio
+async def test_events_reject_foreign_tenant(events_app: FastAPI) -> None:
+    transport = ASGITransport(app=events_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/v1/admin/anonymization-events",
+            headers=_headers(),
+            params={"tenant_id": "other"},
+        )
+    assert response.status_code == 403
+    events_app.state.audit_chain.get_events.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_events_csv_escapes_formulas_and_appends_error_trailer(
+    events_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dangerous = _event(0)
+    dangerous.request_id = "=cmd|' /C calc'!A0"
+
+    async def explode(*_args: object, **_kwargs: object):
+        yield dangerous
+        raise RuntimeError("database password leaked")
+
+    monkeypatch.setattr(
+        "anonreq.api.v1.admin.anonymization_events.iter_filtered_events",
+        explode,
+    )
+    transport = ASGITransport(app=events_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.get(
+            "/v1/admin/anonymization-events/export",
+            headers=_headers(),
+        )
+    assert response.status_code == 200
+    assert "database password leaked" not in response.text
+    rows = list(csv.DictReader(io.StringIO(response.text)))
+    assert rows[0]["request_id"].startswith("'=")
+    assert rows[-1]["request_id"] == "#error"
+    assert rows[-1]["decision"] == "export_failed"
+    assert response.headers["cache-control"] == "no-store"

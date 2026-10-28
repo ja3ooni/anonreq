@@ -292,6 +292,9 @@ class AuditChainService:
         date_from: datetime | None = None,
         date_to: datetime | None = None,
         entity_type: str | None = None,
+        sort: str | None = None,
+        cursor_timestamp: datetime | None = None,
+        cursor_id: int | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """Shared WHERE clause for event list and count queries."""
         clauses = ["1=1"]
@@ -312,6 +315,10 @@ class AuditChainService:
         if date_to is not None:
             clauses.append("timestamp <= :date_to")
             params["date_to"] = date_to
+        if cursor_timestamp is not None and cursor_id is not None:
+            clauses.append(self._cursor_clause(sort))
+            params["cursor_timestamp"] = cursor_timestamp
+            params["cursor_id"] = cursor_id
         if entity_type is not None:
             clauses.append(self._entity_type_clause())
             params["entity_type"] = entity_type
@@ -358,6 +365,23 @@ class AuditChainService:
         )
 
     @staticmethod
+    def _cursor_clause(sort: str | None) -> str:
+        """Keyset predicate on ``(timestamp, id)``.
+
+        Descending pages move strictly before the cursor. Ascending pages
+        move strictly after it. Equal timestamps use the integer id.
+        """
+        if sort == "timestamp:asc":
+            return (
+                "(timestamp > :cursor_timestamp OR "
+                "(timestamp = :cursor_timestamp AND id > :cursor_id))"
+            )
+        return (
+            "(timestamp < :cursor_timestamp OR "
+            "(timestamp = :cursor_timestamp AND id < :cursor_id))"
+        )
+
+    @staticmethod
     def _order_by(sort: str | None) -> str:
         if sort == "timestamp:asc":
             return " ORDER BY timestamp ASC, id ASC"
@@ -376,8 +400,14 @@ class AuditChainService:
         date_to: datetime | None = None,
         entity_type: str | None = None,
         sort: str | None = None,
+        cursor_timestamp: datetime | None = None,
+        cursor_id: int | None = None,
     ) -> list[AuditEvent]:
-        """Paginated, filterable event query."""
+        """Paginated, filterable event query.
+
+        ``cursor_timestamp`` and ``cursor_id`` together select the next
+        keyset page. ``offset`` remains for callers that still use it.
+        """
         where, params = self._event_where(
             tenant_id=tenant_id,
             event_type=event_type,
@@ -385,6 +415,9 @@ class AuditChainService:
             date_from=date_from,
             date_to=date_to,
             entity_type=entity_type,
+            sort=sort,
+            cursor_timestamp=cursor_timestamp,
+            cursor_id=cursor_id,
         )
         params["limit"] = limit
         params["offset"] = offset
@@ -450,4 +483,5 @@ class AuditChainService:
             new_value_hash=row.get("new_value_hash"),
             metadata_json=row.get("metadata_json"),
             retention_days=row.get("retention_days", 2557),
+            row_id=row.get("id"),
         )

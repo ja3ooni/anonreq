@@ -237,6 +237,36 @@ class TestAuditChainService:
         ) == 1
 
     @pytest.mark.anyio
+    async def test_keyset_cursor_on_timestamp_and_id(self, chain: AuditChainService) -> None:
+        first = _make_event("k1", "acme", event_type="anonymization")
+        first.timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+        second = _make_event("k2", "acme", event_type="anonymization")
+        second.timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+        third = _make_event("k3", "acme", event_type="anonymization")
+        third.timestamp = datetime(2026, 2, 1, tzinfo=UTC)
+        await chain.store_event(first)
+        await chain.store_event(second)
+        await chain.store_event(third)
+
+        page = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            sort="timestamp:asc",
+            limit=2,
+        )
+        assert [event.event_id for event in page] == ["k1", "k2"]
+        assert page[-1].row_id is not None
+        nxt = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            sort="timestamp:asc",
+            limit=2,
+            cursor_timestamp=page[-1].timestamp,
+            cursor_id=page[-1].row_id,
+        )
+        assert [event.event_id for event in nxt] == ["k3"]
+
+    @pytest.mark.anyio
     async def test_metadata_json_preserved(self, chain: AuditChainService) -> None:
         event = _make_event("m", "t1")
         event.metadata_json = '{"key": "value"}'

@@ -50,6 +50,7 @@ def preview_app(monkeypatch: pytest.MonkeyPatch):
 
     @app.middleware("http")
     async def inject_role(request, call_next):
+        request.state.tenant_id = request.headers.get("X-AnonReq-Tenant-ID", "acme")
         role = request.headers.get("X-Test-Role")
         if role:
             request.state.role_principal = {
@@ -58,6 +59,10 @@ def preview_app(monkeypatch: pytest.MonkeyPatch):
                 "tenant_id": "*",
             }
         return await call_next(request)
+
+    from anonreq.debug.preview import preview_rate_limiter
+
+    preview_rate_limiter.reset()
 
     app.include_router(preview_router)
     return app
@@ -159,6 +164,7 @@ async def test_preview_prompt_anonymizes_without_persisting(preview_app: FastAPI
     preview_app.state.cache_manager.delete_mapping.assert_not_called()
     preview_app.state.audit_chain.log_event.assert_not_called()
     assert preview_app.state.policy_store.calls == []
+    assert response.headers["cache-control"] == "no-store"
 
 
 @pytest.mark.asyncio
@@ -208,6 +214,63 @@ async def test_preview_policy_block_does_not_persist(preview_app: FastAPI) -> No
     preview_app.state.cache_manager.store_mapping.assert_not_called()
     preview_app.state.audit_chain.log_event.assert_not_called()
     assert ("block-all", "acme") in preview_app.state.policy_store.calls
+
+
+@pytest.mark.asyncio
+async def test_preview_rejects_foreign_tenant(preview_app: FastAPI) -> None:
+    transport = ASGITransport(app=preview_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/debug/anonymize-preview",
+            headers=_headers(),
+            json={"prompt": "ada@example.com", "tenant_id": "other"},
+        )
+    assert response.status_code == 403
+    preview_app.state.cache_manager.store_mapping.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_preview_rate_limit_is_per_admin(
+    preview_app: FastAPI,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "DEBUG_PREVIEW_RPM", 2)
+    from anonreq.debug.preview import preview_rate_limiter
+
+    preview_rate_limiter.reset()
+    transport = ASGITransport(app=preview_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        for _ in range(2):
+            ok = await client.post(
+                "/v1/debug/anonymize-preview",
+                headers=_headers(),
+                json={"prompt": "hello"},
+            )
+            assert ok.status_code == 200
+        limited = await client.post(
+            "/v1/debug/anonymize-preview",
+            headers=_headers(),
+            json={"prompt": "hello"},
+        )
+    assert limited.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_preview_does_not_log_the_body(preview_app: FastAPI) -> None:
+    import structlog
+
+    secret = "ada-secret@example.com"
+    with structlog.testing.capture_logs() as captured:
+        transport = ASGITransport(app=preview_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                "/v1/debug/anonymize-preview",
+                headers=_headers(),
+                json={"prompt": f"Reach {secret} today"},
+            )
+    assert response.status_code == 200, response.text
+    rendered = str(captured)
+    assert secret not in rendered
 
 
 def test_preview_pipeline_reuses_detection_and_skips_provider() -> None:

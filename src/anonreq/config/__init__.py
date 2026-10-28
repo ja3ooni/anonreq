@@ -244,6 +244,11 @@ class Settings(BaseSettings):
             "When false the route responds 404 and is not advertised."
         ),
     )
+    DEBUG_PREVIEW_RPM: int = Field(
+        default=30,
+        validation_alias="ANONREQ_DEBUG_PREVIEW_RPM",
+        description="Maximum anonymization previews per admin principal per minute.",
+    )
     CORS_ORIGINS: str = Field(
         default="",
         validation_alias="ANONREQ_CORS_ORIGINS",

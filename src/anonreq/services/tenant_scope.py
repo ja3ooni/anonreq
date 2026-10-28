@@ -1,0 +1,75 @@
+"""Bind audit reads to the caller's tenant.
+
+The legacy admin API key is not stored against a tenant. ``X-AnonReq-Tenant-ID``
+is the tenant context TenantContextMiddleware validates and copies onto
+``request.state.tenant_id``. An OIDC (or test) principal can carry a concrete
+``tenant_id`` claim, which is stronger than that header because the caller
+cannot swap it per request.
+
+``"*"`` means the credential is not tenant-bound. It is never treated as
+permission to read every tenant.
+"""
+
+from __future__ import annotations
+
+from fastapi import HTTPException, Request
+
+_WILDCARD_TENANT = "*"
+_MISMATCH_DETAIL = "tenant_id does not match the caller tenant"
+_MISSING_DETAIL = "Caller tenant could not be determined"
+
+
+def _concrete_tenant(value: object) -> str | None:
+    """Return a usable tenant id, or None for missing, blank, or wildcard."""
+    if not isinstance(value, str):
+        return None
+    tenant = value.strip()
+    if not tenant or tenant == _WILDCARD_TENANT or len(tenant) > 64:
+        return None
+    if any(ord(char) < 32 or char == "\x7f" for char in tenant):
+        return None
+    return tenant
+
+
+def _principal_tenant(principal: object) -> str | None:
+    if not isinstance(principal, dict):
+        return None
+    return _concrete_tenant(principal.get("tenant_id"))
+
+
+def caller_tenant(request: Request) -> str | None:
+    """Strongest tenant already attached to this request, if any.
+
+    Order:
+
+    1. ``request.state.role_principal["tenant_id"]`` when it names one tenant.
+    2. ``request.state.oidc_principal["tenant_id"]`` on the same rule, when the
+       role principal is absent or only carries the unbound wildcard.
+    3. ``request.state.tenant_id`` set by TenantContextMiddleware after the
+       header was checked against the tenant registry.
+    """
+    role_tenant = _principal_tenant(getattr(request.state, "role_principal", None))
+    if role_tenant is not None:
+        return role_tenant
+    oidc_tenant = _principal_tenant(getattr(request.state, "oidc_principal", None))
+    if oidc_tenant is not None:
+        return oidc_tenant
+    return _concrete_tenant(getattr(request.state, "tenant_id", None))
+
+
+def resolve_scoped_tenant(request: Request, requested_tenant_id: str | None) -> str:
+    """Return the tenant this caller may read.
+
+    A supplied ``tenant_id`` that is not the caller tenant is rejected with
+    HTTP 403. Omitting it scopes the query to the caller tenant. There is no
+    path that lists every tenant.
+    """
+    tenant = caller_tenant(request)
+    if tenant is None:
+        raise HTTPException(status_code=403, detail=_MISSING_DETAIL)
+    if requested_tenant_id is None:
+        return tenant
+    requested = requested_tenant_id.strip()
+    if not requested or requested == tenant:
+        return tenant
+    raise HTTPException(status_code=403, detail=_MISMATCH_DETAIL)

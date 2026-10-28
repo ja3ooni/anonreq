@@ -30,6 +30,7 @@ from structlog import get_logger
 
 from anonreq.__about__ import __version__
 from anonreq.admin.router import admin_router as rbac_admin_router
+from anonreq.admin.router import require_auth as require_rbac_admin_auth
 from anonreq.admin.routes import admin_router
 from anonreq.api.v1.admin.anonymization_events import router as anonymization_events_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
@@ -447,11 +448,13 @@ def create_app() -> FastAPI:
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
-    # Policies, providers, and the other RBAC admin routes. The router
-    # already depends on admin auth (OIDC or ANONREQ_ADMIN_API_KEY) plus
-    # per-route roles. It is not wrapped in the gateway API-key dependency
-    # so a distinct admin credential can authorize the call.
-    app.include_router(rbac_admin_router)
+    # Policies, providers, and the other RBAC admin routes. Router-level
+    # admin auth (OIDC or ANONREQ_ADMIN_API_KEY) is applied here as well as
+    # on the router itself. A distinct admin credential authorizes the call.
+    app.include_router(
+        rbac_admin_router,
+        dependencies=[Depends(require_rbac_admin_auth)],
+    )
     app.include_router(anonymization_events_router)
     app.include_router(debug_preview_router)
 

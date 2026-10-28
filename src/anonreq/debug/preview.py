@@ -10,6 +10,7 @@ route responds 404 before authentication.
 
 from __future__ import annotations
 
+import time
 from typing import Any
 from uuid import uuid4
 
@@ -25,6 +26,7 @@ from anonreq.pipeline.extraction import TextExtractor
 from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.policy.models import PolicyAction
 from anonreq.routing.chat import _raise_for_pipeline_errors, build_preview_pipeline
+from anonreq.services.tenant_scope import resolve_scoped_tenant
 from anonreq.state import get_app_state
 
 router = APIRouter(prefix="/v1/debug", tags=["debug"])
@@ -101,6 +103,30 @@ class AnonymizePreviewResponse(BaseModel):
     entities: list[PreviewEntity]
 
 
+class PreviewRateLimiter:
+    """In-memory per-admin preview limit. Does not touch the token cache."""
+
+    def __init__(self) -> None:
+        self._hits: dict[str, list[float]] = {}
+
+    def reset(self) -> None:
+        self._hits.clear()
+
+    def check(self, principal_id: str) -> None:
+        limit = settings.DEBUG_PREVIEW_RPM
+        if limit <= 0:
+            return
+        now = time.monotonic()
+        recent = [stamp for stamp in self._hits.get(principal_id, []) if now - stamp < 60.0]
+        if len(recent) >= limit:
+            raise HTTPException(status_code=429, detail="Preview rate limit exceeded")
+        recent.append(now)
+        self._hits[principal_id] = recent
+
+
+preview_rate_limiter = PreviewRateLimiter()
+
+
 async def require_preview_admin(
     request: Request,
     authorization: str | None = Header(None),
@@ -111,15 +137,28 @@ async def require_preview_admin(
     await require_administrator(request, authorization)
 
 
-def _tenant_id(request: Request, body: AnonymizePreviewRequest) -> str:
-    if body.tenant_id:
-        return body.tenant_id
-    if body.tenant:
-        return body.tenant
-    header_tenant = getattr(request.state, "tenant_id", None)
-    if isinstance(header_tenant, str) and header_tenant:
-        return header_tenant
-    return "default"
+def _scoped_tenant(request: Request, body: AnonymizePreviewRequest) -> str:
+    """Bind the preview to the caller tenant. A mismatch is HTTP 403."""
+    if (
+        body.tenant_id
+        and body.tenant
+        and body.tenant_id.strip() != body.tenant.strip()
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="tenant_id does not match the caller tenant",
+        )
+    requested = body.tenant_id if body.tenant_id is not None else body.tenant
+    return resolve_scoped_tenant(request, requested)
+
+
+def _principal_id(request: Request) -> str:
+    principal = getattr(request.state, "role_principal", None)
+    if isinstance(principal, dict):
+        principal_id = principal.get("principal_id")
+        if isinstance(principal_id, str) and principal_id:
+            return principal_id
+    return "admin"
 
 
 async def _enforce_policy(request: Request, tenant_id: str, policy_id: str | None) -> None:
@@ -233,8 +272,12 @@ async def anonymize_preview(
     request: Request,
     response: Response,
 ) -> AnonymizePreviewResponse:
-    """Preview detection and tokenization without persisting anything."""
-    tenant_id = _tenant_id(request, body)
+    """Preview detection and tokenization without persisting anything.
+
+    The request body is not logged.
+    """
+    preview_rate_limiter.check(_principal_id(request))
+    tenant_id = _scoped_tenant(request, body)
     await _enforce_policy(request, tenant_id, body.policy)
 
     request_id = getattr(request.state, "request_id", None) or f"req_{uuid4().hex[:24]}"
@@ -288,6 +331,7 @@ async def anonymize_preview(
             classification = name
             highest_entity = entity
 
+    response.headers["Cache-Control"] = "no-store"
     response.headers["X-AnonReq-Request-ID"] = request_id
     response.headers["X-AnonReq-Classification"] = classification
     response.headers["X-AnonReq-Highest-Entity"] = highest_entity

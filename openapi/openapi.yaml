@@ -298,8 +298,13 @@ paths:
         returned. `timestamp` is ISO-8601 UTC (`Z` suffix).
 
         Filters match the CSV export: `date_from`, `date_to`, `entity_type`,
-        and `tenant_id`. `sort` is `timestamp:desc` (default) or
+        and `tenant_id`. The tenant is the caller's tenant; a different
+        `tenant_id` is 403. `sort` is `timestamp:desc` (default) or
         `timestamp:asc`. `limit` defaults to 50 and cannot exceed 200.
+
+        Pagination is a keyset cursor on `timestamp|id`, not an offset.
+        Pass `next_cursor` from the previous page as `cursor`. `next_cursor`
+        is null on the last page. `total` is the full filter match count.
       operationId: listAnonymizationEvents
       security:
         - BearerAuth: []
@@ -325,16 +330,23 @@ paths:
             minimum: 1
             maximum: 200
             default: 50
-        - name: offset
+        - name: cursor
           in: query
           required: false
           schema:
-            type: integer
-            minimum: 0
-            default: 0
+            type: string
+            nullable: true
+          description: >
+            Keyset cursor `timestamp|id` from the previous page's
+            `next_cursor`. Omit for the first page.
       responses:
         "200":
-          description: Page of anonymization events.
+          description: Keyset page of anonymization events.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
           content:
             application/json:
               schema:
@@ -344,7 +356,7 @@ paths:
                   value:
                     total: 2
                     limit: 50
-                    offset: 0
+                    next_cursor: "2026-08-14T09:00:00Z|17"
                     items:
                       - request_id: req_abc
                         timestamp: "2026-08-14T09:00:00Z"
@@ -1069,15 +1081,18 @@ components:
             $ref: "#/components/schemas/EntityTypeCount"
     AnonymizationEventsResponse:
       type: object
-      required: [total, limit, offset, items]
+      required: [total, limit, items]
       additionalProperties: false
       properties:
         total:
           type: integer
         limit:
           type: integer
-        offset:
-          type: integer
+        next_cursor:
+          type: string
+          nullable: true
+          description: "`timestamp|id` of the last row, or null on the last page."
+          example: "2026-08-14T09:00:00Z|17"
         items:
           type: array
           items:
