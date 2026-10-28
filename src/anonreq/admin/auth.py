@@ -6,6 +6,7 @@ import hmac
 from typing import Any
 
 from fastapi import Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from anonreq.auth.oidc import OIDCVerificationError, build_oidc_verifier
 from anonreq.config import settings
@@ -78,7 +79,7 @@ async def _verify_admin_credential(
             )
 
         scheme, _, token = authorization.partition(" ")
-        if scheme.lower() != "bearer" or not hmac.compare_digest(
+        if scheme.lower() != "bearer" or not safe_compare(
             token, settings.ADMIN_API_KEY or ""
         ):
             raise HTTPException(
@@ -98,15 +99,49 @@ _MAX_TENANT_LEN = 64
 
 
 def _clean_tenant(value: object) -> str | None:
-    """A concrete tenant id, or None for missing, blank, ``*`` or malformed."""
+    """A concrete tenant id, or None for missing, blank, ``*`` or malformed.
+
+    Malformed means longer than 64 characters, or containing anything other
+    than printable ASCII (control characters, DEL, non-ASCII).
+    """
     if not isinstance(value, str):
         return None
     tenant = value.strip()
     if not tenant or tenant == "*" or len(tenant) > _MAX_TENANT_LEN:
         return None
-    if any(ord(char) < 32 or char == "\x7f" for char in tenant):
+    if not tenant.isascii() or any(ord(char) < 32 or char == "\x7f" for char in tenant):
         return None
     return tenant
+
+
+INVALID_TENANT_HEADER_BODY: dict[str, str] = {
+    "error": "invalid_tenant",
+    "message": "Invalid X-AnonReq-Tenant-ID header",
+}
+
+
+class InvalidTenantHeaderError(Exception):
+    """A present ``X-AnonReq-Tenant-ID`` that ``_clean_tenant`` rejects.
+
+    Mapped to 400 with ``INVALID_TENANT_HEADER_BODY`` (the same shape
+    ``TenantContextMiddleware`` returns) by ``invalid_tenant_header_handler``.
+    """
+
+
+async def invalid_tenant_header_handler(_request: Request, _exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=400, content=dict(INVALID_TENANT_HEADER_BODY))
+
+
+def tenant_header_is_invalid(raw: str | None) -> bool:
+    """True when the header is present but not a usable tenant id."""
+    return raw is not None and raw.strip() != "" and _clean_tenant(raw) is None
+
+
+def safe_compare(a: str, b: str) -> bool:
+    """Constant-time compare that never raises on non-ASCII input."""
+    return hmac.compare_digest(
+        a.encode("utf-8", "surrogatepass"), b.encode("utf-8", "surrogatepass"),
+    )
 
 
 def validate_admin_settings() -> None:
@@ -134,6 +169,8 @@ def _reject_header_mismatch(request: Request, tenant: str) -> None:
     raw = request.headers.get("X-AnonReq-Tenant-ID")
     if raw is None:
         return
+    if tenant_header_is_invalid(raw):
+        raise InvalidTenantHeaderError()
     if raw.strip() != tenant:
         raise HTTPException(
             status_code=403,
@@ -208,10 +245,10 @@ async def _bind_admin_principal(
 
     admin_key = settings.ADMIN_API_KEY or ""
     gateway_key = settings.API_KEY or ""
-    if admin_key and hmac.compare_digest(token, admin_key):
+    if admin_key and safe_compare(token, admin_key):
         request.state.role_principal = admin_key_principal(request)
         return
-    if gateway_key and hmac.compare_digest(token, gateway_key):
+    if gateway_key and safe_compare(token, gateway_key):
         raise HTTPException(
             status_code=403,
             detail=f"Gateway API key cannot access {route_label} routes",

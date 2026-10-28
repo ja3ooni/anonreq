@@ -201,8 +201,121 @@ def test_single_tenant_with_several_tenants_fails_startup(
     create_app()
 
 
-def test_single_tenant_with_one_tenant_starts(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_single_tenant_with_one_tenant_starts(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any,
+) -> None:
     import anonreq.config as config
 
+    tenants = tmp_path / "tenants.yaml"
+    tenants.write_text("tenants:\n  - tenant_id: default\n    enabled: true\n")
+    monkeypatch.setenv("ANONREQ_TENANTS_CONFIG_PATH", str(tenants))
+    monkeypatch.setattr(config.settings, "TENANTS_CONFIG_PATH", str(tenants))
     monkeypatch.setattr(config.settings, "SINGLE_TENANT", True)
-    create_app()
+    app = create_app()
+    assert [p.tenant_id for p in app.state.tenant_registry.list_all()] == ["default"]
+
+
+@pytest.mark.asyncio
+async def test_single_tenant_no_admin_default_when_oidc_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OIDC on: the admin key gets no default tenant, so no header is 400."""
+    from starlette.requests import Request
+
+    import anonreq.config as config
+    from anonreq.middleware.tenant import _single_tenant_default
+
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", True)
+    scope = {
+        "type": "http", "method": "GET", "path": "/v1/x", "query_string": b"",
+        "headers": [(b"authorization", f"Bearer {settings.ADMIN_API_KEY}".encode())],
+    }
+    assert _single_tenant_default(Request(scope)) == settings.ADMIN_TENANT_ID
+    monkeypatch.setattr(config.settings, "OIDC_ISSUER", "https://issuer.test")
+    monkeypatch.setattr(config.settings, "OIDC_AUDIENCE", "anonreq")
+    monkeypatch.setattr(config.settings, "OIDC_JWKS_URL", "https://issuer.test/jwks")
+    assert _single_tenant_default(Request(scope)) == ""
+
+    app = _app(monkeypatch)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(
+            _AUDIT_ROUTES[0], headers={"Authorization": f"Bearer {settings.ADMIN_API_KEY}"},
+        )
+    assert response.status_code == 400
+    assert response.json()["error"] == "missing_tenant"
+
+
+_BAD_TENANT_HEADERS = {
+    "non_ascii": "défault".encode(),
+    "non_ascii_latin1": "d\xe9fault".encode("latin-1"),
+    "control_char": b"def\x01ault",
+    "del_char": b"def\x7fault",
+    "over_long": b"t" * 65,
+}
+_CHAT = "/v1/chat/completions"
+
+
+async def _bad_header_call(client: AsyncClient, path: str, key: str, value: bytes) -> Any:
+    headers = [
+        (b"authorization", f"Bearer {key}".encode()),
+        (b"x-anonreq-tenant-id", value),
+    ]
+    if path == _CHAT:
+        return await client.post(
+            path, headers=headers,
+            json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hi"}]},
+        )
+    return await client.get(path, headers=headers)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("single_tenant", [False, True])
+@pytest.mark.parametrize("path", [_CHAT, *_AUDIT_ROUTES])
+@pytest.mark.parametrize("case", sorted(_BAD_TENANT_HEADERS))
+async def test_malformed_tenant_header_is_400_invalid_tenant(
+    monkeypatch: pytest.MonkeyPatch, path: str, case: str, single_tenant: bool,
+) -> None:
+    import anonreq.config as config
+
+    app = _app(monkeypatch)
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", single_tenant)
+    key = settings.API_KEY if path == _CHAT else settings.ADMIN_API_KEY
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await _bad_header_call(client, path, key or "", _BAD_TENANT_HEADERS[case])
+    assert response.status_code == 400, response.text
+    assert response.json() == {
+        "error": "invalid_tenant",
+        "message": "Invalid X-AnonReq-Tenant-ID header",
+    }
+    app.state.audit_chain.get_events.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", [_CHAT, *_AUDIT_ROUTES])
+async def test_non_ascii_authorization_does_not_crash(
+    monkeypatch: pytest.MonkeyPatch, path: str,
+) -> None:
+    """Single-tenant default compares the key; non-ASCII must not be a 500."""
+    import anonreq.config as config
+
+    app = _app(monkeypatch)
+    monkeypatch.setattr(config.settings, "SINGLE_TENANT", True)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get(
+            path, headers=[(b"authorization", "Bearer clé".encode())],
+        )
+    assert response.status_code == 400
+    assert response.json()["error"] == "missing_tenant"
+
+
+@pytest.mark.parametrize("case", sorted(_BAD_TENANT_HEADERS))
+def test_admin_auth_rejects_malformed_header_outside_middleware(case: str) -> None:
+    """Admin auth itself maps a malformed header to InvalidTenantHeaderError."""
+    from starlette.requests import Request
+
+    scope = {
+        "type": "http", "method": "GET", "path": "/x", "query_string": b"",
+        "headers": [(b"x-anonreq-tenant-id", _BAD_TENANT_HEADERS[case])],
+    }
+    with pytest.raises(admin_auth.InvalidTenantHeaderError):
+        admin_auth._reject_header_mismatch(Request(scope), "default")

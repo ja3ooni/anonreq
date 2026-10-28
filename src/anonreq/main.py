@@ -370,6 +370,9 @@ def create_app() -> FastAPI:
 
     # Register fail-secure exception handlers (order matters — specific first)
     app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
+    from anonreq.admin.auth import InvalidTenantHeaderError, invalid_tenant_header_handler
+
+    app.add_exception_handler(InvalidTenantHeaderError, invalid_tenant_header_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Add MetricsMiddleware for Prometheus request counting and latency

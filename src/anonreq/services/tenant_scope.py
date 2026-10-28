@@ -30,7 +30,7 @@ def _concrete_tenant(value: object) -> str | None:
     tenant = value.strip()
     if not tenant or tenant == _WILDCARD_TENANT or len(tenant) > 64:
         return None
-    if any(ord(char) < 32 or char == "\x7f" for char in tenant):
+    if not tenant.isascii() or any(ord(char) < 32 or char == "\x7f" for char in tenant):
         return None
     return tenant
 

@@ -34,11 +34,15 @@ def _single_tenant_default(request: Request) -> str:
     other request without ``X-AnonReq-Tenant-ID`` still gets 400
     ``missing_tenant``. The key itself is verified later by the route.
     """
-    import hmac
-
+    from anonreq.admin.auth import _oidc_configured, safe_compare
     from anonreq.config import settings
 
     if not settings.SINGLE_TENANT:
+        return ""
+    # With OIDC enabled the legacy admin key is refused by admin auth (it is
+    # not a JWT), so it must not get a default tenant here either; OIDC
+    # callers send the header and their claim is checked against it.
+    if _oidc_configured():
         return ""
     scheme, _, token = request.headers.get("Authorization", "").partition(" ")
     admin_key = settings.ADMIN_API_KEY or ""
@@ -46,7 +50,7 @@ def _single_tenant_default(request: Request) -> str:
         scheme.lower() == "bearer"
         and admin_key
         and settings.ADMIN_TENANT_ID
-        and hmac.compare_digest(token, admin_key)
+        and safe_compare(token, admin_key)
     ):
         return settings.ADMIN_TENANT_ID.strip()
     return ""
@@ -94,8 +98,14 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         if request.url.path in _SKIP_PATHS or not request.url.path.startswith("/v1/"):
             return await call_next(request)
 
-        # Extract tenant_id from header
-        tenant_id = request.headers.get("X-AnonReq-Tenant-ID", "").strip()
+        from anonreq.admin.auth import INVALID_TENANT_HEADER_BODY, tenant_header_is_invalid
+
+        # Extract tenant_id from header. A present header must be printable
+        # ASCII, at most 64 characters, and not "*" (``_clean_tenant``).
+        raw_tenant = request.headers.get("X-AnonReq-Tenant-ID")
+        if tenant_header_is_invalid(raw_tenant):
+            return JSONResponse(status_code=400, content=dict(INVALID_TENANT_HEADER_BODY))
+        tenant_id = (raw_tenant or "").strip()
 
         # Single-tenant mode: a missing header defaults to the configured
         # tenant. A header that is present is still validated, and the admin
