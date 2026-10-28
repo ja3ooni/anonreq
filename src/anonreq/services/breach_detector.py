@@ -199,7 +199,11 @@ class BreachDetector:
                 if 200 <= response.status_code < 300:
                     return True
             except Exception as e:
-                logger.warning("breach_detector.webhook_failed", attempt=attempt+1, error=str(e))
+                logger.warning(
+                    "breach_detector.webhook_failed",
+                    attempt=attempt + 1,
+                    error=type(e).__name__,
+                )
 
             if attempt < self._retry_max - 1:
                 sleep_seconds = self._retry_backoff_base * (2 ** attempt)
@@ -218,7 +222,7 @@ class BreachDetector:
         if exc is not None:
             logger.error(
                 "breach_webhook_task_failed",
-                error=str(exc),
+                error=type(exc).__name__,
             )
 
     async def _deliver_to_dlq(self, event: BreachEvent) -> None:

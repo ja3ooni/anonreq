@@ -69,6 +69,7 @@ from anonreq.health import router as health_router
 from anonreq.license.router import router as license_router
 from anonreq.license.validator import require_license
 from anonreq.logging_config import setup_logging
+from anonreq.middleware.access_log import AccessLogMiddleware
 from anonreq.middleware.classification import ClassificationMiddleware
 from anonreq.middleware.content_type import ContentTypeMiddleware
 from anonreq.middleware.mtls import IngressMTLSMiddleware
@@ -428,6 +429,10 @@ def create_app() -> FastAPI:
                 content=generate_latest(REGISTRY),
                 media_type="text/plain; charset=utf-8",
             )
+
+    # Added before set_request_context so that middleware stays outermost
+    # and this access log runs only after request_id exists.
+    app.add_middleware(AccessLogMiddleware)
 
     # Middleware: set request_id BEFORE auth runs so it's available in
     # 401 error responses (per RESEARCH Open Question 4).

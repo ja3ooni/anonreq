@@ -77,4 +77,4 @@ HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=5s \
     CMD python -c "import os, urllib.request; req = urllib.request.Request('http://localhost:8080/health', headers={'Authorization': 'Bearer ' + os.environ['ANONREQ_API_KEY']}); urllib.request.urlopen(req, timeout=5).read()"
 
 # --no-server-header per RESEARCH Pitfall 2 (prevents Uvicorn version leak)
-CMD ["uvicorn", "anonreq.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-server-header"]
+CMD ["uvicorn", "anonreq.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-server-header", "--no-access-log"]

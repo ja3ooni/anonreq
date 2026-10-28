@@ -60,6 +60,23 @@ class MNPIConfig:
         )
 
 
+
+_ID_CHARS = re.compile(r"[A-Za-z0-9-]")
+_SITE_ID = re.compile(r"[A-Z]{2,5}(?:-[A-Z0-9]{2,10})+-\d{2,6}")
+
+
+def _inside_site_id(text: str, start: int, end: int) -> bool:
+    """Return True when [start, end) is part of a hyphenated site-ID token."""
+    left = start
+    while left > 0 and _ID_CHARS.match(text[left - 1]):
+        left -= 1
+    right = end
+    while right < len(text) and _ID_CHARS.match(text[right]):
+        right += 1
+    token = text[left:right]
+    return "-" in token and _SITE_ID.fullmatch(token) is not None
+
+
 class MNPIRecognizer:
     """Recognizes Material Non-Public Information in text.
 
@@ -135,6 +152,10 @@ class MNPIRecognizer:
             raw = match.group()
             # Skip if word is in excluded list
             if raw.upper() in self._excluded:
+                continue
+            # Skip fragments of site-ID-shaped tokens (UW-NORD-0417). German
+            # compounds such as "SAP-Aktie" or "BASF-Kurs" stay tickers.
+            if _inside_site_id(text, match.start(), match.end()):
                 continue
             # Skip if the core ticker part is too short
             core = raw.split(".")[0]

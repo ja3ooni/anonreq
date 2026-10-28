@@ -14,8 +14,9 @@ from typing import Any
 
 from prometheus_client import Counter
 
+from anonreq.logging_config import scrub_log_value
 from anonreq.soc.event import SeverityLevel
-from anonreq.soc.sinks import SinkStatus
+from anonreq.soc.sinks import SinkStatus, scrubbed_normalized_event
 
 logger = logging.getLogger("anonreq.soc.sinks.qradar_cef")
 
@@ -80,7 +81,7 @@ class QRadarCEFSink:
                     "QRadar CEF sink start: connection to %s:%d failed: %s",
                     self._host,
                     self._port,
-                    str(exc),
+                    type(exc).__name__,
                 )
                 self._writer = None
 
@@ -106,32 +107,35 @@ class QRadarCEFSink:
         Returns:
             CEF-formatted syslog string.
         """
-        sig_id = event.mitre_technique_id or "0"
+        safe = scrubbed_normalized_event(event)
+        sig_id = safe["mitre_technique_id"] or "0"
         cef_severity = _SEVERITY_MAP.get(event.severity, 1)
         # Sanitize event name (no pipes in CEF field #6)
-        event_name = event.event_type.replace("|", "/")
+        event_name = str(safe["event_type"]).replace("|", "/")
 
         extension_parts = [
-            f"tenantId={event.tenant_id}",
-            f"sessionId={event.session_id}",
-            f"gatewayVersion={event.gateway_version}",
-            f"applianceId={event.appliance_instance_id}",
+            f"tenantId={safe['tenant_id']}",
+            f"sessionId={safe['session_id']}",
+            f"gatewayVersion={safe['gateway_version']}",
+            f"applianceId={safe['appliance_instance_id']}",
         ]
 
-        if event.mitre_technique_id:
-            extension_parts.append(f"mitreTechniqueId={event.mitre_technique_id}")
-        if self._source_host:
-            extension_parts.append(f"src={self._source_host}")
+        if safe["mitre_technique_id"]:
+            extension_parts.append(f"mitreTechniqueId={safe['mitre_technique_id']}")
+        source_host = scrub_log_value(self._source_host)
+        if isinstance(source_host, str) and source_host:
+            extension_parts.append(f"src={source_host}")
 
         # Add metadata fields
-        for key, value in (event.metadata or {}).items():
+        metadata = safe["metadata"] if isinstance(safe["metadata"], dict) else {}
+        for key, value in metadata.items():
             # ArcSight extension keys use camelCase
-            cef_key = _to_cef_extension_key(key)
-            cef_value = _sanitize_cef_value(str(value))
+            cef_key = _to_cef_extension_key(str(key))
+            cef_value = _sanitize_cef_value(value if isinstance(value, str) else str(value))
             extension_parts.append(f"{cef_key}={cef_value}")
 
         cef_header = (
-            f"CEF:0|AnonReq|Appliance|{event.gateway_version}|"
+            f"CEF:0|AnonReq|Appliance|{safe['gateway_version']}|"
             f"{sig_id}|{event_name}|{cef_severity}"
         )
         return f"{cef_header} {' '.join(extension_parts)}"
@@ -190,7 +194,7 @@ class QRadarCEFSink:
         except (OSError, ConnectionError) as exc:
             logger.warning(
                 "QRadar TCP send error: %s",
-                str(exc),
+                type(exc).__name__,
                 extra={"sink_name": self.name},
             )
             self._writer = None
@@ -212,7 +216,7 @@ class QRadarCEFSink:
         except (OSError, ConnectionError) as exc:
             logger.warning(
                 "QRadar UDP send error: %s",
-                str(exc),
+                type(exc).__name__,
                 extra={"sink_name": self.name},
             )
             return False
@@ -238,7 +242,7 @@ class QRadarCEFSink:
             return SinkStatus(
                 healthy=False,
                 reachable=False,
-                last_error=str(exc),
+                last_error=type(exc).__name__,
             )
 
 
