@@ -14,10 +14,40 @@ from __future__ import annotations
 
 from typing import Any
 
-from anonreq.detection.regex_patterns import ENTITY_SPECIFICITY
+from anonreq.detection.regex_patterns import ENTITY_SPECIFICITY, IRREVERSIBLE_ENTITY_TYPES
 
 # Re-export for convenient access from other modules
 __all__ = ["ENTITY_SPECIFICITY", "SpanArbiter"]
+
+# Detector sources whose spans must never be unmasked or restored.
+_PROTECTED_SOURCES = frozenset({"enterprise", "mnpi"})
+
+
+def _with_flags(span: dict[str, Any], source_tag: str) -> dict[str, Any]:
+    """Copy ``span`` and set its ``protected`` and ``irreversible`` flags.
+
+    A span is protected when it comes from a secret or MNPI detector, has
+    an irreversible or MNPI type, or was already flagged by the caller.
+    Protected spans are irreversible: they are never restored.
+    """
+    entity_type = str(span.get("entity_type", ""))
+    irreversible = (
+        bool(span.get("irreversible"))
+        or span.get("reversible") is False
+        or entity_type in IRREVERSIBLE_ENTITY_TYPES
+    )
+    protected = (
+        bool(span.get("protected"))
+        or span.get("source") in _PROTECTED_SOURCES
+        or entity_type.startswith("MNPI_")
+        or irreversible
+    )
+    return {
+        **span,
+        "_source": source_tag,
+        "protected": protected,
+        "irreversible": irreversible or protected,
+    }
 
 
 class SpanArbiter:
@@ -61,10 +91,10 @@ class SpanArbiter:
 
         # Tag each result with its source (copy dicts to avoid mutating caller data).
         # Only the regex-detector list receives the exact-overlap precedence.
-        tagged: list[dict[str, Any]] = [{**r, "_source": "regex"} for r in regex_results]
-        tagged.extend({**r, "_source": "ner"} for r in ner_results)
+        tagged: list[dict[str, Any]] = [_with_flags(r, "regex") for r in regex_results]
+        tagged.extend(_with_flags(r, "ner") for r in ner_results)
         for extra in additional_results:
-            tagged.extend({**r, "_source": "other"} for r in extra)
+            tagged.extend(_with_flags(r, "other") for r in extra)
 
         combined = tagged
         # Sort by start position ascending, then by score descending
@@ -125,8 +155,19 @@ class SpanArbiter:
 
     @staticmethod
     def _cover_union(winner: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
-        """Return ``winner`` expanded to the union of both ranges."""
+        """Return ``winner`` expanded to the union of both ranges.
+
+        The merged span inherits ``protected`` and ``irreversible`` from
+        either side, so a secret absorbed by an ordinary type that wins
+        the overlap is still never unmasked or restored.
+        """
         covered = {**winner}
+        covered["protected"] = bool(winner.get("protected")) or bool(other.get("protected"))
+        covered["irreversible"] = bool(winner.get("irreversible")) or bool(
+            other.get("irreversible")
+        )
+        if covered["irreversible"]:
+            covered["reversible"] = False
         covered["start"] = min(int(winner["start"]), int(other["start"]))
         covered["end"] = max(int(winner["end"]), int(other["end"]))
         return covered
