@@ -1,13 +1,17 @@
 """Bind audit reads to the caller's tenant.
 
-The legacy admin API key is not stored against a tenant. ``X-AnonReq-Tenant-ID``
-is the tenant context TenantContextMiddleware validates and copies onto
-``request.state.tenant_id``. An OIDC (or test) principal can carry a concrete
-``tenant_id`` claim, which is stronger than that header because the caller
-cannot swap it per request.
+The legacy admin API key is not stored against a tenant. ``verify_admin_api_key``
+and the admin router's API-key fallback set the principal ``tenant_id`` to
+``"*"``. That wildcard means the credential is not tenant-bound. It is never
+permission to read every tenant. For a ``"*"`` principal the tenant comes from
+the ``X-AnonReq-Tenant-ID`` header, after ``TenantContextMiddleware`` has
+checked it against the tenant registry and copied it to
+``request.state.tenant_id``. Any holder of that key can still choose a tenant
+by sending a different header.
 
-``"*"`` means the credential is not tenant-bound. It is never treated as
-permission to read every tenant.
+A concrete OIDC (or test) ``tenant_id`` is stronger than the header, because
+the caller cannot swap the claim per request. Binding the key itself to a
+tenant is tracked in https://github.com/ja3ooni/anonreq/issues/7.
 """
 
 from __future__ import annotations
@@ -73,8 +77,9 @@ def caller_tenant(request: Request) -> str | None:
     1. ``request.state.role_principal["tenant_id"]`` when it names one tenant.
     2. ``request.state.oidc_principal["tenant_id"]`` on the same rule, when the
        role principal is absent or only carries the unbound wildcard.
-    3. ``request.state.tenant_id`` set by TenantContextMiddleware after the
-       header was checked against the tenant registry.
+    3. ``request.state.tenant_id`` from ``X-AnonReq-Tenant-ID``. This is the
+       fallback when the principal is missing or is the legacy ``"*"`` admin
+       key. See https://github.com/ja3ooni/anonreq/issues/7.
     """
     role_tenant = _principal_tenant(getattr(request.state, "role_principal", None))
     if role_tenant is not None:

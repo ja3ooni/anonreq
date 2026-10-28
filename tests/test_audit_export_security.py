@@ -30,7 +30,7 @@ from anonreq.services.audit_export import (
 
 FAKE_IBAN = "DE22710190115300059797"
 FAKE_EMAIL = "jürgen.groß@beispiel-mail.example"
-_FORMULA_LEAD = "=+-@\t\r"
+_FORMULA_LEAD = "=+-@\t\r\n|\uff1d\uff0b\uff0d\uff20"
 _BASE = {
     "entity_types": ["IBAN_DE", "EMAIL_ADDRESS"],
     "entity_counts": {"IBAN_DE": 1, "EMAIL_ADDRESS": 1},
@@ -38,6 +38,12 @@ _BASE = {
     "locale": "de-DE",
     "compliance_preset": "germany",
 }
+from anonreq.admin.auth import bind_governance_role
+
+
+async def _principal_from_test_middleware() -> None:
+    """Keep the principal the test middleware put on request.state."""
+    return None
 
 
 def _event(**overrides: object) -> SimpleNamespace:
@@ -101,6 +107,9 @@ def _app(service: AuditChainService, mode: str = "header") -> FastAPI:
         return await call_next(request)
 
     app.include_router(admin_audit_router)
+    # Route-logic tests: the middleware above stands in for auth.
+    # Real credential checks are in test_governance_create_app_auth.py.
+    app.dependency_overrides[bind_governance_role] = _principal_from_test_middleware
     app.include_router(governance_router)
     return app
 
@@ -322,6 +331,38 @@ async def test_config_history_and_export_are_tenant_scoped(
         assert "cfg-b" not in export_mismatch.text
 
 
+async def test_governance_audit_routes_require_security_officer(
+    audit_service: AuditChainService,
+) -> None:
+    app = _app(audit_service)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://t") as client:
+        missing = await client.get("/v1/governance/audit/events")
+        assert missing.status_code == 401
+        missing_verify = await client.get("/v1/governance/audit/verify")
+        assert missing_verify.status_code == 401
+
+        operator = {
+            "Authorization": "Bearer x",
+            "X-AnonReq-Role": "operator",
+            "X-AnonReq-Tenant-ID": "tenant_a",
+        }
+        assert (
+            await client.get("/v1/governance/audit/events", headers=operator)
+        ).status_code == 403
+        assert (
+            await client.get("/v1/governance/audit/verify", headers=operator)
+        ).status_code == 403
+
+        officer = {
+            "Authorization": "Bearer x",
+            "X-AnonReq-Role": "security_officer",
+            "X-AnonReq-Tenant-ID": "tenant_a",
+        }
+        allowed = await client.get("/v1/governance/audit/events", headers=officer)
+        assert allowed.status_code == 200
+        assert {row["tenant_id"] for row in allowed.json()["data"]} == {"tenant_a"}
+
+
 async def test_governance_audit_reads_follow_caller_tenant(
     audit_service: AuditChainService,
 ) -> None:
@@ -515,6 +556,15 @@ def test_csv_preserves_unicode_when_the_field_is_allowed() -> None:
     )
     assert payload.startswith(b"\xef\xbb\xbf")
     assert "München" in payload.decode("utf-8-sig")
+
+
+def test_csv_escapes_pipe_and_fullwidth_formula_leads() -> None:
+    leads = ("|", "\n", "\uff1d", "\uff0b", "\uff0d", "\uff20")
+    for lead in leads:
+        escaped = escape_csv_formula(lead + "cmd")
+        assert escaped == "'" + lead + "cmd"
+        padded = escape_csv_formula(" " + lead + "cmd")
+        assert padded == "' " + lead + "cmd"
 
 
 def test_csv_formula_prefix_and_bom() -> None:

@@ -11,10 +11,15 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from anonreq.admin.auth import bind_governance_role
 from anonreq.middleware.rbac import Role, require_role
 from anonreq.services.tenant_scope import resolve_scoped_tenant
 
-router = APIRouter(prefix="/v1/governance", tags=["governance"])
+router = APIRouter(
+    prefix="/v1/governance",
+    tags=["governance"],
+    dependencies=[Depends(bind_governance_role)],
+)
 
 
 @router.get("/audit/status")
@@ -37,7 +42,10 @@ async def governance_audit_status(request: Request) -> dict[str, Any]:
     }
 
 
-@router.get("/audit/events")
+@router.get(
+    "/audit/events",
+    dependencies=[Depends(require_role(Role.SECURITY_OFFICER))],
+)
 async def list_audit_events(
     request: Request,
     tenant_id: str | None = None,
@@ -47,8 +55,9 @@ async def list_audit_events(
 ) -> dict[str, Any]:
     """GET /v1/governance/audit/events — paginated audit event list.
 
-    Returns events with their hash chain metadata for the caller's tenant.
-    A ``tenant_id`` query that names a different tenant is rejected.
+    Requires ``security_officer`` or ``administrator``. Returns events with
+    their hash chain metadata for the caller's tenant. A ``tenant_id`` query
+    that names a different tenant is rejected.
     """
     scoped_tenant = resolve_scoped_tenant(request, tenant_id)
     chain = getattr(request.app.state, "audit_chain", None)
@@ -77,15 +86,19 @@ async def list_audit_events(
     }
 
 
-@router.get("/audit/verify")
+@router.get(
+    "/audit/verify",
+    dependencies=[Depends(require_role(Role.SECURITY_OFFICER))],
+)
 async def verify_audit_chain(
     request: Request,
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     """GET /v1/governance/audit/verify — verify hash chain integrity.
 
-    Walks the caller's chain and reports whether any tampering is detected.
-    A ``tenant_id`` query that names a different tenant is rejected.
+    Requires ``security_officer`` or ``administrator``. Walks the caller's
+    chain and reports whether any tampering is detected. A ``tenant_id``
+    query that names a different tenant is rejected.
     """
     scoped_tenant = resolve_scoped_tenant(request, tenant_id)
     chain = getattr(request.app.state, "audit_chain", None)

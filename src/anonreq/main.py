@@ -29,6 +29,7 @@ from starlette.responses import StreamingResponse
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
+from anonreq.admin.auth import validate_admin_settings
 from anonreq.admin.router import admin_router as rbac_admin_router
 from anonreq.admin.router import require_auth as require_rbac_admin_auth
 from anonreq.admin.routes import admin_router
@@ -223,6 +224,9 @@ def create_app() -> FastAPI:
     """
     # Configure structured logging first
     setup_logging(level="INFO")
+
+    # Refuse to start with an admin key that is not bound to a tenant.
+    validate_admin_settings()
 
     # Resolve proxy mode at startup — immutable for the lifetime of the process
     active_mode: ProxyMode = mode_from_env()
@@ -442,7 +446,9 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, dependencies=[Depends(auth_context)])
     app.include_router(models_router, dependencies=[Depends(auth_context)])
     app.include_router(compliance_router, dependencies=[Depends(auth_context)])
-    app.include_router(governance_router, dependencies=[Depends(auth_context)])
+    # bind_governance_role is on the router. auth_context only accepts the
+    # gateway chat key, which must not be promoted to an admin principal.
+    app.include_router(governance_router)
     app.include_router(governance_record_router, dependencies=[Depends(auth_context)])
     app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
