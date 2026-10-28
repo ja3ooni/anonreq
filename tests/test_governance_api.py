@@ -10,10 +10,16 @@ from fastapi import FastAPI
 from fastapi.exceptions import HTTPException
 from httpx import ASGITransport, AsyncClient
 
+from anonreq.admin.auth import bind_governance_role
 from anonreq.exceptions import global_exception_handler, http_exception_handler
 from anonreq.routes.governance import router as governance_router
 from anonreq.services.audit_chain import AuditChainService
 from anonreq.services.slo_engine import SLOCompliance, SLOEngine
+
+
+async def _principal_from_test_middleware() -> None:
+    """Keep the principal the test middleware put on request.state."""
+    return None
 
 
 @pytest.fixture
@@ -39,6 +45,12 @@ def gov_app():
                 "tenant_id": tenant_id,
             }
         return await call_next(request)
+
+    # Route-logic tests: the middleware above stands in for auth.
+
+    # Real credential checks are in test_governance_create_app_auth.py.
+
+    app.dependency_overrides[bind_governance_role] = _principal_from_test_middleware
 
     app.include_router(governance_router)
     return app

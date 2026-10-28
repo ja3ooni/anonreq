@@ -132,7 +132,7 @@ class RestorationStage(PipelineStage):
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Restoration stage failed: {type(exc).__name__}: {exc}",
+                    message=f"Restoration stage failed: {type(exc).__name__}",
                     request_id=ctx.request_id,
                 )
             )
