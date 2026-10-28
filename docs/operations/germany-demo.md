@@ -101,7 +101,7 @@ The demo stack, including this Germany overlay, does **not** run the stock `mcr.
 | Item | Stock image | Demo image |
 | --- | --- | --- |
 | Base | `mcr.microsoft.com/presidio-analyzer:2.2.354` | same pin, then a local build |
-| spaCy models | unpinned `en_core_web_lg` | **pinned** `en_core_web_lg==3.7.1` and `de_core_news_lg==3.7.0` |
+| spaCy models | unpinned `en_core_web_lg` | **pinned** `en_core_web_lg==3.7.1` (`sha256:ab70aeb6172cde82508f7739f35ebc9918a3d07debeed637403c8f794ba3d3dc`) and `de_core_news_lg==3.7.0` (`sha256:1451e06dedb5c3bb096127bf7c2117c253265fdfcad29ee488ff57bec5f78eaa`) |
 | Recognizer languages | `en` only (`AnalyzerEngine()` default) | `en` and `de` |
 | Address patterns | none for German streets | `docker/presidio/german_recognizers.yaml` (street line and PLZ+city, score 0.85) |
 | Process user | root | `presidio` (uid 10001) after the installs |
@@ -119,9 +119,15 @@ docker push <registry>/anonreq/presidio-analyzer:2.2.354-de
 
 Helm (`helm/anonreq/values-germany.yaml`) does not build this image. The in-cluster analyzer behind `ANONREQ_PRESIDIO_URL` must be this bilingual image, or `de-DE` name and address masking will not happen.
 
-## Fail-closed (stock English-only image)
+## Presidio languages
 
-A `de-DE` request is never retried with `language=en`. The English model misses German names and street addresses, so that fallback would forward PII. When the sidecar rejects `de` (stock image: HTTP 500, "No matching recognizers"), the gateway returns HTTP 503 and does not call the provider:
+`ANONREQ_PRESIDIO_LANGUAGES` is the allowlist of analyzer languages (default `en`). The demo Compose file sets `en,de` because this image loads both models. A negotiated locale whose language is **not** on the list (`fr-FR`, `es`, `ar`, and `de-DE` when `de` is not configured) is analyzed as English. Each such locale increments `anonreq_presidio_unsupported_locales_total{locale="..."}` and logs `detection.presidio_locale_not_configured`. Every negotiated locale is considered, not only the first.
+
+At startup the gateway probes `/analyze` for every configured language, plus English. If a configured language is missing, the process refuses to serve.
+
+## Fail-closed when `de` is configured but missing
+
+If `de` is on the allowlist and the sidecar rejects it, the request is **not** retried with `language=en`. The English model misses German names and street addresses, so that fallback would forward PII. The gateway returns HTTP 503 and does not call the provider:
 
 ```json
 {

@@ -135,6 +135,7 @@ def build_pre_provider_pipeline(
                 restricted_names_mgr=restricted_names_mgr,
             ),
             enterprise_recognizers=load_enterprise_recognizers(),
+            presidio_languages=settings.configured_presidio_languages(),
         ),
         SensitivityClassificationStage(),
         PolicyEnforcementStage(app_state=app_state),

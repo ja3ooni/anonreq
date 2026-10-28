@@ -41,9 +41,17 @@ from anonreq.detection.regex_patterns import IRREVERSIBLE_ENTITY_TYPES
 from anonreq.exceptions import PipelineAbortError, PresidioLanguageUnsupportedError
 from anonreq.locale.bundle import RecognizerTier
 from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
-from anonreq.locale.presidio_language import presidio_language_from_bundles
+from anonreq.locale.presidio_language import (
+    DEFAULT_PRESIDIO_LANGUAGE,
+    plan_presidio_languages,
+)
 from anonreq.models.processing_context import ProcessingContext
-from anonreq.monitoring.metrics import detection_latency, entities_detected, fail_secure_events
+from anonreq.monitoring.metrics import (
+    detection_latency,
+    entities_detected,
+    fail_secure_events,
+    presidio_unsupported_locales,
+)
 from anonreq.pipeline.base import PipelineStage
 from anonreq.pipeline.extraction import TextExtractor
 
@@ -76,6 +84,7 @@ class DetectionStage(PipelineStage):
         config_registry: AtomicConfigRegistry | None = None,
         mnpi_recognizers: list[MNPIRecognizer] | None = None,
         enterprise_recognizers: dict[str, Any] | None = None,
+        presidio_languages: tuple[str, ...] | list[str] | None = None,
     ) -> None:
         """Initialise with detection dependencies.
 
@@ -91,6 +100,8 @@ class DetectionStage(PipelineStage):
                 for MNPI detection (Phase 15, D-001).
             enterprise_recognizers: Optional dict of enabled enterprise
                 recognizers (Phase 26, GUARD-01).
+            presidio_languages: ISO 639-1 codes this deployment's analyzer
+                supports (``ANONREQ_PRESIDIO_LANGUAGES``). Defaults to English.
         """
         super().__init__("DetectionStage")
         self._regex_detector = regex_detector
@@ -101,6 +112,7 @@ class DetectionStage(PipelineStage):
         self._config_registry = config_registry
         self._mnpi_recognizers = mnpi_recognizers or []
         self._enterprise_recognizers = enterprise_recognizers or {}
+        self._presidio_languages = tuple(presidio_languages or ("en",))
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Detect PII in request text nodes.
@@ -155,21 +167,41 @@ class DetectionStage(PipelineStage):
                 [config.confidence_threshold for config in entity_configs],
                 default=0.7,
             )
-            # One Presidio language per request. Use the negotiated locale
-            # (de-DE -> de), not the hardcoded English default.
-            presidio_language = presidio_language_from_bundles(
+            # Every negotiated bundle is considered. Languages outside
+            # ANONREQ_PRESIDIO_LANGUAGES are analyzed as English. A configured
+            # language the sidecar rejects is not retried as English.
+            plan = plan_presidio_languages(
                 getattr(ctx, "locale_bundles", None),
+                self._presidio_languages,
             )
+            presidio_language = ",".join(plan.languages)
+            for locale_code in plan.unsupported_locales:
+                presidio_unsupported_locales.labels(locale=locale_code).inc()
+                logger.warning(
+                    "detection.presidio_locale_not_configured",
+                    stage=self.name,
+                    request_id=ctx.request_id,
+                    locale=locale_code,
+                    presidio_language=DEFAULT_PRESIDIO_LANGUAGE,
+                    error_type="presidio_locale_not_configured",
+                )
 
-            # Run Presidio NER across all nodes concurrently
-            ner_call = self._presidio_client.analyze_text_nodes(
-                ctx.text_nodes,
-                language=presidio_language,
-                entities=ner_entities,
-                score_threshold=score_threshold,
-            )
-            # iscoroutine, not isawaitable: MagicMock is awaitable and hangs.
-            ner_results_list = await ner_call if inspect.iscoroutine(ner_call) else ner_call
+            # Run Presidio once per selected language and merge the spans.
+            ner_results_list: list[list[dict[str, Any]]] = [
+                [] for _ in ctx.text_nodes
+            ]
+            for language in plan.languages:
+                ner_call = self._presidio_client.analyze_text_nodes(
+                    ctx.text_nodes,
+                    language=language,
+                    entities=ner_entities,
+                    score_threshold=score_threshold,
+                )
+                # iscoroutine, not isawaitable: MagicMock is awaitable and hangs.
+                batch = await ner_call if inspect.iscoroutine(ner_call) else ner_call
+                for index, hits in enumerate(batch):
+                    if index < len(ner_results_list):
+                        ner_results_list[index].extend(hits or [])
 
             all_detections: list[dict[str, Any]] = []
 

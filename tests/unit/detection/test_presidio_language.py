@@ -20,13 +20,13 @@ from anonreq.exceptions import PresidioLanguageUnsupportedError, global_exceptio
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.presidio_language import (
-    presidio_language_from_bundles,
+    plan_presidio_languages,
     presidio_language_from_locale,
 )
 from anonreq.locale.registry import LocaleRegistry
 from anonreq.logging_config import ALLOWLIST
 from anonreq.models.processing_context import ProcessingContext
-from anonreq.monitoring.metrics import fail_secure_events
+from anonreq.monitoring.metrics import fail_secure_events, presidio_unsupported_locales
 from anonreq.pipeline import detection as detection_module
 from anonreq.pipeline.base import PipelineStage
 from anonreq.pipeline.detection import DetectionStage
@@ -52,6 +52,21 @@ def negotiated():
     return negotiator, merger
 
 
+def test_presidio_languages_setting_parses_allowlist() -> None:
+    from anonreq.config import Settings
+
+    base = {
+        "API_KEY": "a" * 32,
+        "VALKEY_URL": "redis://localhost:6379/0",
+        "PRESIDIO_URL": "http://localhost:5001",
+    }
+    assert Settings(**base).configured_presidio_languages() == ("en",)
+    both = Settings(**base, PRESIDIO_LANGUAGES="de, en, de")
+    assert both.configured_presidio_languages() == ("de", "en")
+    with pytest.raises(ValueError, match="ANONREQ_PRESIDIO_LANGUAGES"):
+        Settings(**base, PRESIDIO_LANGUAGES="de,!!!")
+
+
 def test_locale_codes_map_to_presidio_languages() -> None:
     assert presidio_language_from_locale("de-DE") == "de"
     assert presidio_language_from_locale("de_DE") == "de"
@@ -64,21 +79,31 @@ def test_locale_codes_map_to_presidio_languages() -> None:
     assert presidio_language_from_locale("??") == "en"
 
 
-def test_first_negotiated_bundle_wins_over_sorted_merge(negotiated) -> None:
+def test_allowlist_uses_every_bundle_and_falls_back_for_the_rest(negotiated) -> None:
     negotiator, merger = negotiated
-    bundles, _ = negotiator.negotiate("fr-FR")
-    merged = merger.merge(bundles)
-    # Merged source locales are sorted and always include universal "en",
-    # which would hide fr-FR. Presidio must follow header order instead.
+    french, _ = negotiator.negotiate("fr-FR")
+    merged = merger.merge(french)
     assert merged.source_locales[0] == "en"
-    assert presidio_language_from_bundles(bundles) == "fr"
-    multi, _ = negotiator.negotiate("fr-FR, de-DE")
-    assert presidio_language_from_bundles(multi) == "fr"
-    assert presidio_language_from_bundles(None) == "en"
-    assert presidio_language_from_bundles([]) == "en"
+    french_plan = plan_presidio_languages(french, ("en",))
+    assert french_plan.languages == ("en",)
+    assert french_plan.unsupported_locales == ("fr-FR",)
+
+    both, _ = negotiator.negotiate("fr-FR, de-DE")
+    both_plan = plan_presidio_languages(both, ("en", "de", "fr"))
+    assert both_plan.languages == ("fr", "de")
+    assert both_plan.unsupported_locales == ()
+
+    german_only, _ = negotiator.negotiate("de-DE")
+    configured = plan_presidio_languages(german_only, ("en", "de"))
+    assert configured.languages == ("de",)
+    assert configured.unsupported_locales == ()
+    assert plan_presidio_languages(None, ("en",)).languages == ("en",)
 
 
-def _stage(presidio_client: MagicMock) -> DetectionStage:
+def _stage(
+    presidio_client: MagicMock,
+    presidio_languages: tuple[str, ...] = ("en",),
+) -> DetectionStage:
     regex = MagicMock()
     regex.patterns_from_entity_configs.return_value = {}
     regex.detect.return_value = []
@@ -87,6 +112,7 @@ def _stage(presidio_client: MagicMock) -> DetectionStage:
         presidio_client=presidio_client,
         span_arbiter=SpanArbiter(),
         exclusion_list=ExclusionList(),
+        presidio_languages=presidio_languages,
     )
 
 
@@ -114,7 +140,7 @@ async def test_detection_passes_german_language(negotiated) -> None:
     ctx = _ctx(bundles)
     ctx.merged_recognizers = merger.merge(bundles)
 
-    result = await _stage(presidio).execute(ctx)
+    result = await _stage(presidio, ("en", "de")).execute(ctx)
 
     assert not result.has_errors()
     presidio.analyze_text_nodes.assert_awaited_once()
@@ -123,6 +149,42 @@ async def test_detection_passes_german_language(negotiated) -> None:
     assert kwargs["entities"] is not None
     assert "PERSON" in kwargs["entities"]
     assert "LOCATION" in kwargs["entities"]
+
+
+async def test_unconfigured_locales_use_english_and_count_metric(negotiated) -> None:
+    negotiator, _merger = negotiated
+    bundles, _ = negotiator.negotiate("fr-FR, es, ar")
+    presidio = MagicMock()
+    presidio.analyze_text_nodes = AsyncMock(return_value=[[]])
+    ctx = _ctx(bundles)
+    counters = {
+        code: presidio_unsupported_locales.labels(locale=code)._value.get()
+        for code in ("fr-FR", "es", "ar")
+    }
+
+    result = await _stage(presidio, ("en",)).execute(ctx)
+
+    assert not result.has_errors()
+    languages = [
+        call.kwargs["language"] for call in presidio.analyze_text_nodes.await_args_list
+    ]
+    assert languages == ["en"]
+    for code, before in counters.items():
+        assert presidio_unsupported_locales.labels(locale=code)._value.get() == before + 1
+
+
+async def test_configured_languages_are_all_sent(negotiated) -> None:
+    negotiator, _merger = negotiated
+    bundles, _ = negotiator.negotiate("fr-FR, de-DE")
+    presidio = MagicMock()
+    presidio.analyze_text_nodes = AsyncMock(return_value=[[]])
+
+    await _stage(presidio, ("en", "de", "fr")).execute(_ctx(bundles))
+
+    languages = [
+        call.kwargs["language"] for call in presidio.analyze_text_nodes.await_args_list
+    ]
+    assert languages == ["fr", "de"]
 
 
 async def test_detection_defaults_to_english_without_locale() -> None:
@@ -181,7 +243,7 @@ async def test_german_request_does_not_fall_back_to_english(negotiated) -> None:
     before = counter._value.get()
 
     with patch.object(detection_module.logger, "warning") as warning:
-        result = await _stage(presidio).execute(ctx)
+        result = await _stage(presidio, ("en", "de")).execute(ctx)
 
     assert result.detections is None
     assert presidio.analyze_text_nodes.await_count == 1
@@ -248,6 +310,23 @@ def test_image_patch_refuses_unknown_app_layout() -> None:
     enable_german = _load_enable_german()
     with pytest.raises(RuntimeError, match="DevOps review"):
         enable_german.patch_app_source("self.engine = AnalyzerEngineProvider().create()\n")
+
+
+def test_german_recognizer_yaml_loads_every_pattern() -> None:
+    from presidio_analyzer import RecognizerRegistry
+
+    registry = RecognizerRegistry()
+    registry.add_recognizers_from_yaml("docker/presidio/german_recognizers.yaml")
+    by_name = {recognizer.name: recognizer for recognizer in registry.recognizers}
+    assert "German Street Line" in by_name
+    assert "German Postal City" in by_name
+    text = "Hans Müller, Hauptstraße 12, 60311 Frankfurt"
+    covered = []
+    for recognizer in by_name.values():
+        for hit in recognizer.analyze(text, entities=["LOCATION"]):
+            covered.append(text[hit.start:hit.end])
+    assert "Hauptstraße 12" in covered
+    assert "60311 Frankfurt" in covered
 
 
 def test_regex_detector_does_not_mask_german_name_or_street() -> None:

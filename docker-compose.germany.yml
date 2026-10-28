@@ -14,6 +14,7 @@
 services:
   anonreq:
     environment:
+      ANONREQ_PRESIDIO_LANGUAGES: ${ANONREQ_PRESIDIO_LANGUAGES:-en,de}
       ANONREQ_ACTIVE_PRESETS: germany
       ANONREQ_CLASSIFICATION_CONFIG_PATH: config/classification.germany.yaml
       ANONREQ_CLASSIFICATION_DEFAULT_ACTION: ANONYMIZE

@@ -59,6 +59,7 @@ env:
   ANONREQ_PORT: "8080"
   ANONREQ_VALKEY_URL: "redis://valkey:6379/0"
   ANONREQ_PRESIDIO_URL: "http://presidio-analyzer:3000"
+  ANONREQ_PRESIDIO_LANGUAGES: "en,de"
 
 secrets:
   ANONREQ_API_KEY: "change-me-32-chars-minimum-key!!"

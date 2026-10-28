@@ -110,6 +110,27 @@ async def check_presidio(url: str) -> bool:
         return False
 
 
+async def check_presidio_language(url: str, language: str) -> bool:
+    """Return True when Presidio accepts ``language`` on ``/analyze``.
+
+    A short fixed probe is used. The response body is not logged. HTTP 200
+    means the language is loaded; anything else means it is not.
+    """
+    import httpx
+
+    payload = {
+        "text": "language probe",
+        "language": language,
+        "score_threshold": 0.99,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(url.rstrip("/") + "/analyze", json=payload)
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError):
+        return False
+    return response.status_code == 200
+
+
 async def _check_with_retry(
     name: str,
     check_fn: Callable[[], Awaitable[bool]],
@@ -292,4 +313,26 @@ async def run_startup_checks(settings: Settings, cache_manager: CacheManager) ->
         raise DependencyUnavailableError(dependency="presidio")
 
     logger.info("Presidio reachable", component="startup_checks")
+
+    from anonreq.locale.presidio_language import languages_to_probe, parse_presidio_languages
+
+    configured = parse_presidio_languages(getattr(settings, "PRESIDIO_LANGUAGES", "en"))
+    for language in languages_to_probe(configured):
+        logger.info(
+            "Checking Presidio language",
+            component="startup_checks",
+            presidio_language=language,
+        )
+        supported = await check_presidio_language(settings.PRESIDIO_URL, language)
+        if not supported:
+            logger.error(
+                "startup.presidio_language_unsupported",
+                component="startup_checks",
+                presidio_language=language,
+                error_type="presidio_unsupported_language",
+            )
+            from anonreq.exceptions import DependencyUnavailableError
+
+            raise DependencyUnavailableError(dependency="presidio")
+
     logger.info("All dependencies OK", component="startup_checks")

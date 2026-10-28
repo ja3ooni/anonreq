@@ -10,7 +10,7 @@
 #
 # This image:
 #   - Reinstalls en_core_web_lg==3.7.1 and de_core_news_lg==3.7.0 from
-#     exact wheel URLs (spaCy 3.7 line; do not float these)
+#     exact wheel URLs checked with sha256 (spaCy 3.7 line; do not float these)
 #   - Loads both models via conf/default.yaml
 #   - Adds conf/german_recognizers.yaml (street line and PLZ+city)
 #   - Patches app.py so supported languages are ["en", "de"]
@@ -40,12 +40,48 @@ USER root
 WORKDIR /usr/bin/presidio-analyzer
 
 # Exact wheels. en_core_web_lg in the base image was installed by
-# `spacy download` with no version pin; reinstall it so the digest is fixed.
+# `spacy download` with no version pin. Reinstall both from pinned URLs
+# and refuse the layer if the sha256 does not match.
 ARG EN_CORE_WEB_LG_VERSION=3.7.1
+ARG EN_CORE_WEB_LG_URL=https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.7.1/en_core_web_lg-3.7.1-py3-none-any.whl
+ARG EN_CORE_WEB_LG_SHA256=ab70aeb6172cde82508f7739f35ebc9918a3d07debeed637403c8f794ba3d3dc
 ARG DE_CORE_NEWS_LG_VERSION=3.7.0
+ARG DE_CORE_NEWS_LG_URL=https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-3.7.0/de_core_news_lg-3.7.0-py3-none-any.whl
+ARG DE_CORE_NEWS_LG_SHA256=1451e06dedb5c3bb096127bf7c2117c253265fdfcad29ee488ff57bec5f78eaa
+RUN python - <<'PY'
+import hashlib
+import pathlib
+import urllib.request
+
+pairs = [
+    (
+        "${EN_CORE_WEB_LG_URL}",
+        "${EN_CORE_WEB_LG_SHA256}",
+        "/tmp/en_core_web_lg.whl",
+    ),
+    (
+        "${DE_CORE_NEWS_LG_URL}",
+        "${DE_CORE_NEWS_LG_SHA256}",
+        "/tmp/de_core_news_lg.whl",
+    ),
+]
+for url, expected, path in pairs:
+    digest = hashlib.sha256()
+    with urllib.request.urlopen(url, timeout=300) as response, open(path, "wb") as handle:
+        while True:
+            chunk = response.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+            handle.write(chunk)
+    actual = digest.hexdigest()
+    if actual != expected:
+        pathlib.Path(path).unlink(missing_ok=True)
+        raise SystemExit(f"sha256 mismatch for {url}: {actual}")
+PY
 RUN pipenv run python -m pip install --no-deps --disable-pip-version-check \
-        "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-${EN_CORE_WEB_LG_VERSION}/en_core_web_lg-${EN_CORE_WEB_LG_VERSION}-py3-none-any.whl" \
-        "https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-${DE_CORE_NEWS_LG_VERSION}/de_core_news_lg-${DE_CORE_NEWS_LG_VERSION}-py3-none-any.whl" \
+        /tmp/en_core_web_lg.whl /tmp/de_core_news_lg.whl \
+    && rm -f /tmp/en_core_web_lg.whl /tmp/de_core_news_lg.whl \
     && pipenv run python -c "import importlib.metadata as m; assert m.version('en-core-web-lg') == '${EN_CORE_WEB_LG_VERSION}'; assert m.version('de-core-news-lg') == '${DE_CORE_NEWS_LG_VERSION}'; import spacy; spacy.load('en_core_web_lg'); spacy.load('de_core_news_lg')"
 
 COPY default.yaml /usr/bin/presidio-analyzer/conf/default.yaml
