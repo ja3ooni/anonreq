@@ -75,6 +75,9 @@ async def verify_admin_api_key(
                 status_code=401,
                 detail="Invalid admin API key",
             )
+        # "*" is not a tenant. Audit reads then take the tenant from the
+        # validated X-AnonReq-Tenant-ID header. The key is not bound to a
+        # tenant; that binding is https://github.com/ja3ooni/anonreq/issues/7.
         principal = {
             "principal_id": "admin",
             "role": settings.ADMIN_ROLE,

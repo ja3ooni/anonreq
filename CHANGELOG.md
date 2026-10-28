@@ -5,6 +5,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Audit and governance reads no longer honor a client-chosen `tenant_id`. `GET /v1/admin/audit/anonymization-export`, `GET /v1/admin/audit/config-history`, `GET /v1/admin/audit/config-history/export`, `GET /v1/governance/audit/events`, `GET /v1/governance/audit/verify`, `GET /v1/governance/breaches`, and `GET /v1/governance/status` scope to the caller tenant. A `tenant_id` query that names a different tenant, including `*`, returns HTTP 403 and no rows. Omitting `tenant_id` returns only the caller tenant.
+
+### Security
+
+- When the legacy admin API key principal is `*`, those reads take the tenant from the validated `X-AnonReq-Tenant-ID` header. The key is not bound to a tenant. Binding credentials to tenants is [issue #7](https://github.com/ja3ooni/anonreq/issues/7).
+- Anonymization CSV exports prefix a leading `=`, `+`, `-`, `@`, `|`, tab, CR, or full-width `＝` `＋` `－` `＠` (including after spaces) so the cell is text.
+- `GET /v1/governance/audit/events` and `GET /v1/governance/audit/verify` require the `security_officer` or `administrator` role.
+
 ### Added
 
 - Initial project scaffolding
