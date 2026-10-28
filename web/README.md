@@ -35,7 +35,42 @@ Checks:
 npm run typecheck
 npm run lint
 npm test
+npm run build
 ```
+
+CI runs the same four on Node 22 (`.github/workflows/web.yml`).
+
+## Docker
+
+Real gateway, production image (Next standalone output, no devDependencies):
+
+```bash
+cd web
+ANONREQ_GATEWAY_URL=http://host.docker.internal:8080 \
+ANONREQ_API_KEY=... ANONREQ_ADMIN_API_KEY=... \
+docker compose up --build
+```
+
+Offline fixtures. The override builds the `dev` target (`NODE_ENV=development`, `next dev`), so production still refuses `ANONREQ_MOCK=true`:
+
+```bash
+cd web
+docker compose -f docker-compose.yml -f docker-compose.mock.yml up --build
+curl -I http://127.0.0.1:3000
+```
+
+Both publish `127.0.0.1:3000:3000` with the container listening on `0.0.0.0`.
+
+## Request guard on /api/*
+
+The middleware rejects with 403 and a JSON `error`:
+
+- a `Host` header not in the allowlist (blocks DNS rebinding). Default: `localhost:$PORT` and `127.0.0.1:$PORT` (`PORT` defaults to 3000). Override with a comma-separated `ANONREQ_ALLOWED_HOSTS`, e.g. `ANONREQ_ALLOWED_HOSTS=localhost:4000,127.0.0.1:4000`.
+- `Sec-Fetch-Site` other than `same-origin` or `none`.
+- an `Origin` whose host does not match `Host`, on any method.
+- `POST`, `PUT`, `PATCH` or `DELETE` without an `Origin`.
+
+So `curl -X POST` against `/api/*` needs `-H "Origin: http://localhost:3000"`.
 
 ## Point the gateway at xAI Grok
 
