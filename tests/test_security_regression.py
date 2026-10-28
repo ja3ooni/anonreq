@@ -11,13 +11,12 @@
 from __future__ import annotations
 
 import inspect
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
 import respx
 
-from anonreq.detection.presidio_client import PresidioClient
 from anonreq.exceptions import PipelineAbortError
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.provider import ProviderStage
