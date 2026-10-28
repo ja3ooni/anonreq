@@ -347,6 +347,9 @@ def test_fetch_models_keeps_canonical_wheel_names(tmp_path: Path) -> None:
     dockerfile = dockerfile_path.read_text()
     assert "<<'PY'" not in dockerfile
     assert "/tmp/en_core_web_lg.whl" not in dockerfile
+    assert "-py3-none-any.whl \\" not in dockerfile  # no hard-coded pip filenames
+    assert "/tmp/wheels/*.whl" in dockerfile
+    assert "chown -R" not in dockerfile  # recursive chown copied the venv layer
     assert "EN_CORE_WEB_LG_URL=\"${EN_CORE_WEB_LG_URL}\"" in dockerfile
     plan = module.download_plan(
         {
@@ -410,12 +413,25 @@ def test_german_recognizer_yaml_loads_every_pattern() -> None:
         "1010 Wien": ("1010 Wien",),
         "8001 Zürich": ("8001 Zürich",),
         "01067 Dresden": ("01067 Dresden",),
+        "hauptstraße 12": ("hauptstraße 12",),
+        "HAUPTSTRASSE 12": ("HAUPTSTRASSE 12",),
+        "bahnhofstr. 3": ("bahnhofstr. 3",),
+        "CH-1950 Sion": ("CH-1950 Sion",),
+        "A-2000 Stockerau": ("A-2000 Stockerau",),
+        "Rue du Lac 5, 1900 Montreux": ("1900 Montreux",),
+        "Hauptstraße 5, 2000 Neuchâtel": ("Hauptstraße 5", "2000 Neuchâtel"),
     }
     for text, expected in samples.items():
         covered = _recognized(by_name, text)
         for piece in expected:
             assert piece in covered, text
-    for text in ("10000 Mitarbeiter", "10000 mitarbeiter", "2024 Berlin", "1990 Wien"):
+    for text in (
+        "10000 Mitarbeiter",
+        "10000 mitarbeiter",
+        "2024 Berlin",
+        "1990 Wien",
+        "Im Jahr 2024 Umsatz gesteigert",
+    ):
         assert _recognized(by_name, text) == [], text
 
 
