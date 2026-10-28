@@ -12,17 +12,20 @@ text exactly.
 
 from __future__ import annotations
 
+import logging
 import re
 from itertools import pairwise
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from structlog.testing import capture_logs
 
 from anonreq.detection.exclusion_list import ExclusionList
 from anonreq.detection.recognizers.enterprise import create_enterprise_bundle
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
+from anonreq.exceptions import PipelineAbortError
 from anonreq.locale.bundle import EntityTypeConfig, RecognizerTier
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.detection import DetectionStage
@@ -242,13 +245,25 @@ async def test_partial_overlap_of_secret_and_email_restores() -> None:
         for detection in RegexDetector().detect(text)
         if detection["entity_type"] == "EMAIL_ADDRESS"
     )
+    marker = "user@example.com"
+    secret_start = text.index(marker) + 5
+    secret_end = text.index(marker) + len(marker) + 8
     secret = detections[0]
-    assert secret["start"] < email["end"]
-    assert email["start"] < secret["start"]
-    assert secret["end"] > email["end"]
+    assert secret["start"] == min(email["start"], secret_start)
+    assert secret["end"] == max(email["end"], secret_end)
+    assert secret["start"] <= email["start"]
+    assert secret["end"] >= email["end"]
     assert detections[0]["reversible"] is False
     _assert_round_trip(text, detections)
-    _assert_secrets_redacted(text, detections, [text[secret["start"] : secret["end"]]])
+    _assert_secrets_redacted(
+        text,
+        detections,
+        [
+            text[email["start"] : email["end"]],
+            text[secret_start:secret_end],
+            text[secret["start"] : secret["end"]],
+        ],
+    )
 
 
 @pytest.mark.asyncio
@@ -293,3 +308,72 @@ async def test_non_overlapping_mnpi_is_kept_and_restores() -> None:
     types = {detection["entity_type"] for detection in detections}
     assert types == {"EMAIL_ADDRESS", "MNPI_TICKER"}
     _assert_round_trip(text, detections)
+
+
+class _CrashingSecretRecognizer:
+    """Enterprise recognizer that fails while holding a secret in the error."""
+
+    def analyze(self, text: str, tenant_id: str | None = None) -> list[dict[str, Any]]:
+        del text, tenant_id
+        raise ValueError("leaked-secret-value sk-supersecretkeyvalue")
+
+
+@pytest.mark.asyncio
+async def test_exclusions_cannot_unmask_secret_or_mnpi() -> None:
+    """Exclusion entries drop ordinary PII and leave secret and MNPI spans."""
+    text = f"Use {_API_KEY} and mail ada@example.com about AAPL."
+    stage = DetectionStage(
+        regex_detector=RegexDetector(),
+        presidio_client=_EmptyNer(),
+        span_arbiter=SpanArbiter(),
+        exclusion_list=ExclusionList(exclusions=[_API_KEY, "ada@example.com", "AAPL"]),
+        enterprise_recognizers=create_enterprise_bundle("config/recognizers.yaml"),
+        mnpi_recognizers=[_SeparateMnpi()],
+    )
+    ctx = ProcessingContext(
+        request_id="secret-exclusion",
+        classification_result={"action": "ANONYMIZE"},
+    )
+    ctx.text_nodes = [{"path": "messages[0].content", "role": "user", "value": text}]
+    result = await stage.execute(ctx)
+
+    assert not result.has_errors()
+    detections = result.detections or []
+    values = [text[d["start"] : d["end"]] for d in detections]
+    types = {d["entity_type"] for d in detections}
+    assert "EMAIL_ADDRESS" not in types
+    assert "ada@example.com" not in values
+    assert _API_KEY in values
+    assert "AAPL" in values
+    _assert_round_trip(text, detections)
+
+
+@pytest.mark.asyncio
+async def test_enterprise_recognizer_crash_fails_closed(caplog: pytest.LogCaptureFixture) -> None:
+    """A crashing secret detector aborts detection and does not log the error text."""
+    text = f"Use {_API_KEY} please"
+    stage = _stage(enterprise={"boom": _CrashingSecretRecognizer()})
+    ctx = ProcessingContext(
+        request_id="secret-crash",
+        classification_result={"action": "ANONYMIZE"},
+    )
+    ctx.text_nodes = [{"path": "messages[0].content", "role": "user", "value": text}]
+
+    with caplog.at_level(logging.WARNING), capture_logs() as logs:
+        result = await stage.execute(ctx)
+
+    assert result.has_errors()
+    assert result.detections is None
+    assert len(result.errors) == 1
+    assert isinstance(result.errors[0], PipelineAbortError)
+    assert result.errors[0].message == "Detection stage failed: ValueError"
+    rendered = "\n".join(
+        [
+            repr(logs),
+            *(record.getMessage() for record in caplog.records),
+            *(repr(record.__dict__) for record in caplog.records),
+        ]
+    )
+    assert "leaked-secret-value" not in rendered
+    assert "sk-supersecretkeyvalue" not in rendered
+    assert "ValueError" in rendered

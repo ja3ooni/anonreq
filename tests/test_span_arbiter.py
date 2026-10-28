@@ -78,8 +78,10 @@ class TestSpanArbiter:
         ]
         merged = SpanArbiter.merge(regex_results, ner_results)
         assert len(merged) == 1
-        # PHONE_NUMBER (80) > LOCATION (30)
+        # PHONE_NUMBER (80) > LOCATION (30), and the survivor covers the union
         assert merged[0]["entity_type"] == "PHONE_NUMBER"
+        assert merged[0]["start"] == 10
+        assert merged[0]["end"] == 25
 
     def test_non_overlapping_spans_both_kept(self):
         """Non-overlapping spans: both kept."""
@@ -239,7 +241,7 @@ class TestSpanArbiter:
         merged = SpanArbiter.merge(regex_results, [], secret_results)
         assert len(merged) == 1
         assert merged[0]["entity_type"] == "ENTERPRISE_API_KEY"
-        assert merged[0]["start"] == 13
+        assert merged[0]["start"] == 8
         assert merged[0]["end"] == 32
 
     def test_nested_secret_inside_url_keeps_secret(self):
@@ -259,6 +261,8 @@ class TestSpanArbiter:
         merged = SpanArbiter.merge(regex_results, [], secret_results)
         assert len(merged) == 1
         assert merged[0]["entity_type"] == "ENTERPRISE_API_KEY"
+        assert merged[0]["start"] == 4
+        assert merged[0]["end"] == 64
 
     def test_secret_overlapping_two_entities_stays_disjoint(self):
         """A secret that meets two other spans resolves to one non-overlapping span."""
@@ -290,8 +294,8 @@ class TestSpanArbiter:
         merged = SpanArbiter.merge(regex_results, [], secret_results)
         assert len(merged) == 1
         assert merged[0]["entity_type"] == "ENTERPRISE_API_KEY"
-        assert merged[0]["start"] == 10
-        assert merged[0]["end"] == 35
+        assert merged[0]["start"] == 0
+        assert merged[0]["end"] == 40
 
     def test_non_overlapping_secret_and_email_both_kept(self):
         """A secret away from other entities is kept alongside them."""

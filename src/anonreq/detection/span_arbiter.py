@@ -4,6 +4,8 @@ Per D-39 through D-41:
 - Run regex detection and Presidio NER independently
 - Merge via overlap resolution: exact→regex wins, nested→most specific wins,
   partial→most specific wins, non-overlapping→both kept
+- Nested and partial overlaps mask the union of every overlapping range
+  with the winning span's type, so leftover characters are not left in clear text
 - Entity specificity ranking from D-41 determines which type wins on overlap
 - Later detectors (MNPI, API-key and secret recognizers) join the same pass
 """
@@ -49,8 +51,10 @@ class SpanArbiter:
         Returns:
             Merged list sorted by start position, with ``_source`` tags
             stripped. Each result retains its original ``source`` key
-            for downstream audit. Overlapping spans are reduced to one
-            survivor so tokenization replaces each character at most once.
+            for downstream audit. Overlapping spans collapse to one span
+            whose bounds are the union of every range in the cluster and
+            whose type is the winner, so tokenization replaces each
+            detected character exactly once.
         """
         if not regex_results and not ner_results and not any(additional_results):
             return []
@@ -68,36 +72,27 @@ class SpanArbiter:
 
         merged: list[dict[str, Any]] = []
         for span in combined:
-            overlapped = False
-            for i, accepted in enumerate(merged):
-                overlap = SpanArbiter._overlap_type(span, accepted)
-                if overlap is None:
-                    continue
-                overlapped = True
-
-                if overlap == "exact":
-                    # D-40: Exact overlap → regex wins
-                    if span["_source"] == "regex":
-                        merged[i] = span
-
-                elif overlap == "nested":
-                    # D-40: Nested → most specific entity type wins
-                    span_spec = ENTITY_SPECIFICITY.get(span.get("entity_type", ""), 0)
-                    acc_spec = ENTITY_SPECIFICITY.get(accepted.get("entity_type", ""), 0)
-                    if span_spec > acc_spec:
-                        merged[i] = span
-
-                elif overlap == "partial":
-                    # D-40: Partial → most specific entity type wins
-                    span_spec = ENTITY_SPECIFICITY.get(span.get("entity_type", ""), 0)
-                    acc_spec = ENTITY_SPECIFICITY.get(accepted.get("entity_type", ""), 0)
-                    if span_spec > acc_spec:
-                        merged[i] = span
-                break
-
-            if not overlapped:
-                # D-40: Non-overlapping → both kept
-                merged.append(span)
+            pending = span
+            while True:
+                overlap_at: tuple[int, dict[str, Any], str] | None = None
+                for index, accepted in enumerate(merged):
+                    overlap = SpanArbiter._overlap_type(pending, accepted)
+                    if overlap is None:
+                        continue
+                    overlap_at = (index, accepted, overlap)
+                    break
+                if overlap_at is None:
+                    # D-40: Non-overlapping → both kept
+                    merged.append(pending)
+                    break
+                index, accepted, overlap = overlap_at
+                winner = SpanArbiter._preferred_span(pending, accepted, overlap)
+                other = accepted if winner is pending else pending
+                merged.pop(index)
+                # Exact overlaps already share bounds. Nested and partial
+                # overlaps keep the winner's type and mask the union, then
+                # rescan because the wider span may meet another survivor.
+                pending = SpanArbiter._cover_union(winner, other)
 
         # Remove temporary _source tag and restore start order. A survivor
         # can have a later start than the span it replaced.
@@ -106,6 +101,35 @@ class SpanArbiter:
         merged.sort(key=lambda r: (r["start"], r["end"]))
 
         return merged
+
+    @staticmethod
+    def _preferred_span(
+        incoming: dict[str, Any],
+        accepted: dict[str, Any],
+        overlap: str,
+    ) -> dict[str, Any]:
+        """Choose which span's metadata survives an overlap.
+
+        Exact overlap prefers the regex-detector list (D-40). Nested and
+        partial overlaps prefer the higher specificity ranking.
+        """
+        if overlap == "exact":
+            if incoming.get("_source") == "regex":
+                return incoming
+            return accepted
+        incoming_spec = ENTITY_SPECIFICITY.get(str(incoming.get("entity_type", "")), 0)
+        accepted_spec = ENTITY_SPECIFICITY.get(str(accepted.get("entity_type", "")), 0)
+        if incoming_spec > accepted_spec:
+            return incoming
+        return accepted
+
+    @staticmethod
+    def _cover_union(winner: dict[str, Any], other: dict[str, Any]) -> dict[str, Any]:
+        """Return ``winner`` expanded to the union of both ranges."""
+        covered = {**winner}
+        covered["start"] = min(int(winner["start"]), int(other["start"]))
+        covered["end"] = max(int(winner["end"]), int(other["end"]))
+        return covered
 
     @staticmethod
     def _overlap_type(

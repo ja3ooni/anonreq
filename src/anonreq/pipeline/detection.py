@@ -51,6 +51,22 @@ if TYPE_CHECKING:
 
 logger = get_logger("anonreq.pipeline.detection")
 
+_PROTECTED_SOURCES = frozenset({"enterprise", "mnpi"})
+
+
+def _exclusion_exempt(detection: dict[str, Any]) -> bool:
+    """Return True when an exclusion must not drop this span.
+
+    Enterprise secret detectors and MNPI recognizers stay masked even if
+    their text matches an exclusion entry. A regex secret type that won
+    an exact overlap (``API_KEY`` and the other irreversible types) is
+    exempt for the same reason.
+    """
+    if detection.get("source") in _PROTECTED_SOURCES:
+        return True
+    entity_type = str(detection.get("entity_type", ""))
+    return entity_type in IRREVERSIBLE_ENTITY_TYPES or entity_type.startswith("MNPI_")
+
 
 class DetectionStage(PipelineStage):
     """Runs regex and NER PII detection against request text nodes.
@@ -190,26 +206,34 @@ class DetectionStage(PipelineStage):
 
                 enterprise_results: list[dict[str, Any]] = []
                 for name, recognizer in self._enterprise_recognizers.items():
+                    error_type: str | None = None
                     try:
                         per_node = recognizer.analyze(node_value)
-                    except (TypeError, ValueError, KeyError) as exc:
+                    except Exception as exc:
+                        # The exception text can contain the span that crashed
+                        # the recognizer. Remember only the type, then log
+                        # after this handler exits so the traceback is not active.
+                        error_type = type(exc).__name__
+                        per_node = []
+                    if error_type is not None:
                         logger.warning(
                             "Enterprise recognizer failed",
                             recognizer_name=name,
                             node_index=i,
-                            error=str(exc),
-                            exc_info=True,
+                            error_type=error_type,
                         )
-                        continue
-                    except Exception as exc:
-                        logger.warning(
-                            "Enterprise recognizer unhandled error",
-                            recognizer_name=name,
-                            node_index=i,
-                            error=f"{type(exc).__name__}: {exc}",
-                            exc_info=True,
+                        fail_secure_events.labels(
+                            tenant_id=ctx.tenant_id,
+                            failure_type="detection_error",
+                        ).inc()
+                        ctx.fail_secure(
+                            PipelineAbortError(
+                                status_code=500,
+                                message=f"Detection stage failed: {error_type}",
+                                request_id=ctx.request_id,
+                            )
                         )
-                        continue
+                        return ctx
                     for detection in per_node:
                         detection.setdefault("source", "enterprise")
                     enterprise_results.extend(per_node)
@@ -221,8 +245,11 @@ class DetectionStage(PipelineStage):
                     enterprise_results,
                 )
 
-                # Apply exclusion list
-                final = self._exclusion_list.filter_detections(merged, node_value)
+                # Exclusions suppress false positives. Secret and MNPI spans
+                # are exempt: an exclusion must not unmask them.
+                exempt = [d for d in merged if _exclusion_exempt(d)]
+                eligible = [d for d in merged if not _exclusion_exempt(d)]
+                final = exempt + self._exclusion_list.filter_detections(eligible, node_value)
                 final = [
                     validated
                     for detection in final
