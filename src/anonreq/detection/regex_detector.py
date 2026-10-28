@@ -18,6 +18,9 @@ from anonreq.locale.bundle import EntityTypeConfig, RecognizerTier
 _LUHN_VALIDATED = {"CREDIT_CARD"}
 
 
+_UNVERIFIED_SCORE = 0.6
+
+
 class RegexDetector:
     """Runs pre-compiled regex patterns on text to detect structured PII.
 
@@ -102,7 +105,9 @@ class RegexDetector:
                     "entity_type": entity_type,
                     "start": start,
                     "end": end,
-                    "score": 1.0,
+                    # Format-only matches whose checksum was not verified
+                    # are masked at lower confidence.
+                    "score": _UNVERIFIED_SCORE if entity_type.endswith("_UNVERIFIED") else 1.0,
                     "source": "regex",
                 })
 

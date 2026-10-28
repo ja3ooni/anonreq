@@ -389,4 +389,9 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
                 if k != "spans"
             }
 
-    return JSONResponse(status_code=exc.status_code, content=body)
+    # Keep headers the raiser set (for example Cache-Control: no-store).
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=body,
+        headers=getattr(exc, "headers", None),
+    )

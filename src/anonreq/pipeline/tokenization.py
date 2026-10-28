@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import copy
 import inspect
+import re
 from typing import Any
 
 from structlog import get_logger
@@ -24,6 +25,51 @@ from anonreq.tokenization.tokenizer import Tokenizer
 
 logger = get_logger("anonreq.pipeline.tokenization")
 
+_PATH_PART = re.compile(r"([^.\[\]]+)((?:\[\d+\])*)")
+_INDEX = re.compile(r"\[(\d+)\]")
+
+
+def _parse_path(path: str) -> list[str | int] | None:
+    """Split ``messages[0].tool_calls[1].function.arguments`` into keys.
+
+    Returns ``None`` when the path is malformed.
+    """
+    keys: list[str | int] = []
+    for part in path.split("."):
+        match = _PATH_PART.fullmatch(part)
+        if match is None:
+            return None
+        keys.append(match.group(1))
+        keys.extend(int(index) for index in _INDEX.findall(match.group(2)))
+    return keys or None
+
+
+def _write_path(document: Any, path: str, value: str) -> bool:
+    """Set ``value`` at ``path`` inside ``document``. Return True on success.
+
+    Handles indexed parts such as ``tool_calls[0]`` and nested indices
+    generally, instead of comparing path parts to fixed names.
+    """
+    keys = _parse_path(path)
+    if keys is None:
+        return False
+    target = document
+    for key in keys[:-1]:
+        if isinstance(key, int):
+            if not isinstance(target, list) or key >= len(target):
+                return False
+        elif not isinstance(target, dict) or key not in target:
+            return False
+        target = target[key]
+    last = keys[-1]
+    if isinstance(last, int):
+        if not isinstance(target, list) or last >= len(target):
+            return False
+    elif not isinstance(target, dict) or last not in target:
+        return False
+    target[last] = value
+    return True
+
 
 class TokenizationStage(PipelineStage):
     """Replaces detected PII spans with ``[TYPE_N]`` tokens.
@@ -33,18 +79,31 @@ class TokenizationStage(PipelineStage):
     ``Tokenizer.tokenize()``, and records the mapping.
     """
 
-    def __init__(self, tokenizer: Any | None = None, cache_manager: Any = None) -> None:
+    def __init__(
+        self,
+        tokenizer: Any | None = None,
+        cache_manager: Any = None,
+        *,
+        persist_mappings: bool = True,
+        run_when_pass: bool = False,
+    ) -> None:
         """Initialise with an optional tokenizer and a cache manager.
 
         Args:
             tokenizer: A ``Tokenizer`` instance. When omitted, each request
                 gets a new tokenizer so session state is not shared.
             cache_manager: A ``CacheManager`` for storing token mappings
-                in Valkey.
+                in Valkey. Ignored when ``persist_mappings`` is false.
+            persist_mappings: When false, tokens are generated in memory
+                and ``store_mapping`` is not called.
+            run_when_pass: When true, PASS classification still tokenizes.
+                BLOCK still skips.
         """
         super().__init__("TokenizationStage")
         self._tokenizer = tokenizer
         self._cache_manager = cache_manager
+        self._persist_mappings = persist_mappings
+        self._run_when_pass = run_when_pass
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Replace detected entities with tokens.
@@ -61,15 +120,15 @@ class TokenizationStage(PipelineStage):
         Returns:
             The mutated ``ProcessingContext``.
         """
-        # Skip if classification says PASS or BLOCK
+        # Skip only for BLOCK: detection and tokenization always run otherwise
         if ctx.classification_result:
             action = ctx.classification_result.get("action")
-            if action in ("PASS", "BLOCK"):
+            if action == "BLOCK":
                 return ctx
 
-        # No detections → forward unchanged (TOKN-06/07)
+        # No detections → forward an unchanged copy (TOKN-06/07)
         if not ctx.detections:
-            ctx.transformed_request = ctx.original_request
+            ctx.transformed_request = copy.deepcopy(ctx.original_request or {})
             ctx.token_mappings = {}
             return ctx
 
@@ -104,40 +163,27 @@ class TokenizationStage(PipelineStage):
             # Deep-copy so nested message/tool-call edits never mutate the
             # caller-owned request. A shallow copy shares the messages list.
             transformed = copy.deepcopy(ctx.original_request or {})
-            messages = transformed.get("messages", [])
             for i, node in enumerate(ctx.text_nodes or []):
-                # Extract message index and key from path
                 path = node.get("path", "")
-                # Path format: messages[{idx}].content or messages[{idx}].tool_calls[{tc_idx}].function.arguments  # noqa: E501
-                parts = path.split(".")
-                if len(parts) >= 2 and parts[0].startswith("messages["):
-                    msg_idx_str = parts[0][len("messages["):-1]
-                    try:
-                        msg_idx = int(msg_idx_str)
-                    except (ValueError, IndexError):
-                        continue
-
-                    if msg_idx < len(messages):
-                        if parts[1] == "content":
-                            messages[msg_idx]["content"] = tokenized_texts[i]
-                        elif parts[1] == "tool_calls":
-                            # tool_calls[{tc_idx}].function.arguments
-                            tc_part = parts[1] if len(parts) == 2 else ".".join(parts[1:])
-                            # Parse tool_call index from the path part
-                            tc_idx_str = tc_part[len("tool_calls["):-len("].function.arguments")] if tc_part.startswith("tool_calls[") else None  # noqa: E501
-                            if tc_idx_str:
-                                try:
-                                    tc_idx = int(tc_idx_str)
-                                    tool_calls = messages[msg_idx].get("tool_calls", [])
-                                    if tc_idx < len(tool_calls) and "function" in tool_calls[tc_idx]:  # noqa
-                                            tool_calls[tc_idx]["function"]["arguments"] = tokenized_texts[i]  # noqa: E501
-                                except (ValueError, IndexError):
-                                    continue
+                written = _write_path(transformed, path, tokenized_texts[i])
+                # A detected node that cannot be written back would be
+                # forwarded in clear text. Fail closed.
+                if not written:
+                    # Log the path shape only (indices replaced), never values.
+                    logger.warning(
+                        "tokenization.unwritable_path",
+                        request_id=ctx.request_id,
+                        path_shape=_INDEX.sub("[]", str(path)),
+                        has_detections=bool(detections_by_node.get(i)),
+                    )
+                    if detections_by_node.get(i):
+                        raise ValueError("unwritable text node path")
 
             ctx.transformed_request = transformed
 
-            # Store mapping in Valkey if non-empty
-            if all_mappings:
+            # Store mapping in Valkey if non-empty. Debug preview sets
+            # persist_mappings=False and must not touch the token cache.
+            if all_mappings and self._persist_mappings:
                 store_result = self._cache_manager.store_mapping(
                     ctx.tenant_id,
                     ctx.context_id,
@@ -160,18 +206,30 @@ class TokenizationStage(PipelineStage):
         except DependencyUnavailableError:
             raise
         except (KeyError, TypeError, ValueError, IndexError) as exc:
+            logger.warning(
+                "tokenization.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Tokenization stage failed: {type(exc).__name__}",
+                    message="Tokenization stage failed",
                     request_id=ctx.request_id,
                 )
             )
         except Exception as exc:
+            logger.warning(
+                "tokenization.failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=500,
-                    message=f"Tokenization stage failed: {type(exc).__name__}",
+                    message="Tokenization stage failed",
                     request_id=ctx.request_id,
                 )
             )

@@ -66,7 +66,7 @@ class ProviderStage(PipelineStage):
 
         Determines the request body:
         - ANONYMIZE: ``ctx.transformed_request`` (sanitised)
-        - PASS: ``ctx.original_request`` (unchanged)
+        - Nothing else: without a tokenized body the request fails closed
 
         Returns:
             The mutated ``ProcessingContext`` with ``ctx.provider_response``
@@ -75,12 +75,8 @@ class ProviderStage(PipelineStage):
         # Prefer tokenized body whenever present (defense in depth). Do not
         # re-send cleartext after TokenizationStage built a transformed request.
         action = ctx.classification_result.get("action") if ctx.classification_result else None
-        if ctx.transformed_request is not None:
-            request_body = ctx.transformed_request
-        elif action == "ANONYMIZE":
-            request_body = None
-        else:
-            request_body = ctx.original_request
+        # Only a tokenized body may be forwarded; never the original request.
+        request_body = ctx.transformed_request
 
         if request_body is None:
             ctx.fail_secure(
@@ -107,10 +103,16 @@ class ProviderStage(PipelineStage):
             try:
                 model_alias = self._alias_registry.resolve(alias_name)
             except AliasNotFoundError as exc:
+                logger.warning(
+                    "provider.alias_not_found",
+                    stage=self.name,
+                    request_id=ctx.request_id,
+                    error=type(exc).__name__,
+                )
                 ctx.fail_secure(
                     PipelineAbortError(
                         status_code=400,
-                        message=str(exc),
+                        message="Unknown model alias",
                         request_id=ctx.request_id,
                     )
                 )
@@ -206,10 +208,16 @@ class ProviderStage(PipelineStage):
                 )
             )
         except ValueError as exc:
+            logger.warning(
+                "provider.response_parse_failed",
+                stage=self.name,
+                request_id=ctx.request_id,
+                error=type(exc).__name__,
+            )
             ctx.fail_secure(
                 PipelineAbortError(
                     status_code=502,
-                    message=f"Provider response parse error: {exc}",
+                    message="Provider response parse error",
                     request_id=ctx.request_id,
                 )
             )

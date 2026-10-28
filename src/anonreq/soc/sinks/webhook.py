@@ -18,7 +18,8 @@ import httpx
 from jinja2 import BaseLoader, ChainableUndefined, Environment, select_autoescape
 from prometheus_client import Counter
 
-from anonreq.soc.sinks import SinkStatus
+from anonreq.logging_config import scrub_log_value
+from anonreq.soc.sinks import SinkStatus, scrubbed_normalized_event
 
 logger = logging.getLogger("anonreq.soc.sinks.webhook")
 
@@ -124,18 +125,10 @@ class WebhookSink:
         Returns:
             Rendered template string.
         """
-        context = {
-            "severity": event.severity.value,
-            "event_type": event.event_type,
-            "tenant_id": event.tenant_id,
-            "session_id": event.session_id,
-            "timestamp": event.timestamp,
-            "gateway_version": event.gateway_version,
-            "appliance_instance_id": event.appliance_instance_id,
-            "mitre_technique_id": event.mitre_technique_id,
-            "metadata": event.metadata,
-        }
-        return str(self._template.render(**context))
+        context = scrubbed_normalized_event(event)
+        rendered = str(self._template.render(**context))
+        scrubbed = scrub_log_value(rendered)
+        return scrubbed if isinstance(scrubbed, str) else rendered
 
     async def send_event(self, event: Any) -> bool:
         """Send a normalized event to the webhook endpoint.
@@ -181,8 +174,8 @@ class WebhookSink:
             return False
         except Exception as exc:
             logger.warning(
-                "Webhook send error: %s",
-                str(exc),
+                "Webhook send error type=%s",
+                type(exc).__name__,
                 extra={"sink_name": self.name, "event_type": event.event_type},
             )
             return False
@@ -214,5 +207,5 @@ class WebhookSink:
             return SinkStatus(
                 healthy=False,
                 reachable=False,
-                last_error=str(exc),
+                last_error=type(exc).__name__,
             )

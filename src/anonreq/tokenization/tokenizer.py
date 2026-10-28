@@ -59,7 +59,7 @@ class Tokenizer:
         """
         self._per_type_counters = {}
         self._value_to_token = {}
-        self._seed = secrets.randbits(32)
+        self._seed = secrets.randbits(64)
 
     # ------------------------------------------------------------------
     # Tokenization
@@ -169,11 +169,12 @@ class Tokenizer:
         if token is None:
             entity_type_short = str(span["entity_type"])[:20]
             counter = self._per_type_counters.get(entity_type_short, 0)
-            # TOKN-05: Token index = seed offset + counter.
-            # Use all 32 bits of the seed (0xFFFFFFFF) for maximum
-            # collision resistance. Per-pair collision probability
-            # is 1/2³² ≈ 2.3·10⁻¹⁰, satisfying P ≤ 2⁻³² bound.
-            token_index = (self._seed & 0xFFFFFFFF) + counter
+            # TOKN-05: Token index = 64-bit random seed + counter.
+            # With 32 bits, 1000 sessions x 200 test examples saw
+            # cross-session collisions (birthday bound); 64 bits makes
+            # the per-pair probability 2⁻⁶⁴. The index stays a plain
+            # decimal, so [TYPE_N] and streaming patterns still match.
+            token_index = self._seed + counter
             token = f"[{entity_type_short}_{token_index}]"
             self._value_to_token[key] = token
             self._per_type_counters[entity_type_short] = counter + 1

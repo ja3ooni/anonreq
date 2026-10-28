@@ -18,5 +18,28 @@ mnpi:
     - "YOU"
     - "ARE"
     - "WAS"
+    # Field labels and abbreviations common in German (and English)
+    # business text. They are not tickers and were masked as MNPI_TICKER.
+    - "IBAN"
+    - "BIC"
+    - "KVNR"
+    - "SVNR"
+    - "PLZ"
+    - "CRM"
+    - "API"
+    - "URL"
+    - "PDF"
+    - "EUR"
+    - "USD"
+    - "DOB"
+    - "KFZ"
+    - "GMBH"
+    - "UST"
+    - "HRB"
+    - "HRA"
+    - "PIN"
+    - "TAN"
+    - "SMS"
+    - "FAQ"
   min_ticker_length: 2
   score: 0.85

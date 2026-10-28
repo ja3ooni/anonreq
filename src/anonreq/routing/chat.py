@@ -10,6 +10,7 @@ Per PIPE-01:
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 from uuid import uuid4
@@ -71,6 +72,7 @@ from anonreq.streaming.emitter import SSEEmitter
 from anonreq.streaming.restoration import StreamingRestorationStage
 from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
 from anonreq.streaming.tail_buffer import TailBuffer
+from anonreq.tokenization.tokenizer import Tokenizer
 
 router = APIRouter(prefix="/v1", tags=["chat"])
 logger = get_logger("anonreq.routing.chat")
@@ -83,6 +85,8 @@ def build_pre_provider_pipeline(
     recognizer_merger: RecognizerMerger | None = None,
     checksum_registry: ChecksumValidatorRegistry | None = None,
     app_state: Any = None,
+    *,
+    preview: bool = False,
 ) -> PipelineManager:
     """Construct stages shared by streaming and non-streaming requests."""
     try:
@@ -93,10 +97,10 @@ def build_pre_provider_pipeline(
         )
         rules, yaml_default = ClassificationRuleLoader.load_yaml(class_path)
         override = getattr(_settings, "CLASSIFICATION_DEFAULT_ACTION", None)
-        default_action = (override or yaml_default or "PASS").upper()
+        default_action = (override or yaml_default or "ANONYMIZE").upper()
     except FileNotFoundError:
         rules = []
-        default_action = "PASS"
+        default_action = "ANONYMIZE"
 
     classification_engine = ClassificationEngine(
         rules=rules,
@@ -134,23 +138,64 @@ def build_pre_provider_pipeline(
                 restricted_names_mgr=restricted_names_mgr,
             ),
             enterprise_recognizers=load_enterprise_recognizers(),
+            run_when_pass=preview,
             presidio_languages=settings.configured_presidio_languages(),
         ),
         SensitivityClassificationStage(),
-        PolicyEnforcementStage(app_state=app_state),
-        InboundDLPStage(app_state=app_state),
-        ToolGovernanceStage(app_state=app_state),
-        TokenizationStage(
-            cache_manager=cache_manager,
-        ),
-        ForwardingGuard(),
     ]
+    if preview:
+        # Same detection and tokenization stages as the live gateway.
+        # No policy/DLP/tool side effects, no forwarding, no cache write.
+        stages.append(
+            # Preview builds a fresh pipeline per request, so this tokenizer
+            # is not shared; the route reads its mapping afterwards.
+            TokenizationStage(
+                tokenizer=Tokenizer(),
+                cache_manager=cache_manager,
+                persist_mappings=False,
+                run_when_pass=True,
+            )
+        )
+    else:
+        stages.extend([
+            PolicyEnforcementStage(app_state=app_state),
+            InboundDLPStage(app_state=app_state),
+            ToolGovernanceStage(app_state=app_state),
+            TokenizationStage(
+                cache_manager=cache_manager,
+            ),
+            ForwardingGuard(),
+        ])
 
     manager = PipelineManager()
     for stage in stages:
         manager.register(stage)
 
     return manager
+
+
+def build_preview_pipeline(
+    cache_manager: CacheManager | None,
+    presidio_client: PresidioClient,
+    locale_negotiator: LocaleNegotiator | None = None,
+    recognizer_merger: RecognizerMerger | None = None,
+    checksum_registry: ChecksumValidatorRegistry | None = None,
+) -> PipelineManager:
+    """Detection and tokenization only, with cache writes disabled.
+
+    Reuses ``build_pre_provider_pipeline`` so preview cannot drift from
+    the gateway's recognizers, locale merge, or tokenizer. Provider,
+    restoration, cleanup, and forwarding stages are omitted.
+    """
+    return build_pre_provider_pipeline(
+        cache_manager,  # type: ignore[arg-type]
+        presidio_client,
+        locale_negotiator=locale_negotiator,
+        recognizer_merger=recognizer_merger,
+        checksum_registry=checksum_registry,
+        app_state=None,
+        preview=True,
+    )
 
 
 def build_pipeline(
@@ -255,6 +300,22 @@ def _new_processing_context(
     return proc_ctx
 
 
+async def _cleanup_early_stream_exit(
+    cleanup: SessionCleanup,
+) -> None:
+    """Delete mappings and audit a streaming request rejected before streaming.
+
+    Fails closed: if the audit cannot be written, the client gets a 500
+    instead of the original rejection.
+    """
+    try:
+        await cleanup.cleanup("REJECTED")
+    except Exception:
+        raise HTTPException(  # noqa: B904
+            status_code=500, detail="Internal gateway error",
+        )
+
+
 async def _stream_chat_completions(
     body: ChatRequest,
     request: Request,
@@ -290,141 +351,179 @@ async def _stream_chat_completions(
             checksum_registry=checksum_registry,
         )
         get_app_state(request.app)._cached_pre_provider_pipeline = pre_provider
-    proc_ctx = await pre_provider.run(proc_ctx)
-    _raise_for_pipeline_errors(proc_ctx)
-
-    action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
-    if action == "BLOCK":
-        entity_types = list({d["entity_type"] for d in (proc_ctx.detections or [])})
-        exc = HTTPException(status_code=403, detail="Request blocked by policy")
-        exc.block_detail = {  # type: ignore[attr-defined]
-            "classification": (proc_ctx.classification_result_v2.highest.name if proc_ctx.classification_result_v2 else "UNKNOWN"),  # noqa: E501
-            "entities_detected": entity_types,
-            "entity_count": len(proc_ctx.detections or []),
-            "triggered_rule": (proc_ctx.classification_result.get("matched_rule_ids", ["unknown"])[0] if proc_ctx.classification_result.get("matched_rule_ids") else "unknown"),  # noqa: E501
-            "action": "BLOCK",
-        }
-        raise exc
-    if action == "ROUTE_LOCAL":
-        raise HTTPException(status_code=501, detail="ROUTE_LOCAL not yet implemented")
-
-    provider_request_body = (
-        proc_ctx.transformed_request
-        if action == "ANONYMIZE" and proc_ctx.transformed_request
-        else proc_ctx.original_request
+    cleanup = SessionCleanup(
+        cache_manager=cache_manager,
+        tenant_id=proc_ctx.tenant_id,
+        session_id=proc_ctx.context_id or "",
+        audit_logger=logger,
+        processing_context=proc_ctx,
     )
-    provider_request_body = dict(provider_request_body or {})
-    provider_request_body["stream"] = True
-
     try:
-        if alias_registry is None:
-            raise HTTPException(status_code=503, detail="Alias registry not initialized")
-        alias = alias_registry.resolve(provider_request_body["model"])
-        provider_request_body["model"] = alias.model
-        proc_ctx.provider = alias.provider
-        proc_ctx.model = alias.model
+        proc_ctx = await pre_provider.run(proc_ctx)
+        _raise_for_pipeline_errors(proc_ctx)
 
-        if provider_registry is None:
-            raise HTTPException(status_code=503, detail="Provider registry not initialized")
-        adapter = provider_registry.get_adapter(alias.provider)
-        if not adapter.capabilities.streaming:
-            raise HTTPException(status_code=400, detail=f"Provider '{alias.provider}' does not support streaming")  # noqa: E501
+        action = proc_ctx.classification_result.get("action", "ANONYMIZE") if proc_ctx.classification_result else "ANONYMIZE"  # noqa: E501
+        if action == "BLOCK":
+            entity_types = list({d["entity_type"] for d in (proc_ctx.detections or [])})
+            exc = HTTPException(status_code=403, detail="Request blocked by policy")
+            exc.block_detail = {  # type: ignore[attr-defined]
+                "classification": (proc_ctx.classification_result_v2.highest.name if proc_ctx.classification_result_v2 else "UNKNOWN"),  # noqa: E501
+                "entities_detected": entity_types,
+                "entity_count": len(proc_ctx.detections or []),
+                "triggered_rule": (proc_ctx.classification_result.get("matched_rule_ids", ["unknown"])[0] if proc_ctx.classification_result.get("matched_rule_ids") else "unknown"),  # noqa: E501
+                "action": "BLOCK",
+            }
+            raise exc
+        if action == "ROUTE_LOCAL":
+            raise HTTPException(status_code=501, detail="ROUTE_LOCAL not yet implemented")
 
-        proc_ctx.original_request = provider_request_body
-        provider_request = adapter.translate_request(proc_ctx)
-    except AliasNotFoundError as exc:
-        logger.warning("chat.alias_not_found", error_type=type(exc).__name__)
-        raise HTTPException(status_code=400, detail="Unknown model alias") from None
-    except ProviderNotFoundError as exc:
-        logger.warning("chat.provider_not_found", error_type=type(exc).__name__)
-        raise HTTPException(status_code=400, detail="Unknown provider") from None
-    except ValueError:
-        raise HTTPException(  # noqa: B904
-            status_code=502,
-            detail="Provider configuration error",
-        )
+        # Only a tokenized body may leave the gateway. Never fall back to the
+        # original request.
+        if proc_ctx.transformed_request is None:
+            raise HTTPException(status_code=503, detail="Request was not tokenized")
+        provider_request_body = dict(proc_ctx.transformed_request)
+        provider_request_body["stream"] = True
+
+        try:
+            if alias_registry is None:
+                raise HTTPException(status_code=503, detail="Alias registry not initialized")
+            alias = alias_registry.resolve(provider_request_body["model"])
+            provider_request_body["model"] = alias.model
+            proc_ctx.provider = alias.provider
+            proc_ctx.model = alias.model
+
+            if provider_registry is None:
+                raise HTTPException(status_code=503, detail="Provider registry not initialized")
+            adapter = provider_registry.get_adapter(alias.provider)
+            if not adapter.capabilities.streaming:
+                raise HTTPException(status_code=400, detail=f"Provider '{alias.provider}' does not support streaming")  # noqa: E501
+
+            proc_ctx.original_request = provider_request_body
+            provider_request = adapter.translate_request(proc_ctx)
+        except AliasNotFoundError as exc:
+            logger.warning(
+                "chat.alias_not_found",
+                request_id=ctx.request_id,
+                error_type=type(exc).__name__,
+            )
+            raise HTTPException(status_code=400, detail="Unknown model alias") from None
+        except ProviderNotFoundError as exc:
+            logger.warning(
+                "chat.provider_not_found",
+                request_id=ctx.request_id,
+                error_type=type(exc).__name__,
+            )
+            raise HTTPException(status_code=400, detail="Unknown provider") from None
+        except ValueError:
+            raise HTTPException(  # noqa: B904
+                status_code=502,
+                detail="Provider configuration error",
+            )
+
+        if cache_manager is None:
+            raise HTTPException(status_code=503, detail="Cache manager not initialized")
+    except (asyncio.CancelledError, KeyboardInterrupt):
+        # Never swallow or replace cancellation or an interrupt.
+        raise
+    except Exception:
+        # Early exit before the stream starts (policy block, unknown alias,
+        # unsupported provider, ...): tokenization may already have stored
+        # mappings, so delete them and audit the rejected request.
+        await _cleanup_early_stream_exit(cleanup)
+        if secret_rotation_buffer is not None:
+            secret_rotation_buffer.end_session(proc_ctx.context_id or "")
+        raise
 
     emitter = SSEEmitter()
 
     async def stream_generator() -> AsyncIterator[str]:
         tail_buffer = TailBuffer()
-        if cache_manager is None:
-            raise HTTPException(status_code=503, detail="Cache manager not initialized")
         restoration = StreamingRestorationStage(cache_manager)
-        cleanup = SessionCleanup(
-            cache_manager=cache_manager,
-            tenant_id=proc_ctx.tenant_id,
-            session_id=proc_ctx.context_id or "",
-            audit_logger=logger,
-        )
         terminal_state = "FINISH"
+        cleaned = False
         store_token = push_runtime_secret_store(stream_secret_store)
 
-        await restoration.start_session(proc_ctx.tenant_id, proc_ctx.context_id or "")
+        def _error_frame(error_type: str) -> str:
+            return emitter.emit(StreamEvent(
+                event_type=EventType.ERROR,
+                provider=proc_ctx.provider or "unknown",
+                metadata={"message": "stream error", "type": error_type},
+            ))
 
         try:
-            async for event in adapter.stream_events(provider_request):
-                if await request.is_disconnected():
-                    terminal_state = "CLIENT_DISCONNECT"
-                    break
+            await restoration.start_session(proc_ctx.tenant_id, proc_ctx.context_id or "")
+            try:
+                async for event in adapter.stream_events(provider_request):
+                    if await request.is_disconnected():
+                        terminal_state = "CLIENT_DISCONNECT"
+                        break
 
-                if event.event_type == EventType.REASONING_DELTA:
-                    continue
+                    if event.event_type == EventType.REASONING_DELTA:
+                        continue
 
-                if event.event_type == EventType.FINISH:
+                    if event.event_type == EventType.FINISH:
+                        remaining = tail_buffer.flush_remaining()
+                        if remaining:
+                            yield emitter.emit(restoration.restore_text(remaining))
+                        yield emitter.emit(event)
+                        proc_ctx.stream_finished = True
+                        break
+
+                    if event.event_type == EventType.ERROR:
+                        terminal_state = "PROVIDER_ERROR"
+                        yield _error_frame("provider_error")
+                        break
+
+                    async for chunk in tail_buffer.ingest(event):
+                        restored = restoration.restore_text(chunk)
+                        if restored:
+                            yield emitter.emit(restored)
+                else:
                     remaining = tail_buffer.flush_remaining()
                     if remaining:
                         yield emitter.emit(restoration.restore_text(remaining))
-                    yield emitter.emit(event)
-                    yield emitter.close_frame()
-                    proc_ctx.stream_finished = True
-                    return
+                        yield emitter.emit(StreamEvent(
+                            event_type=EventType.FINISH,
+                            provider=proc_ctx.provider or "unknown",
+                            finish_reason=FinishReason.STOP,
+                        ))
+            except Exception:
+                terminal_state = "PROVIDER_ERROR"
+                yield _error_frame("provider_error")
 
-                if event.event_type == EventType.ERROR:
-                    terminal_state = "PROVIDER_ERROR"
-                    yield emitter.emit(StreamEvent(
-                        event_type=EventType.ERROR,
-                        provider=proc_ctx.provider or "unknown",
-                        metadata={"message": "stream error", "type": "provider_error"},
-                    ))
-                    yield emitter.close_frame()
-                    return
-
-                async for chunk in tail_buffer.ingest(event):
-                    restored = restoration.restore_text(chunk)
-                    if restored:
-                        yield emitter.emit(restored)
-
-            remaining = tail_buffer.flush_remaining()
-            if remaining and terminal_state != "CLIENT_DISCONNECT":
-                yield emitter.emit(restoration.restore_text(remaining))
-                yield emitter.emit(StreamEvent(
-                    event_type=EventType.FINISH,
-                    provider=proc_ctx.provider or "unknown",
-                    finish_reason=FinishReason.STOP,
-                ))
-                yield emitter.close_frame()
-        except PipelineAbortError:
-            terminal_state = "PROVIDER_ERROR"
-            yield emitter.emit(StreamEvent(
-                event_type=EventType.ERROR,
-                provider=proc_ctx.provider or "unknown",
-                metadata={"message": "stream error", "type": "provider_error"},
-            ))
-            yield emitter.close_frame()
-        except Exception:
-            terminal_state = "PROVIDER_ERROR"
-            yield emitter.emit(StreamEvent(
-                event_type=EventType.ERROR,
-                provider=proc_ctx.provider or "unknown",
-                metadata={"message": "stream error", "type": "provider_error"},
-            ))
-            yield emitter.close_frame()
-        finally:
+            # The audit event is written before the closing frame, so a
+            # client only sees a clean ``[DONE]`` once the audit is durable.
             tail_buffer.terminate()
             restoration.close_session()
             proc_ctx.terminal_state = terminal_state
-            await cleanup.cleanup(terminal_state)
+            audit_failed = False
+            cleaned = True
+            try:
+                await cleanup.cleanup(terminal_state)
+            except Exception:
+                audit_failed = True
+            if terminal_state != "CLIENT_DISCONNECT":
+                if audit_failed:
+                    yield _error_frame("audit_error")
+                else:
+                    yield emitter.close_frame()
+        finally:
+            # Reached directly on cancellation or generator close; cleanup is
+            # idempotent, so the normal path above is not repeated.
+            tail_buffer.terminate()
+            restoration.close_session()
+            if proc_ctx.terminal_state is None:
+                proc_ctx.terminal_state = terminal_state
+            if not cleaned:
+                try:
+                    await cleanup.cleanup(proc_ctx.terminal_state or terminal_state)
+                except Exception as exc:
+                    logger.error(
+                        "stream.audit_failure_suppressed",
+                        request_id=proc_ctx.request_id,
+                        tenant_id=proc_ctx.tenant_id,
+                        error_type=type(exc).__name__,
+                    )
             reset_runtime_secret_store(store_token)
             if secret_rotation_buffer is not None:
                 secret_rotation_buffer.end_session(proc_ctx.context_id or "")
@@ -489,7 +588,7 @@ async def chat_completions(
     _raise_for_pipeline_errors(proc_ctx)
 
     # ── Determine response body ───────────────────────────────────────────
-    action = proc_ctx.classification_result.get("action", "PASS") if proc_ctx.classification_result else "PASS"  # noqa: E501
+    action = proc_ctx.classification_result.get("action", "ANONYMIZE") if proc_ctx.classification_result else "ANONYMIZE"  # noqa: E501
 
     if action in ("BLOCK",):
         entity_types = list({d["entity_type"] for d in (proc_ctx.detections or [])})
@@ -509,7 +608,7 @@ async def chat_completions(
     # Determine response data
     if action == "ANONYMIZE" and proc_ctx.restored_response:
         response_data = proc_ctx.restored_response
-    elif proc_ctx.provider_response or (action == "PASS" and proc_ctx.provider_response):
+    elif proc_ctx.provider_response:
         response_data = proc_ctx.provider_response
     else:
         raise HTTPException(status_code=500, detail="No response produced")

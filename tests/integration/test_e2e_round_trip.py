@@ -387,7 +387,7 @@ class TestFailSecure:
 
     @pytest.mark.asyncio
     async def test_tokenization_ran_before_provider_failure(self, cache_manager):
-        """Token mapping exists in cache (tokenization ran) but restoration never did."""
+        """Tokenization runs before a provider failure, then cleanup deletes the mapping."""
         presidio_client = AsyncMock(spec=PresidioClient)
         presidio_client.analyze_text_nodes = AsyncMock(return_value=[
             [{"entity_type": "PERSON", "start": 11, "end": 21, "score": 0.95}],
@@ -404,13 +404,15 @@ class TestFailSecure:
             proc_ctx = await pipeline.run(proc_ctx)
 
         assert proc_ctx.has_errors()
+        assert isinstance(proc_ctx.errors[-1], PipelineAbortError)
+        assert proc_ctx.errors[-1].status_code == 502
 
-        # Tokenization ran → mapping exists in cache
+        # Tokenization ran before the provider failure. The mapping is
+        # still on the context, and cleanup deleted it from the cache.
+        assert proc_ctx.token_mappings is not None
+        assert len(proc_ctx.token_mappings) >= 2
         mapping = await cache_manager.get_mapping(TENANT_ID, CONTEXT_ID)
-        assert len(mapping) >= 2
-
-        # Restoration never ran → mapping NOT cleaned up
-        # (CleanupStage only runs after successful restoration)
+        assert mapping == {}
 
 
 class TestStreamingSplitToken:

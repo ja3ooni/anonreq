@@ -316,3 +316,7 @@ class TestIsProviderActive:
 
         # Should not raise
         await inv.check_provider_active("prov_001")
+
+
+# Test middleware injects the principal; see conftest.trust_injected_principal.
+pytestmark = pytest.mark.usefixtures("trust_injected_principal")

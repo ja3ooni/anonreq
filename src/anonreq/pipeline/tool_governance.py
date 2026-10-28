@@ -3,10 +3,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from structlog import get_logger
+
 from anonreq.governance.pdp_tool_evaluator import ToolBlockedError
 from anonreq.governance.tool_extractor import ToolExtractor
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.base import PipelineStage
+
+logger = get_logger("anonreq.pipeline.tool_governance")
 
 
 class ToolGovernanceStage(PipelineStage):
@@ -51,10 +55,13 @@ class ToolGovernanceStage(PipelineStage):
             try:
                 calls = self._extractor.extract_calls(msg, tool_format)
             except (KeyError, TypeError, ValueError) as exc:
-                ctx.fail_secure(ToolBlockedError(
-                    f"Failed to extract tool calls: "
-                    f"{type(exc).__name__}: {exc}"
-                ))
+                logger.warning(
+                    "tool_governance.extract_failed",
+                    stage=self.name,
+                    request_id=ctx.request_id,
+                    error=type(exc).__name__,
+                )
+                ctx.fail_secure(ToolBlockedError("Failed to extract tool calls"))
                 return ctx
             except Exception as exc:
                 ctx.fail_secure(ToolBlockedError(
@@ -67,16 +74,22 @@ class ToolGovernanceStage(PipelineStage):
                 try:
                     await tool_evaluator.evaluate(call, ctx)
                 except (KeyError, TypeError, ValueError) as exc:
-                    ctx.fail_secure(ToolBlockedError(
-                        f"Tool evaluation failed for {call.name}: "
-                        f"{type(exc).__name__}: {exc}"
-                    ))
+                    logger.warning(
+                        "tool_governance.evaluate_failed",
+                        stage=self.name,
+                        request_id=ctx.request_id,
+                        error=type(exc).__name__,
+                    )
+                    ctx.fail_secure(ToolBlockedError("Tool evaluation failed"))
                     return ctx
                 except Exception as exc:
-                    ctx.fail_secure(ToolBlockedError(
-                        f"Tool evaluation failed for {call.name}: "
-                        f"{type(exc).__name__}"
-                    ))
+                    # Never echo the client-supplied tool name or exception text.
+                    logger.warning(
+                        "tool_governance.evaluation_failed",
+                        request_id=ctx.request_id,
+                        error=type(exc).__name__,
+                    )
+                    ctx.fail_secure(ToolBlockedError("Tool evaluation failed"))
                     return ctx
 
                 if ctx.has_errors():

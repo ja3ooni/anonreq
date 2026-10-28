@@ -89,7 +89,7 @@ class PolicyDecisionPoint:
                 ttl_seconds=self._cache_ttl,
             )
         except Exception as exc:
-            logger.error("pdp.classification_error", error=str(exc), tenant_id=tenant_id)
+            logger.error("pdp.classification_error", error=type(exc).__name__, tenant_id=tenant_id)
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["classification_error"],
@@ -102,7 +102,7 @@ class PolicyDecisionPoint:
         try:
             return await self._usage_limiter.check_rate_limit(tenant_id)
         except Exception as exc:
-            logger.error("pdp.rate_limit_error", error=str(exc), tenant_id=tenant_id)
+            logger.error("pdp.rate_limit_error", error=type(exc).__name__, tenant_id=tenant_id)
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["rate_limit_error"],
@@ -115,7 +115,7 @@ class PolicyDecisionPoint:
         try:
             return await self._spend_controller.check_spend(tenant_id)
         except Exception as exc:
-            logger.error("pdp.spend_error", error=str(exc), tenant_id=tenant_id)
+            logger.error("pdp.spend_error", error=type(exc).__name__, tenant_id=tenant_id)
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["spend_error"],
@@ -134,7 +134,7 @@ class PolicyDecisionPoint:
                 tenant_id, provider_region, provider_name,
             )
         except Exception as exc:
-            logger.error("pdp.residency_error", error=str(exc), tenant_id=tenant_id)
+            logger.error("pdp.residency_error", error=type(exc).__name__, tenant_id=tenant_id)
             return PolicyDecision(
                 action=PolicyAction.BLOCK,
                 matched_rule_ids=["residency_error"],

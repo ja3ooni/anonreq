@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 from prometheus_client import Counter
 
-from anonreq.soc.sinks import SinkStatus
+from anonreq.soc.sinks import SinkStatus, scrubbed_normalized_event
 
 logger = logging.getLogger("anonreq.soc.sinks.sentinel_dcr")
 
@@ -164,17 +164,18 @@ class SentinelDCRSink:
         Returns:
             List of DCR stream record dicts (single-element list).
         """
+        safe = scrubbed_normalized_event(event)
         return [
             {
-                "severity": event.severity.value,
-                "event_type": event.event_type,
-                "tenant_id": event.tenant_id,
-                "session_id": event.session_id,
-                "timestamp": event.timestamp,
-                "gateway_version": event.gateway_version,
-                "appliance_instance_id": event.appliance_instance_id,
-                "mitre_technique_id": event.mitre_technique_id,
-                "metadata": event.metadata,
+                "severity": safe["severity"],
+                "event_type": safe["event_type"],
+                "tenant_id": safe["tenant_id"],
+                "session_id": safe["session_id"],
+                "timestamp": safe["timestamp"],
+                "gateway_version": safe["gateway_version"],
+                "appliance_instance_id": safe["appliance_instance_id"],
+                "mitre_technique_id": safe["mitre_technique_id"],
+                "metadata": safe["metadata"],
             }
         ]
 
@@ -224,7 +225,7 @@ class SentinelDCRSink:
         except Exception as exc:
             logger.warning(
                 "Sentinel DCR send error: %s",
-                str(exc),
+                type(exc).__name__,
                 extra={"sink_name": self.name, "event_type": event.event_type},
             )
             return False
@@ -248,5 +249,5 @@ class SentinelDCRSink:
             return SinkStatus(
                 healthy=False,
                 reachable=False,
-                last_error=str(exc),
+                last_error=type(exc).__name__,
             )

@@ -5,16 +5,19 @@ Per PIPE-05, CACH-04, AUDT-04, AUDT-05:
 - Writes a structured audit log entry with metadata only (no raw values)
 - Audit entry written BEFORE the HTTP response is flushed per AUDT-05
 - TTL fallback ensures mapping expires even if DEL fails (CACH-04)
+- The audit-chain write is retried, then fails closed. Mapping deletion
+  failure does not fail the request.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from structlog import get_logger
 
 from anonreq.models.processing_context import ProcessingContext
+from anonreq.pipeline.audit_emit import anonymization_audit_fields, emit_anonymization_audit
 from anonreq.pipeline.base import PipelineStage
 
 logger = get_logger("anonreq.pipeline.cleanup")
@@ -28,87 +31,81 @@ class CleanupStage(PipelineStage):
     log entry per AUDT-02 (no raw values, no token mappings).
     """
 
-    def __init__(self, cache_manager: Any) -> None:
+    def __init__(
+        self,
+        cache_manager: Any,
+        *,
+        audit_attempts: int | None = None,
+        audit_backoff_seconds: float | None = None,
+        audit_sleep: Callable[[float], Awaitable[None]] | None = None,
+    ) -> None:
         """Initialise with a cache manager for mapping deletion.
 
         Args:
             cache_manager: A ``CacheManager`` instance.
+            audit_attempts: Override for ``ANONREQ_AUDIT_WRITE_ATTEMPTS``.
+            audit_backoff_seconds: Override for the audit write backoff.
+            audit_sleep: Awaitable delay used between audit retries.
         """
         super().__init__("CleanupStage")
+        self.guaranteed = True
         self._cache_manager = cache_manager
+        self._audit_attempts = audit_attempts
+        self._audit_backoff_seconds = audit_backoff_seconds
+        self._audit_sleep = audit_sleep
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
-        """Delete mapping and write audit log.
+        """Delete mapping and write the audit event.
 
-        Steps:
-        1. If token_mappings is non-empty: delete from Valkey.
-        2. Build structured audit log entry from ctx metadata.
-        3. Emit audit log entry.
-        4. Return ctx unchanged (cleanup failure does not affect response).
+        Mapping deletion is best-effort (TTL remains the fallback). The
+        structured log and the audit-chain write run in ``finally`` so a
+        delete error cannot skip them. An audit-chain write that is still
+        failing after the retry budget raises and fails the request.
 
         Returns:
-            The (unchanged) ``ProcessingContext``.
+            The ``ProcessingContext``.
         """
-        # ── Delete Valkey mapping ──────────────────────────────────────────
-        if ctx.token_mappings and ctx.context_id:
+        try:
+            if ctx.token_mappings and ctx.context_id:
+                try:
+                    await self._cache_manager.delete_mapping(
+                        ctx.tenant_id,
+                        ctx.context_id,
+                    )
+                    logger.info(
+                        "cleanup.mapping_deleted",
+                        stage=self.name,
+                        request_id=ctx.request_id,
+                        tenant_id=ctx.tenant_id,
+                    )
+                except Exception as exc:
+                    # Log the type only. Exception messages can echo mapping
+                    # keys or provider errors that still contain user data.
+                    logger.warning(
+                        "cleanup.mapping_delete_failed",
+                        stage=self.name,
+                        request_id=ctx.request_id,
+                        error_type=type(exc).__name__,
+                    )
+                    # Per T-02-04-03: TTL fallback handles expiry if DEL fails.
+                    # Pipeline does NOT fail if DEL fails.
+        finally:
             try:
-                await self._cache_manager.delete_mapping(
-                    ctx.tenant_id,
-                    ctx.context_id,
-                )
-                logger.info(
-                    "cleanup.mapping_deleted",
-                    stage=self.name,
-                    request_id=ctx.request_id,
-                    tenant_id=ctx.tenant_id,
-                )
-            except (KeyError, TypeError, ValueError) as exc:
-                logger.warning(
-                    "cleanup.mapping_delete_failed",
-                    stage=self.name,
-                    request_id=ctx.request_id,
-                    error=f"{type(exc).__name__}: {exc}",
-                )
+                audit_entry = self._build_audit_entry(ctx)
+                logger.info("audit.request_complete", **audit_entry)
             except Exception as exc:
-                logger.warning(
-                    "cleanup.mapping_delete_failed",
+                logger.error(
+                    "cleanup.audit_log_failed",
                     stage=self.name,
                     request_id=ctx.request_id,
-                    error=f"{type(exc).__name__}",
+                    error_type=type(exc).__name__,
                 )
-                # Per T-02-04-03: TTL fallback handles expiry if DEL fails.
-                # Pipeline does NOT fail if DEL fails.
-
-        # ── Build structured audit log ─────────────────────────────────────
-        audit_entry = self._build_audit_entry(ctx)
-        logger.info("audit.request_complete", **audit_entry)
-
-        if ctx.audit_chain is not None:
-            try:
-                await ctx.audit_chain.log_event(
-                    "anonymization",
-                    tenant_id=ctx.tenant_id,
-                    request_id=ctx.request_id,
-                    operator_id=ctx.audit_metadata.get("operator_id"),
-                    provider=ctx.provider,
-                    decision=audit_entry.get("classification_action"),
-                    latency_ms=int(ctx.processing_overhead_ms)
-                    if ctx.processing_overhead_ms is not None
-                    else None,
-                    entity_types=sorted(audit_entry.get("entity_counts", {})),
-                    entity_counts=audit_entry.get("entity_counts", {}),
-                    token_count=audit_entry.get("token_count", 0),
-                    locale=ctx.audit_metadata.get("locale"),
-                    model=ctx.model,
-                    compliance_preset=ctx.audit_metadata.get("compliance_preset"),
-                )
-            except Exception as exc:
-                logger.warning(
-                    "cleanup.audit_chain_failed",
-                    request_id=ctx.request_id,
-                    error=type(exc).__name__,
-                )
-
+            await emit_anonymization_audit(
+                ctx,
+                attempts=self._audit_attempts,
+                backoff_seconds=self._audit_backoff_seconds,
+                sleep=self._audit_sleep,
+            )
         return ctx
 
     @staticmethod
@@ -124,68 +121,4 @@ class CleanupStage(PipelineStage):
         Returns:
             A dict of audit-safe metadata fields.
         """
-        # Entity counts from detections
-        entity_counts: dict[str, int] = {}
-        if ctx.detections:
-            for d in ctx.detections:
-                etype = d.get("entity_type", "UNKNOWN")
-                entity_counts[etype] = entity_counts.get(etype, 0) + 1
-
-        # Classification action
-        action = "unknown"
-        matched_rule_ids: list[str] = []
-        if ctx.classification_result:
-            action = ctx.classification_result.get("action", "unknown")
-            matched_rule_ids = ctx.classification_result.get("matched_rule_ids", [])
-
-        # Error info
-        error_type: str | None = None
-        if ctx.errors:
-            last_error = ctx.errors[-1]
-            error_type = type(last_error).__name__
-
-        # Provider status
-        provider_status = 0
-        action_taken = "anonymized"
-        if ctx.classification_result:
-            ca = ctx.classification_result.get("action", "PASS")
-            if ca == "PASS":
-                action_taken = "passed"
-            elif ca == "BLOCK":
-                action_taken = "blocked"
-
-        if ctx.provider_response:
-            # The provider response is not inspected for status — this is
-            # a metadata field.  We just note that a response was received.
-            provider_status = 200 if ctx.restored_response else 0
-
-        # Classification (Phase 12)
-        classification_level = None
-        classification_labels = []
-        classification_client_override = False
-        classification_client_asserted_level = None
-
-        if ctx.classification_result_v2:
-            res = ctx.classification_result_v2
-            classification_level = res.highest.name
-            classification_labels = res.labels
-            classification_client_override = res.client_override
-            classification_client_asserted_level = res.client_asserted_level.name if res.client_asserted_level else None  # noqa: E501
-
-        return {
-            "timestamp": datetime.now(UTC).isoformat(),
-            "request_id": ctx.request_id,
-            "tenant_id": ctx.tenant_id,
-            "context_id": ctx.context_id or "",
-            "classification_action": action,
-            "matched_rule_ids": matched_rule_ids,
-            "entity_counts": entity_counts,
-            "token_count": len(ctx.token_mappings) if ctx.token_mappings else 0,
-            "provider_status": provider_status,
-            "error_type": error_type,
-            "action_taken": action_taken,
-            "classification_level": classification_level,
-            "classification_labels": classification_labels,
-            "classification_client_override": classification_client_override,
-            "classification_client_asserted_level": classification_client_asserted_level,
-        }
+        return anonymization_audit_fields(ctx)

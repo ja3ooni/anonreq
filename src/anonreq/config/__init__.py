@@ -102,6 +102,37 @@ class Settings(BaseSettings):
         validation_alias="ANONREQ_ANCHOR_SIGNING_KEY",
         description="Optional HMAC signing key for tamper-evident audit chain anchors.",
     )
+    AUDIT_WRITE_ATTEMPTS: int = Field(
+        default=3,
+        ge=1,
+        le=5,
+        validation_alias="ANONREQ_AUDIT_WRITE_ATTEMPTS",
+        description=(
+            "Attempts for the anonymization audit-chain write, including the "
+            "first try. 1 fails closed immediately. The default retries "
+            "transient database errors, then fails closed."
+        ),
+    )
+    AUDIT_WRITE_BACKOFF_SECONDS: float = Field(
+        default=0.05,
+        ge=0.0,
+        le=1.0,
+        validation_alias="ANONREQ_AUDIT_WRITE_BACKOFF_SECONDS",
+        description=(
+            "Base delay in seconds for exponential backoff between "
+            "audit-chain write attempts. Capped at 1 second per wait."
+        ),
+    )
+    AUDIT_WRITE_TIMEOUT_SECONDS: float = Field(
+        default=2.0,
+        gt=0.0,
+        le=30.0,
+        validation_alias="ANONREQ_AUDIT_WRITE_TIMEOUT_SECONDS",
+        description=(
+            "Per-attempt timeout in seconds for the anonymization audit-chain "
+            "write. A timed-out attempt counts as a failure and is retried."
+        ),
+    )
     ADMIN_API_KEY: str | None = Field(
         default=None,
         validation_alias="ANONREQ_ADMIN_API_KEY",
@@ -252,6 +283,27 @@ class Settings(BaseSettings):
         default="development",
         validation_alias="ANONREQ_ENV",
         description="Deployment environment: development | staging | production.",
+    )
+    DEBUG_PREVIEW_ENABLED: bool = Field(
+        default=False,
+        validation_alias="ANONREQ_DEBUG_PREVIEW_ENABLED",
+        description=(
+            "Enable admin POST /v1/debug/anonymize-preview. "
+            "When false the route responds 404 and is not advertised."
+        ),
+    )
+    DEBUG_PREVIEW_RPM: int = Field(
+        default=30,
+        validation_alias="ANONREQ_DEBUG_PREVIEW_RPM",
+        description="Maximum anonymization previews per admin principal per minute.",
+    )
+    CORS_ORIGINS: str = Field(
+        default="",
+        validation_alias="ANONREQ_CORS_ORIGINS",
+        description=(
+            "Comma-separated browser origins allowed to call the gateway. "
+            "Empty or unset disables CORS."
+        ),
     )
 
     @field_validator("API_KEY", mode="before")

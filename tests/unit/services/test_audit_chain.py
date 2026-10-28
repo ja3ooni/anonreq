@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -179,6 +180,93 @@ class TestAuditChainService:
         assert len(page2) == 2
 
     @pytest.mark.anyio
+    async def test_anonymization_entity_filter_and_timestamp_sort(
+        self, chain: AuditChainService,
+    ) -> None:
+        older = _make_event("old", "acme", event_type="anonymization")
+        older.request_id = "r-old"
+        older.decision = "ANONYMIZE"
+        older.timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+        older.metadata_json = json.dumps({
+            "entity_types": ["EMAIL_ADDRESS"],
+            "entity_counts": {"EMAIL_ADDRESS": 2},
+            "model": "gpt-4o",
+            "locale": "en",
+            "token_count": 2,
+        })
+        newer = _make_event("new", "acme", event_type="anonymization")
+        newer.request_id = "r-new"
+        newer.decision = "PASS"
+        newer.timestamp = datetime(2026, 6, 1, tzinfo=UTC)
+        newer.metadata_json = json.dumps({
+            "entity_counts": {"EMAIL_ADDRESS": 1, "PERSON": 1},
+            "model": "gpt-4o",
+        })
+        other = _make_event("person", "acme", event_type="anonymization")
+        other.request_id = "r-person"
+        other.timestamp = datetime(2026, 3, 1, tzinfo=UTC)
+        other.metadata_json = json.dumps({"entity_types": ["PERSON"]})
+        await chain.store_event(older)
+        await chain.store_event(newer)
+        await chain.store_event(other)
+
+        emails = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="EMAIL_ADDRESS",
+            sort="timestamp:asc",
+        )
+        assert [event.request_id for event in emails] == ["r-old", "r-new"]
+        desc = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="EMAIL_ADDRESS",
+            sort="timestamp:desc",
+        )
+        assert [event.request_id for event in desc] == ["r-new", "r-old"]
+        assert await chain.count_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="PERSON",
+        ) == 2
+        assert await chain.count_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            entity_type="EMAIL_ADDRESS",
+            date_from=datetime(2026, 5, 1, tzinfo=UTC),
+        ) == 1
+
+    @pytest.mark.anyio
+    async def test_keyset_cursor_on_timestamp_and_id(self, chain: AuditChainService) -> None:
+        first = _make_event("k1", "acme", event_type="anonymization")
+        first.timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+        second = _make_event("k2", "acme", event_type="anonymization")
+        second.timestamp = datetime(2026, 1, 1, tzinfo=UTC)
+        third = _make_event("k3", "acme", event_type="anonymization")
+        third.timestamp = datetime(2026, 2, 1, tzinfo=UTC)
+        await chain.store_event(first)
+        await chain.store_event(second)
+        await chain.store_event(third)
+
+        page = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            sort="timestamp:asc",
+            limit=2,
+        )
+        assert [event.event_id for event in page] == ["k1", "k2"]
+        assert page[-1].row_id is not None
+        nxt = await chain.get_events(
+            tenant_id="acme",
+            event_type="anonymization",
+            sort="timestamp:asc",
+            limit=2,
+            cursor_timestamp=page[-1].timestamp,
+            cursor_id=page[-1].row_id,
+        )
+        assert [event.event_id for event in nxt] == ["k3"]
+
+    @pytest.mark.anyio
     async def test_metadata_json_preserved(self, chain: AuditChainService) -> None:
         event = _make_event("m", "t1")
         event.metadata_json = '{"key": "value"}'
@@ -191,3 +279,29 @@ class TestAuditChainService:
         assert cfg.retention_days == 2557
         assert cfg.chain_anchor_enabled is True
         assert cfg.chain_anchor_time == "23:59:59 UTC"
+
+
+@pytest.mark.unit
+class TestAuditChainIdempotency:
+    @pytest.mark.anyio
+    async def test_log_event_with_same_event_id_writes_once(
+        self, chain: AuditChainService, engine: AsyncEngine,
+    ) -> None:
+        first = await chain.log_event(
+            "anonymization", tenant_id="t1", request_id="r1", event_id="idem-1",
+        )
+        second = await chain.log_event(
+            "anonymization", tenant_id="t1", request_id="r1", event_id="idem-1",
+        )
+        assert first is not None
+        assert second is not None
+        assert first.event_id == second.event_id == "idem-1"
+        assert second.hash == first.hash
+        async with engine.connect() as conn:
+            count = (await conn.execute(
+                text("SELECT COUNT(*) FROM audit_event WHERE event_id = 'idem-1'"),
+            )).scalar_one()
+        assert count == 1
+        result = await chain.verify_chain("t1")
+        assert result.is_intact is True
+        assert result.checked_count == 1
