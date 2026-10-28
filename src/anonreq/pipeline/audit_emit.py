@@ -13,6 +13,7 @@ The audit chain's hash, anchor, and lock logic is not involved here.
 from __future__ import annotations
 
 import asyncio
+import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -26,6 +27,8 @@ logger = get_logger("anonreq.pipeline.audit_emit")
 
 _MAX_ATTEMPTS = 5
 _MAX_BACKOFF_SECONDS = 1.0
+_MAX_TIMEOUT_SECONDS = 30.0
+_IDEMPOTENCY_NAMESPACE = uuid.UUID("6f1c2a4e-8b1d-4f6a-9c3e-2d7a5b0e9f11")
 
 SleepFn = Callable[[float], Awaitable[None]]
 
@@ -115,8 +118,26 @@ def _retry_policy(
     return bounded_attempts, bounded_backoff
 
 
+def anonymization_event_id(ctx: ProcessingContext) -> str:
+    """Stable idempotency key for a request's anonymization audit event.
+
+    Derived from tenant and request id, so every retry of the same write
+    carries the same ``event_id`` and the chain stores it at most once.
+    """
+    name = f"anonymization:{ctx.tenant_id}:{ctx.request_id}"
+    return uuid.uuid5(_IDEMPOTENCY_NAMESPACE, name).hex
+
+
+def _timeout_policy(timeout_seconds: float | None) -> float:
+    if timeout_seconds is None:
+        from anonreq.config import settings
+
+        timeout_seconds = float(settings.AUDIT_WRITE_TIMEOUT_SECONDS)
+    return max(0.001, min(float(timeout_seconds), _MAX_TIMEOUT_SECONDS))
+
+
 def _backoff_delay(attempt: int, backoff_seconds: float) -> float:
-    return min(backoff_seconds * (2 ** (attempt - 1)), _MAX_BACKOFF_SECONDS)
+    return min(backoff_seconds * float(2 ** (attempt - 1)), _MAX_BACKOFF_SECONDS)
 
 
 async def emit_anonymization_audit(
@@ -125,6 +146,7 @@ async def emit_anonymization_audit(
     attempts: int | None = None,
     backoff_seconds: float | None = None,
     sleep: SleepFn | None = None,
+    timeout_seconds: float | None = None,
 ) -> None:
     """Write the anonymization audit event, then fail closed if it cannot.
 
@@ -137,8 +159,10 @@ async def emit_anonymization_audit(
 
     max_attempts, backoff = _retry_policy(attempts, backoff_seconds)
     pause = sleep or asyncio.sleep
+    timeout = _timeout_policy(timeout_seconds)
     audit_fields = anonymization_audit_fields(ctx)
     event_fields: dict[str, Any] = {
+        "event_id": anonymization_event_id(ctx),
         "tenant_id": ctx.tenant_id,
         "request_id": ctx.request_id,
         "operator_id": ctx.audit_metadata.get("operator_id"),
@@ -162,7 +186,10 @@ async def emit_anonymization_audit(
 
     for attempt in range(1, max_attempts + 1):
         try:
-            await ctx.audit_chain.log_event("anonymization", **event_fields)
+            await asyncio.wait_for(
+                ctx.audit_chain.log_event("anonymization", **dict(event_fields)),
+                timeout=timeout,
+            )
             return
         except Exception as exc:
             last_error = exc

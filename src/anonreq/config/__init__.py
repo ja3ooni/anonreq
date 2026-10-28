@@ -115,6 +115,16 @@ class Settings(BaseSettings):
             "audit-chain write attempts. Capped at 1 second per wait."
         ),
     )
+    AUDIT_WRITE_TIMEOUT_SECONDS: float = Field(
+        default=2.0,
+        gt=0.0,
+        le=30.0,
+        validation_alias="ANONREQ_AUDIT_WRITE_TIMEOUT_SECONDS",
+        description=(
+            "Per-attempt timeout in seconds for the anonymization audit-chain "
+            "write. A timed-out attempt counts as a failure and is retried."
+        ),
+    )
     ADMIN_API_KEY: str | None = Field(
         default=None,
         validation_alias="ANONREQ_ADMIN_API_KEY",

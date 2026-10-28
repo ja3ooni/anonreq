@@ -306,3 +306,59 @@ async def test_stream_audit_failure_fails_closed_after_retries() -> None:
     assert _failure_count() == before + 1
     assert cleanup._cleaned is True
     assert "person@example.com" not in repr(logs)
+
+
+async def test_audit_event_id_is_stable_across_retries() -> None:
+    from anonreq.pipeline.audit_emit import anonymization_event_id, emit_anonymization_audit
+
+    ctx = _ctx()
+    chain = _Chain(failures=2)
+    ctx.audit_chain = chain
+
+    async def _sleep(_delay: float) -> None:
+        return None
+
+    await emit_anonymization_audit(ctx, attempts=3, backoff_seconds=0.0, sleep=_sleep)
+    ids = [fields["event_id"] for _, fields in chain.calls]
+    assert len(ids) == 3
+    assert len(set(ids)) == 1
+    assert ids[0] == anonymization_event_id(ctx)
+    other = _ctx()
+    other.request_id = "req-other"
+    assert anonymization_event_id(other) != ids[0]
+
+
+async def test_audit_write_times_out_per_attempt_then_fails_closed() -> None:
+    import asyncio
+
+    from anonreq.pipeline.audit_emit import emit_anonymization_audit
+
+    class _Hang:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def log_event(self, event_type: str, **fields: Any) -> None:
+            self.calls += 1
+            await asyncio.sleep(10)
+
+    ctx = _ctx()
+    hang = _Hang()
+    ctx.audit_chain = hang
+
+    async def _sleep(_delay: float) -> None:
+        return None
+
+    with pytest.raises(PipelineAbortError, match="Audit write failed"):
+        await emit_anonymization_audit(
+            ctx, attempts=2, backoff_seconds=0.0, sleep=_sleep, timeout_seconds=0.01,
+        )
+    assert hang.calls == 2
+
+
+async def test_audit_write_timeout_reads_setting(monkeypatch: pytest.MonkeyPatch) -> None:
+    from anonreq.config import settings
+    from anonreq.pipeline.audit_emit import _timeout_policy
+
+    monkeypatch.setattr(settings, "AUDIT_WRITE_TIMEOUT_SECONDS", 0.5)
+    assert _timeout_policy(None) == 0.5
+    assert _timeout_policy(1000) == 30.0
