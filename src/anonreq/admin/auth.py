@@ -55,8 +55,9 @@ async def verify_admin_api_key(
         try:
             verifier = _get_oidc_verifier(request)
             principal = await verifier.verify_authorization(authorization)
-        except OIDCVerificationError as exc:
-            raise HTTPException(status_code=401, detail=str(exc)) from exc
+        except OIDCVerificationError:
+            # Do not echo verifier text (issuer, claim names, key ids).
+            raise HTTPException(status_code=401, detail="Invalid token") from None
         request.state.oidc_principal = principal
         return True
 
@@ -181,8 +182,11 @@ async def bind_governance_role(
         try:
             verifier = _get_oidc_verifier(request)
             principal = await verifier.verify_authorization(authorization)
-        except OIDCVerificationError as exc:
-            raise HTTPException(status_code=401, detail="Invalid token") from exc
+        except OIDCVerificationError:
+            # Do not echo verifier text (issuer, claim names, key ids). With
+            # OIDC enabled the legacy admin key is refused: it is not a JWT,
+            # so it fails verification here and gets 401.
+            raise HTTPException(status_code=401, detail="Invalid token") from None
         request.state.oidc_principal = principal
         request.state.role_principal = _oidc_role_principal(request, principal)
         return

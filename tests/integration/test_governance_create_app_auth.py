@@ -122,3 +122,52 @@ def test_startup_ok_without_admin_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ADMIN_API_KEY", None)
     monkeypatch.setattr(settings, "ADMIN_TENANT_ID", None)
     create_app()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", ["/v1/governance/audit/events", "/v1/governance/audit/verify"])
+async def test_audit_routes_admin_chat_and_no_key(path: str) -> None:
+    from types import SimpleNamespace
+
+    app, _slo = _app()
+    chain = AsyncMock()
+    chain.get_events.return_value = []
+    chain.verify_chain.return_value = SimpleNamespace(
+        is_intact=True, checked_count=0, broken_at=None,
+    )
+    app.state.audit_chain = chain
+    tenant = {"X-AnonReq-Tenant-ID": "default"}
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        admin = await client.get(path, headers=_admin())
+        assert admin.status_code == 200
+        chat = await client.get(
+            path, headers={"Authorization": f"Bearer {settings.API_KEY}", **tenant},
+        )
+        assert chat.status_code == 403
+        none = await client.get(path, headers=tenant)
+        assert none.status_code == 401
+    called = chain.get_events if path.endswith("events") else chain.verify_chain
+    assert called.await_count == 1
+    assert called.await_args.kwargs["tenant_id"] == "default"
+
+
+@pytest.mark.asyncio
+async def test_admin_key_refused_when_oidc_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With OIDC configured, only verified tokens work; the admin key is 401."""
+    from anonreq.auth.oidc import OIDCVerificationError
+
+    monkeypatch.setattr(settings, "OIDC_ISSUER", "https://issuer.example")
+    monkeypatch.setattr(settings, "OIDC_AUDIENCE", "anonreq")
+    monkeypatch.setattr(settings, "OIDC_JWKS_URL", "https://issuer.example/jwks")
+    app, slo = _app()
+    verifier = AsyncMock()
+    verifier.verify_authorization.side_effect = OIDCVerificationError(
+        "kid abc123 not in https://issuer.example/jwks",
+    )
+    app.state.oidc_verifier = verifier
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/v1/governance/status", headers=_admin())
+    assert resp.status_code == 401
+    assert "abc123" not in resp.text
+    assert "issuer.example" not in resp.text
+    slo.get_all_compliance.assert_not_awaited()
