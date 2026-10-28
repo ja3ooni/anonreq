@@ -73,7 +73,6 @@ class DetectionStage(PipelineStage):
         config_registry: AtomicConfigRegistry | None = None,
         mnpi_recognizers: list[MNPIRecognizer] | None = None,
         enterprise_recognizers: dict[str, Any] | None = None,
-        run_when_pass: bool = False,
     ) -> None:
         """Initialise with detection dependencies.
 
@@ -89,9 +88,6 @@ class DetectionStage(PipelineStage):
                 for MNPI detection (Phase 15, D-001).
             enterprise_recognizers: Optional dict of enabled enterprise
                 recognizers (Phase 26, GUARD-01).
-            run_when_pass: When true, PASS classification still runs
-                detection. BLOCK still skips. Used by the side-effect-free
-                debug preview so callers can see tokens without a provider call.
         """
         super().__init__("DetectionStage")
         self._regex_detector = regex_detector
@@ -102,7 +98,6 @@ class DetectionStage(PipelineStage):
         self._config_registry = config_registry
         self._mnpi_recognizers = mnpi_recognizers or []
         self._enterprise_recognizers = enterprise_recognizers or {}
-        self._run_when_pass = run_when_pass
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         """Detect PII in request text nodes.
@@ -113,11 +108,10 @@ class DetectionStage(PipelineStage):
         Returns:
             The mutated ``ProcessingContext`` with ``ctx.detections`` set.
         """
-        # Skip if classification says PASS or BLOCK. Preview mode still
-        # detects on PASS so the caller can inspect tokens; BLOCK never runs.
+        # Skip only for BLOCK: detection and tokenization always run otherwise
         if ctx.classification_result:
             action = ctx.classification_result.get("action")
-            if action == "BLOCK" or (action == "PASS" and not self._run_when_pass):
+            if action == "BLOCK":
                 return ctx
 
         # Ensure text nodes are extracted

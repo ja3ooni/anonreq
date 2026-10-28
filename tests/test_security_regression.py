@@ -110,6 +110,11 @@ def _leak_ctx() -> ProcessingContext:
             "messages": [{"role": "user", "content": "hello"}],
             "stream": False,
         },
+        transformed_request={
+            "model": "gpt-4",
+            "messages": [{"role": "user", "content": "hello"}],
+            "stream": False,
+        },
     )
 
 

@@ -130,8 +130,9 @@ class AuditChainService:
         provider = fields.pop("provider", None)
         decision = fields.pop("decision", None)
         latency_ms = fields.pop("latency_ms", None)
+        event_id = fields.pop("event_id", None)
         event = AuditEvent(
-            event_id=uuid4().hex,
+            event_id=str(event_id) if event_id else uuid4().hex,
             prev_hash=None,
             hash="",
             timestamp=datetime.now(UTC),
@@ -177,6 +178,18 @@ class AuditChainService:
             latest = await self._get_latest_event_in_session(
                 session, event.tenant_id, for_update=use_for_update,
             )
+            # Idempotency: a retried write whose earlier attempt already
+            # committed (for example, it timed out after commit) must not
+            # append a second event. The tenant's chain lock is held here.
+            existing = await session.execute(
+                text("SELECT hash, prev_hash FROM audit_event WHERE event_id = :event_id"),
+                {"event_id": event.event_id},
+            )
+            row = existing.first()
+            if row is not None:
+                event.hash = row[0]
+                event.prev_hash = row[1]
+                return event
             event.prev_hash = latest.hash if latest else None
             event.hash = compute_event_hash(event)
 

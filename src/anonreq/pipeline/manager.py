@@ -5,11 +5,16 @@ Per D-45 through D-49:
 - ``run()`` iterates stages sequentially, checking ``ctx.has_errors()``
   before each stage
 - Any stage failure (either via ``ctx.fail_secure()`` or unhandled
-  exception) aborts the pipeline immediately — no downstream stage,
+  exception) aborts forwarding immediately — no downstream stage,
   especially the provider call, ever executes per D-49 and FAIL-01.
+- Stages marked ``guaranteed`` (cleanup and the audit write) still run
+  from a ``finally`` block. A failure inside those stages does not
+  replace the original pipeline error.
 """
 
 from __future__ import annotations
+
+import sys
 
 from structlog import get_logger
 
@@ -56,17 +61,58 @@ class PipelineManager:
         """Return a read-only copy of the registered stage list."""
         return list(self._stages)
 
-    async def run(self, ctx: ProcessingContext) -> ProcessingContext:
-        """Execute all registered stages sequentially.
+    async def _invoke(
+        self,
+        ctx: ProcessingContext,
+        stage: PipelineStage,
+    ) -> tuple[ProcessingContext, Exception | None]:
+        """Run one stage. Exceptions are recorded and returned, not raised.
 
-        For each stage:
-        1. Check ``ctx.has_errors()`` — if true, skip remaining stages.
-        2. Log stage start.
-        3. Execute the stage.
-        4. If the stage raised an unhandled exception, record it via
-           ``ctx.fail_secure()`` and abort.
-        5. If ``ctx.has_errors()`` after execution, log failure and abort.
-        6. Log stage completion.
+        Errors already on ``ctx`` belong to an earlier stage. A guaranteed
+        stage that finishes without adding an error is not a failure.
+        """
+        prior_errors = len(ctx.errors)
+        logger.info(
+            "pipeline.stage.start",
+            stage=stage.name,
+            request_id=ctx.request_id,
+        )
+        try:
+            ctx = await stage.execute(ctx)
+        except Exception as exc:
+            ctx.fail_secure(exc)
+            logger.error(
+                "pipeline.stage.exception",
+                stage=stage.name,
+                request_id=ctx.request_id,
+                error_type=type(exc).__name__,
+            )
+            return ctx, exc
+
+        if len(ctx.errors) > prior_errors:
+            logger.error(
+                "pipeline.stage.failed",
+                stage=stage.name,
+                request_id=ctx.request_id,
+                error_type=type(ctx.errors[-1]).__name__,
+            )
+            return ctx, ctx.errors[-1]
+
+        logger.info(
+            "pipeline.stage.complete",
+            stage=stage.name,
+            request_id=ctx.request_id,
+        )
+        return ctx, None
+
+    async def run(self, ctx: ProcessingContext) -> ProcessingContext:
+        """Execute registered stages, then always run guaranteed stages.
+
+        A failure skips every later stage that is not marked ``guaranteed``.
+        Cleanup and the audit write are guaranteed: they run from the
+        ``finally`` block when the main loop stopped before reaching them.
+        The original error stays ``ctx.errors[-1]`` so callers still
+        surface it when a guaranteed stage also fails.
 
         Args:
             ctx: A ``ProcessingContext``, typically pre-populated with
@@ -77,41 +123,38 @@ class PipelineManager:
             The (possibly mutated) ``ProcessingContext``.  Callers must
             check ``ctx.has_errors()`` to determine the response.
         """
-        for stage in self._stages:
-            if ctx.has_errors():
-                break
-
-            logger.info(
-                "pipeline.stage.start",
-                stage=stage.name,
-                request_id=ctx.request_id,
-            )
-
-            try:
-                ctx = await stage.execute(ctx)
-            except Exception as exc:
-                ctx.fail_secure(exc)
-                logger.error(
-                    "pipeline.stage.exception",
-                    stage=stage.name,
-                    request_id=ctx.request_id,
-                    error=str(exc),
-                )
-                break
-
-            if ctx.has_errors():
-                logger.error(
-                    "pipeline.stage.failed",
-                    stage=stage.name,
-                    request_id=ctx.request_id,
-                    error=str(ctx.errors[-1]),
-                )
-                break
-
-            logger.info(
-                "pipeline.stage.complete",
-                stage=stage.name,
-                request_id=ctx.request_id,
-            )
-
+        surfaced: list[Exception] | None = None
+        ran: set[int] = set()
+        try:
+            for index, stage in enumerate(self._stages):
+                if ctx.has_errors():
+                    surfaced = list(ctx.errors)
+                    break
+                ctx, error = await self._invoke(ctx, stage)
+                ran.add(index)
+                if error is not None:
+                    surfaced = list(ctx.errors)
+                    break
+        finally:
+            pending = sys.exc_info()[1]
+            for index, stage in enumerate(self._stages):
+                if index in ran or getattr(stage, "guaranteed", False) is not True:
+                    continue
+                try:
+                    ctx, error = await self._invoke(ctx, stage)
+                except Exception as exc:
+                    logger.error(
+                        "pipeline.stage.exception",
+                        stage=stage.name,
+                        request_id=ctx.request_id,
+                        error_type=type(exc).__name__,
+                    )
+                    if surfaced is None and pending is None:
+                        ctx.fail_secure(exc)
+                        surfaced = list(ctx.errors)
+                    continue
+                if error is not None and surfaced is None and pending is None:
+                    surfaced = list(ctx.errors)
+            if surfaced is not None and pending is None:
+                ctx.errors = list(surfaced)
         return ctx
