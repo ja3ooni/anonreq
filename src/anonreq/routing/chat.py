@@ -142,6 +142,8 @@ def build_pre_provider_pipeline(
         # Same detection and tokenization stages as the live gateway.
         # No policy/DLP/tool side effects, no forwarding, no cache write.
         stages.append(
+            # Preview builds a fresh pipeline per request, so this tokenizer
+            # is not shared; the route reads its mapping afterwards.
             TokenizationStage(
                 tokenizer=Tokenizer(),
                 cache_manager=cache_manager,
@@ -155,7 +157,6 @@ def build_pre_provider_pipeline(
             InboundDLPStage(app_state=app_state),
             ToolGovernanceStage(app_state=app_state),
             TokenizationStage(
-                tokenizer=Tokenizer(),
                 cache_manager=cache_manager,
             ),
             ForwardingGuard(),

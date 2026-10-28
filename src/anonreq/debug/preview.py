@@ -253,7 +253,11 @@ async def _run_preview(
         (stage for stage in pipeline.stages if isinstance(stage, TokenizationStage)),
         None,
     )
-    value_to_token = token_stage._tokenizer.get_mapping() if token_stage is not None else {}
+    value_to_token = (
+        token_stage._tokenizer.get_mapping()
+        if token_stage is not None and token_stage._tokenizer is not None
+        else {}
+    )
     transformed = (ctx.transformed_request or {}).get("messages") or []
     entities = entities_from_context(
         ctx.text_nodes,
