@@ -61,10 +61,15 @@ class ClassificationStage(PipelineStage):
 
         # Run classification engine
         result = self._engine.classify(text_nodes)
+        # Classification decides only BLOCK or ROUTE_LOCAL. A PASS outcome
+        # (rule or default) still runs detection and tokenization, so it is
+        # recorded as ANONYMIZE; the configured value is kept for audit.
+        if result.get("action", "ANONYMIZE") == "PASS":
+            result = {**result, "action": "ANONYMIZE", "configured_action": "PASS"}
         ctx.classification_result = result
 
         # Act on the determined action
-        action = result.get("action", "PASS")
+        action = result.get("action", "ANONYMIZE")
 
         if action == "BLOCK":
             entity_types = list({d["entity_type"] for d in (ctx.detections or [])})

@@ -130,13 +130,13 @@ class ClassificationEngine:
     for auditability.
 
     Per D-28: ``default_action`` defines what to return when no rules
-    match (typically ``"PASS"``).
+    match (``"ANONYMIZE"``).
     """
 
     def __init__(
         self,
         rules: list[ClassificationRule],
-        default_action: ClassificationAction = "PASS",
+        default_action: ClassificationAction = "ANONYMIZE",
     ) -> None:
         # Group rules by action for precedence-based evaluation
         self._rules_by_action: dict[ClassificationAction, list[ClassificationRule]] = {

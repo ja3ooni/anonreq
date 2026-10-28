@@ -249,7 +249,7 @@ class TestClassificationStage:
 
     @pytest.mark.asyncio
     async def test_pass_classification(self, proc_ctx, sample_text_nodes_two):
-        """PASS classification stores result and continues (no error)."""
+        """PASS is recorded as ANONYMIZE so detection still runs."""
         from anonreq.classification.engine import ClassificationEngine
         from anonreq.pipeline.classification import ClassificationStage
 
@@ -265,7 +265,8 @@ class TestClassificationStage:
         result = await stage.execute(proc_ctx)
 
         assert not result.has_errors()
-        assert result.classification_result["action"] == "PASS"
+        assert result.classification_result["action"] == "ANONYMIZE"
+        assert result.classification_result["configured_action"] == "PASS"
 
     @pytest.mark.asyncio
     async def test_classification_extracts_text_nodes(self, proc_ctx, sample_request_dict):
@@ -343,14 +344,19 @@ class TestDetectionStage:
         assert len(result.detections) >= 1
 
     @pytest.mark.asyncio
-    async def test_detection_skipped_on_pass(self, proc_ctx, sample_text_nodes_two):
-        """DetectionStage skips execution for PASS classification."""
+    async def test_detection_runs_on_pass(self, proc_ctx, sample_text_nodes_two):
+        """A stray PASS action never skips detection (anonymize by default)."""
         from anonreq.pipeline.detection import DetectionStage
 
         regex_detector = MagicMock()
+        regex_detector.detect.return_value = []
+        regex_detector.patterns_from_entity_configs.return_value = {}
         presidio_client = MagicMock()
+        presidio_client.analyze_text_nodes.return_value = [[], []]
         span_arbiter = MagicMock()
+        span_arbiter.merge.return_value = []
         exclusion_list = MagicMock()
+        exclusion_list.filter_detections.return_value = []
 
         proc_ctx.text_nodes = sample_text_nodes_two
         proc_ctx.classification_result = {"action": "PASS"}
@@ -363,12 +369,8 @@ class TestDetectionStage:
         )
         result = await stage.execute(proc_ctx)
 
-        # None of the detection methods should have been called
-        regex_detector.detect.assert_not_called()
-        presidio_client.analyze_text_nodes.assert_not_called()
-
-        # Detections should still be None (not set)
-        assert result.detections is None
+        assert regex_detector.detect.call_count == 2
+        assert result.detections == []
 
     @pytest.mark.asyncio
     async def test_detection_skipped_on_block(self, proc_ctx, sample_text_nodes_two):
@@ -518,17 +520,17 @@ class TestForwardingGuard:
         assert not result.has_errors()
 
     @pytest.mark.asyncio
-    async def test_pass_action_no_checks(self, proc_ctx):
-        """ForwardingGuard passes immediately for PASS action."""
+    async def test_pass_action_without_tokenization_fails(self, proc_ctx):
+        """ForwardingGuard has no PASS bypass: untokenized requests are refused."""
         from anonreq.pipeline.forwarding_guard import ForwardingGuard
 
         proc_ctx.classification_result = {"action": "PASS"}
-        # No detections or mappings needed
 
         guard = ForwardingGuard()
         result = await guard.execute(proc_ctx)
 
-        assert not result.has_errors()
+        assert result.has_errors()
+        assert result.errors[-1].status_code == 503
 
     @pytest.mark.asyncio
     async def test_missing_classification_fails(self, proc_ctx):
@@ -995,16 +997,16 @@ class TestFullPipeline:
         assert result.errors[-1].status_code == 403
 
     @pytest.mark.asyncio
-    async def test_classification_pass_forwards_unchanged(self, proc_ctx, sample_request_dict):
-        """PASS → pipeline completes without errors (no detections/tokenization)."""
+    async def test_classification_pass_without_tokenization_is_refused(
+        self, proc_ctx, sample_request_dict
+    ):
+        """A PASS default no longer forwards the original request untouched."""
         from anonreq.classification.engine import ClassificationEngine
         from anonreq.pipeline.classification import ClassificationStage
         from anonreq.pipeline.forwarding_guard import ForwardingGuard
         from anonreq.pipeline.manager import PipelineManager
 
-        # Engine with default PASS (no rules match)
         engine = ClassificationEngine(rules=[], default_action="PASS")
-
         proc_ctx.original_request = sample_request_dict
 
         provider_stage = MagicMock()
@@ -1016,13 +1018,11 @@ class TestFullPipeline:
         manager.register(ForwardingGuard())
         manager.register(provider_stage)
 
-        # Set up prerequisite fields that ForwardingGuard checks for ANONYMIZE
-        # After classification with PASS, guard should let it through
         result = await manager.run(proc_ctx)
 
-        # For PASS, the pipeline should complete without blocking
-        assert result.classification_result is not None
-        assert result.classification_result["action"] == "PASS"
+        assert result.classification_result["action"] == "ANONYMIZE"
+        assert result.has_errors()
+        provider_stage.execute.assert_not_called()
 
 
 # ============================================================================
