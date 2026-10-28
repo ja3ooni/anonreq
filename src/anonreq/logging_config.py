@@ -545,13 +545,15 @@ def setup_logging(level: str = "INFO") -> None:
     Args:
         level: The minimum logging level (e.g., ``"INFO"``, ``"WARNING"``).
     """
-    foreign_pre_chain = [
+    # Our processors take BoundLogger/dict; structlog's Processor alias uses
+    # Any/MutableMapping. They are compatible at runtime, so cast explicitly.
+    foreign_pre_chain: list[structlog.typing.Processor] = [
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.stdlib.ExtraAdder(),
-        strip_exception_details_processor,  # type: ignore[list-item]
-        allowlist_processor,  # type: ignore[list-item]
-        redact_sensitive_values_processor,  # type: ignore[list-item]
+        cast(structlog.typing.Processor, strip_exception_details_processor),
+        cast(structlog.typing.Processor, allowlist_processor),
+        cast(structlog.typing.Processor, redact_sensitive_values_processor),
     ]
     structlog.configure(
         processors=[
@@ -622,7 +624,7 @@ def _attach_uvicorn_redaction() -> None:
             _attach_filter(handler)
             _original(handler)
 
-        target.addHandler = _adding  # type: ignore[method-assign]
+        target.addHandler = _adding  # type: ignore[method-assign,assignment]
         target._anonreq_pii_add_handler = True  # type: ignore[attr-defined]
 
 

@@ -83,10 +83,13 @@ class ToolGovernanceStage(PipelineStage):
                     ctx.fail_secure(ToolBlockedError("Tool evaluation failed"))
                     return ctx
                 except Exception as exc:
-                    ctx.fail_secure(ToolBlockedError(
-                        f"Tool evaluation failed for {call.name}: "
-                        f"{type(exc).__name__}"
-                    ))
+                    # Never echo the client-supplied tool name or exception text.
+                    logger.warning(
+                        "tool_governance.evaluation_failed",
+                        request_id=ctx.request_id,
+                        error=type(exc).__name__,
+                    )
+                    ctx.fail_secure(ToolBlockedError("Tool evaluation failed"))
                     return ctx
 
                 if ctx.has_errors():
