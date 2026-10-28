@@ -1,11 +1,19 @@
 # Provider adapter mapping — loaded at startup by ProviderRegistry
 # Maps provider_name -> fully qualified adapter class path
+# requires_api_key: false providers (and the names mock / local) boot
+# without an upstream credential. Every other configured alias must have
+# its own key. PROVIDER_API_KEY satisfies openai only. ANONREQ_API_KEY
+# (the gateway client key) is never an upstream credential.
 providers:
   openai:
     adapter: anonreq.providers.openai.OpenAIAdapter
+    requires_api_key: true
   anthropic:
     adapter: anonreq.providers.anthropic.AnthropicAdapter
+    requires_api_key: true
   gemini:
     adapter: anonreq.providers.gemini.GeminiAdapter
+    requires_api_key: true
   ollama:
     adapter: anonreq.providers.ollama.OllamaAdapter
+    requires_api_key: false

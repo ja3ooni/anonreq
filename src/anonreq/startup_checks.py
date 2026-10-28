@@ -17,14 +17,20 @@ Threat model coverage:
 """
 
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
 import structlog
+import yaml
 
 from anonreq.cache.health import check_cache_health
 from anonreq.cache.manager import CacheManager
 from anonreq.config import Settings
+from anonreq.providers.registry import (
+    provider_has_credential,
+    provider_requires_api_key,
+)
 
 logger = structlog.get_logger()
 
@@ -193,12 +199,117 @@ async def validate_single_tenant_mode(settings: Settings) -> None:
         )
 
 
+def configured_provider_names(
+    aliases_path: str = "config/model_aliases.yaml",
+) -> list[str]:
+    """Return provider names referenced by the model-alias file.
+
+    The shipped alias file is the set of providers the gateway can route
+    to. A missing file is treated as the OpenAI-compatible upstream.
+    """
+    path = Path(aliases_path)
+    if not path.is_file():
+        return ["openai"]
+    with path.open() as handle:
+        raw: Any = yaml.safe_load(handle) or {}
+    if not isinstance(raw, dict):
+        return ["openai"]
+    names: list[str] = []
+    seen: set[str] = set()
+    for data in (raw.get("model_aliases") or {}).values():
+        if not isinstance(data, dict):
+            continue
+        name = str(data.get("provider") or "").strip()
+        if not name:
+            continue
+        key = name.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        names.append(name)
+    return names or ["openai"]
+
+
+def load_provider_key_requirements(
+    providers_path: str = "config/providers.yaml",
+) -> dict[str, bool]:
+    """Return ``requires_api_key`` flags declared in the provider registry."""
+    path = Path(providers_path)
+    if not path.is_file():
+        return {}
+    with path.open() as handle:
+        raw: Any = yaml.safe_load(handle) or {}
+    if not isinstance(raw, dict):
+        return {}
+    flags: dict[str, bool] = {}
+    for name, config in (raw.get("providers") or {}).items():
+        if isinstance(config, dict) and "requires_api_key" in config:
+            flags[str(name).casefold()] = bool(config["requires_api_key"])
+    return flags
+
+
+def _missing_provider_key_message(missing: list[str]) -> str:
+    """Operator-facing startup error. Never includes credential values."""
+    hints: list[str] = []
+    for name in missing:
+        upper = name.upper()
+        if name.casefold() == "openai":
+            hints.append(
+                "openai: set PROVIDER_API_KEY or ANONREQ_OPENAI_API_KEY or OPENAI_API_KEY"
+            )
+        else:
+            hints.append(f"{name}: set ANONREQ_{upper}_API_KEY or {upper}_API_KEY")
+    names = ", ".join(missing)
+    hint_text = "; ".join(hints)
+    return (
+        f"Provider API key missing for: {names}. {hint_text}. "
+        "Mock, local, and ollama providers do not need a key. "
+        "ANONREQ_API_KEY is the gateway client credential and is never sent upstream. "
+        "Refusing to start."
+    )
+
+
+def validate_provider_credentials(settings: Settings) -> None:
+    """Fail startup when a configured provider that needs a key has none.
+
+    Runs in every environment. ``PROVIDER_API_KEY`` satisfies only the
+    OpenAI-compatible upstream. The gateway client key is ignored.
+    Placeholder values (``change-me*``, ``changeme``, ``<...>``,
+    ``your-...-key``) count as unset, so startup fails closed instead of
+    forwarding a template key and receiving HTTP 401 from the provider.
+    """
+    flags = load_provider_key_requirements()
+    shared_key = getattr(settings, "PROVIDER_API_KEY", None)
+    missing: list[str] = []
+    for name in configured_provider_names():
+        if not provider_requires_api_key(name, flags):
+            continue
+        has_key = provider_has_credential(
+            name,
+            provider_api_key=shared_key if name.casefold() == "openai" else None,
+        )
+        if not has_key:
+            missing.append(name)
+    if not missing:
+        return
+    message = _missing_provider_key_message(missing)
+    logger.error(
+        "provider_api_key_missing",
+        component="startup_checks",
+        provider=", ".join(missing),
+        error="missing_provider_api_key",
+    )
+    raise RuntimeError(message)
+
+
 async def validate_production_secrets(settings: Settings) -> None:
     """Refuse to boot in production mode with default/placeholder credentials.
 
     Catches compose-level default credentials (Finding 7) before serving
-    traffic: empty provider keys, placeholder API keys, and unset MinIO /
-    Postgres secrets when ``ANONREQ_ENV=production``.
+    traffic: unset or default MinIO / Postgres secrets when
+    ``ANONREQ_ENV=production``. Provider API keys are checked for every
+    environment by ``validate_provider_credentials``. The gateway client
+    key is never accepted as a provider credential.
     """
     import os
 
@@ -206,8 +317,6 @@ async def validate_production_secrets(settings: Settings) -> None:
     if env != "production":
         return
     problems: list[str] = []
-    if not getattr(settings, "PROVIDER_API_KEY", None):
-        problems.append("PROVIDER_API_KEY is unset")
     for var in ("MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD", "POSTGRES_PASSWORD"):
         if not os.environ.get(var):
             problems.append(f"{var} is unset")
@@ -273,8 +382,11 @@ async def run_startup_checks(settings: Settings, cache_manager: CacheManager) ->
             health checks.
 
     Raises:
+        RuntimeError: If a configured provider that needs an API key has none.
+            The gateway client key is not accepted.
         DependencyUnavailableError: If Valkey or Presidio is unreachable.
     """
+    validate_provider_credentials(settings)
     await validate_single_tenant_mode(settings)
     await validate_production_secrets(settings)
     # Check cache health via the lifespan-owned CacheManager instance.

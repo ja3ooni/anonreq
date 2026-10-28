@@ -16,6 +16,7 @@ def test_settings():
         API_KEY="a" * 32,
         VALKEY_URL="redis://localhost:6379/0",
         PRESIDIO_URL="http://localhost:5001",
+        PROVIDER_API_KEY="test-provider-key",
     )
 
 

@@ -188,7 +188,9 @@ cp .env.example .env
 ```
 
 Set at least the required keys in `.env`:
-- `ANONREQ_API_KEY`: A secure API key (minimum 32 characters) to authenticate clients calling the gateway.
+- `ANONREQ_API_KEY`: A secure API key (minimum 32 characters) to authenticate clients calling the gateway. This key is never sent to a model provider.
+- `PROVIDER_API_KEY`: Upstream model key for providers that require one. Required unless every configured provider is `mock`, `local`, or `ollama`. Do not copy `ANONREQ_API_KEY` here. Startup fails when a keyed provider has no credential.
+- `ANONREQ_ANTHROPIC_API_KEY` and `ANONREQ_GEMINI_API_KEY`: Required while the `smart` and `gemini-pro` aliases stay in `config/model_aliases.yaml`. OpenAI uses `PROVIDER_API_KEY` when `ANONREQ_OPENAI_API_KEY` is unset.
 - `ANONREQ_VALKEY_URL`: Redis/Valkey connection URL.
 - `ANONREQ_PRESIDIO_URL`: URL to the Presidio Analyzer service.
 

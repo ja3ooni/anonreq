@@ -6,7 +6,9 @@ Per D-70, D-71, D-72:
 - Dynamically imports adapter classes via ``importlib`` at resolution time
 - ``ProviderNotFoundError`` raised for unknown providers (T-03-02-04)
 - ``resolve_api_key()`` uses ANONREQ_{PROVIDER}_API_KEY -> {PROVIDER}_API_KEY
-  fallback per D-88, never storing keys in ProcessingContext (AG-09)
+  fallback per D-88, then PROVIDER_API_KEY for OpenAI only. The gateway
+  client key (ANONREQ_API_KEY) is never a provider credential. Keys are
+  never stored in ProcessingContext (AG-09)
 """
 
 from __future__ import annotations
@@ -144,6 +146,57 @@ class ProviderRegistry:
         return sorted(self._adapter_paths.keys())
 
 
+# Providers that serve without an upstream credential. ``local`` is the
+# alias-facing name; ``ollama`` is the adapter. ``mock`` is the in-process
+# / stub provider used by demos and tests.
+KEYLESS_PROVIDERS = frozenset({"mock", "local", "ollama"})
+
+
+def is_placeholder_credential(value: str) -> bool:
+    """Return True for template values that must not be sent upstream.
+
+    Missing means: starts with ``change-me``, equals or starts with
+    ``changeme``, is an angle-bracket template (``<...>``), or matches
+    ``your-...-key``. Comparison is case-insensitive.
+    """
+    stripped = value.strip()
+    if not stripped:
+        return False
+    folded = stripped.casefold()
+    if folded.startswith("change-me") or folded.startswith("changeme"):
+        return True
+    if stripped.startswith("<") and stripped.endswith(">"):
+        return True
+    return folded.startswith("your-") and folded.endswith("-key")
+
+
+def _nonblank(value: str | None) -> str | None:
+    """Return a stripped credential, or None when missing or a placeholder."""
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped and not is_placeholder_credential(stripped):
+            return stripped
+    return None
+
+
+def provider_requires_api_key(
+    provider_name: str,
+    flags: dict[str, bool] | None = None,
+) -> bool:
+    """Return whether ``provider_name`` must have its own upstream key.
+
+    ``mock`` and ``local`` never require a key. Other providers use
+    ``requires_api_key`` from ``config/providers.yaml`` when present,
+    and otherwise require a key unless they are in ``KEYLESS_PROVIDERS``.
+    """
+    normalized = provider_name.strip().casefold()
+    if not normalized or normalized in {"mock", "local"}:
+        return False
+    if flags is not None and normalized in flags:
+        return bool(flags[normalized])
+    return normalized not in KEYLESS_PROVIDERS
+
+
 def resolve_api_key(
     provider_name: str,
     secret_store: RuntimeSecretStore | None = None,
@@ -153,8 +206,12 @@ def resolve_api_key(
     Resolution order per D-88:
     0. runtime secret store if bootstrap has populated it
     1. ``ANONREQ_{PROVIDER}_API_KEY`` (preferred)
-    2. ``{PROVIDER}_API_KEY`` (fallback)
-    3. Raise ``ValueError`` if neither is set
+    2. ``{PROVIDER}_API_KEY`` (provider credential fallback)
+    3. For OpenAI only, ``PROVIDER_API_KEY`` (explicit upstream key)
+    4. Raise ``ValueError`` if none is set
+
+    The gateway client key (``ANONREQ_API_KEY``) is never consulted.
+    Blank values are treated as unset.
 
     Args:
         provider_name: The provider name (e.g. 'anthropic'), uppercased
@@ -168,22 +225,70 @@ def resolve_api_key(
     """
     runtime_store = secret_store or get_runtime_secret_store()
     if runtime_store is not None:
-        key = runtime_store.get_provider_api_key(provider_name)
+        key = _nonblank(runtime_store.get_provider_api_key(provider_name))
         if key:
             return key
 
     prefix = provider_name.upper()
     env_var = f"ANONREQ_{prefix}_API_KEY"
-    key = os.environ.get(env_var)
+    key = _nonblank(os.environ.get(env_var))
     if key:
         return key
 
     fallback_var = f"{prefix}_API_KEY"
-    key = os.environ.get(fallback_var)
+    key = _nonblank(os.environ.get(fallback_var))
     if key:
         return key
 
+    # OpenAI-compatible upstreams share one explicit credential. This is
+    # not applied to other providers, and it is never the gateway client key.
+    if prefix == "OPENAI":
+        shared = _nonblank(os.environ.get("PROVIDER_API_KEY"))
+        if shared:
+            return shared
+
+    extra = " or PROVIDER_API_KEY" if prefix == "OPENAI" else ""
     raise ValueError(
         f"No API key found for provider '{provider_name}'. "
-        f"Set {env_var} or {fallback_var} environment variable."
+        f"Set {env_var} or {fallback_var}{extra}. "
+        "ANONREQ_API_KEY is the gateway client credential and is not a provider key."
     )
+
+
+def resolve_upstream_api_key(
+    secret_store: RuntimeSecretStore | None = None,
+    *,
+    provider_api_key: str | None = None,
+) -> str | None:
+    """Resolve the OpenAI-compatible upstream key, or None when unset.
+
+    Order matches ``resolve_api_key('openai')``, then the explicit
+    ``provider_api_key`` argument (``settings.PROVIDER_API_KEY``) when the
+    environment variable is unset. Never returns the gateway client key.
+    """
+    try:
+        return resolve_api_key("openai", secret_store=secret_store)
+    except ValueError:
+        return _nonblank(provider_api_key)
+
+
+def provider_has_credential(
+    provider_name: str,
+    *,
+    provider_api_key: str | None = None,
+    secret_store: RuntimeSecretStore | None = None,
+) -> bool:
+    """Return whether a non-blank upstream credential is configured.
+
+    ``provider_api_key`` (``PROVIDER_API_KEY``) counts only for OpenAI.
+    The gateway client key is not a credential for any provider.
+    """
+    try:
+        key = resolve_api_key(provider_name, secret_store=secret_store)
+    except ValueError:
+        key = None
+    if key:
+        return True
+    if provider_name.strip().casefold() == "openai":
+        return _nonblank(provider_api_key) is not None
+    return False
