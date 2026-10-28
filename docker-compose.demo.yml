@@ -27,23 +27,14 @@ services:
     # the smart/gemini-pro aliases (Anthropic/Gemini keys) are not.
     volumes:
       - ./config/model_aliases.demo.yaml:/app/config/model_aliases.yaml:ro
-  # Bilingual analyzer from PR #4 (docker/presidio/Dockerfile), built locally
-  # by `make demo` — never pulled from or pushed to a registry.
-  # RAM: en_core_web_lg + de_core_news_lg need >= 4 GB for this container
-  # (Docker Desktop on macOS: Settings > Resources > Memory >= 6 GB total
-  # recommended). The reservation documents the need; scripts/demo.sh checks
-  # the Docker VM memory before starting. No hard mem_limit, so a model
-  # load spike is not OOM-killed mid-demo.
+  # Bilingual analyzer: build, tag, pinned spaCy models, de health check and
+  # 120s start_period all come from docker-compose.yml (PR #4). The demo only
+  # forces a local build (never a registry pull) and reserves the >= 4 GB the
+  # two large spaCy models need. No hard mem_limit, so a model-load spike is
+  # not OOM-killed mid-demo; scripts/demo.sh checks Docker VM memory first.
   presidio-analyzer:
-    build:
-      context: ./docker/presidio
-      dockerfile: Dockerfile
-    image: anonreq/presidio-analyzer:2.2.354-de
     pull_policy: build
     deploy:
       resources:
         reservations:
           memory: 4g
-    healthcheck:
-      start_period: 120s
-      retries: 10
