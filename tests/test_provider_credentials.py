@@ -283,6 +283,8 @@ class TestNoGatewayKeyFallback:
             "model": "local",
             "messages": [{"role": "user", "content": "hi"}],
         }
+        # PR #15: only the tokenized body is ever forwarded.
+        ctx.transformed_request = dict(ctx.original_request)
         with respx.mock:
             route = respx.post(
                 "http://mock-provider.example/v1/chat/completions"
