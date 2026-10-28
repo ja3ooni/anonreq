@@ -34,6 +34,10 @@ services:
     # no env var to select another file, so the demo bind-mounts its own
     # alias file over it: only grok-4 (provider openai) is configured, and
     # the smart/gemini-pro aliases (Anthropic/Gemini keys) are not.
+    # Loopback only: the demo gateway must not be reachable from the LAN.
+    # !override replaces (not appends to) the base "8080:8080" mapping.
+    ports: !override
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./config/model_aliases.demo.yaml:/app/config/model_aliases.yaml:ro
   # Bilingual analyzer: build, tag, pinned spaCy models, de health check and
@@ -52,3 +56,18 @@ services:
       resources:
         reservations:
           memory: 4g
+
+  # Observability profile only (not started by make demo); loopback if used.
+  prometheus:
+    ports: !override
+      - "127.0.0.1:9090:9090"
+  grafana:
+    ports: !override
+      - "127.0.0.1:3001:3000"   # 3000 is the demo UI (web/, PR #12)
+
+networks:
+  anonreq-net:
+    # Fixed name so web/docker-compose.demo.yml (external network
+    # anonreq_anonreq-net) finds it regardless of the clone's directory name
+    # (default would be <dirname>_anonreq-net, e.g. annon_anonreq-net).
+    name: anonreq_anonreq-net

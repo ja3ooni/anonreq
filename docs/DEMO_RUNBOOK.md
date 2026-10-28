@@ -66,15 +66,13 @@ set -a; . ./.env; set +a
 ```bash
 make demo
 ```
-`make demo` does the following:
-1. checks that Docker has at least 4 GB of memory;
-2. builds the app image and the German Presidio image;
-3. runs `docker compose up -d --wait`, which starts gateway, Presidio and Valkey;
-4. warms Presidio.
+1. Checks Docker memory (>= 4 GB), builds the app + German Presidio images, `docker compose up -d --wait` (gateway, Presidio, Valkey), warms Presidio. The gateway runs `alembic upgrade head` before uvicorn (fresh volume otherwise 500s on every chat).
+2. **Then starts the UI** (`web/docker-compose.demo.yml`, PR #12) once the gateway is healthy, on the shared network `anonreq_anonreq-net`, talking to `anonreq-gateway:8080`. If that file is missing (#12 not merged) it prints `NOTE: ... skipping the UI` and you get the API only.
+3. Prints `Demo UI ready: http://localhost:3000`.
 
-The gateway now runs `alembic upgrade head` before uvicorn. Without it, a fresh volume returns **500 on every chat** because the audit table is missing. I reproduced that failure and confirmed the fix on the box with the CLI; I have not run it inside the container.
+Everything is published on **127.0.0.1 only**: UI 3000, gateway 8080 (Grafana 3001 / Prometheus 9090 only with the observability profile). Nothing is reachable from the LAN.
 
-The first run takes a while: the image build downloads the large spaCy models, and Presidio has a 120 s start window.
+**Port 3000 must be free before `make demo`** (see Troubleshooting: "port 3000 in use").
 
 ## 4. Health check
 
@@ -103,36 +101,35 @@ Expected: **200**, with headers `x-anonreq-entity-count: 5` and `x-anonreq-proce
 
 ## 6. Demo: three-column UI (raw / anonymized / restored)
 
-The UI is PR #12 (`web/`). **It was not merged at the time of writing**, so `make demo` does not start it. Once it is merged, or from that branch, start it like this:
-```bash
-cd web && npm ci
-ANONREQ_GATEWAY_URL=http://127.0.0.1:8080 ANONREQ_API_KEY=$ANONREQ_API_KEY \
-ANONREQ_ADMIN_API_KEY=$ANONREQ_ADMIN_API_KEY ANONREQ_TENANT_ID=default \
-npx next dev -H 127.0.0.1 --port 3100
-```
-On the box this ran on port 3100 against the gateway [verified]. Running it on its own `npm run dev` port 3000 would clash with Grafana in the observability profile and with anything else already on 3000.
+Demo URL: **http://localhost:3000** (started by `make demo` when PR #12's `web/` is present).
+Container start via compose: [not yet verified]. Same UI run with `next dev` against the gateway: [verified] (chat 200 restored, preview 200, audit 200, CSV 200).
 
-Then open **http://127.0.0.1:3100/de** and follow this script:
-1. Select model `grok-4` and keep detection locale *Deutsch (de-DE)*.
+Click-through:
+1. Open http://localhost:3000/de. Model `grok-4`, detection locale *Deutsch (de-DE)*.
 2. Paste: `Bitte bestätige Hans Müller, Hauptstraße 12, 60311 Frankfurt, IBAN DE89370400440532013000, Tel. +49 69 12345678.`
-3. Send. The three columns are:
-   - **raw**: your text;
-   - **anonymized**: `[PERSON_NAME_DE_…]`, `[STREET_ADDRESS_DE_…]`, `[POSTCODE_CITY_DE_…]`, `[IBAN_DE_…]`, phone token. This is what xAI saw.
-   - **restored**: Grok's answer with the real values put back.
-4. Open the **Audit** tab. The new row shows `de-DE`, token count 5 and the entity types.
-5. Click **Export CSV**. The download contains the row and no names, IBANs or phone numbers.
+3. Send. Columns: **raw** (your text) · **anonymized** (`[PERSON_NAME_DE_…]`, `[STREET_ADDRESS_DE_…]`, `[POSTCODE_CITY_DE_…]`, `[IBAN_DE_…]`, phone token = what xAI saw) · **restored** (Grok's answer with real values back).
+4. **Audit** tab: new row, `de-DE`, token count 5, entity types.
+5. **Export CSV**: downloads the row; no names/IBANs/phones in it.
+
+Fallback without Docker for the UI (from `web/`):
+```bash
+npm ci && ANONREQ_GATEWAY_URL=http://127.0.0.1:8080 ANONREQ_API_KEY=$ANONREQ_API_KEY \
+ANONREQ_ADMIN_API_KEY=$ANONREQ_ADMIN_API_KEY ANONREQ_TENANT_ID=default npx next dev -H 127.0.0.1 --port 3100
+```
+then use http://127.0.0.1:3100/de.
 
 ## 7. Stop / reset
 
 ```bash
-make demo-down                     # stop, keep data
-docker compose -f docker-compose.yml -f docker-compose.germany.yml -f docker-compose.demo.yml down -v   # also wipe volumes (audit DB, Valkey)
+make demo-down                     # stop UI + gateway stack, keep data
+make demo-down && docker compose -f docker-compose.yml -f docker-compose.germany.yml -f docker-compose.demo.yml down -v   # also wipe volumes (audit DB, Valkey)
 ```
 `down -v` deletes the audit history. After it, the next `make demo` re-creates the tables.
 
 ## 8. Troubleshooting
 
-- **Port 3000 or 8080 already in use**: run `lsof -i :3000` (or `:8080`) to see the owner, then stop it or use another port, e.g. `--port 3100` for the UI.
+- **Port 3000 in use** (UI fails to start, "port is already allocated"): `lsof -i :3000` (Windows/WSL: `sudo ss -ltnp | grep :3000`, or in PowerShell `netstat -ano | findstr :3000`) to find the owner, stop it, `make demo` again. Same for 8080 (gateway). Last resort: run the UI with the `next dev --port 3100` fallback in section 6.
+- **UI shows gateway errors / "network anonreq_anonreq-net not found"**: the gateway stack is not up; run `make demo` (not the web compose alone). The network name is fixed in `docker-compose.demo.yml`, independent of the clone folder name.
 - **Slow first Presidio start**: the two large spaCy models load on the first request. The compose start window is 120 s, and on the M4 under Rosetta it is slower. `make demo` warms Presidio before printing "Demo ready". If chats are slow at first, wait and retry. Watch progress with `docker compose ... logs -f presidio-analyzer`.
 - **"Docker has N MiB RAM"**: raise Docker Desktop memory to 6 GB or more. On Windows, also raise `.wslconfig`.
 - **401 vs 403 vs 400**:
