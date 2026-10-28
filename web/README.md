@@ -122,3 +122,13 @@ If that route is missing (404), the UI falls back to `GET /v1/admin/audit/anonym
 ## Depends on the gateway PR
 
 The preview route and the cursor events API are added in [PR #5](https://github.com/ja3ooni/anonreq/pull/5) (`cursor/demo-admin-endpoints-5306`), which is not merged. This UI is based on `main`. Until that PR lands, run with `ANONREQ_MOCK=true`, or expect 404s and the fallbacks above. The full three-column view and the cursor audit log need PR #5, `ANONREQ_DEBUG_PREVIEW_ENABLED=true`, and `ANONREQ_ADMIN_API_KEY`.
+
+## With the #20 demo stack
+
+```bash
+make demo   # repo root: gateway, Presidio, Valkey; writes ../.env
+cd web
+docker compose --env-file ../.env -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+```
+
+`--env-file` is only used for compose variable substitution. The UI container receives just `ANONREQ_API_KEY`, `ANONREQ_ADMIN_API_KEY`, the tenant and the gateway URL (`http://anonreq-gateway:8080` on `anonreq_anonreq-net`), never the provider or KMS secrets. It is published on `127.0.0.1:3000`.
