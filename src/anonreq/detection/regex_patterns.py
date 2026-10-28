@@ -22,8 +22,11 @@ PATTERNS: dict[str, re.Pattern[str]] = {
         r"(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+"
         r"[a-zA-Z]{2,}"
     ),
+    # Requires a + country code or a 0 trunk prefix (or US 3-3-4 with
+    # separators) so postcodes, dates and account numbers do not match.
     "PHONE_NUMBER": re.compile(
-        r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}"
+        r"(?<![\w+./-])(?:\+\d{1,3}[\s.-]?(?:\(0\)[\s.-]?)?\d{2,5}|\(?0\d{2,5}\)?)(?:[\s./-]?\d{2,}){1,4}(?![\w.-]*\d)"
+        r"|(?<![\w+./-])\(?\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}(?![\w.-]*\d)"
     ),
     "CREDIT_CARD": re.compile(
         r"\b(?:\d[ -]*?){13,19}\b"
@@ -77,14 +80,23 @@ ENTITY_SPECIFICITY: dict[str, int] = {
     "SVNR_DE": 86,
     "HR_NUMBER": 84,
     "AKTENZEICHEN": 83,
+    "DATE_OF_BIRTH": 82,
+    "SITE_ID": 81,
     "PHONE_NUMBER": 80,
+    "ACCOUNT_NUMBER_DE": 79,
+    "TAX_ID_DE_UNVERIFIED": 72,
+    "IBAN_UNVERIFIED": 71,
     "CREDIT_CARD": 75,
     "IBAN_DE": 73,
     "IBAN_CODE": 70,
     "US_SSN": 65,
     "URL": 55,
     "IP_ADDRESS": 50,
+    "STREET_ADDRESS_DE": 45,
+    "POSTCODE_CITY_DE": 44,
+    "PERSON_NAME_DE": 41,
     "PERSON": 40,
+    "DATE_DE": 36,
     "DATE_TIME": 35,
     "LOCATION": 30,
     "ORGANIZATION": 25,

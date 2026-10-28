@@ -136,6 +136,12 @@ class MNPIRecognizer:
             # Skip if word is in excluded list
             if raw.upper() in self._excluded:
                 continue
+            # Skip fragments of hyphenated identifiers such as site IDs
+            # (UW-NORD-0417); those belong to one ID, not to tickers.
+            before = text[match.start() - 1] if match.start() > 0 else ""
+            after = text[match.end()] if match.end() < len(text) else ""
+            if before == "-" or after == "-":
+                continue
             # Skip if the core ticker part is too short
             core = raw.split(".")[0]
             if len(core) < self._config.min_ticker_length:
