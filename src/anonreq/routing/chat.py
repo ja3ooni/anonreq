@@ -288,9 +288,12 @@ class _StreamingOutboundDLP:
         return True
 
     async def _inspect(self) -> None:
+        engine = self._engine
+        if engine is None:  # guarded by _passthrough(); keeps mypy narrow
+            return
         text = self._released_tail + "".join(self._pending)
         try:
-            result = await self._engine.inspect(text, self._tenant_id)
+            result = await engine.inspect(text, self._tenant_id)
         except Exception as exc:
             logger.warning("stream.outbound_dlp_failed", error_type=type(exc).__name__)
             raise OutboundDLPError(detail="Outbound DLP unavailable") from None
