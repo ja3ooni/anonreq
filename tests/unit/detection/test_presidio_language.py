@@ -3,15 +3,20 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from anonreq.detection.exclusion_list import ExclusionList
-from anonreq.detection.presidio_client import PresidioError
+from anonreq.detection.presidio_client import (
+    PresidioError,
+    PresidioUnsupportedLanguageError,
+)
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
+from anonreq.exceptions import PresidioLanguageUnsupportedError, global_exception_handler
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.presidio_language import (
@@ -19,7 +24,10 @@ from anonreq.locale.presidio_language import (
     presidio_language_from_locale,
 )
 from anonreq.locale.registry import LocaleRegistry
+from anonreq.logging_config import ALLOWLIST
 from anonreq.models.processing_context import ProcessingContext
+from anonreq.monitoring.metrics import fail_secure_events
+from anonreq.pipeline import detection as detection_module
 from anonreq.pipeline.base import PipelineStage
 from anonreq.pipeline.detection import DetectionStage
 from anonreq.pipeline.manager import PipelineManager
@@ -148,7 +156,83 @@ async def test_detection_fails_closed_when_presidio_errors() -> None:
     assert result.has_errors()
     assert result.detections is None
     assert sentinel.called is False
+    assert not isinstance(result.errors[-1], PresidioLanguageUnsupportedError)
     assert presidio.analyze_text_nodes.await_args.kwargs["language"] == "en"
+
+
+def test_presidio_language_is_log_allowlisted() -> None:
+    assert "presidio_language" in ALLOWLIST
+
+
+async def test_german_request_does_not_fall_back_to_english(negotiated) -> None:
+    negotiator, merger = negotiated
+    bundles, _ = negotiator.negotiate("de-DE")
+    presidio = MagicMock()
+    presidio.analyze_text_nodes = AsyncMock(
+        side_effect=PresidioUnsupportedLanguageError("de"),
+    )
+    ctx = _ctx(bundles)
+    ctx.merged_recognizers = merger.merge(bundles)
+    prompt = ctx.text_nodes[0]["value"]
+    counter = fail_secure_events.labels(
+        tenant_id="tenant-a",
+        failure_type="presidio_unsupported_language",
+    )
+    before = counter._value.get()
+
+    with patch.object(detection_module.logger, "warning") as warning:
+        result = await _stage(presidio).execute(ctx)
+
+    assert result.detections is None
+    assert presidio.analyze_text_nodes.await_count == 1
+    assert presidio.analyze_text_nodes.await_args.kwargs["language"] == "de"
+    error = result.errors[-1]
+    assert isinstance(error, PresidioLanguageUnsupportedError)
+    assert error.language == "de"
+    assert error.status_code == 503
+    assert "Refusing to fall back to English" in error.message
+    assert prompt not in error.message
+    matched = [
+        call for call in warning.call_args_list
+        if call.args and call.args[0] == "detection.presidio_language_unsupported"
+    ]
+    assert len(matched) == 1
+    assert matched[0].kwargs["presidio_language"] == "de"
+    assert prompt not in str(matched[0])
+    assert counter._value.get() == before + 1
+
+
+async def test_unsupported_language_http_body_names_language_only() -> None:
+    class _State:
+        request_id = "req-de"
+
+    class _Request:
+        def __init__(self) -> None:
+            self.state = _State()
+            self.headers: dict[str, str] = {}
+
+    exc = PresidioLanguageUnsupportedError("de", request_id="req-de")
+    response = await global_exception_handler(_Request(), exc)  # type: ignore[arg-type]
+    payload = json.loads(response.body)
+    assert response.status_code == 503
+    assert payload["error"]["type"] == "presidio_unsupported_language"
+    assert payload["error"]["code"] == "presidio_unsupported_language"
+    assert payload["error"]["message"] == (
+        "Presidio analyzer does not support language 'de'. "
+        "Refusing to fall back to English."
+    )
+    assert "Hauptstraße" not in response.body.decode()
+
+
+def test_chat_route_surfaces_unsupported_language() -> None:
+    from anonreq.routing.chat import _raise_for_pipeline_errors
+
+    ctx = ProcessingContext(request_id="req-de")
+    ctx.fail_secure(PresidioLanguageUnsupportedError("de", request_id="req-de"))
+    with pytest.raises(PresidioLanguageUnsupportedError) as exc_info:
+        _raise_for_pipeline_errors(ctx)
+    assert exc_info.value.status_code == 503
+    assert "Hauptstraße" not in exc_info.value.message
 
 
 def test_image_patch_enables_german_recognizers() -> None:

@@ -1,9 +1,9 @@
 """German names and street addresses are masked when the Presidio sidecar is up.
 
-Marked ``presidio``. Collection always includes this module; the fixture
-skips when ``ANONREQ_PRESIDIO_URL`` is not reachable (the test suite default
-is ``http://localhost:5001``). Run it against an analyzer built from
-``docker/presidio/Dockerfile`` (``de_core_news_lg`` plus English):
+Marked ``presidio``. Skips when the sidecar at ``ANONREQ_PRESIDIO_URL`` is
+down. The demo analyzer listens on port 3000. Run it against an image built
+from ``docker/presidio/Dockerfile`` (pinned ``en_core_web_lg`` and
+``de_core_news_lg``):
 
     ANONREQ_PRESIDIO_URL=http://localhost:3000 uv run pytest -m presidio
 """

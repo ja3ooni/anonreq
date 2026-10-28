@@ -101,14 +101,15 @@ The demo stack, including this Germany overlay, does **not** run the stock `mcr.
 | Item | Stock image | Demo image |
 | --- | --- | --- |
 | Base | `mcr.microsoft.com/presidio-analyzer:2.2.354` | same pin, then a local build |
-| spaCy models | `en_core_web_lg` | `en_core_web_lg` and `de_core_news_lg` (~540 MB extra) |
+| spaCy models | unpinned `en_core_web_lg` | **pinned** `en_core_web_lg==3.7.1` and `de_core_news_lg==3.7.0` |
 | Recognizer languages | `en` only (`AnalyzerEngine()` default) | `en` and `de` |
 | Address patterns | none for German streets | `docker/presidio/german_recognizers.yaml` (street line and PLZ+city, score 0.85) |
+| Process user | root | `presidio` (uid 10001) after the installs |
 | Listen port | 3000 | 3000 (unchanged) |
 | RAM | stock | budget at least 4 GB once both models are loaded |
-| Healthcheck `start_period` | 30s | 120s |
+| Healthcheck | `GET /health` | `POST /analyze` with `language=de`; must return a `PERSON` span. Start period 120s |
 
-`X-AnonReq-Locale: de-DE` is mapped to Presidio `language=de`. A stock analyzer rejects that language (HTTP 500, no German recognizers). The gateway then fails closed and does not forward the prompt. Publishing the image:
+`X-AnonReq-Locale: de-DE` is mapped to Presidio `language=de`. Publishing the image:
 
 ```bash
 docker compose build presidio-analyzer
@@ -118,9 +119,29 @@ docker push <registry>/anonreq/presidio-analyzer:2.2.354-de
 
 Helm (`helm/anonreq/values-germany.yaml`) does not build this image. The in-cluster analyzer behind `ANONREQ_PRESIDIO_URL` must be this bilingual image, or `de-DE` name and address masking will not happen.
 
-## Fail-closed
+## Fail-closed (stock English-only image)
 
-If detection, cache, or the analyzer is down — including a Presidio error when `language=de` is not loaded — AnonReq returns HTTP 5xx and **does not** forward the raw prompt.
+A `de-DE` request is never retried with `language=en`. The English model misses German names and street addresses, so that fallback would forward PII. When the sidecar rejects `de` (stock image: HTTP 500, "No matching recognizers"), the gateway returns HTTP 503 and does not call the provider:
+
+```json
+{
+  "error": {
+    "message": "Presidio analyzer does not support language 'de'. Refusing to fall back to English.",
+    "type": "presidio_unsupported_language",
+    "code": "presidio_unsupported_language"
+  }
+}
+```
+
+The message names the language code only. It does not include the prompt.
+
+How to tell the image is missing German:
+
+- **Log:** stdout JSON event `detection.presidio_language_unsupported` at warning, with `presidio_language` set to `de` and `error_type` `presidio_unsupported_language`. `presidio_language` is on the log allowlist. Prompt text is not logged.
+- **Metric:** `anonreq_fail_secure_events_total{failure_type="presidio_unsupported_language"}` increases by one per rejected request. A down analyzer (timeout, connection error, other HTTP failure) uses `failure_type="detection_error"` instead, and also does not forward.
+- **Compose health:** the demo container runs `docker/presidio/healthcheck.py`, which POSTs `/analyze` with `language=de` and expects a `PERSON` span. `GET /health` alone does not prove the German model is loaded. A stock image stays unhealthy on this check.
+
+Cache failures and other detection errors still return HTTP 5xx and do not forward the raw prompt.
 
 ## What this demo does not claim
 

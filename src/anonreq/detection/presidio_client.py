@@ -34,6 +34,53 @@ class PresidioError(Exception):
     """Raised when Presidio Analyzer returns a non-success HTTP status."""
 
 
+class PresidioUnsupportedLanguageError(PresidioError):
+    """Raised when the sidecar rejects the requested language.
+
+    Callers must not retry the same text with ``language=en``. The English
+    model misses German names and addresses, and a retry would leak them.
+    """
+
+    def __init__(self, language: str) -> None:
+        self.language = language
+        super().__init__(
+            f"Presidio analyzer does not support language {language!r}"
+        )
+
+
+_UNSUPPORTED_LANGUAGE_MARKERS = (
+    "no matching recognizers",
+    "unsupported language",
+    "language is not supported",
+    "not supported by",
+)
+
+
+def _unsupported_language(response: httpx.Response, language: str) -> bool:
+    """True when a short Presidio error says this language is unavailable.
+
+    The response body is not returned to callers. A long body is ignored so a
+    message that echoes request text cannot be treated as a language signal.
+    """
+    if language.casefold() == "en":
+        return False
+    if len(language) < 2 or len(language) > 3 or not language.isalpha():
+        return False
+    try:
+        payload = response.json()
+    except (ValueError, UnicodeDecodeError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    error = payload.get("error")
+    if not isinstance(error, str) or len(error) > 300:
+        return False
+    lowered = error.casefold().strip("'\"")
+    if lowered == language.casefold():
+        return True
+    return any(marker in lowered for marker in _UNSUPPORTED_LANGUAGE_MARKERS)
+
+
 class PresidioClient:
     """Async HTTP client for Presidio Analyzer sidecar.
 
@@ -115,6 +162,8 @@ class PresidioClient:
                     f"Presidio request timed out after {self._timeout}s"
                 ) from exc
             except httpx.HTTPStatusError as exc:
+                if _unsupported_language(exc.response, language):
+                    raise PresidioUnsupportedLanguageError(language) from exc
                 raise PresidioError(
                     f"Presidio returned HTTP {exc.response.status_code}"
                 ) from exc

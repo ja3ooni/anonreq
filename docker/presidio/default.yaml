@@ -1,8 +1,8 @@
 # NLP engine config for the AnonReq demo Presidio image.
-# Extends the Microsoft 2.2.354 default (English en_core_web_lg) with
-# German de_core_news_lg. Both models load at process start.
-# DevOps: this file replaces /usr/bin/presidio-analyzer/conf/default.yaml
-# in the image. Do not drop the English model; en requests still need it.
+# Both models are pinned in docker/presidio/Dockerfile:
+#   en_core_web_lg==3.7.1 and de_core_news_lg==3.7.0
+# They load at process start. Do not drop the English model; en requests
+# still need it. This file replaces conf/default.yaml in the image.
 nlp_engine_name: spacy
 models:
   -

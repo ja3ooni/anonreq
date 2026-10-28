@@ -4,20 +4,23 @@
 # DevOps owns publishing this image. It is not the stock Microsoft image.
 #
 # Base (pinned): mcr.microsoft.com/presidio-analyzer:2.2.354
-#   - Listens on port 3000 (PRESIDIO default in that tag)
-#   - Ships spaCy en_core_web_lg only
-#   - AnalyzerEngine() loads English recognizers only
+#   - Python 3.9, spaCy 3.7, listens on port 3000
+#   - Ships an unpinned en_core_web_lg and English recognizers only
+#   - Runs as root
 #
-# This image adds:
-#   - spaCy de_core_news_lg (German NER: PER -> PERSON, LOC -> LOCATION)
-#   - conf/default.yaml so both en and de models load at startup
-#   - conf/german_recognizers.yaml for street lines and PLZ+city
-#   - an app.py patch so supported languages are ["en", "de"]
+# This image:
+#   - Reinstalls en_core_web_lg==3.7.1 and de_core_news_lg==3.7.0 from
+#     exact wheel URLs (spaCy 3.7 line; do not float these)
+#   - Loads both models via conf/default.yaml
+#   - Adds conf/german_recognizers.yaml (street line and PLZ+city)
+#   - Patches app.py so supported languages are ["en", "de"]
+#   - Drops to USER presidio (uid 10001) after the installs
+#   - Healthcheck POSTs /analyze with language=de and requires a PERSON span
 #
 # Size and runtime:
-#   - de_core_news_lg is about 540 MB on disk, on top of en_core_web_lg
-#   - Budget at least 4 GB RAM for this container once both models are loaded
-#   - Cold start is slower than the stock image; compose start_period is 120s
+#   - Each lg model is about 540–560 MB on disk
+#   - Budget at least 4 GB RAM once both models are loaded
+#   - Cold start is slower than the stock image; start period is 120s
 #
 # Build (from the repo root, also what docker compose does):
 #   docker compose build presidio-analyzer
@@ -27,8 +30,8 @@
 #   docker tag anonreq/presidio-analyzer:2.2.354-de <registry>/anonreq/presidio-analyzer:2.2.354-de
 #   docker push <registry>/anonreq/presidio-analyzer:2.2.354-de
 #
-# The model must match the base image's spaCy 3.x. `spacy download` resolves
-# that. If the base tag moves, re-check this Dockerfile before bumping it.
+# If the base tag moves off spaCy 3.7, bump both wheel versions together.
+# The version assert below fails the build when they do not match.
 # =============================================================================
 
 FROM mcr.microsoft.com/presidio-analyzer:2.2.354
@@ -36,15 +39,33 @@ FROM mcr.microsoft.com/presidio-analyzer:2.2.354
 USER root
 WORKDIR /usr/bin/presidio-analyzer
 
-# German NER model, installed into the image's pipenv (PIPENV_VENV_IN_PROJECT).
-RUN pipenv run python -m spacy download de_core_news_lg \
-    && pipenv run python -c "import spacy; spacy.load('en_core_web_lg'); spacy.load('de_core_news_lg')"
+# Exact wheels. en_core_web_lg in the base image was installed by
+# `spacy download` with no version pin; reinstall it so the digest is fixed.
+ARG EN_CORE_WEB_LG_VERSION=3.7.1
+ARG DE_CORE_NEWS_LG_VERSION=3.7.0
+RUN pipenv run python -m pip install --no-deps --disable-pip-version-check \
+        "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-${EN_CORE_WEB_LG_VERSION}/en_core_web_lg-${EN_CORE_WEB_LG_VERSION}-py3-none-any.whl" \
+        "https://github.com/explosion/spacy-models/releases/download/de_core_news_lg-${DE_CORE_NEWS_LG_VERSION}/de_core_news_lg-${DE_CORE_NEWS_LG_VERSION}-py3-none-any.whl" \
+    && pipenv run python -c "import importlib.metadata as m; assert m.version('en-core-web-lg') == '${EN_CORE_WEB_LG_VERSION}'; assert m.version('de-core-news-lg') == '${DE_CORE_NEWS_LG_VERSION}'; import spacy; spacy.load('en_core_web_lg'); spacy.load('de_core_news_lg')"
 
 COPY default.yaml /usr/bin/presidio-analyzer/conf/default.yaml
 COPY german_recognizers.yaml /usr/bin/presidio-analyzer/conf/german_recognizers.yaml
+COPY healthcheck.py /usr/bin/presidio-analyzer/healthcheck.py
 COPY enable_german.py /tmp/enable_german.py
 
 RUN pipenv run python /tmp/enable_german.py /usr/bin/presidio-analyzer/app.py \
     && rm /tmp/enable_german.py \
     && grep -F "supported_languages=['en', 'de']" /usr/bin/presidio-analyzer/app.py \
-    && grep -F "de_core_news_lg" /usr/bin/presidio-analyzer/conf/default.yaml
+    && grep -F "de_core_news_lg" /usr/bin/presidio-analyzer/conf/default.yaml \
+    && groupadd --system --gid 10001 presidio \
+    && useradd --system --uid 10001 --gid presidio --home-dir /home/presidio --create-home --shell /usr/sbin/nologin presidio \
+    && chown -R presidio:presidio /usr/bin/presidio-analyzer /home/presidio
+
+ENV HOME=/home/presidio
+USER presidio
+
+# Bypass pipenv at runtime so the non-root user does not need to write a venv.
+CMD ["/usr/bin/presidio-analyzer/.venv/bin/python", "app.py", "--host", "0.0.0.0"]
+
+HEALTHCHECK --interval=15s --timeout=15s --start-period=120s --retries=10 \
+    CMD python /usr/bin/presidio-analyzer/healthcheck.py

@@ -212,7 +212,7 @@ docker-compose up --build
 The core stack includes:
 - `anonreq` — the anonymization gateway (`http://localhost:8080`)
 - `valkey` — ephemeral cache (Redis-compatible)
-- `presidio-analyzer` — PII detection engine. The demo image is built from `docker/presidio/Dockerfile` (`anonreq/presidio-analyzer:2.2.354-de`): pinned Microsoft `presidio-analyzer:2.2.354` plus spaCy `de_core_news_lg` beside `en_core_web_lg`. `de-DE` requests send `language=de`. See `docs/operations/germany-demo.md`.
+- `presidio-analyzer` — PII detection engine. The demo image is built from `docker/presidio/Dockerfile` (`anonreq/presidio-analyzer:2.2.354-de`): pinned Microsoft `presidio-analyzer:2.2.354` plus spaCy `en_core_web_lg==3.7.1` and `de_core_news_lg==3.7.0`. `de-DE` requests send `language=de` and fail closed if that language is missing. See `docs/operations/germany-demo.md`.
 
 Enable the observability profile for Prometheus, Grafana, PostgreSQL, and MinIO:
 ```bash

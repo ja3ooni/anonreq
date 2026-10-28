@@ -16,7 +16,12 @@ import httpx
 import pytest
 import respx
 
-from anonreq.detection.presidio_client import PresidioClient, PresidioError, PresidioTimeoutError
+from anonreq.detection.presidio_client import (
+    PresidioClient,
+    PresidioError,
+    PresidioTimeoutError,
+    PresidioUnsupportedLanguageError,
+)
 
 # Base URL for mock Presidio endpoint
 PRESIDIO_URL = "http://localhost:5001"
@@ -208,3 +213,34 @@ class TestPresidioClient:
         assert body["text"] == "Hans Müller, Hauptstraße 12, 60311 Frankfurt"
         assert body["entities"] == ["PERSON", "LOCATION"]
         assert body["score_threshold"] == 0.7
+
+    @respx.mock
+    async def test_unsupported_language_is_not_retried_as_english(self, client):
+        """Stock English-only analyzer: one de call, no en fallback, no prompt in the error."""
+        route = respx.post(f"{PRESIDIO_URL}/analyze").respond(
+            status_code=500,
+            json={"error": "No matching recognizers were found to serve the request."},
+        )
+        prompt = "Hans Müller, Hauptstraße 12, 60311 Frankfurt"
+
+        with pytest.raises(PresidioUnsupportedLanguageError) as exc_info:
+            await client.analyze(prompt, language="de")
+
+        assert exc_info.value.language == "de"
+        assert route.call_count == 1
+        sent = route.calls[0].request.json()
+        assert sent["language"] == "de"
+        assert prompt not in str(exc_info.value)
+
+    @respx.mock
+    async def test_english_http_error_stays_generic(self, client):
+        respx.post(f"{PRESIDIO_URL}/analyze").respond(
+            status_code=500,
+            json={"error": "No matching recognizers were found to serve the request."},
+        )
+
+        with pytest.raises(PresidioError) as exc_info:
+            await client.analyze("John Smith lives in London today", language="en")
+
+        assert not isinstance(exc_info.value, PresidioUnsupportedLanguageError)
+        assert "John Smith" not in str(exc_info.value)

@@ -30,7 +30,11 @@ from anonreq.detection.pipeline import load_enterprise_recognizers, load_mnpi_re
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
-from anonreq.exceptions import DependencyUnavailableError, PipelineAbortError
+from anonreq.exceptions import (
+    DependencyUnavailableError,
+    PipelineAbortError,
+    PresidioLanguageUnsupportedError,
+)
 from anonreq.locale.checksum import ChecksumValidatorRegistry
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
@@ -208,6 +212,8 @@ def _raise_for_pipeline_errors(proc_ctx: ProcessingContext) -> None:
         return
 
     last_error = proc_ctx.errors[-1]
+    if isinstance(last_error, PresidioLanguageUnsupportedError):
+        raise last_error
     if isinstance(last_error, DependencyUnavailableError):
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     if isinstance(last_error, PipelineAbortError):

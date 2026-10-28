@@ -17,9 +17,9 @@ DEFAULT_PRESIDIO_LANGUAGE = "en"
 def presidio_language_from_locale(locale_code: str | None) -> str:
     """Return the Presidio language for one locale code.
 
-    Unknown or empty codes fall back to English. A sidecar that does not
-    support the resulting language fails the analyze call, and detection
-    stays fail-closed.
+    Unknown or empty codes use English. A negotiated code such as ``de`` is
+    never rewritten to English when the sidecar rejects it: detection fails
+    closed instead of sending the text to the English model.
     """
     if locale_code is None:
         return DEFAULT_PRESIDIO_LANGUAGE

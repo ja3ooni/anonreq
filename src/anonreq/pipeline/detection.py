@@ -36,8 +36,9 @@ from typing import TYPE_CHECKING, Any
 
 from structlog import get_logger
 
+from anonreq.detection.presidio_client import PresidioUnsupportedLanguageError
 from anonreq.detection.regex_patterns import IRREVERSIBLE_ENTITY_TYPES
-from anonreq.exceptions import PipelineAbortError
+from anonreq.exceptions import PipelineAbortError, PresidioLanguageUnsupportedError
 from anonreq.locale.bundle import RecognizerTier
 from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
 from anonreq.locale.presidio_language import presidio_language_from_bundles
@@ -317,6 +318,27 @@ class DetectionStage(PipelineStage):
                 failure_type="detection_error",
             ).inc()
             raise
+        except PresidioUnsupportedLanguageError as exc:
+            # Do not retry with language=en. The English model misses German
+            # names and street addresses, so a fallback would forward PII.
+            logger.warning(
+                "detection.presidio_language_unsupported",
+                stage=self.name,
+                request_id=ctx.request_id,
+                presidio_language=exc.language,
+                error_type="presidio_unsupported_language",
+                status_code=503,
+            )
+            fail_secure_events.labels(
+                tenant_id=ctx.tenant_id,
+                failure_type="presidio_unsupported_language",
+            ).inc()
+            ctx.fail_secure(
+                PresidioLanguageUnsupportedError(
+                    exc.language,
+                    request_id=ctx.request_id,
+                )
+            )
         except (KeyError, TypeError, ValueError, IndexError) as exc:
             fail_secure_events.labels(
                 tenant_id=ctx.tenant_id,

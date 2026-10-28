@@ -47,10 +47,10 @@ services:
   # Image: built from docker/presidio/Dockerfile, tagged
   # anonreq/presidio-analyzer:2.2.354-de.
   # Base pin remains mcr.microsoft.com/presidio-analyzer:2.2.354.
-  # The build adds spaCy de_core_news_lg next to en_core_web_lg and loads
-  # recognizers for language "de" (see docker/presidio/Dockerfile).
-  # DevOps: this is a local build, not a registry pull. Budget ~4 GB RAM
-  # for the two large spaCy models. Publish the tag before dropping `build`.
+  # The build pins en_core_web_lg==3.7.1 and de_core_news_lg==3.7.0,
+  # loads recognizers for language "de", and runs as uid 10001.
+  # See docker/presidio/Dockerfile. DevOps: local build, not a registry pull.
+  # Budget ~4 GB RAM. Publish the tag before dropping `build`.
   # The Germany overlay (docker-compose.germany.yml) inherits this service.
   presidio-analyzer:
     build:
@@ -59,15 +59,12 @@ services:
     image: anonreq/presidio-analyzer:2.2.354-de
     container_name: anonreq-presidio
     healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:3000/health', timeout=5).read()"
+      # POST /analyze language=de and require a PERSON span. GET /health
+      # stays green on the stock English-only image.
+      test: ["CMD", "python", "/usr/bin/presidio-analyzer/healthcheck.py"]
       interval: 15s
-      timeout: 5s
+      timeout: 15s
       retries: 10
-      # Both en_core_web_lg and de_core_news_lg load before /health is up.
       start_period: 120s
     networks:
       - anonreq-net
