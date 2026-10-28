@@ -58,6 +58,49 @@ def _pii_event() -> NormalizedEvent:
     )
 
 
+class TestGermanIdentifierRedaction:
+    """de-DE recognizers and their checksum validators apply to log text."""
+
+    def test_each_german_id_and_iban_are_scrubbed(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import structlog
+
+        from anonreq.locale.checksums.germany import (
+            generate_iban_de,
+            generate_kvnr,
+            generate_personalausweis,
+            generate_steuer_id,
+        )
+        from anonreq.locale.checksums.iso7064 import ISO7064Mod11_2Validator
+
+        steuer_id = generate_steuer_id()
+        ausweis = generate_personalausweis()
+        kvnr = generate_kvnr()
+        iban = generate_iban_de()
+        svnr = "65 150682 M 007"
+        invalid_steuer = "11111111111"
+        invalid_iban = "DE00370400440532013000"
+        assert not ISO7064Mod11_2Validator().validate(invalid_steuer)
+
+        setup_logging(level="INFO")
+        log = structlog.get_logger()
+        log.info(
+            "german-ids",
+            error=(
+                f"steuer {steuer_id} ausweis {ausweis} kvnr {kvnr} "
+                f"svnr {svnr} iban {iban} bad {invalid_steuer} {invalid_iban}"
+            ),
+        )
+
+        rendered = _stderr_text(capsys)
+        for secret in (steuer_id, ausweis, kvnr, svnr, iban):
+            assert secret not in rendered, secret
+        assert invalid_steuer in rendered
+        assert invalid_iban in rendered
+        assert "[REDACTED]" in rendered
+
+
 class TestFormattedLogRedaction:
     """Formatted JSON from structlog and stdlib must not contain PII."""
 

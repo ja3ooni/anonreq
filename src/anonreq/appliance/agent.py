@@ -22,8 +22,23 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
+
+from anonreq.exceptions import _make_error_body
 
 logger = logging.getLogger("anonreq.appliance.agent")
+
+
+def _generic_error(message: str, code: str, exc: BaseException) -> dict[str, Any]:
+    """OpenAI-format error. The exception message is not included."""
+    request_id = f"req_{uuid4().hex[:24]}"
+    logger.error("%s type=%s request_id=%s", message, type(exc).__name__, request_id)
+    return _make_error_body(
+        message=message,
+        error_type="internal_error",
+        code=code,
+        request_id=request_id,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +199,7 @@ class ApplianceAgent:
             return services
 
         except Exception as exc:
-            logger.error("Failed to check service status: %s", exc)
+            logger.error("Failed to check service status type=%s", type(exc).__name__)
             return [{"name": s, "status": "error"} for s in self._config.services]
 
     def _get_disk_usage(self) -> dict[str, Any]:
@@ -202,7 +217,7 @@ class ApplianceAgent:
                 "free_gb": round(stat.free / (1024**3), 1),
             }
         except OSError as exc:
-            return {"error": str(exc)}
+            return _generic_error("Unable to read disk usage", "disk_unavailable", exc)
 
     def _get_memory_info(self) -> dict[str, Any]:
         """Get memory information.
@@ -303,8 +318,7 @@ class ApplianceAgent:
                 json.dump(current, f, indent=2)
             logger.info("Configuration updated: %s", config_path)
         except OSError as exc:
-            logger.error("Failed to write config: %s", exc)
-            return {"status": "error", "error": str(exc)}
+            return _generic_error("Unable to write configuration", "config_write_failed", exc)
 
         # Reload config
         self._config = self._load_config(self.config_path)

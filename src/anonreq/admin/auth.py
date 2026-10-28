@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import logging
 from typing import Any
 
 from fastapi import Header, HTTPException, Request
@@ -10,6 +11,8 @@ from fastapi import Header, HTTPException, Request
 from anonreq.auth.oidc import OIDCVerificationError, build_oidc_verifier
 from anonreq.config import settings
 from anonreq.state import get_app_state
+
+logger = logging.getLogger("anonreq.admin.auth")
 
 
 def _oidc_configured() -> bool:
@@ -56,7 +59,8 @@ async def verify_admin_api_key(
             verifier = _get_oidc_verifier(request)
             principal = await verifier.verify_authorization(authorization)
         except OIDCVerificationError as exc:
-            raise HTTPException(status_code=401, detail=str(exc)) from exc
+            logger.warning("admin.auth_failed type=%s", type(exc).__name__)
+            raise HTTPException(status_code=401, detail="Authentication failed") from exc
         request.state.oidc_principal = principal
         return True
 

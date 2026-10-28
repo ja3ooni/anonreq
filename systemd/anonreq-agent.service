@@ -21,6 +21,9 @@ PrivateTmp=yes
 CapabilityBoundingSet=
 # Allow docker compose access via docker socket
 SupplementaryGroups=docker
+# The gateway process is the anonreq service command in docker-compose.yml
+# (uvicorn --no-access-log). Do not enable uvicorn access logs; query strings
+# bypass the scrubber. AccessLogMiddleware writes the metadata-only line.
 
 [Install]
 WantedBy=multi-user.target

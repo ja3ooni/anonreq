@@ -31,6 +31,7 @@ import re
 import sys
 import types
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, cast
 
 import structlog
@@ -79,6 +80,8 @@ ALLOWLIST: frozenset[str] = frozenset({
     "error",
     # Fields used across pipeline, proxy, locale, and middleware modules
     "path",
+    "route",
+    "method",
     "tenant_id",
     "content_type",
     "elapsed_ms",
@@ -106,6 +109,22 @@ _SENSITIVE_KEY = re.compile(
 _REDACTED = "[REDACTED]"
 _MAX_DEPTH = 12
 _PII_DETECTOR = RegexDetector()
+_GERMAN_ENTITY_TYPES = (
+    "TAX_ID_DE",
+    "PERSONAL_AUSWEIS",
+    "KVNR",
+    "SVNR_DE",
+    "IBAN_DE",
+)
+_CHECKSUM_ENTITY_TYPES = {
+    "IBAN_CODE": "IBAN_DE",
+    "IBAN_DE": "IBAN_DE",
+    "TAX_ID_DE": "TAX_ID_DE",
+    "PERSONAL_AUSWEIS": "PERSONAL_AUSWEIS",
+    "KVNR": "KVNR",
+}
+_german_patterns: dict[str, re.Pattern[str]] | None = None
+_checksums: Any = None
 
 # The stock PHONE_NUMBER pattern also matches timestamp fractions and UUID
 # segments. Keep those spans only when they look like a formatted phone number.
@@ -134,6 +153,75 @@ def _plausible_phone(text: str, start: int, end: int) -> bool:
     return not (end < len(text) and text[end] in "-_")
 
 
+def _german_locale_file() -> Path:
+    bundled = Path(__file__).resolve().parents[2] / "config" / "locales" / "de-DE.yaml"
+    if bundled.is_file():
+        return bundled
+    return Path("config/locales/de-DE.yaml")
+
+
+def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
+    """Load de-DE regexes and the gateway's checksum validators.
+
+    Patterns come from ``config/locales/de-DE.yaml`` via ``LocaleBundle``.
+    Validators are the same classes the locale registry registers. SVNR has
+    no checksum in that bundle, so its regex match is kept as-is.
+    """
+    import yaml
+
+    from anonreq.locale.bundle import LocaleBundle
+    from anonreq.locale.checksum import ChecksumValidatorRegistry
+    from anonreq.locale.checksums.germany import (
+        IBANMod97Validator,
+        KVNRValidator,
+        PersonalausweisValidator,
+    )
+    from anonreq.locale.checksums.iso7064 import ISO7064Mod11_2Validator
+
+    registry = ChecksumValidatorRegistry()
+    registry.register("TAX_ID_DE", ISO7064Mod11_2Validator())
+    registry.register("PERSONAL_AUSWEIS", PersonalausweisValidator())
+    registry.register("KVNR", KVNRValidator())
+    registry.register("IBAN_DE", IBANMod97Validator())
+
+    try:
+        path = _german_locale_file()
+        if not path.is_file():
+            return {}, registry
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        bundle = LocaleBundle.from_dict(raw)
+        configs = [item for item in bundle.entity_types if item.name in _GERMAN_ENTITY_TYPES]
+        return RegexDetector.patterns_from_entity_configs(configs), registry
+    except Exception as exc:
+        logging.getLogger("anonreq.logging_config").warning(
+            "german recognizers unavailable type=%s",
+            type(exc).__name__,
+        )
+        return {}, registry
+
+
+def _german_pattern_map() -> dict[str, re.Pattern[str]]:
+    global _german_patterns, _checksums
+    if _german_patterns is None or _checksums is None:
+        _german_patterns, _checksums = _load_german_recognizers()
+    return _german_patterns
+
+
+def _checksum_registry() -> Any:
+    _german_pattern_map()
+    return _checksums
+
+
+def _checksum_accepts(entity_type: str, value: str) -> bool:
+    validator_id = _CHECKSUM_ENTITY_TYPES.get(entity_type)
+    if validator_id is None:
+        return True
+    validator = _checksum_registry().get(validator_id)
+    if validator is None:
+        return True
+    return bool(validator.validate(value))
+
+
 def _redact_text(value: str) -> str:
     redacted = value
     for pattern in _SECRET_PATTERNS:
@@ -141,12 +229,14 @@ def _redact_text(value: str) -> str:
     redacted = _KEY_VALUE_PATTERN.sub(lambda match: f"{match.group(1)}={_REDACTED}", redacted)
 
     spans: list[tuple[int, int]] = []
-    for detection in _PII_DETECTOR.detect(redacted):
+    detections = _PII_DETECTOR.detect(redacted, extra_patterns=_german_pattern_map())
+    for detection in detections:
         start = int(detection["start"])
         end = int(detection["end"])
-        if detection["entity_type"] == "PHONE_NUMBER" and not _plausible_phone(
-            redacted, start, end
-        ):
+        entity_type = str(detection["entity_type"])
+        if entity_type == "PHONE_NUMBER" and not _plausible_phone(redacted, start, end):
+            continue
+        if not _checksum_accepts(entity_type, redacted[start:end]):
             continue
         spans.append((start, end))
     if not spans:
