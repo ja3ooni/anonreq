@@ -24,7 +24,8 @@ Termine o TLS no seu proxy reverso (nginx, Caddy ou um balanceador de carga em n
 
 | Variável | Tipo | Padrão | Obrigatória | Descrição |
 |----------|------|--------|-------------|-----------|
-| `ANONREQ_API_KEY` | string | — | Sim | Bearer token para autenticação da API (≥ 32 caracteres) |
+| `ANONREQ_API_KEY` | string | — | Sim | Bearer token para autenticação da API (≥ 32 caracteres). Nunca é enviado ao provedor. |
+| `PROVIDER_API_KEY` | string | — | Condicional | Chave do modelo upstream. Não é a chave de cliente do gateway. |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | Não | Nível de log: DEBUG, INFO, WARNING, ERROR |
 | `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | Não | URL do servidor Valkey |
 | `ANONREQ_CACHE_PASSWORD` | string | — | Não | Senha de acesso do Valkey |

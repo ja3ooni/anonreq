@@ -24,7 +24,8 @@ Termine TLS en su proxy inverso (nginx, Caddy o un equilibrador de carga en la n
 
 | Variable | Tipo | Por defecto | Requerido | Descripción |
 |----------|------|-------------|-----------|-------------|
-| `ANONREQ_API_KEY` | string | — | Sí | Token para la autenticación de la API (≥ 32 caracteres) |
+| `ANONREQ_API_KEY` | string | — | Sí | Token para la autenticación de la API (≥ 32 caracteres). Nunca se envía aguas arriba. |
+| `PROVIDER_API_KEY` | string | — | Condicional | Clave del modelo aguas arriba. No es la clave de cliente de la pasarela. |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | No | Nivel de registro: DEBUG, INFO, WARNING, ERROR |
 | `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | No | URL del servidor Valkey |
 | `ANONREQ_CACHE_PASSWORD` | string | — | No | Contraseña de Valkey |

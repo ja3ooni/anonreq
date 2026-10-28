@@ -12,6 +12,32 @@ The gateway configurations are managed via YAML files loaded at container startu
 
 Configurations are hot-reloaded automatically on receiving a `SIGHUP` signal.
 
+## Secrets and rotation
+
+When `ANONREQ_SECRET_BACKEND` is `volume` or `file`, the gateway polls
+`$ANONREQ_SECRET_VOLUME_DIR/$ANONREQ_SECRET_VOLUME_FILE` (default
+`config/secrets/provider-api-keys.json`) and reloads provider API keys into
+memory. A restart is not required.
+
+Secret rotation must use an atomic replace: write a temporary file in the
+same directory, then rename it over the target, as Kubernetes secret volume
+mounts do. The polling watcher reports a file only when its inode, `st_mtime`,
+or `st_size` changes. An in-place same-size rewrite inside one mtime tick can
+be missed, and the process keeps the previous keys.
+
+```bash
+dir="${ANONREQ_SECRET_VOLUME_DIR:-config/secrets}"
+file="${ANONREQ_SECRET_VOLUME_FILE:-provider-api-keys.json}"
+tmp="$(mktemp "$dir/.${file}.XXXXXX")"
+cat > "$tmp" <<'EOF'
+{"openai": "rotated-key"}
+EOF
+mv -f "$tmp" "$dir/$file"
+```
+
+`mv` is a rename only when the temporary file is on the same filesystem as the
+target. Write the temporary file in the secret directory.
+
 ### Policy Configuration Example
 
 ```yaml
