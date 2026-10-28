@@ -21,6 +21,7 @@ from structlog import get_logger
 from anonreq.exceptions import DependencyUnavailableError, PipelineAbortError
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.base import PipelineStage
+from anonreq.tokenization.tokenizer import Tokenizer
 
 logger = get_logger("anonreq.pipeline.tokenization")
 
@@ -78,11 +79,12 @@ class TokenizationStage(PipelineStage):
     ``Tokenizer.tokenize()``, and records the mapping.
     """
 
-    def __init__(self, tokenizer: Any, cache_manager: Any) -> None:
-        """Initialise with tokenizer and cache manager.
+    def __init__(self, tokenizer: Any | None = None, cache_manager: Any = None) -> None:
+        """Initialise with an optional tokenizer and a cache manager.
 
         Args:
-            tokenizer: A ``Tokenizer`` instance.
+            tokenizer: A ``Tokenizer`` instance. When omitted, each request
+                gets a new tokenizer so session state is not shared.
             cache_manager: A ``CacheManager`` for storing token mappings
                 in Valkey.
         """
@@ -118,8 +120,10 @@ class TokenizationStage(PipelineStage):
             return ctx
 
         try:
-            # Initialize tokenizer for this session
-            self._tokenizer.initialize_session()
+            # A shared tokenizer would leak counters and dedup state across
+            # concurrent requests. Callers that omit one get a fresh instance.
+            tokenizer = self._tokenizer if self._tokenizer is not None else Tokenizer()
+            tokenizer.initialize_session()
 
             # Group detections by node_index
             detections_by_node: dict[int, list[dict[str, Any]]] = {}
@@ -135,7 +139,7 @@ class TokenizationStage(PipelineStage):
                 node_detections = detections_by_node.get(i, [])
 
                 if node_detections:
-                    tokenized_text, node_mapping = self._tokenizer.tokenize(
+                    tokenized_text, node_mapping = tokenizer.tokenize(
                         node_value, node_detections,
                     )
                     all_mappings.update(node_mapping)

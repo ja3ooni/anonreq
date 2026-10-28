@@ -12,6 +12,32 @@ The gateway configurations are managed via YAML files loaded at container startu
 
 Configurations are hot-reloaded automatically on receiving a `SIGHUP` signal.
 
+## Secrets and rotation
+
+When `ANONREQ_SECRET_BACKEND` is `volume` or `file`, the gateway polls
+`$ANONREQ_SECRET_VOLUME_DIR/$ANONREQ_SECRET_VOLUME_FILE` (default
+`config/secrets/provider-api-keys.json`) and reloads provider API keys into
+memory. A restart is not required.
+
+Secret rotation must use an atomic replace: write a temporary file in the
+same directory, then rename it over the target, as Kubernetes secret volume
+mounts do. The polling watcher reports a file only when its inode, `st_mtime`,
+or `st_size` changes. An in-place same-size rewrite inside one mtime tick can
+be missed, and the process keeps the previous keys.
+
+```bash
+dir="${ANONREQ_SECRET_VOLUME_DIR:-config/secrets}"
+file="${ANONREQ_SECRET_VOLUME_FILE:-provider-api-keys.json}"
+tmp="$(mktemp "$dir/.${file}.XXXXXX")"
+cat > "$tmp" <<'EOF'
+{"openai": "rotated-key"}
+EOF
+mv -f "$tmp" "$dir/$file"
+```
+
+`mv` is a rename only when the temporary file is on the same filesystem as the
+target. Write the temporary file in the secret directory.
+
 ### Policy Configuration Example
 
 ```yaml
@@ -47,26 +73,30 @@ AnonReq tracks 4 primary SLOs to guarantee system safety and performance:
 
 System operators use curl requests to query status, fetch metrics, and perform updates.
 
+Governance routes accept the admin API key or an OIDC token, and always verify that credential. The gateway chat key is rejected with HTTP 403, and a missing or unknown credential with HTTP 401.
+
+The admin API key is bound to one tenant on the server, set with `ANONREQ_ADMIN_TENANT_ID`. The gateway refuses to start when `ANONREQ_ADMIN_API_KEY` is set without it. The tenant never comes from the request: `X-AnonReq-Tenant-ID` is optional, and a value naming a different tenant returns HTTP 403, as does a `tenant_id` query for a different tenant. An OIDC token's tenant comes from its tenant claim and follows the same rules; a token without a concrete tenant (or with `*`) returns HTTP 403. When OIDC is enabled (`ANONREQ_OIDC_ISSUER`, `ANONREQ_OIDC_AUDIENCE` and `ANONREQ_OIDC_JWKS_URL` all set), governance routes accept only verified OIDC tokens: the legacy admin API key is refused with HTTP 401. Failed token checks return a generic `Invalid token` message. Per-tenant admin keys are tracked in [issue #7](https://github.com/ja3ooni/anonreq/issues/7).
+
 ### 1. Check Active Policies
 ```bash
 curl -X GET http://localhost:8080/v1/admin/policies \
   -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  -H "X-AnonReq-Role: operator" \
   -H "X-AnonReq-Tenant-ID: default"
 ```
 
 ### 2. Query Real-Time SLO Compliance
 ```bash
 curl -H "Authorization: Bearer <ADMIN_API_KEY>" \
-     -H "X-AnonReq-Role: administrator" \
+     -H "X-AnonReq-Tenant-ID: default" \
      http://localhost:8080/v1/governance/status
 ```
 
 ### 3. Verify Cryptographic Audit Chain Integrity
 ```bash
-curl -X POST http://localhost:8080/v1/governance/audit/verify \
+# X-AnonReq-Tenant-ID must match ANONREQ_ADMIN_TENANT_ID, or be omitted.
+curl http://localhost:8080/v1/governance/audit/verify \
   -H "Authorization: Bearer <ADMIN_API_KEY>" \
-  -H "X-AnonReq-Role: administrator"
+  -H "X-AnonReq-Tenant-ID: default"
 ```
 
 ## Troubleshooting and Breach Recovery

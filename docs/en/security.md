@@ -10,6 +10,16 @@ AnonReq is built on a Zero-Trust architecture. We assume all external model endp
 - **Fail-Secure Defaults:** All configuration parameters default to the most restrictive state (e.g. Trust Center disabled, active presets required, default block actions).
 - **Isolation:** Tenant data, policy stores, and session-based caches are strictly isolated inside the Valkey memory layer using prefix namespaces.
 
+## Legacy admin key and tenant scope
+
+The legacy admin API key is one shared secret. It is not stored against a tenant. On that path the principal's `tenant_id` is `*`, which means "this credential is not tenant-bound." It does not grant a read of every tenant.
+
+For a `*` principal, audit and governance reads take the tenant from the `X-AnonReq-Tenant-ID` header after `TenantContextMiddleware` has checked it against the tenant registry. A holder of the key can still select a tenant by sending a different header. A concrete OIDC `tenant_id` claim is stronger than the header and cannot be overridden by it.
+
+Supplying a `tenant_id` query that does not match that caller tenant, including `*`, returns HTTP 403. Omitting the query returns only the caller tenant.
+
+Binding API keys to tenants, and treating `*` as an explicit super-admin scope rather than this header fallback, is tracked in [issue #7](https://github.com/ja3ooni/anonreq/issues/7).
+
 ## Anonymization and Data Guarantees
 
 AnonReq guarantees that plaintext sensitive information is never exposed to external networks:

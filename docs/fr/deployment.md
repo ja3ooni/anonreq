@@ -24,7 +24,8 @@ Terminez TLS au niveau de votre proxy inverse (nginx, Caddy ou un équilibreur d
 
 | Variable | Type | Par défaut | Requis | Description |
 |----------|------|------------|--------|-------------|
-| `ANONREQ_API_KEY` | string | — | Oui | Jeton porteur pour l'authentification API (≥ 32 caractères) |
+| `ANONREQ_API_KEY` | string | — | Oui | Jeton porteur pour l'authentification API (≥ 32 caractères). Jamais envoyé en amont. |
+| `PROVIDER_API_KEY` | string | — | Conditionnel | Clé du modèle en amont. Ce n'est pas la clé client de la passerelle. |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | Non | Niveau de journalisation : DEBUG, INFO, WARNING, ERROR |
 | `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | Non | URL du serveur Valkey |
 | `ANONREQ_CACHE_PASSWORD` | string | — | Non | Mot de passe requis pour Valkey |

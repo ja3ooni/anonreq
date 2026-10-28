@@ -23,7 +23,7 @@ def _content(ctx, i=0):
     return ctx.transformed_request["messages"][i]["content"]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: overlapping/duplicate spans double-replaced by Tokenizer")
+# Fixed by PR #3 (secret span overlap); the xfail marker is removed.
 def test_tokenizer_overlapping_spans_restore_exactly():
     tok = Tokenizer()
     tok.initialize_session()
@@ -35,7 +35,6 @@ def test_tokenizer_overlapping_spans_restore_exactly():
     assert Restorer.restore_text(out, mapping) == text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: API_KEY + ENTERPRISE_API_KEY on same span eat following text")
 async def test_api_key_duplicate_span_does_not_corrupt_prompt(de_pipeline):
     text = f"Mein Key ist {FAKE_KEY} bitte nicht teilen"
     ctx = await de_pipeline(user(text))

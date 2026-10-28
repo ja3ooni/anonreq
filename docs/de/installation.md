@@ -25,13 +25,14 @@ cp .env.example .env
 
 | Variable | Erforderlich | Standard | Beschreibung |
 |----------|--------------|----------|--------------|
-| `ANONREQ_API_KEY` | Ja | — | Statischer Bearer-Token für API-Authentifizierung (≥ 32 Zeichen) |
+| `ANONREQ_API_KEY` | Ja | — | Statischer Bearer-Token für API-Authentifizierung (≥ 32 Zeichen). Wird nie upstream gesendet. |
+| `PROVIDER_API_KEY` | Bedingt | — | Schlüssel des Modell-Anbieters. Pflicht, außer jeder konfigurierte Anbieter ist mock, local oder ollama. Nicht `ANONREQ_API_KEY` wiederverwenden. |
 | `ANONREQ_LOG_LEVEL` | Nein | `INFO` | Protokollierungsstufe |
 | `ANONREQ_CACHE_TTL` | Nein | `600` | Sitzungs-Cache-TTL in Sekunden |
 | `ANONREQ_PRESIDIO_URL` | Nein | `http://presidio-analyzer:5001` | Presidio Analyzer URL |
 | `ANONREQ_VALKEY_URL` | Nein | `valkey://localhost:6379` | Valkey-Verbindungszeichenfolge |
 
-Mindestens ein Provider-API-Schlüssel (`ANONREQ_OPENAI_API_KEY`, `ANONREQ_ANTHROPIC_API_KEY` oder `ANONREQ_GEMINI_API_KEY`) muss gesetzt sein.
+Der Start bricht ab, wenn ein konfigurierter Anbieter einen Schlüssel braucht und keinen hat. OpenAI akzeptiert `PROVIDER_API_KEY`, `ANONREQ_OPENAI_API_KEY` oder `OPENAI_API_KEY`. `ANONREQ_ANTHROPIC_API_KEY` und `ANONREQ_GEMINI_API_KEY` sind Pflicht, solange die Aliase `smart` und `gemini-pro` in `config/model_aliases.yaml` stehen. `mock`, `local` und `ollama` brauchen keinen Schlüssel. Der Gateway-Client-Schlüssel wird nie als Anbieter-Schlüssel verwendet.
 
 ## Docker Compose Setup
 

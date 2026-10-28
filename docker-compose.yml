@@ -42,21 +42,30 @@ services:
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
-  # Presidio Analyzer — PII / PHI detection
+  # Presidio Analyzer — PII / PHI detection (English + German)
   # -------------------------------------------------------------------------
+  # Image: built from docker/presidio/Dockerfile, tagged
+  # anonreq/presidio-analyzer:2.2.354-de.
+  # Base pin remains mcr.microsoft.com/presidio-analyzer:2.2.354.
+  # The build pins en_core_web_lg==3.7.1 and de_core_news_lg==3.7.0,
+  # loads recognizers for language "de", and runs as uid 10001.
+  # See docker/presidio/Dockerfile. DevOps: local build, not a registry pull.
+  # Budget ~4 GB RAM. Publish the tag before dropping `build`.
+  # The Germany overlay (docker-compose.germany.yml) inherits this service.
   presidio-analyzer:
-    image: mcr.microsoft.com/presidio-analyzer:2.2.354
+    build:
+      context: ./docker/presidio
+      dockerfile: Dockerfile
+    image: anonreq/presidio-analyzer:2.2.354-de
     container_name: anonreq-presidio
     healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:3000/health', timeout=5).read()"
+      # POST /analyze language=de and require a PERSON span. GET /health
+      # stays green on the stock English-only image.
+      test: ["CMD", "python", "/usr/bin/presidio-analyzer/healthcheck.py"]
       interval: 15s
-      timeout: 5s
+      timeout: 15s
       retries: 10
-      start_period: 30s
+      start_period: 120s
     networks:
       - anonreq-net
     restart: unless-stopped
@@ -84,11 +93,26 @@ services:
     ports:
       - "8080:8080"
     environment:
+      # Gateway client credential. Never reuse this as an upstream model key.
       ANONREQ_API_KEY: ${ANONREQ_API_KEY:?err}
-      PROVIDER_API_KEY: ${PROVIDER_API_KEY:?err}
+      # Optional at compose render time so an overlay can supply this after
+      # interpolation. `:?` is evaluated before overlays and blocks
+      # `docker compose config` when only XAI_API_KEY is set. Startup still
+      # requires a real upstream key. Never reuse ANONREQ_API_KEY.
+      PROVIDER_API_KEY: "${PROVIDER_API_KEY:-}"
+      # ANONREQ_OPENAI_API_KEY wins over PROVIDER_API_KEY when both are set.
+      ANONREQ_OPENAI_API_KEY: "${ANONREQ_OPENAI_API_KEY:-${PROVIDER_API_KEY}}"
+      # Optional at compose render time (`:-`, not `:?`). `:?` is evaluated
+      # before overlays, which blocks an xAI-only demo that does not set
+      # these. Startup still requires them while smart / gemini-pro are configured.
+      ANONREQ_ANTHROPIC_API_KEY: "${ANONREQ_ANTHROPIC_API_KEY:-}"
+      ANONREQ_GEMINI_API_KEY: "${ANONREQ_GEMINI_API_KEY:-}"
       PROVIDER_BASE_URL: ${PROVIDER_BASE_URL:-https://api.openai.com}
       ANONREQ_VALKEY_URL: redis://valkey:6379/0
       ANONREQ_PRESIDIO_URL: http://presidio-analyzer:3000
+      # Demo image loads en and de. Locales outside this list use English.
+      # Startup refuses to boot if a listed language is missing from the analyzer.
+      ANONREQ_PRESIDIO_LANGUAGES: ${ANONREQ_PRESIDIO_LANGUAGES:-en,de}
       ANONREQ_POLICY_CONFIG_PATH: config/enterprise-policy.yaml
       ANONREQ_ACTIVE_PRESETS: ${ANONREQ_ACTIVE_PRESETS:-}
       ANONREQ_DATABASE_URL: ${ANONREQ_DATABASE_URL:-sqlite+aiosqlite:////app/data/anonreq.db}

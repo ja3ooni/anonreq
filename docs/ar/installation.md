@@ -25,13 +25,14 @@ cp .env.example .env
 
 | المتغير | مطلوب | الافتراضي | الوصف |
 |----------|------|---------|-------------|
-| `ANONREQ_API_KEY` | نعم | — | رمز حامل ثابت لمصادقة API (أكبر من أو يساوي 32 حرفًا) |
+| `ANONREQ_API_KEY` | نعم | — | رمز حامل ثابت لمصادقة API (أكبر من أو يساوي 32 حرفًا). لا يُرسل أبدًا إلى المزود. |
+| `PROVIDER_API_KEY` | مشروط | — | مفتاح النموذج الخارجي. مطلوب إلا إذا كان كل مزود مُعد هو mock أو local أو ollama. لا تعِد استخدام `ANONREQ_API_KEY`. |
 | `ANONREQ_LOG_LEVEL` | لا | `INFO` | مستوى تسجيل السجلات |
 | `ANONREQ_CACHE_TTL` | لا | `600` | صلاحية ذاكرة التخزين المؤقت للجلسة بالثواني |
 | `ANONREQ_PRESIDIO_URL` | لا | `http://presidio-analyzer:5001` | عنوان URL الخاص بـ Presidio Analyzer |
 | `ANONREQ_VALKEY_URL` | لا | `valkey://localhost:6379` | سلسلة اتصال Valkey |
 
-يجب تعيين مفتاح API الخاص بموفر خدمة واحد على الأقل (`ANONREQ_OPENAI_API_KEY` أو `ANONREQ_ANTHROPIC_API_KEY` أو `ANONREQ_GEMINI_API_KEY`).
+يفشل التشغيل إذا كان مزود مُعد يحتاج إلى مفتاح ولا يملك واحدًا. تقبل OpenAI القيم `PROVIDER_API_KEY` أو `ANONREQ_OPENAI_API_KEY` أو `OPENAI_API_KEY`. المفتاحان `ANONREQ_ANTHROPIC_API_KEY` و`ANONREQ_GEMINI_API_KEY` مطلوبان ما دامت الأسماء `smart` و`gemini-pro` في `config/model_aliases.yaml`. لا يحتاج `mock` و`local` و`ollama` إلى مفتاح. مفتاح عميل البوابة ليس مفتاح مزود أبدًا.
 
 ## إعداد Docker Compose
 

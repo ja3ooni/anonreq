@@ -31,7 +31,11 @@ from anonreq.detection.pipeline import load_enterprise_recognizers, load_mnpi_re
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
-from anonreq.exceptions import DependencyUnavailableError, PipelineAbortError
+from anonreq.exceptions import (
+    DependencyUnavailableError,
+    PipelineAbortError,
+    PresidioLanguageUnsupportedError,
+)
 from anonreq.locale.checksum import ChecksumValidatorRegistry
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
@@ -55,7 +59,7 @@ from anonreq.pipeline.stages import (
 )
 from anonreq.pipeline.tokenization import TokenizationStage
 from anonreq.pipeline.tool_governance import ToolGovernanceStage
-from anonreq.providers.registry import ProviderNotFoundError, resolve_api_key
+from anonreq.providers.registry import ProviderNotFoundError, resolve_upstream_api_key
 from anonreq.routing.alias_registry import AliasNotFoundError
 from anonreq.secrets.store import (
     RuntimeSecretStore,
@@ -68,7 +72,6 @@ from anonreq.streaming.emitter import SSEEmitter
 from anonreq.streaming.restoration import StreamingRestorationStage
 from anonreq.streaming.stream_event import EventType, FinishReason, StreamEvent
 from anonreq.streaming.tail_buffer import TailBuffer
-from anonreq.tokenization.tokenizer import Tokenizer
 
 router = APIRouter(prefix="/v1", tags=["chat"])
 logger = get_logger("anonreq.routing.chat")
@@ -132,13 +135,13 @@ def build_pre_provider_pipeline(
                 restricted_names_mgr=restricted_names_mgr,
             ),
             enterprise_recognizers=load_enterprise_recognizers(),
+            presidio_languages=settings.configured_presidio_languages(),
         ),
         SensitivityClassificationStage(),
         PolicyEnforcementStage(app_state=app_state),
         InboundDLPStage(app_state=app_state),
         ToolGovernanceStage(app_state=app_state),
         TokenizationStage(
-            tokenizer=Tokenizer(),
             cache_manager=cache_manager,
         ),
         ForwardingGuard(),
@@ -167,13 +170,12 @@ def build_pipeline(
     runtime_secret_store = secret_store
     if runtime_secret_store is None and app_state is not None:
         runtime_secret_store = getattr(app_state, "secret_store", None)
-    try:
-        provider_api_key = resolve_api_key(
-            "openai",
-            secret_store=runtime_secret_store,
-        )
-    except ValueError:
-        provider_api_key = settings.PROVIDER_API_KEY or settings.API_KEY
+    # Upstream credential only. settings.API_KEY is the gateway client
+    # key and must never be forwarded to a model provider.
+    provider_api_key = resolve_upstream_api_key(
+        secret_store=runtime_secret_store,
+        provider_api_key=settings.PROVIDER_API_KEY,
+    ) or ""
     provider_timeout = settings.REQUEST_TIMEOUT_SECONDS
 
     # Create pipeline stages
@@ -209,6 +211,8 @@ def _raise_for_pipeline_errors(proc_ctx: ProcessingContext) -> None:
         return
 
     last_error = proc_ctx.errors[-1]
+    if isinstance(last_error, PresidioLanguageUnsupportedError):
+        raise last_error
     if isinstance(last_error, DependencyUnavailableError):
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
     if isinstance(last_error, PipelineAbortError):

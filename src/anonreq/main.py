@@ -29,6 +29,7 @@ from starlette.responses import StreamingResponse
 from structlog import get_logger
 
 from anonreq.__about__ import __version__
+from anonreq.admin.auth import validate_admin_settings
 from anonreq.admin.routes import admin_router
 from anonreq.api.v1.admin.audit import router as admin_audit_router
 from anonreq.auth.oidc import build_oidc_verifier
@@ -195,9 +196,18 @@ def bootstrap_runtime_secrets(app: FastAPI) -> None:
     app.state.secret_rotation_buffer = state.secret_rotation_buffer
 
 
-def bootstrap_secret_volume_reloader(app: FastAPI) -> Any:
+def bootstrap_secret_volume_reloader(
+    app: FastAPI,
+    *,
+    debounce: float = 0.5,
+    poll_interval: float | None = None,
+) -> Any:
     """Attach a secret volume reloader when the app exposes a secret path."""
-    return bootstrap_runtime_secret_reloader(app)
+    return bootstrap_runtime_secret_reloader(
+        app,
+        debounce=debounce,
+        poll_interval=poll_interval,
+    )
 
 
 def create_app() -> FastAPI:
@@ -218,6 +228,9 @@ def create_app() -> FastAPI:
     """
     # Configure structured logging first
     setup_logging(level="INFO")
+
+    # Refuse to start with an admin key that is not bound to a tenant.
+    validate_admin_settings()
 
     # Resolve proxy mode at startup — immutable for the lifetime of the process
     active_mode: ProxyMode = mode_from_env()
@@ -279,7 +292,7 @@ def create_app() -> FastAPI:
 
         try:
             await run_startup_checks(settings, cache_manager)
-        except DependencyUnavailableError:
+        except (DependencyUnavailableError, RuntimeError):
             await cache_manager.close()
             log.error("Pre-flight check failed", component="lifespan")
             raise
@@ -437,7 +450,9 @@ def create_app() -> FastAPI:
     app.include_router(chat_router, dependencies=[Depends(auth_context)])
     app.include_router(models_router, dependencies=[Depends(auth_context)])
     app.include_router(compliance_router, dependencies=[Depends(auth_context)])
-    app.include_router(governance_router, dependencies=[Depends(auth_context)])
+    # bind_governance_role is on the router. auth_context only accepts the
+    # gateway chat key, which must not be promoted to an admin principal.
+    app.include_router(governance_router)
     app.include_router(governance_record_router, dependencies=[Depends(auth_context)])
     app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
