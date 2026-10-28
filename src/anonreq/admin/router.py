@@ -55,6 +55,8 @@ async def require_auth(
         if oidc_principal is not None:
             request.state.role_principal = oidc_principal
         else:
+            # Legacy API key: "*" means "not tenant-bound". Callers still
+            # select a tenant with X-AnonReq-Tenant-ID. See issue #7.
             request.state.role_principal = {
                 "principal_id": "admin",
                 "role": settings.ADMIN_ROLE,
