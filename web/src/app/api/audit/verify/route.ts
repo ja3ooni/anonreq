@@ -1,15 +1,14 @@
 import { getVerifyClient } from "@/lib/audit-client";
 import { fromGatewayError, jsonOk } from "@/lib/http";
-import { optionalTenant, defaultTenant } from "@/lib/validate";
+import { defaultTenant } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
+/** Tenant comes from ANONREQ_TENANT_ID. A tenant_id query parameter is ignored. */
+export async function GET() {
   try {
-    const url = new URL(request.url);
-    const tenantId = optionalTenant(url.searchParams.get("tenant_id")) ?? defaultTenant();
-    const result = await getVerifyClient().verify(tenantId);
+    const result = await getVerifyClient().verify(defaultTenant());
     return jsonOk(result);
   } catch (error) {
     return fromGatewayError(error);

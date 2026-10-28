@@ -1,7 +1,7 @@
 import { getChatClient } from "@/lib/chat-client";
 import { fromGatewayError, jsonOk } from "@/lib/http";
 import { GatewayRequestError } from "@/lib/gateway-error";
-import { requireLocale, requireModel, requirePrompt, requireTenant } from "@/lib/validate";
+import { defaultTenant, requireLocale, requireModel, requirePrompt } from "@/lib/validate";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const body = await readJson(request);
     const prompt = requirePrompt(body.prompt);
     const model = requireModel(body.model);
-    const tenantId = requireTenant(body.tenantId);
+    const tenantId = defaultTenant();
     const locale = requireLocale(body.locale, "en");
     const result = await getChatClient().complete({ model, prompt, tenantId, locale });
     return jsonOk(result);

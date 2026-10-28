@@ -1,0 +1,19 @@
+# Demo UI. No login. Do not publish this port on 0.0.0.0.
+# The host bind is 127.0.0.1 so other machines cannot reach the keys
+# the route handlers attach. Changing the published address or HOSTNAME
+# is an explicit override: anyone who can reach the app can export audit
+# logs, see raw PII through the preview, and spend provider credits.
+# A real login comes after the demo.
+
+services:
+  anonreq-web:
+    build: .
+    environment:
+      HOSTNAME: 127.0.0.1
+      NODE_ENV: production
+    # Create .env.local from .env.example before `docker compose up`.
+    # Do not put HOSTNAME=0.0.0.0 in that file. This service pins it below.
+    env_file:
+      - .env.local
+    ports:
+      - "127.0.0.1:3000:3000"

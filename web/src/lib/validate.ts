@@ -1,6 +1,6 @@
 import { GatewayRequestError } from "@/lib/gateway-error";
+import { DemoPolicyError, resolveServerTenant } from "@/lib/runtime-policy";
 
-const TENANT = /^[A-Za-z0-9._-]{1,64}$/;
 const LOCALE = /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 const MODEL = /^[\w.:-]{1,128}$/;
 const ENTITY = /^[A-Z][A-Z0-9_]{0,63}$/;
@@ -10,33 +10,16 @@ const TOKEN = /^[\w.:@-]{1,128}$/;
 
 export const MAX_PROMPT_CHARS = 8_000;
 
+/** Pinned caller tenant. Client-supplied tenant ids are ignored. */
 export function defaultTenant(): string {
-  const configured =
-    process.env.ANONREQ_TENANT_ID?.trim() ||
-    process.env.ANONREQ_DEFAULT_TENANT?.trim() ||
-    "default";
-  if (!TENANT.test(configured)) {
-    return "default";
+  try {
+    return resolveServerTenant(process.env.ANONREQ_TENANT_ID);
+  } catch (error) {
+    if (error instanceof DemoPolicyError) {
+      throw new GatewayRequestError(error.message, 500);
+    }
+    throw error;
   }
-  return configured;
-}
-
-export function requireTenant(value: unknown): string {
-  const tenant = typeof value === "string" && value.trim() ? value.trim() : defaultTenant();
-  if (!TENANT.test(tenant)) {
-    throw new GatewayRequestError("Tenant id is not valid", 400);
-  }
-  return tenant;
-}
-
-export function optionalTenant(value: unknown): string | undefined {
-  if (typeof value !== "string" || !value.trim()) {
-    return undefined;
-  }
-  if (!TENANT.test(value.trim())) {
-    throw new GatewayRequestError("Tenant id is not valid", 400);
-  }
-  return value.trim();
 }
 
 export function requireLocale(value: unknown, fallback: string): string {

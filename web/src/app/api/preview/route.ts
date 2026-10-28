@@ -1,7 +1,7 @@
 import { assertPreviewInput, getPreviewClient } from "@/lib/preview-client";
 import { fromGatewayError, jsonOk } from "@/lib/http";
 import { GatewayRequestError } from "@/lib/gateway-error";
-import { MAX_PROMPT_CHARS, requireLocale, requireTenant } from "@/lib/validate";
+import { MAX_PROMPT_CHARS, defaultTenant, requireLocale } from "@/lib/validate";
 import type { ChatMessage } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       ? { prompt }
       : { messages: messages ?? [] };
     assertPreviewInput(input);
-    const tenantId = requireTenant(body.tenantId);
+    const tenantId = defaultTenant();
     const locale = requireLocale(body.locale, "en");
     const result = await getPreviewClient().preview(input, { tenantId, locale });
     return jsonOk(result);

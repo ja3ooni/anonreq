@@ -2,7 +2,11 @@
 
 Next.js console for the anonymization gateway. One screen shows the raw prompt, the masked prompt, and the re-identified answer. Another lists anonymization events and exports CSV. English and German.
 
-API calls go through Next.js route handlers. `ANONREQ_API_KEY` and `ANONREQ_ADMIN_API_KEY` never reach the browser.
+**This demo has no login.** The route handlers attach `ANONREQ_API_KEY` and `ANONREQ_ADMIN_API_KEY`. Anyone who can reach the process can export audit logs, see raw PII through the preview, and spend provider credits. It must not be exposed. A real login comes after the demo.
+
+`npm run dev` and `npm run start` bind `127.0.0.1` only. The Docker image sets `HOSTNAME=127.0.0.1`, and `web/docker-compose.yml` publishes `127.0.0.1:3000:3000`. To bind somewhere else you must opt in: `HOST=0.0.0.0 npm run dev:host` (or `start:host`), or set `HOSTNAME` for the container. Both print a warning. Do not do that on a shared network.
+
+API calls go through Next.js route handlers. The keys never reach the browser. The tenant is `ANONREQ_TENANT_ID` on the server. A tenant id sent by the browser is ignored.
 
 ## Run
 
@@ -21,7 +25,7 @@ Offline demo, no gateway:
 ANONREQ_MOCK=true npm run dev
 ```
 
-`ANONREQ_MOCK=true` serves fixtures. Set `ANONREQ_MOCK_PREVIEW=404` to show the middle-column placeholder.
+`ANONREQ_MOCK=true` is the only way to serve fixtures. An empty `ANONREQ_GATEWAY_URL` does not turn mock mode on; the next live call fails and says the URL is missing. `NODE_ENV=production` refuses `ANONREQ_MOCK=true`. Set `ANONREQ_MOCK_PREVIEW=404` to show the middle-column placeholder.
 
 Checks:
 

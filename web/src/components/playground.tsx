@@ -35,7 +35,7 @@ export function Playground() {
   const uiLocale = useLocale();
   const [prompt, setPrompt] = useState(samples("pii"));
   const [model, setModel] = useState("grok");
-  const [tenant, setTenant] = useState("");
+  const [pinnedTenant, setPinnedTenant] = useState("");
   const [detectionLocale, setDetectionLocale] = useState(uiLocale === "de" ? "de-DE" : "en");
   const [models, setModels] = useState<string[]>(["grok", "grok-4", "grok-3"]);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -51,6 +51,14 @@ export function Playground() {
       .then((body: { models?: string[] }) => {
         if (!cancelled && Array.isArray(body.models) && body.models.length > 0) {
           setModels(body.models);
+        }
+      })
+      .catch(() => undefined);
+    fetch("/api/status")
+      .then((response) => response.json())
+      .then((body: { defaultTenant?: string }) => {
+        if (!cancelled && typeof body.defaultTenant === "string") {
+          setPinnedTenant(body.defaultTenant);
         }
       })
       .catch(() => undefined);
@@ -70,7 +78,6 @@ export function Playground() {
     const payload = {
       prompt: nextPrompt,
       model,
-      tenantId: tenant.trim(),
       locale: detectionLocale,
     };
 
@@ -186,16 +193,11 @@ export function Playground() {
             </p>
           </div>
           <div>
-            <Label htmlFor="tenant">{t("tenant")}</Label>
-            <Input
-              id="tenant"
-              name="tenant"
-              value={tenant}
-              placeholder={t("tenantPlaceholder")}
-              onChange={(event) => setTenant(event.target.value)}
-              className="mt-1.5 font-mono"
-              autoComplete="off"
-            />
+            <Label htmlFor="pinned-tenant">{t("pinnedTenant")}</Label>
+            <p id="pinned-tenant" className="mt-1.5 font-mono text-sm">
+              {pinnedTenant || "…"}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("pinnedTenantHelp")}</p>
           </div>
           <div>
             <Label htmlFor="detection-locale">{t("locale")}</Label>

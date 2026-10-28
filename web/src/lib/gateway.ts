@@ -1,14 +1,15 @@
 import { GatewayRequestError } from "@/lib/gateway-error";
+import { DemoPolicyError, resolveMockMode } from "@/lib/runtime-policy";
 
 export function isMockMode(): boolean {
-  const flag = process.env.ANONREQ_MOCK?.trim().toLowerCase();
-  if (flag === "1" || flag === "true" || flag === "yes") {
-    return true;
+  try {
+    return resolveMockMode(process.env.ANONREQ_MOCK, process.env.NODE_ENV);
+  } catch (error) {
+    if (error instanceof DemoPolicyError) {
+      throw new GatewayRequestError(error.message, 500);
+    }
+    throw error;
   }
-  if (flag === "0" || flag === "false" || flag === "no") {
-    return false;
-  }
-  return !process.env.ANONREQ_GATEWAY_URL?.trim();
 }
 
 /** Exercise the 404 placeholder while mock mode is on. */
@@ -20,7 +21,10 @@ export function mockPreviewDisabled(): boolean {
 function origin(): string {
   const raw = process.env.ANONREQ_GATEWAY_URL?.trim();
   if (!raw) {
-    throw new GatewayRequestError("ANONREQ_GATEWAY_URL is not set", 500);
+    throw new GatewayRequestError(
+      "ANONREQ_GATEWAY_URL is not set. Mock mode stays off unless ANONREQ_MOCK=true, and that flag is refused when NODE_ENV=production.",
+      500,
+    );
   }
   let url: URL;
   try {
