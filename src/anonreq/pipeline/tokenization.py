@@ -11,6 +11,7 @@ Per TOKN-01 through TOKN-07:
 
 from __future__ import annotations
 
+import copy
 import inspect
 from typing import Any
 
@@ -96,8 +97,9 @@ class TokenizationStage(PipelineStage):
                 else:
                     tokenized_texts[i] = node_value
 
-            # Build transformed_request by replacing original content
-            transformed = (ctx.original_request or {}).copy()
+            # Deep-copy so nested message/tool-call edits never mutate the
+            # caller-owned request. A shallow copy shares the messages list.
+            transformed = copy.deepcopy(ctx.original_request or {})
             messages = transformed.get("messages", [])
             for i, node in enumerate(ctx.text_nodes or []):
                 # Extract message index and key from path
