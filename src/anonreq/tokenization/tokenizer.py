@@ -68,16 +68,17 @@ class Tokenizer:
 
         Steps:
         1. If ``detections`` is empty, return ``(text, {})`` (TOKN-06/07).
-        2. Sort spans descending by ``start`` position (reverse-offset per
-           TOKN-04) so rightmost spans are replaced first.
-        3. For each span:
+        2. Keep a non-overlapping set of spans, ordered left to right.
+           A later span that overlaps an earlier one is dropped rather than
+           applied with offsets from a string that has already changed.
+        3. Build the result in one pass over that set:
            a. Extract the original value from the **original** ``text``.
            b. Check the deduplication map (TOKN-02).
            c. If new: truncate entity type to 20 chars (TOKN-01), compute
               index from seed + counter (TOKN-05), generate token, store
               in dedup map and output mapping.
-           d. Slice the working ``tokenized`` string around the (original)
-              span positions and insert the token.
+           d. Append the untouched gap and the token. Offsets always refer
+              to ``text``, never to a partially replaced copy.
 
         Args:
             text: The original text containing PII.
@@ -93,55 +94,75 @@ class Tokenizer:
         if not detections:
             return text, {}
 
-        # Sort spans descending by start position (TOKN-04: reverse-offset)
-        sorted_spans = sorted(
-            detections,
-            key=lambda s: s["start"],
-            reverse=True,
-        )
-
-        tokenized = text
+        accepted = self._non_overlapping(text, detections)
         mapping: dict[str, str] = {}
+        pieces: list[str] = []
+        cursor = 0
+        for span in accepted:
+            start = int(span["start"])
+            end = int(span["end"])
+            pieces.append(text[cursor:start])
+            pieces.append(self._token_for(text[start:end], span, mapping))
+            cursor = end
+        pieces.append(text[cursor:])
+        return "".join(pieces), mapping
 
-        for span in sorted_spans:
-            entity_type: str = span["entity_type"]
-            start: int = span["start"]
-            end: int = span["end"]
+    @staticmethod
+    def _non_overlapping(
+        text: str,
+        detections: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Return spans that do not overlap, in left-to-right order.
 
-            # Guard against corrupted detections (T-02-03-05)
-            if start < 0 or end < 0 or start >= end:
+        Invalid spans are ignored. When two spans overlap, the one that
+        starts earlier (and, on a tie, the longer one) is kept. The other
+        is not applied on top of it.
+        """
+        valid: list[dict[str, Any]] = []
+        text_len = len(text)
+        for span in detections:
+            try:
+                start = int(span["start"])
+                end = int(span["end"])
+            except (KeyError, TypeError, ValueError):
                 continue
+            if start < 0 or end < 0 or start >= end or end > text_len:
+                continue
+            valid.append(span)
 
-            original_value = text[start:end]
+        valid.sort(key=lambda span: (int(span["start"]), -int(span["end"])))
+        accepted: list[dict[str, Any]] = []
+        covered_until = 0
+        for span in valid:
+            start = int(span["start"])
+            if start < covered_until:
+                continue
+            accepted.append(span)
+            covered_until = int(span["end"])
+        return accepted
 
-            # TOKN-02: Deduplication — same value → same token
-            token = self._value_to_token.get(original_value)
-            if token is None:
-                # TOKN-01: Cap entity type at 20 chars
-                entity_type_short = entity_type[:20]
-
-                # Get per-type counter (default 0)
-                counter = self._per_type_counters.get(entity_type_short, 0)
-
-                # TOKN-05: Token index = seed offset + counter
-                # Use all 32 bits of the seed (0xFFFFFFFF) for maximum
-                # collision resistance. Per-pair collision probability
-                # is 1/2³² ≈ 2.3·10⁻¹⁰, satisfying P ≤ 2⁻³² bound.
-                token_index = (self._seed & 0xFFFFFFFF) + counter
-                token = f"[{entity_type_short}_{token_index}]"
-
-                self._value_to_token[original_value] = token
-                self._per_type_counters[entity_type_short] = counter + 1
-                if span.get("reversible", True):
-                    mapping[token] = original_value
-
-            # Reverse-offset replacement (spans sorted descending,
-            # so earlier replacements don't shift later positions)
-            before = tokenized[:start]
-            after = tokenized[end:]
-            tokenized = before + token + after
-
-        return tokenized, mapping
+    def _token_for(
+        self,
+        original_value: str,
+        span: dict[str, Any],
+        mapping: dict[str, str],
+    ) -> str:
+        """Return the session token for ``original_value``, creating it if needed."""
+        token = self._value_to_token.get(original_value)
+        if token is None:
+            entity_type_short = str(span["entity_type"])[:20]
+            counter = self._per_type_counters.get(entity_type_short, 0)
+            # TOKN-05: Token index = seed offset + counter.
+            # Use all 32 bits of the seed (0xFFFFFFFF) for maximum
+            # collision resistance. Per-pair collision probability
+            # is 1/2³² ≈ 2.3·10⁻¹⁰, satisfying P ≤ 2⁻³² bound.
+            token_index = (self._seed & 0xFFFFFFFF) + counter
+            token = f"[{entity_type_short}_{token_index}]"
+            self._value_to_token[original_value] = token
+            self._per_type_counters[entity_type_short] = counter + 1
+            if span.get("reversible", True):
+                mapping[token] = original_value
+        return token
 
     # ------------------------------------------------------------------
     # Accessors

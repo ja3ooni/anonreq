@@ -4,8 +4,9 @@ Per PIPE-04, SSE-04, SSE-05:
 - Scans LLM response text for ``[TYPE_N]`` token patterns
 - Replaces each with its original value from the mapping
 - Token matching is case-insensitive per SSE-04
-- Tokens are sorted by length descending to prevent partial collisions
-  (e.g. ``[NAME_10]`` replaced before ``[NAME_1]``)
+- One substitution pass; longer tokens are matched before shorter ones
+  (e.g. ``[NAME_10]`` before ``[NAME_1]``)
+- Replacement values are not scanned, so token chains do not resolve
 """
 
 from __future__ import annotations
@@ -29,35 +30,33 @@ class Restorer:
     def restore_text(text: str, mapping: dict[str, str]) -> str:
         """Replace all ``[TYPE_N]`` tokens with original values.
 
-        Case-insensitive matching per SSE-04/SSE-05.
-        Tokens sorted by length descending to avoid partial collisions
-        (e.g. ``[NAME_10]`` replaced before ``[NAME_1]``).
+        One substitution pass, case-insensitive per SSE-04/SSE-05.
+        Longer tokens are tried first so ``[NAME_10]`` is not eaten by
+        ``[NAME_1]``. Replacement text is inserted literally and is not
+        scanned again, so a value that itself looks like a token is not
+        resolved further.
 
         Args:
             text: The text potentially containing ``[TYPE_N]`` tokens.
             mapping: Dict mapping token strings to original values.
 
         Returns:
-            Text with all tokens replaced by their original values.
+            Text with each original token replaced once.
         """
         if not mapping or not text:
             return text
 
-        # Sort tokens by length descending for safe replacement
-        sorted_tokens = sorted(mapping.keys(), key=len, reverse=True)
+        lookup = {token.casefold(): value for token, value in mapping.items()}
+        # Longer tokens first. ``re`` tries alternatives left to right, so
+        # ``[NAME_10]`` wins over ``[NAME_1]`` at the same position.
+        ordered = sorted(lookup, key=len, reverse=True)
+        pattern = re.compile("|".join(re.escape(token) for token in ordered), re.IGNORECASE)
 
-        result = text
-        for token in sorted_tokens:
-            original = mapping[token]
-            # Case-insensitive match per SSE-04
-            pattern = re.compile(re.escape(token), re.IGNORECASE)
-            # Use lambda to prevent re.sub from interpreting backreference
-            # escapes (\1, \A, \000, etc.) in the replacement value.
-            # Without this, an original value like "\1" would be interpreted
-            # as a group reference, causing re.error or incorrect output.
-            result = pattern.sub(lambda _m: original, result)  # noqa: B023
+        def replace(match: re.Match[str]) -> str:
+            # Return the value as a literal. ``re.sub`` does not scan it.
+            return lookup.get(match.group(0).casefold(), match.group(0))
 
-        return result
+        return pattern.sub(replace, text)
 
     @staticmethod
     def restore_response(
@@ -81,54 +80,18 @@ class Restorer:
         if not mapping:
             return response
 
-        # Copy before the OpenAI choices walk. ``dict.copy()`` is shallow, so
-        # assigning ``message.content`` or ``function.arguments`` would rewrite
-        # the provider payload the caller still holds.
-        response = copy.deepcopy(response)
+        # One deep copy, then one walk. A second pass over ``choices`` would
+        # restore tokens that the first pass just inserted.
+        copied = copy.deepcopy(response)
+        return {key: Restorer._restore_once(value, mapping) for key, value in copied.items()}
 
-        restored: dict[str, Any] = {}
-        for key, value in response.items():
-            if isinstance(value, str):
-                restored[key] = Restorer.restore_text(value, mapping)
-            elif isinstance(value, dict):
-                restored[key] = Restorer.restore_response(value, mapping)
-            elif isinstance(value, list):
-                restored[key] = [
-                    Restorer.restore_response(item, mapping)
-                    if isinstance(item, dict)
-                    else Restorer.restore_text(item, mapping)
-                    if isinstance(item, str)
-                    else item
-                    for item in value
-                ]
-            else:
-                restored[key] = value
-
-        # Known OpenAI response path. ``response`` is already a deep copy,
-        # and each choice is copied again so nested message mutations stay
-        # off any structure shared with the caller.
-        if "choices" in response and isinstance(response["choices"], list):
-            restored_choices: list[dict[str, Any]] = []
-            for choice in response["choices"]:
-                if isinstance(choice, dict):
-                    rc = copy.deepcopy(choice)
-                    if "message" in rc and isinstance(rc["message"], dict):
-                        msg = rc["message"]
-                        if "content" in msg and isinstance(msg["content"], str):
-                            msg["content"] = Restorer.restore_text(
-                                msg["content"], mapping
-                            )
-                        if "tool_calls" in msg and isinstance(msg["tool_calls"], list):
-                            for tc in msg["tool_calls"]:
-                                if isinstance(tc, dict) and "function" in tc:
-                                    fn = tc["function"]
-                                    if "arguments" in fn and isinstance(fn["arguments"], str):
-                                        fn["arguments"] = Restorer.restore_text(
-                                            fn["arguments"], mapping
-                                        )
-                    restored_choices.append(rc)
-                else:
-                    restored_choices.append(choice)
-            restored["choices"] = restored_choices
-
-        return restored
+    @staticmethod
+    def _restore_once(value: Any, mapping: dict[str, str]) -> Any:
+        """Restore each string exactly once. Nested containers are copied by the caller."""
+        if isinstance(value, str):
+            return Restorer.restore_text(value, mapping)
+        if isinstance(value, dict):
+            return {key: Restorer._restore_once(item, mapping) for key, item in value.items()}
+        if isinstance(value, list):
+            return [Restorer._restore_once(item, mapping) for item in value]
+        return value
