@@ -278,11 +278,13 @@ class TestNoGatewayKeyFallback:
             timeout=5.0,
         )
         ctx = ProcessingContext(request_id="req", tenant_id="default")
-        ctx.classification_result = {"action": "PASS"}
+        ctx.classification_result = {"action": "ANONYMIZE"}
         ctx.original_request = {
             "model": "local",
             "messages": [{"role": "user", "content": "hi"}],
         }
+        # Only a tokenized body is ever forwarded (anonymize by default).
+        ctx.transformed_request = dict(ctx.original_request)
         with respx.mock:
             route = respx.post(
                 "http://mock-provider.example/v1/chat/completions"
