@@ -10,7 +10,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 
 os.environ.setdefault("ANONREQ_API_KEY", "a" * 32)
@@ -282,7 +282,14 @@ async def test_client_disconnect_stops_provider_iteration_and_cleans_up(monkeypa
     cleanup_states: list[str] = []
 
     class SpySessionCleanup:
-        def __init__(self, cache_manager: Any, tenant_id: str, session_id: str, audit_logger: Any = None) -> None:  # noqa: E501
+        def __init__(
+            self,
+            cache_manager: Any,
+            tenant_id: str,
+            session_id: str,
+            audit_logger: Any = None,
+            **_kwargs: Any,
+        ) -> None:
             self.cache_manager = cache_manager
             self.tenant_id = tenant_id
             self.session_id = session_id
@@ -319,3 +326,312 @@ async def test_client_disconnect_stops_provider_iteration_and_cleans_up(monkeypa
     assert adapter.events_started == 2
     assert adapter.events_completed == 1
     assert await cache.get_mapping("default", SESSION_ID) == {}
+
+
+class RecordingAuditChain:
+    def __init__(self, fail: bool = False) -> None:
+        self.fail = fail
+        self.events: list[tuple[str, dict[str, Any]]] = []
+
+    async def log_event(self, event_type: str, **fields: Any) -> None:
+        self.events.append((event_type, dict(fields)))
+        if self.fail:
+            raise RuntimeError("audit database unavailable user@example.com")
+
+
+class _AuditPreProvider(FakePreProviderPipeline):
+    async def run(self, proc_ctx: Any) -> Any:
+        proc_ctx = await super().run(proc_ctx)
+        proc_ctx.token_mappings = {"[EMAIL_0]": "user@example.com"}
+        proc_ctx.audit_metadata["locale"] = "en"
+        return proc_ctx
+
+
+class _BlockingPreProvider(_AuditPreProvider):
+    async def run(self, proc_ctx: Any) -> Any:
+        proc_ctx = await super().run(proc_ctx)
+        proc_ctx.classification_result = {"action": "BLOCK", "matched_rule_ids": ["r1"]}
+        return proc_ctx
+
+
+async def _stream_with_audit(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    mode: str,
+    disconnect_after: int | None = None,
+    fail_audit: bool = False,
+) -> tuple[list[str], RecordingAuditChain, InMemoryCache]:
+    monkeypatch.setattr(settings, "AUDIT_WRITE_ATTEMPTS", 1)
+    monkeypatch.setattr(settings, "AUDIT_WRITE_BACKOFF_SECONDS", 0.0)
+    cache = await _make_cache()
+    adapter = FakeStreamingAdapter(mode=mode)
+    chain = RecordingAuditChain(fail=fail_audit)
+    app = FastAPI()
+    _install_streaming_state(app, cache, adapter)
+    app.state.audit_chain = chain
+    monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
+    monkeypatch.setattr(
+        "anonreq.routing.chat.build_pre_provider_pipeline",
+        lambda *_args, **_kwargs: _AuditPreProvider(),
+    )
+    await cache.store_mapping("default", SESSION_ID, {"[EMAIL_0]": "user@example.com"})
+
+    checks = 0
+
+    async def is_disconnected() -> bool:
+        nonlocal checks
+        checks += 1
+        if disconnect_after is None:
+            return False
+        return checks > disconnect_after
+
+    request = SimpleNamespace(
+        app=app,
+        state=SimpleNamespace(),
+        headers={},
+        is_disconnected=is_disconnected,
+    )
+    response = await _stream_chat_completions(
+        ChatRequest(
+            model="fast",
+            messages=[{"role": "user", "content": "Hello user@example.com"}],
+            stream=True,
+        ),
+        request,  # type: ignore[arg-type]
+        RequestContext(request_id="req_stream_audit", tenant_id="default"),
+    )
+    chunks: list[str] = []
+
+    async def _read_body() -> None:
+        async for chunk in response.body_iterator:
+            chunks.append(chunk)
+
+    await _read_body()
+    return chunks, chain, cache
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "disconnect_after", "terminal_state"),
+    [
+        ("success", None, "FINISH"),
+        ("error_event", None, "PROVIDER_ERROR"),
+        ("raise_after_first", None, "PROVIDER_ERROR"),
+        ("success", 1, "CLIENT_DISCONNECT"),
+    ],
+)
+async def test_stream_terminal_states_write_anonymization_audit(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    disconnect_after: int | None,
+    terminal_state: str,
+) -> None:
+    _chunks, chain, cache = await _stream_with_audit(
+        monkeypatch,
+        mode=mode,
+        disconnect_after=disconnect_after,
+    )
+
+    assert len(chain.events) == 1
+    event_type, fields = chain.events[0]
+    assert event_type == "anonymization"
+    assert fields["terminal_state"] == terminal_state
+    assert fields["decision"] == "ANONYMIZE"
+    assert fields["provider"] == "openai"
+    assert fields["model"] == "gpt-4o-mini"
+    assert fields["tenant_id"] == "default"
+    assert fields["request_id"] == "req_stream_audit"
+    assert fields["token_count"] == 1
+    assert fields["entity_counts"] == {"EMAIL": 1}
+    assert fields["locale"] == "en"
+    assert "user@example.com" not in repr(fields)
+    assert await cache.get_mapping("default", SESSION_ID) == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("mode", "disconnect_after"),
+    [
+        ("success", None),
+        ("error_event", None),
+        ("raise_after_first", None),
+        ("success", 1),
+    ],
+)
+async def test_stream_audit_failure_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    disconnect_after: int | None,
+) -> None:
+    chunks, chain, cache = await _stream_with_audit(
+        monkeypatch,
+        mode=mode,
+        disconnect_after=disconnect_after,
+        fail_audit=True,
+    )
+
+    # A failed audit never ends in a clean close: no ``[DONE]`` frame, and a
+    # connected client gets an ``audit_error`` frame as the last frame.
+    assert all("[DONE]" not in chunk for chunk in chunks)
+    if disconnect_after is None:
+        assert "audit_error" in chunks[-1]
+
+    assert len(chain.events) == 1
+    assert chain.events[0][0] == "anonymization"
+    assert "user@example.com" not in repr(chain.events)
+    assert await cache.get_mapping("default", SESSION_ID) == {}
+
+
+@pytest.mark.asyncio
+async def test_stream_audit_is_written_before_done_frame(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events_at_done: list[int] = []
+    monkeypatch.setattr(settings, "AUDIT_WRITE_ATTEMPTS", 1)
+    monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
+    monkeypatch.setattr(
+        "anonreq.routing.chat.build_pre_provider_pipeline",
+        lambda *_args, **_kwargs: _AuditPreProvider(),
+    )
+    cache = await _make_cache()
+    adapter = FakeStreamingAdapter(mode="success")
+    chain2 = RecordingAuditChain(fail=False)
+    app = FastAPI()
+    _install_streaming_state(app, cache, adapter)
+    app.state.audit_chain = chain2
+    await cache.store_mapping("default", SESSION_ID, {"[EMAIL_0]": "user@example.com"})
+
+    async def is_disconnected() -> bool:
+        return False
+
+    request = SimpleNamespace(
+        app=app, state=SimpleNamespace(), headers={}, is_disconnected=is_disconnected,
+    )
+    response = await _stream_chat_completions(
+        ChatRequest(
+            model="fast",
+            messages=[{"role": "user", "content": "Hello user@example.com"}],
+            stream=True,
+        ),
+        request,  # type: ignore[arg-type]
+        RequestContext(request_id="req_stream_order", tenant_id="default"),
+    )
+    async for chunk in response.body_iterator:
+        if "[DONE]" in chunk:
+            events_at_done.append(len(chain2.events))
+    assert events_at_done == [1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("model", ["fast"])
+async def test_stream_early_exit_audits_and_deletes_mapping(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+) -> None:
+    monkeypatch.setattr(settings, "AUDIT_WRITE_ATTEMPTS", 1)
+    cache = await _make_cache()
+    adapter = FakeStreamingAdapter(mode="success")
+    chain = RecordingAuditChain(fail=False)
+    app = FastAPI()
+    _install_streaming_state(app, cache, adapter)
+    app.state.audit_chain = chain
+    monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
+    monkeypatch.setattr(
+        "anonreq.routing.chat.build_pre_provider_pipeline",
+        lambda *_args, **_kwargs: _BlockingPreProvider(),
+    )
+    await cache.store_mapping("default", SESSION_ID, {"[EMAIL_0]": "user@example.com"})
+
+    async def is_disconnected() -> bool:
+        return False
+
+    request = SimpleNamespace(
+        app=app, state=SimpleNamespace(), headers={}, is_disconnected=is_disconnected,
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        await _stream_chat_completions(
+            ChatRequest(
+                model=model,
+                messages=[{"role": "user", "content": "Hello user@example.com"}],
+                stream=True,
+            ),
+            request,  # type: ignore[arg-type]
+            RequestContext(request_id="req_stream_early", tenant_id="default"),
+        )
+    assert excinfo.value.status_code == 403
+    assert len(chain.events) == 1
+    assert chain.events[0][1]["terminal_state"] == "REJECTED"
+    assert await cache.get_mapping("default", SESSION_ID) == {}
+
+
+@pytest.mark.asyncio
+async def test_stream_early_exit_fails_closed_when_audit_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "AUDIT_WRITE_ATTEMPTS", 1)
+    monkeypatch.setattr(settings, "AUDIT_WRITE_BACKOFF_SECONDS", 0.0)
+    cache = await _make_cache()
+    app = FastAPI()
+    _install_streaming_state(app, cache, FakeStreamingAdapter(mode="success"))
+    app.state.audit_chain = RecordingAuditChain(fail=True)
+    monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
+    monkeypatch.setattr(
+        "anonreq.routing.chat.build_pre_provider_pipeline",
+        lambda *_args, **_kwargs: _BlockingPreProvider(),
+    )
+    await cache.store_mapping("default", SESSION_ID, {"[EMAIL_0]": "user@example.com"})
+
+    async def is_disconnected() -> bool:
+        return False
+
+    request = SimpleNamespace(
+        app=app, state=SimpleNamespace(), headers={}, is_disconnected=is_disconnected,
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        await _stream_chat_completions(
+            ChatRequest(
+                model="unknown-alias-xyz",
+                messages=[{"role": "user", "content": "Hello user@example.com"}],
+                stream=True,
+            ),
+            request,  # type: ignore[arg-type]
+            RequestContext(request_id="req_stream_early", tenant_id="default"),
+        )
+    assert excinfo.value.status_code == 500
+    assert await cache.get_mapping("default", SESSION_ID) == {}
+
+
+@pytest.mark.asyncio
+async def test_stream_early_exit_reraises_cancellation_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import asyncio
+
+    class _Cancelled(_AuditPreProvider):
+        async def run(self, proc_ctx: Any) -> Any:
+            raise asyncio.CancelledError
+
+    cache = await _make_cache()
+    app = FastAPI()
+    _install_streaming_state(app, cache, FakeStreamingAdapter(mode="success"))
+    chain = RecordingAuditChain(fail=False)
+    app.state.audit_chain = chain
+    monkeypatch.setattr("anonreq.routing.chat.uuid4", lambda: StableUUID())
+    monkeypatch.setattr(
+        "anonreq.routing.chat.build_pre_provider_pipeline",
+        lambda *_args, **_kwargs: _Cancelled(),
+    )
+
+    async def is_disconnected() -> bool:
+        return False
+
+    request = SimpleNamespace(
+        app=app, state=SimpleNamespace(), headers={}, is_disconnected=is_disconnected,
+    )
+    with pytest.raises(asyncio.CancelledError):
+        await _stream_chat_completions(
+            ChatRequest(model="fast", messages=[{"role": "user", "content": "hi"}], stream=True),
+            request,  # type: ignore[arg-type]
+            RequestContext(request_id="req_stream_cancel", tenant_id="default"),
+        )
+    assert chain.events == []

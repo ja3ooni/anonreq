@@ -232,4 +232,7 @@ async def test_chat_alias_and_provider_errors_hide_exception_text() -> None:
 
 def _mark_pass(ctx: ProcessingContext) -> ProcessingContext:
     ctx.classification_result = {"action": "PASS", "matched_rule_ids": []}
+    # Only a tokenized body may be forwarded (#15), so the fake pre-provider
+    # pipeline must produce one to reach alias/provider resolution.
+    ctx.transformed_request = dict(ctx.original_request or {})
     return ctx

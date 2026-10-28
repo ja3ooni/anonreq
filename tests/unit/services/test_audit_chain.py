@@ -191,3 +191,29 @@ class TestAuditChainService:
         assert cfg.retention_days == 2557
         assert cfg.chain_anchor_enabled is True
         assert cfg.chain_anchor_time == "23:59:59 UTC"
+
+
+@pytest.mark.unit
+class TestAuditChainIdempotency:
+    @pytest.mark.anyio
+    async def test_log_event_with_same_event_id_writes_once(
+        self, chain: AuditChainService, engine: AsyncEngine,
+    ) -> None:
+        first = await chain.log_event(
+            "anonymization", tenant_id="t1", request_id="r1", event_id="idem-1",
+        )
+        second = await chain.log_event(
+            "anonymization", tenant_id="t1", request_id="r1", event_id="idem-1",
+        )
+        assert first is not None
+        assert second is not None
+        assert first.event_id == second.event_id == "idem-1"
+        assert second.hash == first.hash
+        async with engine.connect() as conn:
+            count = (await conn.execute(
+                text("SELECT COUNT(*) FROM audit_event WHERE event_id = 'idem-1'"),
+            )).scalar_one()
+        assert count == 1
+        result = await chain.verify_chain("t1")
+        assert result.is_intact is True
+        assert result.checked_count == 1
