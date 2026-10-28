@@ -311,10 +311,14 @@ def create_app() -> FastAPI:
         if kms_backend == "local":
             from anonreq.kms.cache import InMemoryKeyCache
             from anonreq.kms.local import LocalAES256GCM
+            from anonreq.startup_checks import resolve_kms_master_key
 
-            master_key_env = os.environ.get("ANONREQ_KMS_MASTER_KEY")
-            if master_key_env:
-                master_key = master_key_env.encode("utf-8")
+            resolved_key = resolve_kms_master_key(
+                getattr(settings, "ENV", "development"),
+                os.environ.get("ANONREQ_KMS_MASTER_KEY"),
+            )
+            if resolved_key is not None:
+                master_key = resolved_key
             else:
                 # Generate ephemeral master key for dev/testing (not for production)
                 master_key = LocalAES256GCM.generate_master_key()

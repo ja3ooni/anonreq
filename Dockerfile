@@ -61,6 +61,10 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 # Copy application source and configuration
 COPY --from=builder /app/src/ src/
 COPY --from=builder /app/config/ config/
+# Alembic migrations: the audit/events tables must exist before the first
+# request (fresh SQLite volume otherwise 500s every chat on audit write).
+COPY alembic.ini ./
+COPY alembic/ alembic/
 
 # Create a non-root user for runtime security
 RUN addgroup --system --gid 1001 anonreq && \

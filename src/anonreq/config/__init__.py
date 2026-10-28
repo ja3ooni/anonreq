@@ -282,7 +282,7 @@ class Settings(BaseSettings):
     ENV: str = Field(
         default="development",
         validation_alias="ANONREQ_ENV",
-        description="Deployment environment: development | staging | production.",
+        description="Deployment environment: development | demo | staging | production.",
     )
     DEBUG_PREVIEW_ENABLED: bool = Field(
         default=False,

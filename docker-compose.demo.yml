@@ -1,0 +1,73 @@
+# xAI demo overlay — layer on top of the base + Germany files:
+#   docker compose -f docker-compose.yml -f docker-compose.germany.yml -f docker-compose.demo.yml up -d --build
+# or simply:  make demo   (generates local secrets into .env, never committed)
+#
+# NOTE: ProviderStage appends "/v1/chat/completions" itself, so the base URL
+# is https://api.x.ai (NOT .../v1) — the effective endpoint is
+# https://api.x.ai/v1/chat/completions (OpenAI-compatible).
+services:
+  anonreq:
+    # Create/upgrade the audit + anonymization-event tables on the data volume
+    # before serving. Without this a fresh volume returns 500 on every chat
+    # (audit chain write fails with OperationalError: no such table).
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn anonreq.main:app --host 0.0.0.0 --port 8080 --no-server-header --no-access-log"]
+    environment:
+      ANONREQ_ENV: demo
+      PROVIDER_BASE_URL: ${XAI_BASE_URL:-https://api.x.ai}
+      PROVIDER_API_KEY: ${XAI_API_KEY:?XAI_API_KEY must be set for the xAI demo}
+      # PR #9 resolves openai via ANONREQ_OPENAI_API_KEY first; pin it to xAI
+      # so an unrelated OpenAI key in .env can't be sent to api.x.ai.
+      ANONREQ_OPENAI_API_KEY: ${XAI_API_KEY:?XAI_API_KEY must be set for the xAI demo}
+      ANONREQ_DEMO_MODEL: ${ANONREQ_DEMO_MODEL:-grok-4}
+      # Demo mode refuses to boot without a stable AES-256-GCM master key.
+      ANONREQ_KMS_BACKEND: local
+      ANONREQ_KMS_MASTER_KEY: ${ANONREQ_KMS_MASTER_KEY:?ANONREQ_KMS_MASTER_KEY must be set in demo mode}
+      ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?ANONREQ_ADMIN_API_KEY must be set in demo mode}
+      # Single-tenant demo: bind the admin key to the "default" tenant.
+      ANONREQ_ADMIN_TENANT_ID: ${ANONREQ_ADMIN_TENANT_ID:-default}
+      ANONREQ_SINGLE_TENANT: "true"
+      # The three-column UI (PR #12) fills its "anonymized" column from the
+      # admin-only preview route, which 404s unless enabled.
+      ANONREQ_DEBUG_PREVIEW_ENABLED: "true"
+    # The gateway reads aliases from the fixed path config/model_aliases.yaml
+    # (AliasRegistry and the provider-key startup check from PR #9). There is
+    # no env var to select another file, so the demo bind-mounts its own
+    # alias file over it: only grok-4 (provider openai) is configured, and
+    # the smart/gemini-pro aliases (Anthropic/Gemini keys) are not.
+    # Loopback only: the demo gateway must not be reachable from the LAN.
+    # !override replaces (not appends to) the base "8080:8080" mapping.
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./config/model_aliases.demo.yaml:/app/config/model_aliases.yaml:ro
+  # Bilingual analyzer: build, tag, pinned spaCy models, de health check and
+  # 120s start_period all come from docker-compose.yml (PR #4). The demo only
+  # forces a local build (never a registry pull) and reserves the >= 4 GB the
+  # two large spaCy models need. No hard mem_limit, so a model-load spike is
+  # not OOM-killed mid-demo; scripts/demo.sh checks Docker VM memory first.
+  presidio-analyzer:
+    # Base mcr.microsoft.com/presidio-analyzer:2.2.354 is published for
+    # linux/amd64 only (checked with buildx imagetools inspect, 2026-10-28;
+    # 2.2.360+ is multi-arch but bumping is post-Friday work). On Apple
+    # Silicon this runs under Rosetta/QEMU: slower start, same results.
+    platform: linux/amd64
+    pull_policy: build
+    deploy:
+      resources:
+        reservations:
+          memory: 4g
+
+  # Observability profile only (not started by make demo); loopback if used.
+  prometheus:
+    ports: !override
+      - "127.0.0.1:9090:9090"
+  grafana:
+    ports: !override
+      - "127.0.0.1:3001:3000"   # 3000 is the demo UI (web/, PR #12)
+
+networks:
+  anonreq-net:
+    # Fixed name so web/docker-compose.demo.yml (external network
+    # anonreq_anonreq-net) finds it regardless of the clone's directory name
+    # (default would be <dirname>_anonreq-net, e.g. annon_anonreq-net).
+    name: anonreq_anonreq-net

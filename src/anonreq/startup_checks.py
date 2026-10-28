@@ -335,6 +335,49 @@ async def validate_production_secrets(settings: Settings) -> None:
         raise DependencyUnavailableError(dependency="production-secrets")
 
 
+class DemoKmsKeyMissingError(RuntimeError):
+    """Raised when demo mode starts without ANONREQ_KMS_MASTER_KEY."""
+
+
+class KmsKeyPlaceholderError(RuntimeError):
+    """Raised when ANONREQ_KMS_MASTER_KEY is a literal ``<...>`` placeholder."""
+
+
+def resolve_kms_master_key(env_name: str, master_key_env: str | None) -> bytes | None:
+    """Return the configured KMS master key, enforcing it in demo mode.
+
+    In ``ANONREQ_ENV=demo`` mappings must be AES-256-GCM encrypted with a
+    stable, operator-supplied master key, so a missing/blank/short key is a
+    hard startup failure rather than a silent ephemeral key.
+    Returns ``None`` outside demo mode when unset (caller generates an
+    ephemeral dev key).
+    """
+    key = (master_key_env or "").strip()
+    # A value copied verbatim from .env.example (e.g. "<generate-...>") is a
+    # public string, never a secret: refuse it in every mode, not just demo.
+    if key.startswith("<") or key.endswith(">"):
+        logger.error(
+            "kms_master_key_placeholder",
+            component="startup_checks",
+            detail="ANONREQ_KMS_MASTER_KEY is a <...> placeholder; set a real key or unset it",
+        )
+        raise KmsKeyPlaceholderError(
+            "ANONREQ_KMS_MASTER_KEY is a '<...>' placeholder (copied from "
+            ".env.example?); set a random 32+ char key or leave it unset"
+        )
+    if str(env_name).strip().lower() == "demo" and len(key) < 32:
+        logger.error(
+            "demo_kms_master_key_missing",
+            component="startup_checks",
+            detail="ANONREQ_KMS_MASTER_KEY must be set (>=32 chars) in demo mode",
+        )
+        raise DemoKmsKeyMissingError(
+            "ANONREQ_ENV=demo requires ANONREQ_KMS_MASTER_KEY (>=32 chars); "
+            "run `make demo` or scripts/demo.sh to generate one into .env"
+        )
+    return key.encode("utf-8") if key else None
+
+
 def assert_middleware_ordering(app: Any) -> None:
     """Assert TenantContextMiddleware runs before PolicyMiddleware.
 
