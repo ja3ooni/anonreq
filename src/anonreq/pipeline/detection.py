@@ -237,16 +237,14 @@ class DetectionStage(PipelineStage):
                                 "Enterprise recognizer failed",
                                 recognizer_name=name,
                                 node_index=i,
-                                error=str(exc),
-                                exc_info=True,
+                                error=type(exc).__name__,
                             )
                         except Exception as exc:
                             logger.warning(
                                 "Enterprise recognizer unhandled error",
                                 recognizer_name=name,
                                 node_index=i,
-                                error=f"{type(exc).__name__}: {exc}",
-                                exc_info=True,
+                                error=type(exc).__name__,
                             )
                 ctx.detections.extend(enterprise_results)
 

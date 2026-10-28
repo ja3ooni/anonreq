@@ -62,19 +62,14 @@ class CleanupStage(PipelineStage):
                     request_id=ctx.request_id,
                     tenant_id=ctx.tenant_id,
                 )
-            except (KeyError, TypeError, ValueError) as exc:
-                logger.warning(
-                    "cleanup.mapping_delete_failed",
-                    stage=self.name,
-                    request_id=ctx.request_id,
-                    error=f"{type(exc).__name__}: {exc}",
-                )
             except Exception as exc:
+                # Log the type only. Exception messages can echo mapping keys
+                # or provider errors that still contain user data.
                 logger.warning(
                     "cleanup.mapping_delete_failed",
                     stage=self.name,
                     request_id=ctx.request_id,
-                    error=f"{type(exc).__name__}",
+                    error=type(exc).__name__,
                 )
                 # Per T-02-04-03: TTL fallback handles expiry if DEL fails.
                 # Pipeline does NOT fail if DEL fails.

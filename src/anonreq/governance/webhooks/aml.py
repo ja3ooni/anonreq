@@ -230,7 +230,7 @@ class AmlWebhookManager:
                 extra={
                     "tenant_id": payload.tenant_id,
                     "event_id": payload.event_id,
-                    "error": str(exc),
+                    "error": type(exc).__name__,
                 },
             )
             return False

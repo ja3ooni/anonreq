@@ -67,7 +67,11 @@ class ForwardingGuard:
             )
 
         except Exception as exc:
-            logger.error("forwarding_guard.error", error=str(exc), request_id=ctx.request_id)
+            logger.error(
+                "forwarding_guard.error",
+                error=type(exc).__name__,
+                request_id=ctx.request_id,
+            )
             return self._block("internal guard error", 503)
 
     def _block(self, reason: str, http_status: int) -> ForwardingVerdict:

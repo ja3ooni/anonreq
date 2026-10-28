@@ -161,7 +161,11 @@ class TransparentProxy:
             writer.write(self._serialize_response(response))
             await writer.drain()
         except Exception as exc:
-            log.error("Transparent proxy connection failed", component="transparent_proxy", error=str(exc))  # noqa: E501
+            log.error(
+                "Transparent proxy connection failed",
+                component="transparent_proxy",
+                error=type(exc).__name__,
+            )
             writer.write(b"HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\n\r\n")
             await writer.drain()
         finally:

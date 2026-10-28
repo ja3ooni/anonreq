@@ -113,16 +113,16 @@ class SinkHealthMonitor:
 
             except Exception as exc:
                 logger.error(
-                    "Health probe failed for sink '%s': %s",
+                    "Health probe failed for sink '%s' type=%s",
                     sink_name,
-                    str(exc),
+                    type(exc).__name__,
                     extra={"sink_name": sink_name},
                 )
                 # Cache as unhealthy
                 self._status_cache[sink_name] = SinkStatus(
                     healthy=False,
                     reachable=False,
-                    last_error=str(exc),
+                    last_error=type(exc).__name__,
                 )
                 _sink_healthy.labels(sink_name=sink_name).set(0)
 
