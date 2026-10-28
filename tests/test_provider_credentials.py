@@ -298,3 +298,69 @@ class TestNoGatewayKeyFallback:
         sent = route.calls[0].request.headers
         assert "authorization" not in {key.lower() for key in sent}
         assert _GATEWAY_KEY not in str(sent)
+
+
+# --- ANONREQ_MODEL_ALIASES_PATH (demo: only the xAI/openai alias file) -------
+
+_REPO = Path(__file__).resolve().parents[1]
+_DEMO_ALIASES = str(_REPO / "config" / "model_aliases.demo.yaml")
+_BASE_ALIASES = str(_REPO / "config" / "model_aliases.yaml")
+
+
+@pytest.mark.parametrize("env_name", ["development", "demo", "production"])
+def test_demo_alias_file_needs_only_openai_compatible_key(
+    monkeypatch: pytest.MonkeyPatch, env_name: str
+) -> None:
+    """make demo with only XAI_API_KEY (-> PROVIDER_API_KEY) starts cleanly."""
+    monkeypatch.setenv("ANONREQ_MODEL_ALIASES_PATH", _DEMO_ALIASES)
+    validate_provider_credentials(
+        _settings(ENV=env_name, PROVIDER_API_KEY="xai-" + "k" * 40)
+    )
+
+
+def test_demo_alias_file_still_requires_the_xai_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANONREQ_MODEL_ALIASES_PATH", _DEMO_ALIASES)
+    with pytest.raises(RuntimeError, match="openai"):
+        validate_provider_credentials(_settings(PROVIDER_API_KEY=None))
+
+
+@pytest.mark.parametrize("placeholder", ["<your-xai-api-key>", "change-me"])
+def test_demo_alias_file_rejects_placeholder_xai_key(
+    monkeypatch: pytest.MonkeyPatch, placeholder: str
+) -> None:
+    monkeypatch.setenv("ANONREQ_MODEL_ALIASES_PATH", _DEMO_ALIASES)
+    with pytest.raises(RuntimeError, match="openai"):
+        validate_provider_credentials(_settings(PROVIDER_API_KEY=placeholder))
+
+
+@pytest.mark.parametrize("env_value", [None, "", _BASE_ALIASES])
+def test_base_alias_file_stays_strict(
+    monkeypatch: pytest.MonkeyPatch, env_value: str | None
+) -> None:
+    """Without the demo override every referenced provider needs a key."""
+    if env_value is None:
+        monkeypatch.delenv("ANONREQ_MODEL_ALIASES_PATH", raising=False)
+    else:
+        monkeypatch.setenv("ANONREQ_MODEL_ALIASES_PATH", env_value)
+    monkeypatch.chdir(_REPO)
+    with pytest.raises(RuntimeError) as exc:
+        validate_provider_credentials(
+            _settings(ENV="production", PROVIDER_API_KEY="sk-" + "k" * 40)
+        )
+    assert "anthropic" in str(exc.value)
+    assert "gemini" in str(exc.value)
+
+
+def test_alias_registry_and_startup_check_use_same_file(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from anonreq.routing.alias_registry import AliasRegistry, model_aliases_path
+    from anonreq.startup_checks import configured_provider_names
+
+    monkeypatch.setenv("ANONREQ_MODEL_ALIASES_PATH", _DEMO_ALIASES)
+    assert model_aliases_path() == _DEMO_ALIASES
+    assert configured_provider_names() == ["openai"]
+    registry = AliasRegistry()
+    assert registry.resolve("grok-4") is not None

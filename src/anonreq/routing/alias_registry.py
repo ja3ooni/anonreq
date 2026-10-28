@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -24,14 +25,30 @@ class AliasNotFoundError(Exception):
         return f"Alias '{self.alias_name}' not found. Available aliases: {aliases}"
 
 
+DEFAULT_MODEL_ALIASES_PATH = "config/model_aliases.yaml"
+
+
+def model_aliases_path() -> str:
+    """Alias file in effect: ``ANONREQ_MODEL_ALIASES_PATH`` or the default.
+
+    The demo sets it to ``config/model_aliases.demo.yaml`` (baked into the
+    image) so it does not depend on a single-file bind mount. Routing and the
+    provider-key startup check both use this, so they always agree.
+    """
+    value = os.environ.get("ANONREQ_MODEL_ALIASES_PATH", "").strip()
+    return value or DEFAULT_MODEL_ALIASES_PATH
+
+
 class AliasRegistry:
     """Resolves client-visible aliases to provider/model pairs."""
 
     def __init__(
         self,
-        config_path: str = "config/model_aliases.yaml",
+        config_path: str | None = None,
         provider_registry: ProviderRegistry | None = None,
     ) -> None:
+        if config_path is None:
+            config_path = model_aliases_path()
         self._aliases: dict[str, ModelAlias] = {}
         self._display_names: dict[str, str] = {}
         self._provider_registry = provider_registry
