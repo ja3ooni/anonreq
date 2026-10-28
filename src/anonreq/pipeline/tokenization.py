@@ -151,8 +151,16 @@ class TokenizationStage(PipelineStage):
                 written = _write_path(transformed, path, tokenized_texts[i])
                 # A detected node that cannot be written back would be
                 # forwarded in clear text. Fail closed.
-                if not written and detections_by_node.get(i):
-                    raise ValueError("unwritable text node path")
+                if not written:
+                    # Log the path shape only (indices replaced), never values.
+                    logger.warning(
+                        "tokenization.unwritable_path",
+                        request_id=ctx.request_id,
+                        path_shape=_INDEX.sub("[]", str(path)),
+                        has_detections=bool(detections_by_node.get(i)),
+                    )
+                    if detections_by_node.get(i):
+                        raise ValueError("unwritable text node path")
 
             ctx.transformed_request = transformed
 

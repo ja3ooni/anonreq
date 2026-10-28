@@ -1,7 +1,9 @@
 # ruff: noqa: E501, PT018
 """QA regression tests for detection/tokenization bugs (synthetic data only).
 
-Marked xfail(strict=True): they document known bugs and will XPASS -> fail
+Markers are non-strict while the fixes sit in separate PRs (#3, #16), so
+merge order cannot break CI; remove each marker once its PR is merged.
+Originally xfail(strict=True): they document known bugs and will XPASS -> fail
 once a fix lands, prompting removal of the marker.
 """
 from __future__ import annotations
@@ -23,7 +25,7 @@ def _content(ctx, i=0):
     return ctx.transformed_request["messages"][i]["content"]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: overlapping/duplicate spans double-replaced by Tokenizer")
+@pytest.mark.xfail(strict=False, reason="BUG: overlapping/duplicate spans double-replaced by Tokenizer (fixed by PR #3; drop marker once merged)")
 def test_tokenizer_overlapping_spans_restore_exactly():
     tok = Tokenizer()
     tok.initialize_session()
@@ -35,7 +37,7 @@ def test_tokenizer_overlapping_spans_restore_exactly():
     assert Restorer.restore_text(out, mapping) == text
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: API_KEY + ENTERPRISE_API_KEY on same span eat following text")
+@pytest.mark.xfail(strict=False, reason="BUG: API_KEY + ENTERPRISE_API_KEY on same span eat following text (fixed by PR #3; drop marker once merged)")
 async def test_api_key_duplicate_span_does_not_corrupt_prompt(de_pipeline):
     text = f"Mein Key ist {FAKE_KEY} bitte nicht teilen"
     ctx = await de_pipeline(user(text))
@@ -44,21 +46,21 @@ async def test_api_key_duplicate_span_does_not_corrupt_prompt(de_pipeline):
     assert masked.endswith(" bitte nicht teilen")
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: PHONE_NUMBER matches postcodes")
+@pytest.mark.xfail(strict=False, reason="BUG: PHONE_NUMBER matches postcodes (fixed by PR #16; drop marker once merged)")
 @pytest.mark.parametrize("text", ["Postleitzahl 10115 ist Berlin-Mitte.", "Lieferung nach 80331 München."])
 async def test_phone_no_false_positive_on_postcode(de_pipeline, text):
     ctx = await de_pipeline(user(text))
     assert not [d for d in ctx.detections or [] if d["entity_type"] == "PHONE_NUMBER"]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: PHONE_NUMBER matches dates / version numbers")
+@pytest.mark.xfail(strict=False, reason="BUG: PHONE_NUMBER matches dates / version numbers (fixed by PR #16; drop marker once merged)")
 @pytest.mark.parametrize("text", ["Rechnung vom 03.05.2024 über 12 EUR.", "Version 3.11.4 ist installiert."])
 async def test_phone_no_false_positive_on_dates(de_pipeline, text):
     ctx = await de_pipeline(user(text))
     assert not [d for d in ctx.detections or [] if d["entity_type"] == "PHONE_NUMBER"]
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: leading '+' of international number left outside the token")
+@pytest.mark.xfail(strict=False, reason="BUG: leading '+' of international number left outside the token (fixed by PR #16; drop marker once merged)")
 async def test_phone_plus_prefix_inside_token(de_pipeline):
     ctx = await de_pipeline(user("Ruf an: +49 30 1234567"))
     masked = _content(ctx)
@@ -73,7 +75,7 @@ async def test_original_request_not_mutated(de_pipeline):
     assert req == snapshot
 
 
-@pytest.mark.xfail(strict=True, reason="BUG: IBAN patterns are uppercase-only")
+@pytest.mark.xfail(strict=False, reason="BUG: IBAN patterns are uppercase-only (fixed by PR #16; drop marker once merged)")
 async def test_lowercase_iban_detected(de_pipeline):
     ctx = await de_pipeline(user(f"iban {FAKE_IBAN.lower()} bitte"))
     assert FAKE_IBAN.lower() not in _content(ctx)
