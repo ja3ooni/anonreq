@@ -349,17 +349,16 @@ def resolve_kms_master_key(env_name: str, master_key_env: str | None) -> bytes |
     ephemeral dev key).
     """
     key = (master_key_env or "").strip()
-    if str(env_name).strip().lower() == "demo":
-        if len(key) < 32:
-            logger.error(
-                "demo_kms_master_key_missing",
-                component="startup_checks",
-                detail="ANONREQ_KMS_MASTER_KEY must be set (>=32 chars) in demo mode",
-            )
-            raise DemoKmsKeyMissingError(
-                "ANONREQ_ENV=demo requires ANONREQ_KMS_MASTER_KEY (>=32 chars); "
-                "run `make demo` or scripts/demo.sh to generate one into .env"
-            )
+    if str(env_name).strip().lower() == "demo" and len(key) < 32:
+        logger.error(
+            "demo_kms_master_key_missing",
+            component="startup_checks",
+            detail="ANONREQ_KMS_MASTER_KEY must be set (>=32 chars) in demo mode",
+        )
+        raise DemoKmsKeyMissingError(
+            "ANONREQ_ENV=demo requires ANONREQ_KMS_MASTER_KEY (>=32 chars); "
+            "run `make demo` or scripts/demo.sh to generate one into .env"
+        )
     return key.encode("utf-8") if key else None
 
 

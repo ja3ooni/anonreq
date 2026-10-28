@@ -305,7 +305,6 @@ def create_app() -> FastAPI:
         if kms_backend == "local":
             from anonreq.kms.cache import InMemoryKeyCache
             from anonreq.kms.local import LocalAES256GCM
-
             from anonreq.startup_checks import resolve_kms_master_key
 
             resolved_key = resolve_kms_master_key(
