@@ -250,25 +250,45 @@ def _new_processing_context(
     return proc_ctx
 
 
+_dlp_missing_warned = False
+
+
 class _StreamingOutboundDLP:
     """Outbound DLP for streamed output, failing closed.
 
-    Each released chunk is inspected together with a short window of the
-    preceding text, so a pattern split across chunks is still seen. A
-    blocked verdict or an inspection error stops the stream.
+    Text is held back until a DLP check has passed with at least
+    ``hold`` characters of later text behind it (``hold`` >= the longest
+    DLP pattern), so a secret split across chunks is never partly
+    released. Chunks are released whole, so token boundaries produced by
+    TailBuffer are kept. A blocked verdict or an inspection error stops
+    the stream. With no DLP engine configured, text passes through and a
+    warning is logged once per process.
     """
 
-    _WINDOW = 512
+    _DEFAULT_HOLD = 512
 
     def __init__(self, app_state: Any, tenant_id: str) -> None:
         self._engine = getattr(app_state, "dlp_engine", None) if app_state else None
         self._tenant_id = tenant_id
-        self._tail = ""
+        hold = getattr(self._engine, "max_pattern_length", None)
+        self._hold = max(self._DEFAULT_HOLD, hold if isinstance(hold, int) else 0)
+        self._released_tail = ""
+        self._pending: list[str] = []
 
-    async def check(self, chunk: str) -> None:
-        if self._engine is None or not chunk:
-            return
-        text = self._tail + chunk
+    def _passthrough(self) -> bool:
+        global _dlp_missing_warned
+        if self._engine is not None:
+            return False
+        if not _dlp_missing_warned:
+            _dlp_missing_warned = True
+            logger.warning(
+                "stream.outbound_dlp_engine_missing",
+                detail="no dlp_engine configured; streamed output is NOT DLP-inspected",
+            )
+        return True
+
+    async def _inspect(self) -> None:
+        text = self._released_tail + "".join(self._pending)
         try:
             result = await self._engine.inspect(text, self._tenant_id)
         except Exception as exc:
@@ -276,7 +296,40 @@ class _StreamingOutboundDLP:
             raise OutboundDLPError(detail="Outbound DLP unavailable") from None
         if getattr(result, "is_blocked", False):
             raise OutboundDLPError(detail="Outbound DLP blocked response")
-        self._tail = text[-self._WINDOW:]
+
+    def _release(self, chunk: str) -> str:
+        self._released_tail = (self._released_tail + chunk)[-self._hold:]
+        return chunk
+
+    async def feed(self, chunk: str) -> list[str]:
+        """Add a chunk; return the chunks that are now safe to release."""
+        if self._passthrough():
+            return [chunk] if chunk else []
+        if not chunk:
+            return []
+        self._pending.append(chunk)
+        await self._inspect()
+        out: list[str] = []
+        while len(self._pending) > 1 and sum(map(len, self._pending[1:])) >= self._hold:
+            out.append(self._release(self._pending.pop(0)))
+        return out
+
+    @property
+    def has_pending(self) -> bool:
+        return bool(self._pending)
+
+    async def flush(self, chunk: str = "") -> list[str]:
+        """End of stream: check everything held back and release it."""
+        if self._passthrough():
+            return [chunk] if chunk else []
+        if chunk:
+            self._pending.append(chunk)
+        if not self._pending:
+            return []
+        await self._inspect()
+        out = [self._release(c) for c in self._pending]
+        self._pending = []
+        return out
 
 
 async def _stream_chat_completions(
@@ -399,9 +452,8 @@ async def _stream_chat_completions(
 
                 if event.event_type == EventType.FINISH:
                     remaining = tail_buffer.flush_remaining()
-                    if remaining:
-                        await outbound_dlp.check(remaining)
-                        yield emitter.emit(restoration.restore_text(remaining))
+                    for safe in await outbound_dlp.flush(remaining or ""):
+                        yield emitter.emit(restoration.restore_text(safe))
                     yield emitter.emit(event)
                     yield emitter.close_frame()
                     proc_ctx.stream_finished = True
@@ -420,15 +472,15 @@ async def _stream_chat_completions(
                 async for chunk in tail_buffer.ingest(event):
                     # Outbound DLP sees the tokenized provider text, as in
                     # the non-streaming OutboundDLPStage, before release.
-                    await outbound_dlp.check(chunk)
-                    restored = restoration.restore_text(chunk)
-                    if restored:
-                        yield emitter.emit(restored)
+                    for safe in await outbound_dlp.feed(chunk):
+                        restored = restoration.restore_text(safe)
+                        if restored:
+                            yield emitter.emit(restored)
 
             remaining = tail_buffer.flush_remaining()
-            if remaining and terminal_state != "CLIENT_DISCONNECT":
-                await outbound_dlp.check(remaining)
-                yield emitter.emit(restoration.restore_text(remaining))
+            if terminal_state != "CLIENT_DISCONNECT" and (remaining or outbound_dlp.has_pending):
+                for safe in await outbound_dlp.flush(remaining or ""):
+                    yield emitter.emit(restoration.restore_text(safe))
                 yield emitter.emit(StreamEvent(
                     event_type=EventType.FINISH,
                     provider=proc_ctx.provider or "unknown",

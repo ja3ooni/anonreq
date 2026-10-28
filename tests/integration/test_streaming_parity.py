@@ -127,3 +127,40 @@ async def test_outbound_dlp_allow_streams_restored_text(monkeypatch: pytest.Monk
     text = await _post(app)
     assert "Hello user@example.com" in text
     assert text.endswith("data: [DONE]\n\n")
+
+
+class _SubstringEngine:
+    """Blocks when the inspected text contains the full secret."""
+
+    def __init__(self, secret: str) -> None:
+        self.secret = secret
+
+    async def inspect(self, text: str, _tenant: str) -> Any:
+        return SimpleNamespace(is_blocked=self.secret in text)
+
+
+@pytest.mark.asyncio
+async def test_secret_split_across_chunks_emits_no_fragment() -> None:
+    from anonreq.exceptions import OutboundDLPError
+    from anonreq.routing.chat import _StreamingOutboundDLP
+
+    secret = "sk_live_ABCDEF1234567890"
+    dlp = _StreamingOutboundDLP(SimpleNamespace(dlp_engine=_SubstringEngine(secret)), "t")
+    released: list[str] = []
+    released += await dlp.feed("x" * 600)
+    released += await dlp.feed("key is " + secret[:10])
+    with pytest.raises(OutboundDLPError):
+        released += await dlp.feed(secret[10:] + " done")
+    joined = "".join(released)
+    assert secret[:4] not in joined
+    assert "key is" not in joined
+
+
+@pytest.mark.asyncio
+async def test_text_held_until_hold_length_passed() -> None:
+    from anonreq.routing.chat import _StreamingOutboundDLP
+
+    dlp = _StreamingOutboundDLP(SimpleNamespace(dlp_engine=_SubstringEngine("nope")), "t")
+    assert await dlp.feed("a" * 10) == []
+    assert await dlp.feed("b" * 600) == ["a" * 10]
+    assert await dlp.flush("c") == ["b" * 600, "c"]
