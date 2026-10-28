@@ -30,7 +30,7 @@ from anonreq.detection.pipeline import load_enterprise_recognizers, load_mnpi_re
 from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
-from anonreq.exceptions import DependencyUnavailableError, PipelineAbortError
+from anonreq.exceptions import DependencyUnavailableError, OutboundDLPError, PipelineAbortError
 from anonreq.locale.checksum import ChecksumValidatorRegistry
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
@@ -250,6 +250,35 @@ def _new_processing_context(
     return proc_ctx
 
 
+class _StreamingOutboundDLP:
+    """Outbound DLP for streamed output, failing closed.
+
+    Each released chunk is inspected together with a short window of the
+    preceding text, so a pattern split across chunks is still seen. A
+    blocked verdict or an inspection error stops the stream.
+    """
+
+    _WINDOW = 512
+
+    def __init__(self, app_state: Any, tenant_id: str) -> None:
+        self._engine = getattr(app_state, "dlp_engine", None) if app_state else None
+        self._tenant_id = tenant_id
+        self._tail = ""
+
+    async def check(self, chunk: str) -> None:
+        if self._engine is None or not chunk:
+            return
+        text = self._tail + chunk
+        try:
+            result = await self._engine.inspect(text, self._tenant_id)
+        except Exception as exc:
+            logger.warning("stream.outbound_dlp_failed", error_type=type(exc).__name__)
+            raise OutboundDLPError(detail="Outbound DLP unavailable") from None
+        if getattr(result, "is_blocked", False):
+            raise OutboundDLPError(detail="Outbound DLP blocked response")
+        self._tail = text[-self._WINDOW:]
+
+
 async def _stream_chat_completions(
     body: ChatRequest,
     request: Request,
@@ -283,6 +312,9 @@ async def _stream_chat_completions(
             locale_negotiator=locale_negotiator,
             recognizer_merger=recognizer_merger,
             checksum_registry=checksum_registry,
+            # Streaming runs the same PDP/PEP, inbound DLP and tool
+            # governance stages as non-streaming requests.
+            app_state=get_app_state(request.app),
         )
         get_app_state(request.app)._cached_pre_provider_pipeline = pre_provider
     proc_ctx = await pre_provider.run(proc_ctx)
@@ -338,6 +370,7 @@ async def _stream_chat_completions(
         )
 
     emitter = SSEEmitter()
+    outbound_dlp = _StreamingOutboundDLP(get_app_state(request.app), proc_ctx.tenant_id)
 
     async def stream_generator() -> AsyncIterator[str]:
         tail_buffer = TailBuffer()
@@ -367,6 +400,7 @@ async def _stream_chat_completions(
                 if event.event_type == EventType.FINISH:
                     remaining = tail_buffer.flush_remaining()
                     if remaining:
+                        await outbound_dlp.check(remaining)
                         yield emitter.emit(restoration.restore_text(remaining))
                     yield emitter.emit(event)
                     yield emitter.close_frame()
@@ -384,12 +418,16 @@ async def _stream_chat_completions(
                     return
 
                 async for chunk in tail_buffer.ingest(event):
+                    # Outbound DLP sees the tokenized provider text, as in
+                    # the non-streaming OutboundDLPStage, before release.
+                    await outbound_dlp.check(chunk)
                     restored = restoration.restore_text(chunk)
                     if restored:
                         yield emitter.emit(restored)
 
             remaining = tail_buffer.flush_remaining()
             if remaining and terminal_state != "CLIENT_DISCONNECT":
+                await outbound_dlp.check(remaining)
                 yield emitter.emit(restoration.restore_text(remaining))
                 yield emitter.emit(StreamEvent(
                     event_type=EventType.FINISH,
@@ -397,6 +435,14 @@ async def _stream_chat_completions(
                     finish_reason=FinishReason.STOP,
                 ))
                 yield emitter.close_frame()
+        except OutboundDLPError:
+            terminal_state = "OUTBOUND_DLP_BLOCKED"
+            yield emitter.emit(StreamEvent(
+                event_type=EventType.ERROR,
+                provider=proc_ctx.provider or "unknown",
+                metadata={"message": "response blocked by policy", "type": "outbound_dlp"},
+            ))
+            yield emitter.close_frame()
         except PipelineAbortError:
             terminal_state = "PROVIDER_ERROR"
             yield emitter.emit(StreamEvent(
