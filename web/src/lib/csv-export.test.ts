@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { inspectExportCsv } from "./csv-export.ts";
+import { configHistoryCsv, inspectExportCsv } from "./csv-export.ts";
 
 const HEADER = "request_id,timestamp,tenant_id,model,locale,decision,token_count,entity_types";
 
@@ -23,6 +23,23 @@ test("a formula-escaped #error trailer is still a failure", () => {
   const result = inspectExportCsv(`${HEADER}\n'#error,,,,,export_failed,\n`);
   assert.equal(result.failed, true);
   assert.equal(result.dataRows, 0);
+});
+
+test("config history csv is built from loaded rows", () => {
+  const csv = configHistoryCsv([
+    {
+      event_id: "cfg_01",
+      timestamp: "2026-10-28T09:12:00.000Z",
+      tenant_id: "default",
+      change_type: "policy_update",
+      operator_id: "ops-berlin",
+      prev_value_hash: "abc",
+      new_value_hash: "def",
+    },
+  ]);
+  assert.equal(csv.startsWith("event_id,timestamp,tenant_id,change_type,operator_id,prev_value_hash,new_value_hash\n"), true);
+  assert.equal(csv.includes("cfg_01"), true);
+  assert.equal(csv.includes("policy_update"), true);
 });
 
 test("a complete export is left unchanged", () => {

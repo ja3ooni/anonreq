@@ -1,7 +1,7 @@
 import { eventsWireQuery, InvalidEventCursorError, pageByKeyset } from "@/lib/events-page";
 import {
   ANONYMIZATION_EVENTS,
-  CONFIG_HISTORY,
+  CONFIG_FIXTURES,
   FIXTURE_ROWS,
   filterConfig,
   filterFixtureRows,
@@ -142,7 +142,7 @@ function liveEvents(): AnonymizationEventsClient {
 async function legacyList(query: AnonymizationEventQuery, tenantId: string): Promise<AnonymizationEventPage> {
   const response = await gatewayRequest({
     path: "/v1/admin/audit/anonymization-export",
-    auth: "user",
+    auth: "admin",
     tenantId,
     query: {
       format: "json",
@@ -172,7 +172,7 @@ async function legacyCsv(
 ): Promise<{ body: Uint8Array; filename: string; source: "legacy-export" }> {
   const response = await gatewayRequest({
     path: "/v1/admin/audit/anonymization-export",
-    auth: "user",
+    auth: "admin",
     tenantId,
     accept: "text/csv",
     query: {
@@ -199,14 +199,25 @@ export function getEventsClient(): AnonymizationEventsClient {
 
 function mockConfig(): ConfigHistoryClient {
   return {
-    async list(query) {
-      const filtered = filterConfig(CONFIG_HISTORY, query);
-      return {
-        total: filtered.length,
-        limit: query.limit,
-        offset: query.offset,
-        items: filtered.slice(query.offset, query.offset + query.limit),
-      };
+    async list(query, tenantId) {
+      const filtered = filterConfig(CONFIG_FIXTURES, query, tenantId);
+      try {
+        const page = pageByKeyset(
+          filtered.map((row) => ({ rowId: row.rowId, timestamp: row.item.timestamp, item: row.item })),
+          { sort: "timestamp:desc", limit: query.limit, cursor: query.cursor },
+        );
+        return {
+          total: filtered.length,
+          limit: query.limit,
+          next_cursor: page.next_cursor,
+          items: page.items,
+        };
+      } catch (error) {
+        if (error instanceof InvalidEventCursorError) {
+          throw new GatewayRequestError("Invalid cursor", 422);
+        }
+        throw error;
+      }
     },
   };
 }
@@ -219,13 +230,12 @@ function liveConfig(): ConfigHistoryClient {
         auth: "admin",
         tenantId,
         query: {
-          tenant_id: query.tenant_id,
           event_type: query.event_type,
           operator_id: query.operator_id,
           date_from: query.date_from,
           date_to: query.date_to,
           limit: String(query.limit),
-          offset: String(query.offset),
+          cursor: query.cursor,
         },
       });
       const body = await readGatewayJson(response);

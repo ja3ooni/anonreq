@@ -246,9 +246,18 @@ export function parseConfigPage(json: unknown): ConfigHistoryPage | null {
   }
   const total = numberOrNull(json.total);
   const limit = numberOrNull(json.limit);
-  const offset = numberOrNull(json.offset);
-  if (total == null || limit == null || offset == null) {
+  if (total == null || limit == null) {
     return null;
+  }
+  let nextCursor: string | null = null;
+  if ("next_cursor" in json) {
+    if (json.next_cursor == null) {
+      nextCursor = null;
+    } else if (typeof json.next_cursor === "string" && json.next_cursor.length > 0) {
+      nextCursor = json.next_cursor;
+    } else {
+      return null;
+    }
   }
   const items = [];
   for (const item of json.items) {
@@ -266,7 +275,7 @@ export function parseConfigPage(json: unknown): ConfigHistoryPage | null {
       new_value_hash: typeof item.new_value_hash === "string" ? item.new_value_hash : null,
     });
   }
-  return { items, total, limit, offset };
+  return { items, total, limit, next_cursor: nextCursor };
 }
 
 export function parseVerification(json: unknown): ChainVerification | null {

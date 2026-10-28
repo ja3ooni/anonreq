@@ -129,6 +129,7 @@
     "prevHash": "Vorher-Hash",
     "newHash": "Nachher-Hash",
     "configEmpty": "Keine Konfigurationsänderungen für diese Filter.",
+    "exportLoaded": "Geladene Zeilen exportieren",
     "configLoading": "Konfigurationshistorie wird geladen",
     "exportError": "CSV-Export fehlgeschlagen"
   }

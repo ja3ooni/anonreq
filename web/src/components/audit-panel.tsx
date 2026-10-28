@@ -2,15 +2,12 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { configHistoryCsv } from "@/lib/csv-export";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type {
-  AnonymizationEvent,
-  ChainVerification,
-  ConfigHistoryPage,
-} from "@/lib/types";
+import type { AnonymizationEvent, ChainVerification, ConfigHistoryItem } from "@/lib/types";
 
 interface ActivityFilters {
   dateFrom: string;
@@ -426,33 +423,32 @@ function ConfigHistory({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
   const locale = useLocale();
   const [changeType, setChangeType] = useState("");
   const [operator, setOperator] = useState("");
-  const [tenant, setTenant] = useState("");
-  const [applied, setApplied] = useState({ changeType: "", operator: "", tenant: "" });
-  const [offset, setOffset] = useState(0);
-  const [page, setPage] = useState<ConfigHistoryPage | null>(null);
+  const [applied, setApplied] = useState({ changeType: "", operator: "" });
+  const [items, setItems] = useState<ConfigHistoryItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const limit = 25;
+  const [loadingMore, setLoadingMore] = useState(false);
+  const limit = 2;
 
-  const queryKey = JSON.stringify({ dateFrom, dateTo, ...applied, offset });
+  const queryKey = JSON.stringify({ dateFrom, dateTo, ...applied });
 
   useEffect(() => {
     const controller = new AbortController();
-    const params = new URLSearchParams();
-    if (applied.tenant) params.set("tenant_id", applied.tenant);
-    if (dateFrom) params.set("date_from", dateFrom);
-    if (dateTo) params.set("date_to", dateTo);
-    if (applied.changeType) params.set("event_type", applied.changeType);
-    if (applied.operator) params.set("operator_id", applied.operator);
-    params.set("limit", String(limit));
-    params.set("offset", String(offset));
-    fetch(`/api/audit/config-history?${params}`, { signal: controller.signal })
+    setLoading(true);
+    fetch(`/api/audit/config-history?${configParams(applied, dateFrom, dateTo, limit)}`, { signal: controller.signal })
       .then(async (response) => {
-        const body = (await response.json()) as ConfigHistoryPage & { error?: { message?: string } };
+        const body = (await response.json()) as ConfigResponse;
+        if (response.status === 403) {
+          throw new Error(t("tenantForbidden"));
+        }
         if (!response.ok) {
           throw new Error(body.error?.message ?? t("configLoading"));
         }
-        setPage(body);
+        setItems(body.items ?? []);
+        setNextCursor(body.next_cursor ?? null);
+        setTotal(typeof body.total === "number" ? body.total : null);
         setError(null);
       })
       .catch((reason: unknown) => {
@@ -467,7 +463,7 @@ function ConfigHistory({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
         }
       });
     return () => controller.abort();
-  }, [queryKey, dateFrom, dateTo, applied, offset, t]);
+  }, [queryKey, dateFrom, dateTo, applied, t]);
 
   const formatter = useMemo(
     () =>
@@ -479,29 +475,45 @@ function ConfigHistory({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
     [locale],
   );
 
+  async function loadMoreConfig() {
+    if (!nextCursor) {
+      return;
+    }
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/audit/config-history?${configParams(applied, dateFrom, dateTo, limit, nextCursor)}`,
+      );
+      const body = (await response.json()) as ConfigResponse;
+      if (response.status === 403) {
+        throw new Error(t("tenantForbidden"));
+      }
+      if (!response.ok) {
+        throw new Error(body.error?.message ?? t("configLoading"));
+      }
+      setItems((current) => [...current, ...(body.items ?? [])]);
+      setNextCursor(body.next_cursor ?? null);
+      setTotal(typeof body.total === "number" ? body.total : total);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : t("configLoading"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   return (
     <div>
       <form
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
         onSubmit={(event) => {
           event.preventDefault();
           setLoading(true);
-          setApplied({ changeType, operator, tenant });
-          setOffset(0);
+          setApplied({ changeType, operator });
         }}
       >
         <fieldset className="contents">
           <legend className="sr-only sm:col-span-2 lg:col-span-4">{t("configFilters")}</legend>
-          <Field label={t("tenant")} id="config-tenant">
-            <Input
-              id="config-tenant"
-              value={tenant}
-              placeholder={t("tenantPlaceholder")}
-              onChange={(event) => setTenant(event.target.value)}
-              className="font-mono"
-              autoComplete="off"
-            />
-          </Field>
           <Field label={t("changeType")} id="change-type">
             <Input
               id="change-type"
@@ -552,15 +564,15 @@ function ConfigHistory({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
                 </td>
               </tr>
             ) : null}
-            {!loading && page && page.items.length === 0 ? (
+            {!loading && items.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-3 py-6 text-muted-foreground">
                   {t("configEmpty")}
                 </td>
               </tr>
             ) : null}
-            {!loading && page
-              ? page.items.map((item) => (
+            {!loading
+              ? items.map((item) => (
                   <tr key={item.event_id} className="border-b border-border last:border-0">
                     <td className="whitespace-nowrap px-3 py-2">
                       <time dateTime={item.timestamp}>{formatTime(formatter, item.timestamp)}</time>
@@ -581,31 +593,24 @@ function ConfigHistory({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
           </tbody>
         </table>
       </div>
-      <div className="mt-3 flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!page || offset === 0}
-          onClick={() => {
-            setLoading(true);
-            setOffset(Math.max(0, offset - limit));
-          }}
-        >
-          {t("previous")}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={!page || offset + page.items.length >= page.total}
-          onClick={() => {
-            setLoading(true);
-            setOffset(offset + limit);
-          }}
-        >
-          {t("next")}
-        </Button>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          {total == null ? "" : t("loaded", { count: items.length, total })}
+        </p>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!nextCursor || loading || loadingMore}
+            onClick={() => void loadMoreConfig()}
+          >
+            {loadingMore ? t("loadingMore") : t("loadMore")}
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={() => downloadConfigCsv(items)}>
+            {t("exportLoaded")}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -622,6 +627,42 @@ function Field({ id, label, children }: { id: string; label: string; children: R
 
 const selectClass =
   "flex h-10 w-full rounded-md border border-input bg-card px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+interface ConfigResponse {
+  items?: ConfigHistoryItem[];
+  total?: number;
+  next_cursor?: string | null;
+  error?: { message?: string };
+}
+
+function configParams(
+  filters: { changeType: string; operator: string },
+  dateFrom: string,
+  dateTo: string,
+  limit: number,
+  cursor?: string,
+): URLSearchParams {
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  if (filters.changeType) params.set("event_type", filters.changeType);
+  if (filters.operator) params.set("operator_id", filters.operator);
+  params.set("limit", String(limit));
+  if (cursor) params.set("cursor", cursor);
+  return params;
+}
+
+function downloadConfigCsv(items: ConfigHistoryItem[]) {
+  const blob = new Blob([configHistoryCsv(items)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "config-history.csv";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 interface EventsResponse {
   items?: AnonymizationEvent[];

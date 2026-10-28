@@ -134,21 +134,21 @@ export interface ConfigHistoryItem {
   new_value_hash: string | null;
 }
 
+/** Config history is always timestamp descending. Tenant is the caller header. */
 export interface ConfigHistoryQuery {
-  tenant_id?: string;
   event_type?: string;
   operator_id?: string;
   date_from?: string;
   date_to?: string;
   limit: number;
-  offset: number;
+  cursor?: string;
 }
 
 export interface ConfigHistoryPage {
   items: ConfigHistoryItem[];
   total: number;
   limit: number;
-  offset: number;
+  next_cursor: string | null;
 }
 
 /** GET /v1/governance/audit/verify */

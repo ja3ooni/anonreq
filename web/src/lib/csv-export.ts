@@ -81,6 +81,45 @@ function serializeCsv(rows: string[][]): string {
   return `${rows.map((row) => row.map(csvCell).join(",")).join("\n")}\n`;
 }
 
+export function configHistoryCsv(
+  rows: {
+    event_id: string;
+    timestamp: string;
+    tenant_id: string;
+    change_type: string | null;
+    operator_id: string | null;
+    prev_value_hash: string | null;
+    new_value_hash: string | null;
+  }[],
+): string {
+  const headers = [
+    "event_id",
+    "timestamp",
+    "tenant_id",
+    "change_type",
+    "operator_id",
+    "prev_value_hash",
+    "new_value_hash",
+  ];
+  const lines = [headers.join(",")];
+  for (const row of rows) {
+    lines.push(
+      [
+        row.event_id,
+        row.timestamp,
+        row.tenant_id,
+        row.change_type ?? "",
+        row.operator_id ?? "",
+        row.prev_value_hash ?? "",
+        row.new_value_hash ?? "",
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
+
 function csvCell(value: string): string {
   if (/[",\n\r]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;

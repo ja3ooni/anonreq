@@ -121,24 +121,33 @@ export function filterFixtureRows(
   });
 }
 
+export interface ConfigFixture {
+  rowId: number;
+  item: ConfigHistoryItem;
+}
+
+export const CONFIG_FIXTURES: ConfigFixture[] = CONFIG_HISTORY.map((item, index) => ({
+  rowId: index + 1,
+  item,
+}));
+
 export function filterConfig(
-  items: ConfigHistoryItem[],
-  query: ConfigHistoryQuery,
-): ConfigHistoryItem[] {
-  return items
-    .filter((item) => {
-      if (query.tenant_id && item.tenant_id !== query.tenant_id) {
-        return false;
-      }
-      if (query.event_type && item.change_type !== query.event_type) {
-        return false;
-      }
-      if (query.operator_id && item.operator_id !== query.operator_id) {
-        return false;
-      }
-      return inRange(item.timestamp, query.date_from, query.date_to);
-    })
-    .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+  rows: ConfigFixture[],
+  query: Pick<ConfigHistoryQuery, "event_type" | "operator_id" | "date_from" | "date_to">,
+  callerTenant?: string,
+): ConfigFixture[] {
+  return rows.filter((row) => {
+    if (callerTenant && row.item.tenant_id !== callerTenant) {
+      return false;
+    }
+    if (query.event_type && row.item.change_type !== query.event_type) {
+      return false;
+    }
+    if (query.operator_id && row.item.operator_id !== query.operator_id) {
+      return false;
+    }
+    return inRange(row.item.timestamp, query.date_from, query.date_to);
+  });
 }
 
 export function toCsv(events: AnonymizationEvent[]): string {

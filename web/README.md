@@ -53,7 +53,9 @@ model_aliases:
     model: grok-4
 ```
 
-The UI sends the alias name (default `grok`). Every `/v1/*` call also needs `X-AnonReq-Tenant-ID` (seed tenant `default` in `config/tenants.yaml`) and `Authorization: Bearer $ANONREQ_API_KEY` for chat.
+The UI sends the alias name (default `grok`). Chat completions use `Authorization: Bearer $ANONREQ_API_KEY`. Every admin route (`/v1/admin/*`, including events, export, and config history) and the preview use `Authorization: Bearer $ANONREQ_ADMIN_API_KEY`. The gateway key is rejected with 403 on those routes.
+
+Every one of those calls also sends `X-AnonReq-Tenant-ID`. Set it with `ANONREQ_TENANT_ID` (seed tenant `default` in `config/tenants.yaml`). A `tenant_id` that is not that caller is HTTP 403.
 
 ## Preview
 
@@ -71,7 +73,9 @@ The table calls `GET /v1/admin/anonymization-events` and expects `{ total, limit
 
 CSV is `GET /v1/admin/anonymization-events/export` (no `.csv` suffix). The `entity_types` cell is a JSON array. A trailer row with `request_id=#error` and `decision=export_failed` means the stream failed partway: the file drops that row and the page warns that the download may be incomplete.
 
-If that route is missing (404), the UI falls back to `GET /v1/admin/audit/anonymization-export`. That dump has no cursor and no separate total. Config history (`GET /v1/admin/audit/config-history`) and chain verify (`GET /v1/governance/audit/verify`) stay on the page.
+If that route is missing (404), the UI falls back to `GET /v1/admin/audit/anonymization-export`. That dump has no cursor and no separate total. Chain verify (`GET /v1/governance/audit/verify`) stays on the gateway key.
+
+`GET /v1/admin/audit/config-history` is keyset-paginated the same way: `{ total, limit, next_cursor, items }`, `?cursor=&limit=100` (max 1000), newest first, `next_cursor` null at the end. The panel uses **Load more** and builds a CSV in the browser from the rows it has loaded.
 
 ## Depends on the gateway PR
 

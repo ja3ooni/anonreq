@@ -38,18 +38,14 @@ function origin(): string {
 function apiKey(kind: "user" | "admin"): string {
   if (kind === "admin") {
     const admin = process.env.ANONREQ_ADMIN_API_KEY?.trim();
-    if (admin) {
-      return admin;
+    if (!admin) {
+      throw new GatewayRequestError("ANONREQ_ADMIN_API_KEY is not set", 500);
     }
+    return admin;
   }
   const key = process.env.ANONREQ_API_KEY?.trim();
   if (!key) {
-    throw new GatewayRequestError(
-      kind === "admin"
-        ? "ANONREQ_ADMIN_API_KEY or ANONREQ_API_KEY is not set"
-        : "ANONREQ_API_KEY is not set",
-      500,
-    );
+    throw new GatewayRequestError("ANONREQ_API_KEY is not set", 500);
   }
   return key;
 }

@@ -11,7 +11,10 @@ const TOKEN = /^[\w.:@-]{1,128}$/;
 export const MAX_PROMPT_CHARS = 8_000;
 
 export function defaultTenant(): string {
-  const configured = process.env.ANONREQ_DEFAULT_TENANT?.trim() || "default";
+  const configured =
+    process.env.ANONREQ_TENANT_ID?.trim() ||
+    process.env.ANONREQ_DEFAULT_TENANT?.trim() ||
+    "default";
   if (!TENANT.test(configured)) {
     return "default";
   }

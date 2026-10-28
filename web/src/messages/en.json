@@ -129,6 +129,7 @@
     "prevHash": "Previous hash",
     "newHash": "New hash",
     "configEmpty": "No config changes match these filters.",
+    "exportLoaded": "Export loaded rows",
     "configLoading": "Loading config history",
     "exportError": "CSV export failed"
   }
