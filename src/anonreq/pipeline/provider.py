@@ -118,9 +118,12 @@ class ProviderStage(PipelineStage):
 
         url = f"{self._openai_base_url}/v1/chat/completions"
         headers = {
-            "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
+        # Keyless providers (mock, local, ollama) send no Authorization
+        # header. A blank key must not be replaced with the gateway client key.
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
 
         try:
             response = await self._client.post(

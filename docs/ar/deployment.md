@@ -24,7 +24,8 @@
 
 | المتغير | النوع | الافتراضي | مطلوب | الوصف |
 |----------|------|---------|----------|-------------|
-| `ANONREQ_API_KEY` | string | — | نعم | رمز مصادقة API (أكبر من أو يساوي 32 حرفًا) |
+| `ANONREQ_API_KEY` | string | — | نعم | رمز مصادقة API (أكبر من أو يساوي 32 حرفًا). لا يُرسل أبدًا إلى المزود. |
+| `PROVIDER_API_KEY` | string | — | مشروط | مفتاح النموذج الخارجي. ليس مفتاح عميل البوابة. |
 | `ANONREQ_LOG_LEVEL` | string | `INFO` | لا | مستوى السجلات: DEBUG, INFO, WARNING, ERROR |
 | `ANONREQ_CACHE_URL` | string | `valkey://localhost:6379` | لا | عنوان URL الخاص بخادم Valkey |
 | `ANONREQ_CACHE_PASSWORD` | string | — | لا | كلمة مرور Valkey المطلوبة |
