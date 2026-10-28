@@ -17,6 +17,13 @@ services:
       ANONREQ_KMS_MASTER_KEY: ${ANONREQ_KMS_MASTER_KEY:?ANONREQ_KMS_MASTER_KEY must be set in demo mode}
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?ANONREQ_ADMIN_API_KEY must be set in demo mode}
       ANONREQ_SINGLE_TENANT: "true"
+    # The gateway reads aliases from the fixed path config/model_aliases.yaml
+    # (AliasRegistry and the provider-key startup check from PR #9). There is
+    # no env var to select another file, so the demo bind-mounts its own
+    # alias file over it: only grok-4 (provider openai) is configured, and
+    # the smart/gemini-pro aliases (Anthropic/Gemini keys) are not.
+    volumes:
+      - ./config/model_aliases.demo.yaml:/app/config/model_aliases.yaml:ro
   # Bilingual analyzer from PR #4 (docker/presidio/Dockerfile), built locally
   # by `make demo` — never pulled from or pushed to a registry.
   # RAM: en_core_web_lg + de_core_news_lg need >= 4 GB for this container

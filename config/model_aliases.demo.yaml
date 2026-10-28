@@ -1,0 +1,12 @@
+# Demo-only model aliases (docker-compose.demo.yml mounts this file over
+# /app/config/model_aliases.yaml). Only the OpenAI-compatible xAI upstream is
+# configured, so PROVIDER_API_KEY (= XAI_API_KEY) is the only provider key
+# the startup credential check needs. Anthropic/Gemini aliases are absent on
+# purpose; do not add them here without also supplying their keys.
+model_aliases:
+  grok-4:
+    provider: openai
+    model: grok-4
+    metadata:
+      description: xAI Grok 4 via OpenAI-compatible API (demo)
+      tier: premium
