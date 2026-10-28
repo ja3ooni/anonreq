@@ -14,6 +14,12 @@ prometheus-client==0.25.0
 cryptography==44.0.0
 watchdog==6.0.0
 soundfile==0.13.1
+# Library only: the gateway calls the Presidio analyzer over HTTP
+# (ANONREQ_PRESIDIO_URL); src/ never imports presidio_analyzer. Only a unit
+# test uses it to load docker/presidio/german_recognizers.yaml. The analyzer
+# *server* version is set by the image (mcr.microsoft.com/presidio-analyzer
+# 2.2.354, built as anonreq/presidio-analyzer:2.2.354-de), not by this pin, so
+# 2.2.363 here vs 2.2.354 there is not a runtime skew. uv.lock resolves 2.2.362.
 presidio-analyzer==2.2.363
 sqlalchemy==2.0.51
 asyncpg==0.31.0
