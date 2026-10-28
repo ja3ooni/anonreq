@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import sys
+import types
 from unittest.mock import MagicMock
 
-# Mock torch so monkeypatching it in tests works even when torch is not installed
-mock_torch = MagicMock()
-sys.modules.setdefault("torch", mock_torch)
+# Mock torch so monkeypatching it in tests works even when torch is not installed.
+# A bare MagicMock is not a package and has no real ``cuda.is_available``, so
+# ``monkeypatch.setattr("torch.cuda.is_available", ...)`` cannot resolve it.
+if "torch" not in sys.modules:
+    mock_torch = types.ModuleType("torch")
+    mock_cuda = types.ModuleType("torch.cuda")
+    mock_cuda.is_available = lambda: False  # type: ignore[attr-defined]
+    mock_cuda.empty_cache = MagicMock()  # type: ignore[attr-defined]
+    mock_torch.cuda = mock_cuda  # type: ignore[attr-defined]
+    sys.modules["torch"] = mock_torch
+    sys.modules["torch.cuda"] = mock_cuda
 
 from dataclasses import dataclass
 
