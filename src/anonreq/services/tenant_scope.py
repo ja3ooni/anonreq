@@ -31,6 +31,34 @@ def _concrete_tenant(value: object) -> str | None:
     return tenant
 
 
+def concrete_request_tenant(request: Request) -> str | None:
+    """Tenant for an API key: middleware state, else ``X-AnonReq-Tenant-ID``.
+
+    A wildcard is never returned. When the header and the validated state
+    name different tenants, neither is trusted.
+    """
+    state_tenant = _concrete_tenant(getattr(request.state, "tenant_id", None))
+    header_tenant = _concrete_tenant(request.headers.get("X-AnonReq-Tenant-ID"))
+    if state_tenant and header_tenant and state_tenant != header_tenant:
+        return None
+    return state_tenant or header_tenant
+
+
+def narrow_wildcard_principal(request: Request) -> None:
+    """Replace a wildcard or blank principal tenant with this request's tenant.
+
+    A concrete tenant already on the principal is left alone. ``"*"`` is
+    never kept: it is not permission to read every tenant.
+    """
+    principal = getattr(request.state, "role_principal", None)
+    if not isinstance(principal, dict):
+        return
+    if _concrete_tenant(principal.get("tenant_id")):
+        return
+    tenant = concrete_request_tenant(request)
+    principal["tenant_id"] = tenant or ""
+
+
 def _principal_tenant(principal: object) -> str | None:
     if not isinstance(principal, dict):
         return None
@@ -64,6 +92,7 @@ def resolve_scoped_tenant(request: Request, requested_tenant_id: str | None) -> 
     HTTP 403. Omitting it scopes the query to the caller tenant. There is no
     path that lists every tenant.
     """
+    narrow_wildcard_principal(request)
     tenant = caller_tenant(request)
     if tenant is None:
         raise HTTPException(status_code=403, detail=_MISSING_DETAIL)

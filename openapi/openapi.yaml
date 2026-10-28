@@ -290,6 +290,67 @@ paths:
           $ref: "#/components/responses/UnprocessableEntity"
         "503":
           $ref: "#/components/responses/ServiceUnavailable"
+  /v1/admin/audit/config-history:
+    get:
+      summary: List config-change audit events
+      description: |
+        Keyset page of config-history rows for the caller's tenant. A
+        `tenant_id` that names another tenant is 403. `cursor` and
+        `next_cursor` are `timestamp|id`, the same shape as
+        `GET /v1/admin/anonymization-events`. `next_cursor` is null on the
+        last page. `total` counts every matching row.
+      operationId: listConfigHistory
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/DateFrom"
+        - $ref: "#/components/parameters/DateTo"
+        - $ref: "#/components/parameters/TenantId"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            nullable: true
+          description: Previous page `next_cursor` (`timestamp|id`).
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        "200":
+          description: Keyset page of config-history events.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigHistoryResponse"
+              examples:
+                page:
+                  value:
+                    total: 1
+                    limit: 100
+                    next_cursor: null
+                    items:
+                      - event_id: evt_1
+                        timestamp: "2026-08-14T09:00:00Z"
+                        tenant_id: acme
+                        change_type: update
+                        operator_id: admin
+                        prev_value_hash: null
+                        new_value_hash: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
   /v1/admin/anonymization-events:
     get:
       summary: List anonymization events
@@ -1079,6 +1140,49 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/EntityTypeCount"
+    ConfigHistoryItem:
+      type: object
+      required: [event_id, timestamp, tenant_id]
+      additionalProperties: false
+      properties:
+        event_id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC.
+        tenant_id:
+          type: string
+        change_type:
+          type: string
+          nullable: true
+        operator_id:
+          type: string
+          nullable: true
+        prev_value_hash:
+          type: string
+          nullable: true
+        new_value_hash:
+          type: string
+          nullable: true
+    ConfigHistoryResponse:
+      type: object
+      required: [items, total, limit]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfigHistoryItem"
+        total:
+          type: integer
+        limit:
+          type: integer
+        next_cursor:
+          type: string
+          nullable: true
+          description: "`timestamp|id` of the last row, or null on the last page."
+          example: "2026-08-14T09:00:00Z|17"
     AnonymizationEventsResponse:
       type: object
       required: [total, limit, items]

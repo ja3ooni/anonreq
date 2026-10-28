@@ -52,14 +52,19 @@ async def require_auth(
     """
     if getattr(request.state, "role_principal", None) is None:
         oidc_principal = getattr(request.state, "oidc_principal", None)
-        if oidc_principal is not None:
-            request.state.role_principal = oidc_principal
+        if isinstance(oidc_principal, dict):
+            request.state.role_principal = dict(oidc_principal)
         else:
+            from anonreq.services.tenant_scope import concrete_request_tenant
+
             request.state.role_principal = {
                 "principal_id": "admin",
                 "role": settings.ADMIN_ROLE,
-                "tenant_id": "*",
+                "tenant_id": concrete_request_tenant(request) or "",
             }
+    from anonreq.services.tenant_scope import narrow_wildcard_principal
+
+    narrow_wildcard_principal(request)
 
 
 admin_router = APIRouter(

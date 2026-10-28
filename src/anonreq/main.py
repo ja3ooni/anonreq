@@ -447,7 +447,9 @@ def create_app() -> FastAPI:
     app.include_router(approval_record_router, dependencies=[Depends(auth_context)])
     app.include_router(oversight_router, dependencies=[Depends(auth_context)])
     app.include_router(admin_router, dependencies=[Depends(auth_context)])
-    app.include_router(admin_audit_router, dependencies=[Depends(auth_context)])
+    # Audit routes authenticate the gateway key or the legacy admin key
+    # inside the router and attach a tenant-scoped role principal.
+    app.include_router(admin_audit_router)
     # Policies, providers, and the other RBAC admin routes. Router-level
     # admin auth (OIDC or ANONREQ_ADMIN_API_KEY) is applied here as well as
     # on the router itself. A distinct admin credential authorizes the call.
