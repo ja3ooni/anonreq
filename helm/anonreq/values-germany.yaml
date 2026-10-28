@@ -6,6 +6,11 @@
 #     --set secrets.PROVIDER_API_KEY="$PROVIDER_API_KEY"
 #
 # The container image listens on 8080. Point ingress TLS at that Service.
+#
+# Presidio is not deployed by this chart. The analyzer at ANONREQ_PRESIDIO_URL
+# must be the bilingual image built from docker/presidio/Dockerfile
+# (en_core_web_lg + de_core_news_lg, languages en and de). The stock
+# mcr.microsoft.com/presidio-analyzer:2.2.354 image only loads English.
 
 replicaCount: 1
 

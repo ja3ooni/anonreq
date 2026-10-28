@@ -1,0 +1,19 @@
+# German address patterns for language=de.
+# de_core_news_lg labels person names (PER) and cities (LOC). Street lines
+# and postal codes are often only partly inside those spans, so a de-DE
+# request such as "Hans Müller, Hauptstraße 12, 60311 Frankfurt" would
+# leave the street and PLZ in cleartext. These patterns run only when the
+# analyzer language is de. Scores sit above the gateway's 0.7 threshold.
+#
+# Presidio 2.2.354 PatternRecognizer compiles with IGNORECASE.
+recognizers:
+  - name: German Street Address
+    supported_language: de
+    supported_entity: LOCATION
+    patterns:
+      - name: de_street_line
+        regex: '\b[A-ZÄÖÜ][\wÄÖÜäöüß.\-]*?(?:straße|strasse|str\.|weg|platz|allee|ring|gasse|damm|ufer)\s+\d{1,4}[a-z]?\b'
+        score: 0.85
+      - name: de_postal_city
+        regex: '\b\d{5}\s+[A-ZÄÖÜ][a-zäöüß]+(?:[- ][A-ZÄÖÜa-zäöüß]+)*\b'
+        score: 0.85

@@ -181,3 +181,30 @@ class TestPresidioClient:
         body = route.calls[0].request.json()
         assert body["language"] == "en"
         assert body["score_threshold"] == 0.7
+
+    @respx.mock
+    async def test_analyze_text_nodes_forwards_language(self, client):
+        """analyze_text_nodes sends the caller language on every long node."""
+        route = respx.post(f"{PRESIDIO_URL}/analyze").respond(json=[])
+        text_nodes = [
+            {"path": "m[0]", "role": "user", "value": "short"},
+            {
+                "path": "m[1]",
+                "role": "user",
+                "value": "Hans Müller, Hauptstraße 12, 60311 Frankfurt",
+            },
+        ]
+
+        await client.analyze_text_nodes(
+            text_nodes,
+            language="de",
+            entities=["PERSON", "LOCATION"],
+            score_threshold=0.7,
+        )
+
+        assert route.call_count == 1
+        body = route.calls[0].request.json()
+        assert body["language"] == "de"
+        assert body["text"] == "Hans Müller, Hauptstraße 12, 60311 Frankfurt"
+        assert body["entities"] == ["PERSON", "LOCATION"]
+        assert body["score_threshold"] == 0.7

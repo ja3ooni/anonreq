@@ -42,10 +42,21 @@ services:
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
-  # Presidio Analyzer — PII / PHI detection
+  # Presidio Analyzer — PII / PHI detection (English + German)
   # -------------------------------------------------------------------------
+  # Image: built from docker/presidio/Dockerfile, tagged
+  # anonreq/presidio-analyzer:2.2.354-de.
+  # Base pin remains mcr.microsoft.com/presidio-analyzer:2.2.354.
+  # The build adds spaCy de_core_news_lg next to en_core_web_lg and loads
+  # recognizers for language "de" (see docker/presidio/Dockerfile).
+  # DevOps: this is a local build, not a registry pull. Budget ~4 GB RAM
+  # for the two large spaCy models. Publish the tag before dropping `build`.
+  # The Germany overlay (docker-compose.germany.yml) inherits this service.
   presidio-analyzer:
-    image: mcr.microsoft.com/presidio-analyzer:2.2.354
+    build:
+      context: ./docker/presidio
+      dockerfile: Dockerfile
+    image: anonreq/presidio-analyzer:2.2.354-de
     container_name: anonreq-presidio
     healthcheck:
       test:
@@ -56,7 +67,8 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      # Both en_core_web_lg and de_core_news_lg load before /health is up.
+      start_period: 120s
     networks:
       - anonreq-net
     restart: unless-stopped

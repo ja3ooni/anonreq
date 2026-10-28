@@ -145,7 +145,9 @@ class PresidioClient:
 
         Args:
             text_nodes: List of dicts with ``path``, ``role``, ``value``.
-            language: Language code for all nodes.
+            language: Presidio language code for every node. Callers pass the
+                negotiated request locale (``de-DE`` -> ``de``). The default
+                ``en`` is only for callers that have no locale.
             score_threshold: Minimum confidence score for all nodes.
 
         Returns:

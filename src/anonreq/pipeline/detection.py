@@ -2,7 +2,8 @@
 
 Per D-38 through D-41 and D-50:
 - Runs RegexDetector on each text node's value (deterministic patterns)
-- Runs PresidioClient.analyze_text_nodes() for NER detection
+- Runs PresidioClient.analyze_text_nodes() for NER detection, with the
+  negotiated locale mapped to a Presidio language (``de-DE`` -> ``de``)
 - Merges both result sets via SpanArbiter (regex wins on exact overlap)
 - Applies ExclusionList to suppress false positives
 - On any error: ctx.fail_secure() per D-50
@@ -39,6 +40,7 @@ from anonreq.detection.regex_patterns import IRREVERSIBLE_ENTITY_TYPES
 from anonreq.exceptions import PipelineAbortError
 from anonreq.locale.bundle import RecognizerTier
 from anonreq.locale.checksum import ChecksumValidatorRegistry, validate_detection
+from anonreq.locale.presidio_language import presidio_language_from_bundles
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.monitoring.metrics import detection_latency, entities_detected, fail_secure_events
 from anonreq.pipeline.base import PipelineStage
@@ -152,10 +154,16 @@ class DetectionStage(PipelineStage):
                 [config.confidence_threshold for config in entity_configs],
                 default=0.7,
             )
+            # One Presidio language per request. Use the negotiated locale
+            # (de-DE -> de), not the hardcoded English default.
+            presidio_language = presidio_language_from_bundles(
+                getattr(ctx, "locale_bundles", None),
+            )
 
             # Run Presidio NER across all nodes concurrently
             ner_call = self._presidio_client.analyze_text_nodes(
                 ctx.text_nodes,
+                language=presidio_language,
                 entities=ner_entities,
                 score_threshold=score_threshold,
             )
@@ -285,6 +293,7 @@ class DetectionStage(PipelineStage):
                 request_id=ctx.request_id,
                 total_detections=len(all_detections),
                 entity_counts=entity_counts,
+                presidio_language=presidio_language,
             )
 
             # Record detection latency (D-160)

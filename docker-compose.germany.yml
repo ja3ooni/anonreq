@@ -4,6 +4,12 @@
 # Point the customer's OpenAI/Anthropic/Gemini key at PROVIDER_API_KEY.
 # Clients send X-AnonReq-Locale: de-DE and use the OpenAI-compatible
 # /v1/chat/completions path.
+#
+# presidio-analyzer is inherited from docker-compose.yml. That service
+# builds docker/presidio/Dockerfile (en_core_web_lg + de_core_news_lg).
+# Do not point this demo at the stock Microsoft image: it only loads
+# English recognizers, so de-DE names and street addresses stay in cleartext
+# or the analyze call fails closed.
 
 services:
   anonreq:

@@ -76,9 +76,51 @@ helm upgrade --install anonreq ./helm/anonreq \
 
 The overlay exposes port **8080** (the image listen port). Point ingress TLS at that Service. HPA is **off** until you have a signed PoC.
 
+## Names and street addresses
+
+Names and street addresses are not in the German regex bundle. They are masked only when the analyzer runs with `language=de` and the German spaCy model is loaded. Send the same headers as the Path A request with a body such as:
+
+```bash
+curl -s http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer $ANONREQ_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-AnonReq-Tenant-ID: default" \
+  -H "X-AnonReq-Locale: de-DE" \
+  -d '{
+    "model": "fast",
+    "messages": [{"role": "user", "content": "Hans Müller, Hauptstraße 12, 60311 Frankfurt"}]
+  }'
+```
+
+The upstream prompt must not contain `Hans Müller`, `Hauptstraße 12`, or `60311 Frankfurt`. The restored client response may contain them again.
+
+## Presidio image (DevOps review)
+
+The demo stack, including this Germany overlay, does **not** run the stock `mcr.microsoft.com/presidio-analyzer:2.2.354` container. `docker-compose.yml` builds `anonreq/presidio-analyzer:2.2.354-de` from `docker/presidio/Dockerfile`.
+
+| Item | Stock image | Demo image |
+| --- | --- | --- |
+| Base | `mcr.microsoft.com/presidio-analyzer:2.2.354` | same pin, then a local build |
+| spaCy models | `en_core_web_lg` | `en_core_web_lg` and `de_core_news_lg` (~540 MB extra) |
+| Recognizer languages | `en` only (`AnalyzerEngine()` default) | `en` and `de` |
+| Address patterns | none for German streets | `docker/presidio/german_recognizers.yaml` (street line and PLZ+city, score 0.85) |
+| Listen port | 3000 | 3000 (unchanged) |
+| RAM | stock | budget at least 4 GB once both models are loaded |
+| Healthcheck `start_period` | 30s | 120s |
+
+`X-AnonReq-Locale: de-DE` is mapped to Presidio `language=de`. A stock analyzer rejects that language (HTTP 500, no German recognizers). The gateway then fails closed and does not forward the prompt. Publishing the image:
+
+```bash
+docker compose build presidio-analyzer
+docker tag anonreq/presidio-analyzer:2.2.354-de <registry>/anonreq/presidio-analyzer:2.2.354-de
+docker push <registry>/anonreq/presidio-analyzer:2.2.354-de
+```
+
+Helm (`helm/anonreq/values-germany.yaml`) does not build this image. The in-cluster analyzer behind `ANONREQ_PRESIDIO_URL` must be this bilingual image, or `de-DE` name and address masking will not happen.
+
 ## Fail-closed
 
-If detection, cache, or the analyzer is down, AnonReq returns HTTP 5xx and **does not** forward the raw prompt.
+If detection, cache, or the analyzer is down — including a Presidio error when `language=de` is not loaded — AnonReq returns HTTP 5xx and **does not** forward the raw prompt.
 
 ## What this demo does not claim
 
