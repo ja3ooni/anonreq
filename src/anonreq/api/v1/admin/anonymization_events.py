@@ -173,17 +173,18 @@ async def _csv_stream(
     date_to: datetime | None,
     entity_type: str | None,
     sort: str,
+    snapshot_max_id: int | None = None,
 ) -> AsyncGenerator[str, None]:
     fieldnames = list(ANONYMIZATION_EVENT_FIELDS)
     header = io.StringIO()
     writer = csv.DictWriter(header, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()
     yield header.getvalue()
+    filters = _filters(tenant_id, date_from, date_to, entity_type, sort)
+    if snapshot_max_id is not None:
+        filters["max_row_id"] = snapshot_max_id
     try:
-        async for event in iter_filtered_events(
-            service,
-            **_filters(tenant_id, date_from, date_to, entity_type, sort),
-        ):
+        async for event in iter_filtered_events(service, **filters):
             line = io.StringIO()
             writer = csv.DictWriter(line, fieldnames=fieldnames, lineterminator="\n")
             writer.writerow(anonymization_event_csv_row(anonymization_event_record(event)))
@@ -210,8 +211,18 @@ async def export_anonymization_events(
     """
     scoped_tenant = resolve_scoped_tenant(request, tenant_id)
     service = _service(request)
+    # Snapshot bound: capture the newest row id before streaming, so rows
+    # written while a long export is open are never included. An empty
+    # tenant exports only the header (bound 0).
+    snapshot_max_id: int | None = None
+    max_row_id = getattr(service, "max_row_id", None)
+    if callable(max_row_id):
+        latest = await max_row_id(scoped_tenant)
+        snapshot_max_id = latest if isinstance(latest, int) else 0
     return StreamingResponse(
-        _csv_stream(service, scoped_tenant, date_from, date_to, entity_type, sort),
+        _csv_stream(
+            service, scoped_tenant, date_from, date_to, entity_type, sort, snapshot_max_id,
+        ),
         media_type="text/csv; charset=utf-8",
         headers={
             "Cache-Control": _NO_STORE,

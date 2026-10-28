@@ -308,6 +308,7 @@ class AuditChainService:
         sort: str | None = None,
         cursor_timestamp: datetime | None = None,
         cursor_id: int | None = None,
+        max_row_id: int | None = None,
     ) -> tuple[str, dict[str, Any]]:
         """Shared WHERE clause for event list and count queries."""
         clauses = ["1=1"]
@@ -335,6 +336,9 @@ class AuditChainService:
         if entity_type is not None:
             clauses.append(self._entity_type_clause())
             params["entity_type"] = entity_type
+        if max_row_id is not None:
+            clauses.append("id <= :max_row_id")
+            params["max_row_id"] = max_row_id
 
         return " AND ".join(clauses), params
 
@@ -415,11 +419,13 @@ class AuditChainService:
         sort: str | None = None,
         cursor_timestamp: datetime | None = None,
         cursor_id: int | None = None,
+        max_row_id: int | None = None,
     ) -> list[AuditEvent]:
         """Paginated, filterable event query.
 
         ``cursor_timestamp`` and ``cursor_id`` together select the next
         keyset page. ``offset`` remains for callers that still use it.
+        ``max_row_id`` bounds the query to a snapshot taken earlier.
         """
         where, params = self._event_where(
             tenant_id=tenant_id,
@@ -431,6 +437,7 @@ class AuditChainService:
             sort=sort,
             cursor_timestamp=cursor_timestamp,
             cursor_id=cursor_id,
+            max_row_id=max_row_id,
         )
         params["limit"] = limit
         params["offset"] = offset
@@ -444,6 +451,20 @@ class AuditChainService:
         async with self._session_factory() as session:
             result = await session.execute(text(query), params)
             return [self._row_to_event(dict(row)) for row in result.mappings().all()]
+
+    async def max_row_id(self, tenant_id: str) -> int | None:
+        """Highest ``audit_event.id`` for a tenant, or None when it has none.
+
+        Used as a snapshot bound so a long export ignores rows written
+        after it started.
+        """
+        async with self._session_factory() as session:
+            result = await session.execute(
+                text("SELECT MAX(id) FROM audit_event WHERE tenant_id = :tenant_id"),
+                {"tenant_id": tenant_id},
+            )
+            value = result.scalar()
+            return int(value) if value is not None else None
 
     async def count_events(
         self,
