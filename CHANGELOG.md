@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Security
 
+- **Breaking:** The admin API key is bound to the tenant in the new `ANONREQ_ADMIN_TENANT_ID` setting on governance routes. Startup fails when `ANONREQ_ADMIN_API_KEY` is set without it. A present `X-AnonReq-Tenant-ID` that names another tenant returns HTTP 403. Governance routes always verify the credential, even if a principal is already on the request.
 - When the legacy admin API key principal is `*`, those reads take the tenant from the validated `X-AnonReq-Tenant-ID` header. The key is not bound to a tenant. Binding credentials to tenants is [issue #7](https://github.com/ja3ooni/anonreq/issues/7).
 - Anonymization CSV exports prefix a leading `=`, `+`, `-`, `@`, `|`, tab, CR, LF, or full-width `＝` `＋` `－` `＠` (including after spaces) so the cell is text.
 - `GET /v1/governance/audit/events` and `GET /v1/governance/audit/verify` require the `security_officer` or `administrator` role. Governance routes set that principal from the admin API key or OIDC. The admin key's tenant is `X-AnonReq-Tenant-ID` and is never `*`. The gateway chat key receives HTTP 403.
