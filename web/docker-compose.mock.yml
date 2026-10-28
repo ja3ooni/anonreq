@@ -1,0 +1,17 @@
+# Offline fixtures override. Use with the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.mock.yml up --build
+#
+# Builds the `dev` target (NODE_ENV=development, `next dev`) so the
+# "production refuses ANONREQ_MOCK" rule stays intact. The host publish
+# from the base file (127.0.0.1:3000:3000) still applies.
+
+services:
+  anonreq-web:
+    build:
+      context: .
+      target: dev
+    environment:
+      NODE_ENV: development
+      ANONREQ_MOCK: "true"
+      ANONREQ_GATEWAY_URL: ""

@@ -1,4 +1,12 @@
-# Demo UI. No login.
+# Demo UI against a real gateway. Production image. No login.
+#
+#   docker compose up --build
+#
+# Needs ANONREQ_GATEWAY_URL, ANONREQ_API_KEY and ANONREQ_ADMIN_API_KEY in
+# your shell or a .env file next to this one. Mock mode is NOT set here:
+# production refuses ANONREQ_MOCK=true. For fixtures, use the override:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.mock.yml up --build
 #
 # The process listens on 0.0.0.0 inside the container so this publish
 # can reach it. The host side is 127.0.0.1:3000:3000, which is what
@@ -9,11 +17,17 @@
 
 services:
   anonreq-web:
-    build: .
+    build:
+      context: .
+      target: runtime
     environment:
       HOSTNAME: "0.0.0.0"
+      PORT: "3000"
       NODE_ENV: production
-      ANONREQ_MOCK: "true"
-      ANONREQ_TENANT_ID: default
+      ANONREQ_GATEWAY_URL: ${ANONREQ_GATEWAY_URL:-}
+      ANONREQ_API_KEY: ${ANONREQ_API_KEY:-}
+      ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:-}
+      ANONREQ_TENANT_ID: ${ANONREQ_TENANT_ID:-default}
+      ANONREQ_ALLOWED_HOSTS: ${ANONREQ_ALLOWED_HOSTS:-}
     ports:
       - "127.0.0.1:3000:3000"
