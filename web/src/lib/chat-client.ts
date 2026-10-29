@@ -1,7 +1,7 @@
 import { gatewayErrorMessage, gatewayRequest, isMockMode, readGatewayJson } from "@/lib/gateway";
 import { GatewayRequestError } from "@/lib/gateway-error";
 import { parseChatCompletion } from "@/lib/parse";
-import { mockRestoredAnswer, redactText } from "@/lib/redact";
+import { mockRawModelAnswer, mockRestoredAnswer, redactText } from "@/lib/redact";
 import type { AnonReqHeaders, ChatCompletionResult } from "@/lib/types";
 
 export interface ChatRequestInput {
@@ -38,6 +38,7 @@ function mockChat(): ChatClient {
       const requestId = `req_${crypto.randomUUID().replace(/-/g, "").slice(0, 24)}`;
       return {
         answer: mockRestoredAnswer(redaction.entities, input.locale),
+        rawAnswer: mockRawModelAnswer(redaction.entities, input.locale),
         model: input.model,
         completionId: `chatcmpl_mock_${requestId.slice(4, 12)}`,
         headers: headersFromRedaction(redaction, requestId),
@@ -56,6 +57,9 @@ function liveChat(): ChatClient {
         tenantId: input.tenantId,
         locale: input.locale,
         timeoutMs: 60_000,
+        extraHeaders: {
+          "X-AnonReq-Include-Raw-Response": "true",
+        },
         jsonBody: {
           model: input.model,
           messages: [{ role: "user", content: input.prompt }],

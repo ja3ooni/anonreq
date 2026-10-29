@@ -73,7 +73,7 @@ export function SiteHeader() {
       >
         {t("skip")}
       </a>
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4">
         <Link
           href="/"
           className="flex items-center gap-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e7a07a]"

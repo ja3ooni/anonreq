@@ -629,4 +629,23 @@ async def chat_completions(
 
     # Serialize response
     validated = ChatCompletionResponse.model_validate(response_data)
-    return validated.model_dump(exclude_none=True)
+    dumped = validated.model_dump(exclude_none=True)
+    if (
+        settings.DEBUG_PREVIEW_ENABLED
+        and request.headers.get("X-AnonReq-Include-Raw-Response") == "true"
+        and isinstance(proc_ctx.provider_response, dict)
+    ):
+        raw_choices = proc_ctx.provider_response.get("choices")
+        if (
+            isinstance(raw_choices, list)
+            and raw_choices
+            and isinstance(raw_choices[0], dict)
+            and isinstance(raw_choices[0].get("message"), dict)
+            and isinstance(dumped.get("choices"), list)
+            and dumped["choices"]
+            and isinstance(dumped["choices"][0].get("message"), dict)
+        ):
+            raw_content = raw_choices[0]["message"].get("content")
+            if isinstance(raw_content, str):
+                dumped["choices"][0]["message"]["anonreq_raw_content"] = raw_content
+    return dumped

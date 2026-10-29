@@ -74,6 +74,8 @@ export interface AnonReqHeaders {
 
 export interface ChatCompletionResult {
   answer: string;
+  /** Raw model answer before AnonReq token restoration (when available). */
+  rawAnswer?: string | null;
   model: string;
   completionId: string | null;
   headers: AnonReqHeaders;

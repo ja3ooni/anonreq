@@ -1,6 +1,6 @@
 # AnonReq demo UI
 
-Next.js console for the anonymization gateway. One screen shows the raw prompt, the masked prompt, and the re-identified answer. Another lists anonymization events and exports CSV. English and German.
+Next.js console for the anonymization gateway. The playground shows four stages of one request (**01 Raw prompt** · **02 Anonymized prompt** · **03 Model reply before restore** · **04 Re-identified answer**), a multi-format file upload & readiness check (`.pdf`, `.docx`, `.txt`, `.md`, `.csv`, `.json`, `.log`, `.eml`), five Frankfurt EU buyer scenarios, and a GlassFlow Rius/Tares + Pilot PoC panel. The Audit page lists anonymization events, verifies the hash chain, and exports DPO CSVs. English (`/en`) and German (`/de`).
 
 **This demo has no login.** The route handlers attach `ANONREQ_API_KEY` and `ANONREQ_ADMIN_API_KEY`. Anyone who can reach the process can export audit logs, see raw PII through the preview, and spend provider credits. It must not be exposed. A real login comes after the demo.
 

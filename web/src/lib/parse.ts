@@ -312,8 +312,10 @@ export function parseChatCompletion(json: unknown, headers: Headers): ChatComple
   if (answer == null) {
     return null;
   }
+  const rawAnswer = typeof message.anonreq_raw_content === "string" ? message.anonreq_raw_content : null;
   return {
     answer,
+    rawAnswer,
     model: typeof json.model === "string" ? json.model : "",
     completionId: typeof json.id === "string" ? json.id : null,
     headers: {

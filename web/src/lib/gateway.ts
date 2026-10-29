@@ -64,6 +64,7 @@ export interface GatewayCall {
   locale?: string;
   timeoutMs?: number;
   accept?: string;
+  extraHeaders?: Record<string, string>;
 }
 
 /**
@@ -85,6 +86,9 @@ export async function gatewayRequest(options: GatewayCall): Promise<Response> {
   headers.set("X-AnonReq-Tenant-ID", options.tenantId);
   if (options.locale) {
     headers.set("X-AnonReq-Locale", options.locale);
+  }
+  for (const [headerName, headerVal] of Object.entries(options.extraHeaders ?? {})) {
+    headers.set(headerName, headerVal);
   }
   headers.set("Accept", options.accept ?? "application/json");
   if (options.jsonBody !== undefined) {

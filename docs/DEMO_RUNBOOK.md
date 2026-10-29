@@ -119,24 +119,40 @@ Expected: **200**, with headers `x-anonreq-entity-count: 5` and `x-anonreq-proce
 | Audit log (no key) | same, with no Authorization header + tenant header | **401** |
 | CSV export | `curl -s -D - localhost:8080/v1/admin/anonymization-events/export -H "Authorization: Bearer $ANONREQ_ADMIN_API_KEY"` | **200**, `text/csv`, no raw PII |
 
-## 6. Demo: three-column UI (raw / anonymized / restored)
+## 6. Demo: four-column UI, file readiness check & buyer scenarios
 
-Demo URL: **<http://localhost:3000>** (started by `make demo` when PR #12's `web/` is present).
-Container start via compose: [not yet verified]. Same UI run with `next dev` against the gateway: [verified] (chat 200 restored, preview 200, audit 200, CSV 200).
+Demo URL: **<http://localhost:3000>** (started by `make demo` when `web/` is present; `/en` for English, `/de` for German).
 
-Click-through:
-1. Open <http://localhost:3000/de>. Model `grok-4`, detection locale *Deutsch (de-DE)*.
-2. Paste: `Bitte bestätige Hans Müller, Hauptstraße 12, 60311 Frankfurt, IBAN DE89370400440532013000, Tel. +49 69 12345678.`
-3. Send. Columns: **raw** (your text) · **anonymized** (`[PERSON_NAME_DE_…]`, `[STREET_ADDRESS_DE_…]`, `[POSTCODE_CITY_DE_…]`, `[IBAN_DE_…]`, phone token = what xAI saw) · **restored** (Grok's answer with real values back).
-4. **Audit** tab: new row, `de-DE`, token count 5, entity types.
-5. **Export CSV**: downloads the row; no names/IBANs/phones in it.
+### What is on the screen
+
+1. **Five Frankfurt EU Buyer Scenarios (+ Clean baseline)**:
+   - **1. Bank Support Ticket** (`IBAN_DE`, `TAX_ID_DE`, `PERSON`, `STREET_ADDRESS_DE`, `DATE_DE`)
+   - **2. Insurance Claim / Kfz-Schadensmeldung** (`KVNR`, `PERSONAL_AUSWEIS`, `AKTENZEICHEN`, `HR_NUMBER`, `IBAN_DE`)
+   - **3. HR / Works-Council CV Screening (`Betriebsrat-konform`)** (candidate name, DOB, address, `TAX_ID_DE`, payout `IBAN_DE`)
+   - **4. Energy & Grid Ops (`KRITIS`)** (`SITE_ID` `UW-NORD-0417`, `ACCOUNT_NUMBER_DE`, technician PII)
+   - **5. Agent Tool Call + Leaked API Key** (proves customer PII is reversible while `API_KEY` is `reversible: false` and remains permanently masked in the final reply)
+   - **6. Clean Prompt (0-PII Baseline)** (`PUBLIC` classification, 0 tokens)
+   - Each scenario includes a **Persona · Compliance Pain · AnonReq Guarantee · Pitch Line** strip and **1-click sample file downloads** (`.pdf`, `.docx`, `.txt`, `.json`, `.csv`) via `GET /api/sample-file`.
+2. **Multi-Format File Upload & "Is It OK?" Readiness Check (`POST /api/extract`)**:
+   - Drag-and-drop or browse any `.pdf`, `.docx`, `.txt`, `.md`, `.csv`, `.json`, `.log`, or `.eml` file (up to 5 MB).
+   - Uploading a file extracts its text locally in Node (`node:zlib` OOXML/FlateDecode parser, zero external native dependencies) and automatically runs **`Scan Only — Is It OK?`** (`POST /api/preview` -> `POST /v1/debug/anonymize-preview` without calling the upstream LLM or spending tokens).
+   - Displays the **AI Gate Verdict Card** (`Direct to Cloud LLM: BLOCKED` vs `Via AnonReq Gateway: GOVERNED & SAFE`), entity count badges with `Reversible` vs `Permanent Mask` labels, and **Copy Masked Text** / **Download Sanitized (`.txt`)** buttons.
+3. **Four-Column Round-Trip View (`01` -> `02` -> `03` -> `04`)**:
+   - **01 Raw prompt**: What you sent (or extracted from the uploaded file), with detected PII spans highlighted.
+   - **02 Anonymized prompt**: What leaves the network to xAI Grok (`[PERSON_…6951]`, `[IBAN_DE_…6951]`).
+   - **03 Model reply (before restore)**: The verbatim response from xAI Grok over the wire *before* `RestorationStage` runs (returned via `choices[0].message.anonreq_raw_content` when `ANONREQ_DEBUG_PREVIEW_ENABLED=true` and `X-AnonReq-Include-Raw-Response: true` are set), showing `[TYPE_N]` tokens still in place.
+   - **04 Re-identified answer**: The final reply after AnonReq restores reversible tokens back to their original values (while `API_KEY` stays masked).
+4. **GlassFlow (Rius & Tares) · Pilot PoC · 90s Demo Drawer (`POST /api/glassflow`)**:
+   - **Tab 1 — GlassFlow Rius & Tares**: Generates a zero-PII 3-span OpenTelemetry trace payload for **GlassFlow Rius** and a sanitized CloudEvent 1.0 timeline payload for **GlassFlow Tares**. Set `GLASSFLOW_RIUS_OTLP_ENDPOINT` or `GLASSFLOW_TARES_WEBHOOK_URL` in `.env` for live forwarding.
+   - **Tab 2 — Pilot & DPO Handshake**: 1-click **Download DPO Audit CSV** button (`GET /api/audit/export`) and VPC/Helm deployment summary.
+   - **Tab 3 — 90s Pitch & Fail-Closed**: Timestamped 90-second demo script plus copyable `docker compose ... stop/start presidio-analyzer` commands to trigger a live HTTP 503 fail-closed block.
 
 Fallback without Docker for the UI (from `web/`):
 ```bash
 npm ci && ANONREQ_GATEWAY_URL=http://127.0.0.1:8080 ANONREQ_API_KEY=$ANONREQ_API_KEY \
 ANONREQ_ADMIN_API_KEY=$ANONREQ_ADMIN_API_KEY ANONREQ_TENANT_ID=default npx next dev -H 127.0.0.1 --port 3100
 ```
-then use <http://127.0.0.1:3100/de>.
+then use <http://127.0.0.1:3100/de> (or `ANONREQ_MOCK=true npm run dev` for offline fixture mode).
 
 ## 7. Stop / reset
 

@@ -78,7 +78,11 @@ else
 fi
 
 ANONREQ_DEMO_MODEL=$(get_env_var ANONREQ_DEMO_MODEL)
-if [[ -n "$UI_URL" ]]; then echo "Demo UI ready: $UI_URL"; fi
+if [[ -n "$UI_URL" ]]; then
+  echo "Demo UI ready: $UI_URL/en (English) | $UI_URL/de (Deutsch)"
+  echo "  -> 4-Column Wire Theater: 01 Raw | 02 Tokenized | 03 Model Reply (Before Restore) | 04 Re-identified"
+  echo "  -> File Readiness Check (.pdf/.docx/.txt/.csv/.json/.eml), 5 EU Buyer Scenarios, GlassFlow & DPO CSV"
+fi
 echo "Gateway API: http://localhost:8080  (model: $ANONREQ_DEMO_MODEL)"
 # Keys are never printed. These lines (literal, single-quoted heredoc) load
 # them from .env into the user's shell; tr strips a CRLF ending.
