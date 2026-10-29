@@ -10,13 +10,14 @@ WEB_COMPOSE=(docker compose -p anonreq-web --env-file "$ENV_FILE" -f web/docker-
 touch "$ENV_FILE"; chmod 600 "$ENV_FILE"
 # shellcheck source=scripts/lib/demo_env.sh
 . scripts/lib/demo_env.sh   # cwd is the repo root (cd above)
+repair_glued_env "$ENV_FILE"
 sanitize_db_url "$ENV_FILE"
 gen() { python3 -c "import secrets;print(secrets.token_urlsafe($1))"; }
 ensure() { # ensure VAR value-if-missing
-  local cur; cur=$(grep -E "^$1=" "$ENV_FILE" | tail -1 | cut -d= -f2- || true)
+  local cur; cur=$(get_env_var "$1")
   # Treat empty, <placeholder> and well-known default creds (minioadmin) as missing.
   if [[ -z "$cur" || "$cur" == \<* || "$cur" == "minioadmin" ]]; then
-    sed -i.bak "/^$1=/d" "$ENV_FILE" && rm -f "$ENV_FILE.bak"; echo "$1=$2" >> "$ENV_FILE"; echo "generated $1"
+    set_env_var "$1" "$2"; echo "generated $1"
   fi
 }
 ensure ANONREQ_API_KEY "$(gen 32)"
@@ -30,15 +31,14 @@ ensure MINIO_ROOT_PASSWORD "$(gen 24)"
 ensure POSTGRES_PASSWORD "$(gen 24)"
 ensure ANONREQ_DEMO_MODEL "grok-4"
 if [[ -n "${XAI_API_KEY:-}" ]]; then ensure XAI_API_KEY "$XAI_API_KEY"; fi
-if ! grep -qE '^XAI_API_KEY=[^<]' "$ENV_FILE"; then
+XAI_VAL=$(get_env_var XAI_API_KEY)
+if [[ -z "$XAI_VAL" || "$XAI_VAL" == \<* ]]; then
   echo "ERROR: XAI_API_KEY not set. export XAI_API_KEY=... (or add it to .env) and re-run." >&2; exit 1
 fi
 
 # PROVIDER_API_KEY is required by the Germany overlay; for the xAI demo it is
 # the xAI key (the demo overlay maps XAI_API_KEY -> PROVIDER_API_KEY).
-XAI_VAL=$(grep -E "^XAI_API_KEY=" "$ENV_FILE" | tail -1 | cut -d= -f2-)
-sed -i.bak "/^PROVIDER_API_KEY=/d" "$ENV_FILE" && rm -f "$ENV_FILE.bak"
-echo "PROVIDER_API_KEY=$XAI_VAL" >> "$ENV_FILE"
+set_env_var PROVIDER_API_KEY "$XAI_VAL"
 
 # Presidio (en+de spaCy) needs >= 4 GB; check the Docker VM.
 MEM=$(docker info --format '{{.MemTotal}}' 2>/dev/null || echo 0)
@@ -77,7 +77,14 @@ else
   echo "NOTE: web/docker-compose.demo.yml not found (PR #12 not merged); skipping the UI. API only on http://localhost:8080."
 fi
 
-ANONREQ_DEMO_MODEL=$(grep -E "^ANONREQ_DEMO_MODEL=" "$ENV_FILE" | tail -1 | cut -d= -f2-)
+ANONREQ_DEMO_MODEL=$(get_env_var ANONREQ_DEMO_MODEL)
 if [[ -n "$UI_URL" ]]; then echo "Demo UI ready: $UI_URL"; fi
 echo "Gateway API: http://localhost:8080  (model: $ANONREQ_DEMO_MODEL)"
+# Keys are never printed. These lines (literal, single-quoted heredoc) load
+# them from .env into the user's shell; tr strips a CRLF ending.
+echo "Load the keys into your shell (run from the repo root; values are not shown):"
+cat <<'EOS'
+  export ANONREQ_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+  export ANONREQ_ADMIN_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_ADMIN_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
+EOS
 echo "Try: curl -s localhost:8080/v1/chat/completions -H \"Authorization: Bearer \$ANONREQ_API_KEY\" -H 'X-AnonReq-Tenant-ID: default' -H 'X-AnonReq-Locale: de-DE' -H 'Content-Type: application/json' -d '{\"model\":\"$ANONREQ_DEMO_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hallo, ich bin Max Mustermann\"}]}'"
