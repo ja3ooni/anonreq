@@ -1,0 +1,20 @@
+From: joerg.mueller@nordbank.example
+To: disputes@frankfurt-bank.example
+Subject: Urgent SEPA Chargeback #4920 - Jörg Müller
+Date: Fri, 30 Oct 2026 09:15:00 +0100
+Content-Type: text/plain; charset="utf-8"
+
+Hello Support Team,
+
+Please confirm the status of my SEPA dispute (#4920).
+My details:
+- Name: Jörg Müller (geb. 14.05.1984)
+- Address: Hauptstraße 12, 60311 Frankfurt
+- Phone: +49 170 1234567
+- IBAN: DE89 3704 0044 0532 0130 00
+- Steuer-Id: 86095742719
+- KVNR: A123456780
+- Personalausweis: L01X00T471
+- Scheduled Chargeback Date: 14.03.2026
+
+Please reply with a short confirmation quoting my IBAN, Steuer-Id, and scheduled date.

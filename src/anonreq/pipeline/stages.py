@@ -75,8 +75,15 @@ class SensitivityClassificationStage(PipelineStage):
         if result.highest_entity:
             ctx.audit_metadata["highest_entity"] = result.highest_entity
 
-        # If it says block, fail-secure!
-        if result.handling_action == "block":
+        # If it says block, fail-secure (unless Germany demo overlay sets
+        # CLASSIFICATION_DEFAULT_ACTION=ANONYMIZE and no explicit client override
+        # was sent, so non-reversible secrets like API_KEY are permanently masked).
+        from anonreq.config import settings as _settings
+
+        default_action = (getattr(_settings, "CLASSIFICATION_DEFAULT_ACTION", None) or "").upper()
+        if result.handling_action == "block" and (
+            ctx.client_classification is not None or default_action != "ANONYMIZE"
+        ):
             entity_types = list({d["entity_type"] for d in (ctx.detections or [])})
             ctx.fail_secure(
                 PipelineAbortError(

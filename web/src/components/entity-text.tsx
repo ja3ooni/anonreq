@@ -18,11 +18,11 @@ export function EntityText({ text, spans }: { text: string; spans: HighlightSpan
           <mark
             key={`${segment.span.start}-${segment.span.entityType}-${index}`}
             data-entity={segment.span.entityType}
+            aria-label={`${segment.span.entityType}: ${segment.text}`}
             title={`${segment.span.entityType} · ${segment.span.token}`}
             className={`${entityClassName(segment.span.entityType)} break-all`}
           >
             {formatDisplaySegment(segment.text)}
-            <span className="sr-only"> ({segment.span.entityType})</span>
           </mark>
         ) : (
           <span key={`text-${index}`}>{formatDisplaySegment(segment.text)}</span>

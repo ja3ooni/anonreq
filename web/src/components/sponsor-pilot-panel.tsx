@@ -12,7 +12,7 @@ interface SponsorPilotPanelProps {
   exportingCsv: boolean;
 }
 
-type ActiveTab = "glassflow" | "pilot" | "script";
+type ActiveTab = "glassflow" | "pilot" | "script" | "compliance";
 
 export function SponsorPilotPanel({
   uiLocale,
@@ -22,7 +22,12 @@ export function SponsorPilotPanel({
 }: SponsorPilotPanelProps) {
   const isDe = uiLocale === "de";
   const [tab, setTab] = useState<ActiveTab>("glassflow");
-  const [gfView, setGfView] = useState<"rius" | "tares">("rius");
+  const [gfView, setGfView] = useState<"rius" | "tares" | "read">("tares");
+  const [taresUrl, setTaresUrl] = useState<string>(
+    "https://sunny-ridge-aj.tares-glassflow.com/ingest/webhook-7be6b6c7",
+  );
+  const [taresToken, setTaresToken] = useState<string>("");
+  const [liveReadPayload, setLiveReadPayload] = useState<unknown>(null);
   const [pushState, setPushState] = useState<{
     status: "idle" | "sending" | "done" | "error";
     detail?: string;
@@ -35,12 +40,22 @@ export function SponsorPilotPanel({
       const res = await fetch("/api/glassflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bundle),
+        body: JSON.stringify({
+          ...bundle,
+          ...(taresUrl.trim() ? { taresUrl: taresUrl.trim() } : {}),
+          ...(taresToken.trim() ? { taresToken: taresToken.trim() } : {}),
+        }),
       });
       const data = (await res.json().catch(() => null)) as {
         mode?: string;
+        taresBase?: string;
         riusDelivered?: boolean;
         taresDelivered?: boolean;
+        riusStatus?: number | null;
+        taresStatus?: number | null;
+        resolvedIngestUrl?: string | null;
+        healthResult?: unknown;
+        readResult?: unknown;
       } | null;
       if (!res.ok) {
         setPushState({
@@ -49,19 +64,37 @@ export function SponsorPilotPanel({
         });
         return;
       }
+      if (data?.healthResult || data?.readResult) {
+        setLiveReadPayload({
+          tares_cell: data.taresBase ?? "https://sunny-ridge-aj.tares-glassflow.com",
+          cell_health: data.healthResult ?? null,
+          post_read_response: data.readResult ?? null,
+        });
+      }
+      if (data?.resolvedIngestUrl && data.resolvedIngestUrl !== taresUrl) {
+        setTaresUrl(data.resolvedIngestUrl);
+      }
       if (data?.mode === "live_webhook") {
         setPushState({
-          status: "done",
+          status: data.taresDelivered || data.riusDelivered ? "done" : "error",
           detail: isDe
-            ? `Live gesendet (Rius: ${data.riusDelivered ? "OK" : "—"}, Tares: ${data.taresDelivered ? "OK" : "—"})`
-            : `Delivered live (Rius: ${data.riusDelivered ? "OK" : "—"}, Tares: ${data.taresDelivered ? "OK" : "—"})`,
+            ? `Tares (${data.taresBase}): ${
+                data.taresDelivered
+                  ? `LIVE GESENDET (HTTP ${data.taresStatus})`
+                  : `HTTP ${data.taresStatus ?? 401} — Bitte Tares API-Key rechts eintragen`
+              }`
+            : `Tares (${data.taresBase}): ${
+                data.taresDelivered
+                  ? `DELIVERED LIVE (HTTP ${data.taresStatus})`
+                  : `HTTP ${data.taresStatus ?? 401} — Paste your Tares API Key on the right to authenticate`
+              }`,
         });
       } else {
         setPushState({
           status: "done",
           detail: isDe
-            ? "Lokal validiert (setze GLASSFLOW_RIUS_OTLP_ENDPOINT oder GLASSFLOW_TARES_WEBHOOK_URL in .env für Live-Push)"
-            : "Validated locally (set GLASSFLOW_RIUS_OTLP_ENDPOINT or GLASSFLOW_TARES_WEBHOOK_URL in .env for live push)",
+            ? "Zelle sunny-ridge-aj erreichbar (v1.54.1 OK) — Tares API-Key oben eintragen für authentifizierten Push & /read"
+            : "Cell sunny-ridge-aj reachable (v1.54.1 OK) — Paste your Tares API Key above for authenticated push & /read",
         });
       }
     } catch {
@@ -98,6 +131,9 @@ export function SponsorPilotPanel({
           <TabButton active={tab === "script"} onClick={() => setTab("script")}>
             {isDe ? "3. 90s-Pitch & Fail-Closed" : "3. 90s Pitch & Fail-Closed"}
           </TabButton>
+          <TabButton active={tab === "compliance"} onClick={() => setTab("compliance")}>
+            {isDe ? "4. DSGVO · AI Act · DORA Matrix" : "4. GDPR · AI Act · DORA Matrix"}
+          </TabButton>
         </div>
       </div>
 
@@ -128,9 +164,62 @@ export function SponsorPilotPanel({
             </div>
           </div>
 
+          <div className="rounded-lg border border-border bg-secondary/20 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="font-mono text-xs font-semibold uppercase text-[#9a3412]">
+                {isDe
+                  ? "Live-Verbindung zu GlassFlow Tares (sunny-ridge-aj.tares-glassflow.com)"
+                  : "Live GlassFlow Tares Connection (sunny-ridge-aj.tares-glassflow.com)"}
+              </p>
+              <div className="flex flex-wrap gap-2 text-[11px] font-mono">
+                <a
+                  href="https://sunny-ridge-aj.tares-glassflow.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline text-[#9a3412] hover:opacity-80"
+                >
+                  Open Tares Console ↗
+                </a>
+                <a
+                  href="https://console.tares-glassflow.com/workspaces/sunny-ridge-aj#settings"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline text-[#9a3412] hover:opacity-80"
+                >
+                  Workspace API Keys ↗
+                </a>
+              </div>
+            </div>
+            <div className="mt-2 grid gap-2 md:grid-cols-2">
+              <input
+                type="url"
+                value={taresUrl}
+                onChange={(e) => setTaresUrl(e.target.value)}
+                placeholder="https://sunny-ridge-aj.tares-glassflow.com/read"
+                className="rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground"
+              />
+              <input
+                type="password"
+                value={taresToken}
+                onChange={(e) => setTaresToken(e.target.value)}
+                placeholder={
+                  isDe
+                    ? "Tares API-Key / Project Key hier einfügen"
+                    : "Paste your Tares API Key / Project Key here"
+                }
+                className="rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground"
+              />
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              {isDe
+                ? "Verbunden mit Zelle sunny-ridge-aj (taresd v1.54.1). Hinweis: /read erwartet POST (ein Browser-GET zeigt 405). Mit API-Key sendet AnonReq an /v1/traces, /remember + /ingest/<key> und fragt live POST /read ab."
+                : "Connected to cell sunny-ridge-aj (taresd v1.54.1). Note: /read is a POST endpoint (opening /read in a browser tab returns HTTP 405). Paste your API Key above to push to /v1/traces, /remember + /ingest/<key>, and query POST /read live."}
+            </p>
+          </div>
+
           <div className="rounded-lg border border-border bg-[#1a1814] p-4 text-[#f6f1e8]">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => setGfView("rius")}
@@ -138,7 +227,7 @@ export function SponsorPilotPanel({
                     gfView === "rius" ? "bg-[#e7a07a] text-[#1a1814] font-semibold" : "bg-[#2a2622] text-[#d9d0c3]"
                   }`}
                 >
-                  Rius OTLP Trace (3 Spans)
+                  Rius OTLP Trace (/v1/traces)
                 </button>
                 <button
                   type="button"
@@ -147,7 +236,16 @@ export function SponsorPilotPanel({
                     gfView === "tares" ? "bg-[#e7a07a] text-[#1a1814] font-semibold" : "bg-[#2a2622] text-[#d9d0c3]"
                   }`}
                 >
-                  Tares Correlated Event (CloudEvent 1.0)
+                  Tares Event (/ingest & /remember)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGfView("read")}
+                  className={`rounded px-2.5 py-1 font-mono text-xs ${
+                    gfView === "read" ? "bg-[#e7a07a] text-[#1a1814] font-semibold" : "bg-[#2a2622] text-[#d9d0c3]"
+                  }`}
+                >
+                  Live POST /read (sunny-ridge-aj)
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -163,8 +261,8 @@ export function SponsorPilotPanel({
                       ? "Sende…"
                       : "Emitting…"
                     : isDe
-                      ? "An GlassFlow senden"
-                      : "Emit to GlassFlow"}
+                      ? "An GlassFlow senden & /read"
+                      : "Emit to GlassFlow & /read"}
                 </Button>
               </div>
             </div>
@@ -173,7 +271,19 @@ export function SponsorPilotPanel({
             ) : null}
             {bundle ? (
               <pre className="mt-3 max-h-64 overflow-auto rounded bg-[#12110e] p-3 font-mono text-xs leading-5 text-[#f3efe6]">
-                {JSON.stringify(gfView === "rius" ? bundle.rius : bundle.tares, null, 2)}
+                {JSON.stringify(
+                  gfView === "rius"
+                    ? bundle.rius
+                    : gfView === "tares"
+                      ? bundle.tares
+                      : (liveReadPayload ?? {
+                          tares_cell: "https://sunny-ridge-aj.tares-glassflow.com",
+                          endpoint: "POST /read",
+                          hint: "Click 'Emit to GlassFlow & /read' to query live cell health and POST /read response.",
+                        }),
+                  null,
+                  2,
+                )}
               </pre>
             ) : (
               <p className="mt-3 font-mono text-xs text-[#d9d0c3]">
@@ -263,21 +373,21 @@ export function SponsorPilotPanel({
               }
             />
             <ScriptStep
-              time="35–55s"
-              title={isDe ? "3. Grok + Restore" : "3. Grok + Restore"}
+              time="35–60s"
+              title={isDe ? "3. 4-Spalten-Beweis" : "3. 4-Column Wire Proof"}
               body={
                 isDe
-                  ? "»Anonymisieren & Grok fragen« klicken. Spalte 2 zeigt [IBAN_DE_1], Spalte 3 zeigt die re-identifizierte Antwort von xAI Grok (API-Keys bleiben maskiert!)."
-                  : "Click 'Anonymize & Ask Grok'. Column 2 shows [IBAN_DE_1] leaving the boundary; Column 3 shows xAI Grok's restored reply (while API_KEY stays masked!)."
+                  ? "»Anonymisieren & Grok fragen« klicken. Spalte 02 zeigt [IBAN_DE_…], Spalte 03 die rohe Token-Antwort von Grok vor Restore, Spalte 04 die restaurierte Antwort."
+                  : "Click 'Anonymize & Ask Grok'. Col 02 shows [IBAN_DE_…] leaving; Col 03 proves Grok replied with tokens before restore; Col 04 shows the restored answer."
               }
             />
             <ScriptStep
-              time="55–75s"
+              time="60–75s"
               title={isDe ? "4. GlassFlow" : "4. GlassFlow"}
               body={
                 isDe
-                  ? "Tab »GlassFlow« zeigen: OTLP-Trace für Rius (0 Klartext-PII) und korreliertes Tares-Event für Agent-Workflows."
-                  : "Show the GlassFlow tab: zero-PII OTLP trace for Rius observability + sanitized CloudEvent for Tares agent timelines."
+                  ? "Tab »GlassFlow« zeigen: OTLP-Trace für Rius (0 Klartext-PII, EU AI Act Art. 12) und korreliertes Tares-Event für Agent-Workflows."
+                  : "Show the GlassFlow tab: zero-PII OTLP trace for Rius observability (EU AI Act Art. 12) + sanitized CloudEvent for Tares agent timelines."
               }
             />
             <ScriptStep
@@ -285,8 +395,8 @@ export function SponsorPilotPanel({
               title={isDe ? "5. Fail-Closed & CSV" : "5. Fail-Closed & CSV"}
               body={
                 isDe
-                  ? "DPO-CSV exportieren (nur Entitätstypen). Optional Presidio stoppen → HTTP 503 Fail-Closed: »Wir leiten niemals Klartext weiter.«"
-                  : "Export DPO CSV (entity types only). Optionally stop Presidio → HTTP 503 Fail-Closed: 'We never forward cleartext.'"
+                  ? "DPO-CSV exportieren (DSGVO Art. 30, nur Entitätstypen). Optional Presidio stoppen → HTTP 503 Fail-Closed (DORA Art. 9)."
+                  : "Export DPO CSV (GDPR Art. 30, entity types only). Optionally stop Presidio → HTTP 503 Fail-Closed (DORA Art. 9)."
               }
             />
           </div>
@@ -303,6 +413,97 @@ export function SponsorPilotPanel({
               docker compose -f docker-compose.yml -f docker-compose.germany.yml -f docker-compose.demo.yml start presidio-analyzer
             </p>
           </div>
+        </div>
+      ) : null}
+
+      {tab === "compliance" ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full border-collapse text-left text-xs leading-5">
+            <thead>
+              <tr className="border-b border-border font-mono uppercase text-muted-foreground">
+                <th className="py-2 pr-3">{isDe ? "Gesetz / Richtlinie" : "Policy / Regulation"}</th>
+                <th className="py-2 pr-3">{isDe ? "Verstoß ohne AnonReq (Problem)" : "Broken Without AnonReq (Problem)"}</th>
+                <th className="py-2">{isDe ? "Technische Kontrolle in AnonReq (Lösung)" : "Linked AnonReq Control (Solution)"}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              <tr>
+                <td className="py-2.5 pr-3 font-mono font-semibold text-[#9a3412]">
+                  [P1/P2] GDPR Art. 44, 32, 25 & 5(1)(c)/(e)
+                </td>
+                <td className="py-2.5 pr-3 text-muted-foreground">
+                  {isDe
+                    ? "Klartext-IBAN, Steuer-ID & Namen werden an US-/Cloud-LLMs gesendet und auf Disk geloggt."
+                    : "Cleartext DE-IBAN, Steuer-ID & names sent to US/external LLM servers and persisted on disk."}
+                </td>
+                <td className="py-2.5">
+                  {isDe
+                    ? "Preset »germany« (de-DE) tokenisiert PII am VPC-Rand; AES-256-GCM Valkey-Cache ohne Disk-Persistenz (save '')."
+                    : "Preset 'germany' (de-DE) tokenizes PII at VPC edge; AES-256-GCM Valkey with save '' & TTL eviction."}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2.5 pr-3 font-mono font-semibold text-[#9a3412]">
+                  [P3] GDPR Art. 9 · BetrVG § 87 · BDSG § 26
+                </td>
+                <td className="py-2.5 pr-3 text-muted-foreground">
+                  {isDe
+                    ? "Gesundheitsdaten (KVNR) in Schäden & Kandidaten-CVs ohne Betriebsrats-Freigabe in Cloud-KI."
+                    : "Medical KVNR in claims & candidate CVs screened in cloud AI without Works Council safeguard."}
+                </td>
+                <td className="py-2.5">
+                  {isDe
+                    ? "KVNR, Personalausweis & Bewerber-PII werden vor dem Modellaufruf maskiert; stdout-JSON-Logs schwärzen Rohwerte."
+                    : "KVNR, Personalausweis & candidate PII stripped pre-LLM; stdout JSON logs redact all prompt values."}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2.5 pr-3 font-mono font-semibold text-[#9a3412]">
+                  [P4/P5] EU AI Act Art. 12, 14 & 26(5)/(6)
+                </td>
+                <td className="py-2.5 pr-3 text-muted-foreground">
+                  {isDe
+                    ? "Shadow-AI hat kein Deployer-Protokoll, keinen Pre-Flight-Check und keine menschliche Kontrolle."
+                    : "Shadow AI leaves no deployer audit log, no pre-flight readiness gate, and no human oversight."}
+                </td>
+                <td className="py-2.5">
+                  {isDe
+                    ? "»Nur prüfen« Verdict-Karte + 4-Spalten-Drahtbeweis + 1-Klick DPO-CSV (DSGVO Art. 30) + GlassFlow Rius OTLP."
+                    : "'Scan Only' Verdict Card + 4-Column Wire Proof + 1-click DPO CSV (GDPR Art. 30) + GlassFlow Rius OTLP."}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2.5 pr-3 font-mono font-semibold text-[#9a3412]">
+                  [P6] DORA Art. 5, 9, 28, 30 & BaFin VAIT
+                </td>
+                <td className="py-2.5 pr-3 text-muted-foreground">
+                  {isDe
+                    ? "ICT-Drittparteien-Risiko und unkontrollierter Klartext-Abfluss bei Ausfall eines Sicherheitstools."
+                    : "ICT third-party concentration risk & uncontrolled cleartext fallback if a security tool crashes."}
+                </td>
+                <td className="py-2.5">
+                  {isDe
+                    ? "Self-Hosted im Kunden-VPC (Helm/Compose); Provider sieht nur Tokens; Fail-Closed HTTP 503 bei Detektor-Ausfall."
+                    : "Self-hosted gateway (Helm/Compose); provider only sees tokens; fail-closed HTTP 503 on detector failure."}
+                </td>
+              </tr>
+              <tr>
+                <td className="py-2.5 pr-3 font-mono font-semibold text-[#9a3412]">
+                  [P7/P8] NIS2 Art. 21/24 (KRITIS) & DLP
+                </td>
+                <td className="py-2.5 pr-3 text-muted-foreground">
+                  {isDe
+                    ? "Umspannwerk-IDs (SITE_ID) & produktive API_KEYs leaken; statisches »[REDACTED]« zerstört KI-Antworten."
+                    : "Substation SITE_IDs & live API_KEYs leaked; static '[REDACTED]' breaks multi-entity LLM reasoning."}
+                </td>
+                <td className="py-2.5">
+                  {isDe
+                    ? "Reversible Tokens für Kunden-PII (in Spalte 04 restauriert) + Permanent Mask (reversible: false) für API_KEY."
+                    : "Reversible tokens for customer PII (restored in Col 04) + Permanent Mask (reversible: false) for API_KEY."}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       ) : null}
     </section>

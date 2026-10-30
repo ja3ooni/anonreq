@@ -36,18 +36,18 @@ export const BUYER_SCENARIOS: BuyerScenario[] = [
     en: {
       label: "1. Bank Support Ticket (IBAN + Tax ID)",
       persona: "Frankfurt Bank Ops Lead / CISO",
-      pain: "Support agents paste SEPA dispute tickets with DE-IBAN and Steuer-ID into ChatGPT/Grok. Compliance blocks shadow AI.",
-      value: "DE-IBAN, Steuer-ID, and customer identity are tokenized at the edge; agent still gets a full restored draft reply.",
-      buyerLine: "IBAN & Steuer-ID never hit the model.",
+      pain: "[P1/P2/P6] Agents paste SEPA tickets with DE-IBAN & Steuer-ID into cloud AI — violating GDPR Art. 44 (3rd-country transfer), Art. 5(1)(c), DORA Art. 28 & BaFin VAIT.",
+      value: "→ Solves [P1/P2/P6]: GDPR Art. 32 & 25 edge tokenization (MOD-97 + Presidio); Col 03 proves Grok only sees tokens; Col 04 restores reply + Art. 30 DPO CSV.",
+      buyerLine: "GDPR Art. 44 & DORA Art. 28: IBAN & Steuer-ID never hit the model.",
       prompt:
         "Payment Dispute Ticket #4920 — Customer: Jörg Müller (joerg.mueller@nordbank.example, +49 170 1234567), Hauptstraße 12, Frankfurt. Please verify IBAN DE89 3704 0044 0532 0130 00 and German tax number (Steuer-Id) 86095742719 for the chargeback scheduled on 14.03.2026, and draft a short confirmation reply to the customer.",
     },
     de: {
       label: "1. Bank-Supportticket (IBAN + Steuer-ID)",
       persona: "Bank-Betriebsleitung / CISO (Frankfurt)",
-      pain: "Support-Teams kopieren SEPA-Tickets mit IBAN und Steuer-ID in KI-Chats. Compliance blockiert Shadow-AI.",
-      value: "DE-IBAN, Steuer-ID und Kundendaten werden am Gateway tokenisiert; die Antwort wird für die Sachbearbeitung wiederhergestellt.",
-      buyerLine: "Kein Klartext-IBAN verlässt die Bankgrenze.",
+      pain: "[P1/P2/P6] SEPA-Tickets mit DE-IBAN & Steuer-ID im KI-Chat verletzen DSGVO Art. 44 (Drittlandtransfer), Art. 5(1)(c), DORA Art. 28 & BaFin VAIT.",
+      value: "→ Löst [P1/P2/P6]: DSGVO Art. 32 & 25 Tokenisierung am Gateway; Spalte 03 beweist Token-Antwort von Grok; Spalte 04 restauriert + Art. 30 DSB-CSV.",
+      buyerLine: "DSGVO Art. 44 & DORA Art. 28: Kein Klartext-IBAN verlässt die Bank.",
       prompt:
         "Zahlungsreklamation Ticket #4920 — Kunde: Jörg Müller (joerg.mueller@nordbank.example, +49 170 1234567), Hauptstraße 12, 60311 Frankfurt. Bitte IBAN DE89 3704 0044 0532 0130 00 sowie Steuer-Id 86095742719 für die Rückbuchung am 14.03.2026 prüfen und eine kurze Bestätigungsantwort an den Kunden formulieren.",
     },
@@ -60,18 +60,18 @@ export const BUYER_SCENARIOS: BuyerScenario[] = [
     en: {
       label: "2. Insurance Claim (KVNR + Ausweis)",
       persona: "Claims Director / DPO (Datenschutzbeauftragter)",
-      pain: "Claims documents contain health insurance IDs (KVNR), Personalausweis numbers, and court case references (Aktenzeichen).",
-      value: "Automated claim triage via Grok while KVNR, Ausweis, and IBAN stay inside the boundary; DPO exports metadata-only CSV.",
-      buyerLine: "DPO audit CSV logs entity types only — never raw values.",
+      pain: "[P1/P3/P4] Claims contain KVNR (GDPR Art. 9 health ID), Personalausweis & Aktenzeichen — blocked under GDPR Art. 9, Art. 44 & EU AI Act Art. 12/14.",
+      value: "→ Solves [P1/P3/P4]: GDPR Art. 9 & 32 pseudonymisation in ephemeral Valkey (save ''); DPO exports Art. 30 / AI Act Art. 12 metadata-only CSV.",
+      buyerLine: "GDPR Art. 9 & Art. 30: DPO audit CSV logs entity types only — never raw values.",
       prompt:
         "Schadensmeldung — Kfz, München\nVersicherte: Anna Schmidt\nKVNR: A123456780\nPersonalausweis: L01X00T471\nIBAN: DE89370400440532013000\nAktenzeichen: Az. 14 C 123/24\nGesellschaft: HRB 12345\nKontakt: anna.schmidt@example.de, +49 89 12345678\nSachverhalt: Auffahrunfall am 12.03.2026 in der Leopoldstraße 44. Bitte Deckungszusage prüfen und nächste Schritte zusammenfassen.",
     },
     de: {
       label: "2. Versicherungsschaden (KVNR + Ausweis)",
       persona: "Schadensleitung / Datenschutzbeauftragte (DPO)",
-      pain: "Schadensmeldungen enthalten KVNR, Personalausweisnummern, IBAN und gerichtliche Aktenzeichen.",
-      value: "KI-gestützte Schadensprüfung ohne Abfluss von KVNR oder Ausweisdaten; DPO-Export enthält nur Entitätstypen.",
-      buyerLine: "DPO-CSV beweist Maskierung ohne Rohdaten im Log.",
+      pain: "[P1/P3/P4] Schadensmeldungen mit KVNR (DSGVO Art. 9 Gesundheitsdaten) & Personalausweis verletzen DSGVO Art. 9, Art. 44 & EU AI Act Art. 12/14.",
+      value: "→ Löst [P1/P3/P4]: DSGVO Art. 9 & 32 Pseudonymisierung im flüchtigen Valkey-Cache; DSB exportiert Art. 30 / AI Act Art. 12 Metadaten-CSV.",
+      buyerLine: "DSGVO Art. 9 & 30: DPO-CSV beweist Maskierung ohne Rohdaten im Log.",
       prompt:
         "Schadensmeldung — Kfz, München\nVersicherte: Anna Schmidt\nKVNR: A123456780\nPersonalausweis: L01X00T471\nIBAN: DE89370400440532013000\nAktenzeichen: Az. 14 C 123/24\nGesellschaft: HRB 12345\nKontakt: anna.schmidt@example.de, +49 89 12345678\nSachverhalt: Auffahrunfall am 12.03.2026 in der Leopoldstraße 44. Bitte Deckungszusage prüfen und nächste Schritte zusammenfassen.",
     },
@@ -84,18 +84,18 @@ export const BUYER_SCENARIOS: BuyerScenario[] = [
     en: {
       label: "3. HR / Works-Council CV Screening",
       persona: "Head of People / Works Council (Betriebsrat)",
-      pain: "Recruiters want AI to summarize CVs, but German Works Councils forbid uploading candidate identity, DOB, and tax details.",
-      value: "Strips name, birth date, street address, phone, email, and Steuer-ID before Grok evaluates technical qualifications.",
-      buyerLine: "Works-council-safe (Betriebsrat-konform) recruiting AI.",
+      pain: "[P2/P3/P5] Uploading candidate CVs with DOB, address & Steuer-ID violates German Works Council co-determination (BetrVG § 87 Abs. 1 Nr. 6), BDSG § 26 & EU AI Act Art. 14.",
+      value: "→ Solves [P2/P3/P5]: BetrVG § 87 & GDPR Art. 25 blind screening strips name, DOB, address & Steuer-ID pre-LLM; stdout JSON logs redact all prompt values.",
+      buyerLine: "BetrVG § 87 & BDSG § 26: Works-council-safe (Betriebsrat-konform) recruiting AI.",
       prompt:
         "Candidate Resume Excerpt — Katharina Weber (geb. 14.05.1991), Hauptstraße 19, 60325 Frankfurt. Contact: katharina.weber@example.de, +49 151 98765432. Payroll & Tax onboarding file: Steuer-Id 41928374651, Payout IBAN DE89 3704 0044 0532 0130 00.\nExperience: 7 years Principal Cloud Security Engineer (Kubernetes, eBPF, Cloud Governance). Summarize candidate strengths for the Senior Security Architect role.",
     },
     de: {
       label: "3. HR / Bewerbungs-Screening (Betriebsrat)",
       persona: "HR-Leitung / Betriebsrat",
-      pain: "Recruiter möchten Lebensläufe per KI auswerten, aber der Betriebsrat untersagt den Upload von Klarnamen, Geburtsdaten und Adressen.",
-      value: "Name, Geburtsdatum, Anschrift und Steuer-ID werden vor dem Modellaufruf maskiert; Fachprofil wird objektiv ausgewertet.",
-      buyerLine: "Betriebsrat-konformes CV-Screening ohne Klardaten.",
+      pain: "[P2/P3/P5] CV-Uploads mit Geburtsdatum, Anschrift & Steuer-ID verletzen Mitbestimmung (BetrVG § 87 Abs. 1 Nr. 6), BDSG § 26 & EU AI Act Art. 14.",
+      value: "→ Löst [P2/P3/P5]: BetrVG § 87 & DSGVO Art. 25 Maskierung vor dem Modellaufruf; stdout-JSON-Logs schwärzen alle Prompt-Werte.",
+      buyerLine: "BetrVG § 87 & BDSG § 26: Betriebsrat-konformes CV-Screening ohne Klardaten.",
       prompt:
         "Lebenslauf-Auszug — Katharina Weber (geb. 14.05.1991), Hauptstraße 19, 60325 Frankfurt. Kontakt: katharina.weber@example.de, +49 151 98765432. Lohnsteuer-Merkmal: Steuer-Id 41928374651, Gehaltskonto IBAN DE89 3704 0044 0532 0130 00.\nErfahrung: 7 Jahre Principal Cloud Security Engineer (Kubernetes, eBPF, Cloud-Sicherheit). Bitte fachliche Eignung für die Stelle Senior Security Architect zusammenfassen.",
     },
@@ -108,18 +108,18 @@ export const BUYER_SCENARIOS: BuyerScenario[] = [
     en: {
       label: "4. Energy & Grid Ops (SITE_ID + Meter)",
       persona: "VP Grid Operations / KRITIS Security",
-      pain: "Dispatch logs mix critical substation Site IDs (UW-NORD-0417), customer meter accounts, and on-call engineer contact data.",
-      value: "Tokenizes infrastructure Site IDs and customer account numbers before AI incident correlation with GlassFlow Tares.",
-      buyerLine: "Runbooks & incident triage without exposing KRITIS site IDs.",
+      pain: "[P6/P7] Dispatch logs expose critical substation Site IDs (UW-NORD-0417), meter accounts & engineer phones — violating NIS2 Art. 21/24, BSIG KRITIS & GDPR Art. 32.",
+      value: "→ Solves [P6/P7]: NIS2 Art. 21/24 & DORA Art. 9 safeguard tokenizes KRITIS SITE_IDs and meter accounts before AI incident correlation with GlassFlow Tares.",
+      buyerLine: "NIS2 Art. 21 & BSIG KRITIS: Incident triage without exposing substation IDs.",
       prompt:
         "Grid Dispatch Log — Substation UW-NORD-0417 (Stuttgart, Industriering 8). Affected commercial meter: Kundenkonto 4401-88921-03. On-call lead: Markus Hoffmann (m.hoffmann@stadtwerke.example, +49 711 4455667) reported voltage sag on 28.10.2026. Draft a 3-step operator handover summary.",
     },
     de: {
       label: "4. Energie / KRITIS-Betrieb (SITE_ID + Zähler)",
       persona: "Netzleitstelle / KRITIS-Informationssicherheit",
-      pain: "Störprotokolle enthalten Umspannwerk-Kennungen (UW-NORD-0417), Kundenkonten und Rufbereitschaftsdaten.",
-      value: "Anlagen-IDs (SITE_ID), Zählerkonten und Technikerdaten werden maskiert, bevor KI-Agenten den Vorfall analysieren.",
-      buyerLine: "KRITIS-Runbooks mit KI auswerten ohne Anlagen-IDs preiszugeben.",
+      pain: "[P6/P7] Störprotokolle mit Umspannwerk-IDs (UW-NORD-0417) & Rufbereitschaft verletzen NIS2 Art. 21/24, BSIG-KRITIS & DSGVO Art. 32.",
+      value: "→ Löst [P6/P7]: NIS2 Art. 21/24 & DORA Art. 9 Schutz maskiert Anlagen-IDs (SITE_ID), Zählerkonten und Technikerdaten vor der KI-Analyse.",
+      buyerLine: "NIS2 Art. 21 & BSIG-KRITIS: Runbooks auswerten ohne Anlagen-IDs preiszugeben.",
       prompt:
         "Netzleitstellen-Störmeldung — Umspannwerk UW-NORD-0417 (Stuttgart, Industriering 8). Betroffener Großkunde: Kundenkonto 4401-88921-03. Bereitschaftsleiter Markus Hoffmann (m.hoffmann@stadtwerke.example, +49 711 4455667) meldet Spannungseinbruch am 28.10.2026. Bitte Übergabeprotokoll in 3 Punkten erstellen.",
     },
@@ -132,18 +132,18 @@ export const BUYER_SCENARIOS: BuyerScenario[] = [
     en: {
       label: "5. Agent Tool Call + Leaked API Key",
       persona: "AI Platform Lead / SecOps",
-      pain: "Developers and autonomous agents accidentally include production API keys (sk-..., AKIA...) alongside customer PII in prompts.",
-      value: "Customer PII (IBAN, Name) is reversible in the reply, while API_KEY is non-reversible (stays permanently masked even after restoration).",
-      buyerLine: "PII is restored for the user; leaked API keys stay masked forever.",
+      pain: "[P4/P7/P8] Agents leak production API keys (sk-...) alongside customer PII — violating NIS2 Art. 21/22 supply-chain security, EU AI Act Art. 12/14 & GDPR Art. 32.",
+      value: "→ Solves [P4/P7/P8]: Customer PII is Reversible (restored in Col 04), while API_KEY is Permanent Mask (reversible: false) + EU AI Act Art. 12 zero-PII OTEL trace.",
+      buyerLine: "NIS2 Art. 21 & GDPR Art. 32: PII restores for the user; API_KEY stays masked forever.",
       prompt:
         "Debug agent webhook failure for customer Thomas Becker (thomas.becker@example.de, IBAN DE89 3704 0044 0532 0130 00 in Berlin). Outbound header trace contained bearer secret sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz123456. Explain how to rotate the credential and notify the customer.",
     },
     de: {
       label: "5. Agent-Log mit geleaktem API-Key",
       persona: "AI-Platform-Lead / SecOps",
-      pain: "Entwickler oder Agenten senden versehentlich produktive API-Schlüssel (sk-..., AKIA...) zusammen mit Kundendaten an LLMs.",
-      value: "Kunden-PII (IBAN, Name) wird in der Antwort wiederhergestellt, aber API_KEY ist nicht umkehrbar (reversible: false) und bleibt dauerhaft maskiert.",
-      buyerLine: "PII wird kontrolliert re-identifiziert — API-Keys bleiben für immer maskiert.",
+      pain: "[P4/P7/P8] Agenten senden produktive API-Keys (sk-...) samt Kundendaten an LLMs — Verstoß gegen NIS2 Art. 21/22, EU AI Act Art. 12/14 & DSGVO Art. 32.",
+      value: "→ Löst [P4/P7/P8]: Kunden-PII wird in Spalte 04 wiederhergestellt, aber API_KEY bleibt dauerhaft maskiert (reversible: false) + EU AI Act Art. 12 OTLP-Trace.",
+      buyerLine: "NIS2 Art. 21 & DSGVO Art. 32: PII wird restauriert — API-Keys bleiben für immer maskiert.",
       prompt:
         "Analysiere den Webhook-Fehler für Kunde Thomas Becker (thomas.becker@example.de, IBAN DE89 3704 0044 0532 0130 00 in Berlin). Im Debug-Header stand versehentlich der Schlüssel sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz123456. Beschreibe kurz die Schlüsselrotation und eine Kundeninfo.",
     },
@@ -151,7 +151,7 @@ export const BUYER_SCENARIOS: BuyerScenario[] = [
   {
     id: "clean",
     badge: "Clean Baseline",
-    recommendedLocale: "en",
+    recommendedLocale: "de-DE",
     sampleFilename: "clean-architecture-note",
     en: {
       label: "6. Clean Prompt (0 PII Baseline)",

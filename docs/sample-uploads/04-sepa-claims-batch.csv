@@ -1,0 +1,3 @@
+case_id,customer_name,email,phone,street,city,iban,steuer_id,kvnr,personalausweis,incident_date
+FD-101,Jörg Müller,joerg.mueller@nordbank.example,+49 170 1234567,Hauptstraße 12,60311 Frankfurt,DE89 3704 0044 0532 0130 00,86095742719,A123456780,L01X00T471,14.03.2026
+FD-102,Anna Schmidt,anna.schmidt@example.de,+49 89 12345678,Leopoldstraße 44,80802 München,DE89 3704 0044 0532 0130 00,86095742719,A123456780,L01X00T471,12.03.2026

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AnonReq — Frankfurt AI Week Build Days Pitch & Demo Deck</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    html {
+      --background: #0b0f17;
+      --foreground: #f8fafc;
+      --card: #111827;
+      --border: #1e293b;
+      --muted-foreground: #94a3b8;
+      --primary: #f59e0b;
+      --primary-foreground: #0b0f17;
+      --secondary: #1e293b;
+      --secondary-foreground: #f1f5f9;
+      background-color: var(--background);
+      color: var(--foreground);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    /* Offline fallback styles if Tailwind CDN is unreachable */
+    body { margin: 0; padding: 1.5rem; background: var(--background); color: var(--foreground); }
+    .max-w-5xl { max-width: 64rem; margin-left: auto; margin-right: auto; }
+    .flex { display: flex; }
+    .flex-col { flex-direction: column; }
+    .flex-wrap { flex-wrap: wrap; }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-between { justify-content: space-between; }
+    .justify-center { justify-content: center; }
+    .gap-1\.5 { gap: 0.375rem; }
+    .gap-2 { gap: 0.5rem; }
+    .gap-3 { gap: 0.75rem; }
+    .gap-4 { gap: 1rem; }
+    .grid { display: grid; }
+    @media (min-width: 768px) {
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .md\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    .rounded-md { border-radius: 0.375rem; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .rounded-xl { border-radius: 0.75rem; }
+    .rounded-2xl { border-radius: 1rem; }
+    .rounded-full { border-radius: 9999px; }
+    .border { border: 1px solid var(--border); }
+    .border-2 { border: 2px solid var(--primary); }
+    .border-t { border-top: 1px solid var(--border); }
+    .border-b { border-bottom: 1px solid var(--border); }
+    .p-3 { padding: 0.75rem; }
+    .p-3\.5 { padding: 0.875rem; }
+    .p-4 { padding: 1rem; }
+    .p-6 { padding: 1.5rem; }
+    .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+    .px-2\.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
+    .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+    .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+    .py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+    .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+    .py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+    .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+    .mt-1\.5 { margin-top: 0.375rem; }
+    .mt-3 { margin-top: 0.75rem; }
+    .mt-4 { margin-top: 1rem; }
+    .mt-5 { margin-top: 1.25rem; }
+    .mt-6 { margin-top: 1.5rem; }
+    .mb-1 { margin-bottom: 0.25rem; }
+    .mb-1\.5 { margin-bottom: 0.375rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-3 { margin-bottom: 0.75rem; }
+    .text-xs { font-size: 0.75rem; line-height: 1.15rem; }
+    .text-sm { font-size: 0.875rem; line-height: 1.35rem; }
+    .text-base { font-size: 1rem; line-height: 1.5rem; }
+    .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .italic { font-style: italic; }
+    .uppercase { text-transform: uppercase; }
+    .text-center { text-align: center; }
+    .w-full { width: 100%; }
+    button { cursor: pointer; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border-bottom: 1px solid var(--border); padding: 0.5rem 0.75rem 0.5rem 0; }
+    ul { padding-left: 0; list-style: none; margin: 0; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] antialiased p-4 md:p-6">
+  <div class="max-w-5xl mx-auto flex flex-col gap-4">
+    <!-- Top Deck Bar -->
+    <div class="bg-[var(--card)] border border-[var(--border)] rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+      <div class="flex items-center gap-3">
+        <span class="px-2.5 py-1 rounded-md text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)]">
+          FRANKFURT AI WEEK · 30 OCT 2026
+        </span>
+        <span id="slideCounter" class="text-xs font-mono text-[var(--muted-foreground)]">
+          Slide 1 / 13
+        </span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="toggleNotesBtn" onclick="toggleNotes()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border)] bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90 transition">
+          Hide Speaker Notes (N)
+        </button>
+        <button onclick="prevSlide()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--secondary)] transition">
+          ← Prev
+        </button>
+        <button onclick="nextSlide()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90 transition">
+          Next →
+        </button>
+      </div>
+    </div>
+
+    <!-- Slide Progress Dots -->
+    <div id="dotsContainer" class="flex items-center justify-center gap-1.5"></div>
+
+    <!-- Main Slide Stage -->
+    <div id="slideStage" class="bg-[var(--card)] border border-[var(--border)] rounded-2xl p-6 md:p-10 shadow-sm min-h-[440px] flex flex-col justify-between">
+      <!-- Dynamic Slide Content Injected by JS -->
+    </div>
+
+    <!-- Speaker Notes Drawer -->
+    <div id="notesBox" class="bg-[var(--card)] border border-[var(--border)] rounded-xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-1.5">
+        <span class="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+          Speaker Track / Stage Cue
+        </span>
+        <span id="slideTiming" class="text-xs font-mono text-[var(--muted-foreground)]"></span>
+      </div>
+      <p id="notesText" class="text-sm text-[var(--foreground)] leading-relaxed"></p>
+    </div>
+  </div>
+
+  <script>
+    const slides = [
+      {
+        badge: "01 · INTRODUCTION",
+        timing: "Pitch Intro · 15s",
+        title: "AnonReq — See What Never Leaves.",
+        subtitle: "The Fail-Closed, Self-Hosted AI Privacy Gateway for Regulated EU Enterprises.",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Who We Are</div>
+              <div class="text-base font-semibold mb-2">Abdullah Al-Jauni · InfraTechton (Frankfurt)</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)] leading-relaxed">
+                <li>• AI infrastructure strategist & architect based in Frankfurt am Main.</li>
+                <li>• Working at the intersection of enterprise cloud infrastructure, German regulatory compliance (GDPR / EU AI Act / BaFin DORA), and production LLM systems.</li>
+                <li>• Building self-hosted security primitives so European teams can adopt frontier AI without waiting months for platform overhauls.</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">The Core Thesis</div>
+              <div class="text-base font-semibold mb-2">&ldquo;Legal Said No to Cloud AI. This Proxy Makes It a Yes.&rdquo;</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)] leading-relaxed">
+                <li>• Not a new model or a &ldquo;140-model cloud platform.&rdquo;</li>
+                <li>• An on-prem edge gateway sitting directly in front of the API key you already bought (<code class="font-mono">xAI Grok</code>, OpenAI, Claude, Gemini).</li>
+                <li>• German identifiers out → deterministic tokens in → restored answer back → metadata-only CSV for the DPO.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="mt-5 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-xs font-medium text-center">
+            Frankfurt AI Week Build Days · The Squaire · Friday, 30 October 2026 &nbsp;|&nbsp; Sponsor Stack: xAI Grok (<code class="font-mono">grok-4</code>) + GlassFlow (Rius & Tares)
+          </div>
+        `,
+        notes: "Slide 1 (Intro): Introduce yourself briefly — Abdullah Al-Jauni, founder of InfraTechton here in Frankfurt. Set the thesis: When Legal says 'No' to Grok or ChatGPT, it's rarely because of the model itself—it's because of customer ID numbers leaving the perimeter. AnonReq is the edge proxy that turns Legal's 'No' into a 'Yes'."
+      },
+      {
+        badge: "02 · ORIGIN STORY & HISTORY",
+        timing: "Pitch Story · 25s",
+        title: "How AnonReq Was Born in Frankfurt Rooms",
+        subtitle: "“Frankfurt banks that ban Claude or ChatGPT still have Steuer-IDs landing in personal chats.”",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Act I · The Boardroom Ban</div>
+              <div class="text-sm font-semibold mb-1.5">Compliance Freezes the Pilot</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                Across Frankfurt banks, Munich insurers, and Berlin agencies, engineering teams built promising AI pilots for support & claims. Then the DPO and Legal stepped in: every ticket had a <code class="font-mono">DE-IBAN</code>, <code class="font-mono">Steuer-ID</code>, or <code class="font-mono">KVNR</code>. Under GDPR Art. 44, EU AI Act & DORA, the pilot was frozen overnight.
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Act II · Shadow AI Reality</div>
+              <div class="text-sm font-semibold mb-1.5">Bans Didn't Stop AI—They Hid It</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                When summarizing a complex claim takes 2 hours manually, employees don't stop using AI. They copy-paste the ticket into personal chats on unmanaged phones. Bans created Shadow AI with zero visibility, while vendors pitched 6-month platform rollouts.
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Act III · Building AnonReq</div>
+              <div class="text-sm font-semibold mb-1.5">An Honest Day-One Gateway</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                We asked CISOs & DPOs what they actually needed on Day 1: (1) Keep our existing LLM API key, (2) Strip German PII in memory before it leaves our VPC, and (3) Restore context in the reply & give the DPO a clean audit CSV.
+              </p>
+            </div>
+          </div>
+          <div class="mt-5 p-3.5 rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-xs italic text-center">
+            &ldquo;Bans create Shadow AI. Governance creates an audit trail. Legal’s &lsquo;no&rsquo; is rarely &lsquo;no GPT&rsquo;—it is &lsquo;no ID numbers on a server we do not control.&rsquo;&rdquo;
+          </div>
+        `,
+        notes: "Slide 2 (History): Tell the origin story from Frankfurt and Munich conversations. Companies banned ChatGPT/Claude on paper, yet employees still pasted IBANs and KVNR numbers into personal chats because manual summarization takes hours. Bans create shadow AI; governance creates an audit trail."
+      },
+      {
+        badge: "03 · THE PROBLEM · LAWS & POLICIES BROKEN",
+        timing: "Regulatory Violations [P1]–[P9] · 30s",
+        title: "What Breaks When Teams Paste Documents Into Cloud AI",
+        subtitle: "Pasting raw tickets, PDFs, or CVs into external LLMs triggers immediate GDPR, EU AI Act, DORA, NIS2 & BetrVG violations.",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Violation 1 · GDPR & BDSG</div>
+              <div class="text-sm font-semibold mb-1.5">Art. 5, 9, 25, 32, 44 & BetrVG § 87</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• <strong>[P1] GDPR Art. 44 (Third-Country Transfer):</strong> Sending <code class="font-mono">DE-IBAN</code>, <code class="font-mono">Steuer-ID</code>, or <code class="font-mono">KVNR</code> to US/cloud APIs without supplementary technical measures.</li>
+                <li>• <strong>[P2] GDPR Art. 5(1)(c) & Art. 25:</strong> Data minimisation & privacy-by-design breached when full cleartext PDFs leave the VPC.</li>
+                <li>• <strong>[P3] GDPR Art. 9 & BetrVG § 87 / BDSG § 26:</strong> Unprotected medical <code class="font-mono">KVNR</code> claims & employee CVs screened without Works Council safeguard.</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Violation 2 · EU AI Act & DORA</div>
+              <div class="text-sm font-semibold mb-1.5">EU AI Act (2024/1689) & DORA (2022/2554)</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• <strong>[P4] EU AI Act Art. 12 & Art. 26(6):</strong> Deployer logging duty broken — Shadow AI leaves zero audit trail of prompts, models, or filtered entities.</li>
+                <li>• <strong>[P5] EU AI Act Art. 14 & Art. 26(5):</strong> Human oversight & input governance bypassed when files go straight to GPAI.</li>
+                <li>• <strong>[P6] DORA Art. 5, 9, 28 + BaFin VAIT:</strong> Uncontrolled ICT third-party data exposure with no fail-secure circuit breaker.</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Violation 3 · NIS2 & Legacy DLP</div>
+              <div class="text-sm font-semibold mb-1.5">NIS2 (Art. 21/24) & Broken &ldquo;[REDACTED]&rdquo;</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• <strong>[P7] NIS2 Art. 21 & 24 / KRITIS:</strong> Ops logs leak critical substation IDs (<code class="font-mono">SITE_ID</code>) and live <code class="font-mono">API_KEY</code> credentials.</li>
+                <li>• <strong>[P8] Why Naive &ldquo;[REDACTED]&rdquo; Fails:</strong> Static masks destroy multi-entity context so the LLM mixes up accounts.</li>
+                <li>• <strong>[P9] Why Local 70B LLMs Stall:</strong> High GPU cost, and PII/keys still leak into app logs & OTEL traces.</li>
+              </ul>
+            </div>
+          </div>
+        `,
+        notes: "Slide 3 (The Problem — Policies Broken): Walk through [P1]–[P9]: GDPR Art. 44 (third-country transfer), Art. 5/25/32 (minimisation & pseudonymisation), Art. 9 & BetrVG § 87 (health KVNR & Works Council); EU AI Act Art. 12/14/26 (deployer logging & oversight); DORA Art. 5/9/28 (ICT third-party risk); and NIS2 Art. 21/24 (KRITIS SITE_ID & API_KEY leaks)."
+      },
+      {
+        badge: "04 · THE SOLUTION · LINKED POLICY CONTROLS",
+        timing: "Linked Countermeasures [P1]–[P9] · 30s",
+        title: "How AnonReq Solves Each Violation at the Network Edge",
+        subtitle: "Every AnonReq pipeline stage is engineered as a direct technical safeguard for [P1]–[P9].",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Solves [P1, P2, P3] · GDPR & BetrVG</div>
+              <div class="text-sm font-semibold mb-1.5">Edge Pseudonymisation & Zero-Disk Vault</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• <strong>→ [P1] GDPR Art. 44 & 32:</strong> Hybrid DE detector (<code class="font-mono">MOD-97</code> + Presidio <code class="font-mono">de_core_news_lg</code>) replaces <code class="font-mono">IBAN</code>, <code class="font-mono">Steuer-ID</code> & <code class="font-mono">KVNR</code> with tokens (<code class="font-mono">[IBAN_DE_…6951]</code>) inside your VPC.</li>
+                <li>• <strong>→ [P2] GDPR Art. 5(1)(c)/(e) & 25:</strong> Ephemeral Valkey vault (<code class="font-mono">save &quot;&quot;</code>, <code class="font-mono">appendonly no</code>) auto-evicts mappings after TTL.</li>
+                <li>• <strong>→ [P3] BetrVG § 87 & Art. 9:</strong> Strips candidate/patient PII pre-LLM; zero raw PII in <code class="font-mono">stdout</code> logs.</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Solves [P4, P5, P6] · EU AI Act & DORA</div>
+              <div class="text-sm font-semibold mb-1.5">Pre-Flight Gate, Audit CSV & Fail-Closed</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• <strong>→ [P4] EU AI Act Art. 12 & 26(6) + GDPR Art. 30:</strong> Immutable metadata-only Audit CSV (who, when, model, <code class="font-mono">entity_types</code>) + zero-PII GlassFlow OTEL traces.</li>
+                <li>• <strong>→ [P5] EU AI Act Art. 14 & 26(5):</strong> &ldquo;Is This File OK?&rdquo; <code class="font-mono">Scan Only</code> Verdict Card + 4-Column Wire Proof for human review.</li>
+                <li>• <strong>→ [P6] DORA Art. 5, 9 & 28:</strong> Fail-closed <code class="font-mono">HTTP 503</code> if Presidio/Valkey is down; provider only processes tokens.</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Solves [P7, P8, P9] · NIS2 & Accuracy</div>
+              <div class="text-sm font-semibold mb-1.5">Differential Restoration on CPU</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• <strong>→ [P7] NIS2 Art. 21 & 24 / KRITIS:</strong> Masks substation <code class="font-mono">SITE_ID</code>s and enforces <code class="font-mono">Permanent Mask</code> (<code class="font-mono">reversible: false</code>) on <code class="font-mono">API_KEY</code>s.</li>
+                <li>• <strong>→ [P8] Fixes &ldquo;[REDACTED]&rdquo;:</strong> Deterministic tokens preserve multi-entity relationships; <code class="font-mono">RestorationStage</code> swaps PII back in ms.</li>
+                <li>• <strong>→ [P9] No GPU Lock-In:</strong> Runs on CPU in Docker/Helm while unlocking frontier <code class="font-mono">grok-4</code> reasoning safely.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="mt-4 p-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-xs text-center font-medium">
+            Honest Framing: We never claim &ldquo;GDPR-certified ChatGPT/Grok.&rdquo; We prove: &ldquo;Listed German identifiers are replaced in your VPC before the provider call, with a fail-closed gate and a DPO audit CSV.&rdquo;
+          </div>
+        `,
+        notes: "Slide 4 (The Solution — Linked Controls): Show how every violation [P1]–[P9] from Slide 3 is answered directly by AnonReq's architecture."
+      },
+      {
+        badge: "05 · PROBLEM ↔ SOLUTION COMPLIANCE MATRIX",
+        timing: "1-to-1 Legal & DPO Crosswalk · 20s",
+        title: "Direct 1-to-1 Mapping for CISO, DPO & Legal Sign-Off",
+        subtitle: "Every regulatory blocker in Frankfurt & Munich paired directly with a verifiable AnonReq control.",
+        body: `
+          <div class="overflow-x-auto mt-3">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-[var(--border)] text-[var(--muted-foreground)] uppercase">
+                  <th class="py-2 pr-3">Policy / Regulation</th>
+                  <th class="py-2 pr-3">What Breaks Without AnonReq (Problem)</th>
+                  <th class="py-2">How AnonReq Enforces It (Solution)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--border)]">
+                <tr>
+                  <td class="py-2 pr-3 font-mono font-semibold">[P1/P2] GDPR Art. 44, 32, 25 & 5(1)(c)/(e)</td>
+                  <td class="py-2 pr-3 text-[var(--muted-foreground)]">Cleartext <code class="font-mono">DE-IBAN</code>, <code class="font-mono">Steuer-ID</code> & names sent to US/cloud LLM servers; stored on disk.</td>
+                  <td class="py-2">Preset <code class="font-mono">germany</code> (<code class="font-mono">de-DE</code>) tokenizes PII at VPC edge; AES-256-GCM Valkey with <code class="font-mono">save &quot;&quot;</code> & TTL eviction.</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-3 font-mono font-semibold">[P3] GDPR Art. 9, BDSG § 26 & BetrVG § 87</td>
+                  <td class="py-2 pr-3 text-[var(--muted-foreground)]">Medical <code class="font-mono">KVNR</code> in claims & employee CVs screened in cloud AI without Works Council safeguard.</td>
+                  <td class="py-2"><code class="font-mono">KVNR</code>, <code class="font-mono">Personalausweis</code> & candidate PII stripped pre-LLM; <code class="font-mono">stdout</code> JSON logs redact all prompt values.</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-3 font-mono font-semibold">[P4/P5] EU AI Act Art. 12, 14 & 26(5)/(6)</td>
+                  <td class="py-2 pr-3 text-[var(--muted-foreground)]">Shadow AI has no deployer log, no input readiness check, and no human-in-the-loop verification.</td>
+                  <td class="py-2"><code class="font-mono">Scan Only</code> Verdict Card + 4-Column Wire Proof + 1-click DPO CSV (who, when, model, <code class="font-mono">entity_types</code>).</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-3 font-mono font-semibold">[P6] DORA Art. 5, 9, 28, 30 & BaFin VAIT</td>
+                  <td class="py-2 pr-3 text-[var(--muted-foreground)]">ICT third-party concentration risk & uncontrolled cleartext fallback if a security tool crashes.</td>
+                  <td class="py-2">Self-hosted gateway (Helm/Compose); provider only sees tokens; fail-closed <code class="font-mono">HTTP 503</code> on detector failure.</td>
+                </tr>
+                <tr>
+                  <td class="py-2 pr-3 font-mono font-semibold">[P7/P8] NIS2 Art. 21/24 (KRITIS) & DLP</td>
+                  <td class="py-2 pr-3 text-[var(--muted-foreground)]">Substation <code class="font-mono">SITE_ID</code>s & live <code class="font-mono">API_KEY</code>s leaked; static <code class="font-mono">[REDACTED]</code> breaks LLM replies.</td>
+                  <td class="py-2"><code class="font-mono">Reversible</code> tokens for customer PII (restored in Col 04) + <code class="font-mono">Permanent Mask</code> for <code class="font-mono">API_KEY</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+        notes: "Slide 5 (1-to-1 Compliance Matrix): Use this crosswalk table when a DPO, CISO, or compliance officer asks how each specific article maps to the product."
+      },
+      {
+        badge: "06 · PRODUCT · FILE READINESS CHECK",
+        timing: "Live Demo Feature 1",
+        title: "Upload Any Document → Instant 'Is It OK?' Verdict",
+        subtitle: "Enforces GDPR Art. 25 & EU AI Act Art. 26(5) before spending a single upstream LLM token.",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono text-[var(--muted-foreground)] mb-1">STEP 1 · UPLOAD OR SAMPLE</div>
+              <div class="text-sm font-semibold mb-1.5">Multi-Format Text Stream Extraction</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                Supports <code class="font-mono">.pdf</code>, <code class="font-mono">.docx</code>, <code class="font-mono">.txt</code>, <code class="font-mono">.md</code>, <code class="font-mono">.csv</code>, <code class="font-mono">.json</code>, <code class="font-mono">.log</code>, <code class="font-mono">.eml</code> up to 5 MB (7,200 chars). Zero external upload—parsed locally via Node <code class="font-mono">zlib</code>.
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono text-[var(--muted-foreground)] mb-1">STEP 2 · AUTO PRE-FLIGHT</div>
+              <div class="text-sm font-semibold mb-1.5">Scan Only (Zero LLM Call)</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                Automatically calls <code class="font-mono">/v1/debug/anonymize-preview</code> on upload. Highlights every detected span and classifies sensitivity (<code class="font-mono">HIGH</code> / <code class="font-mono">CRITICAL</code>).
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono text-[var(--muted-foreground)] mb-1">STEP 3 · AI GATE VERDICT</div>
+              <div class="text-sm font-semibold mb-1.5">Blocked Direct vs. Safe via Gateway</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                Shows <span class="font-semibold">Direct to Cloud LLM: BLOCKED</span> (GDPR Art. 44 / DORA risk) alongside <span class="font-semibold">Via AnonReq: GOVERNED & SAFE</span> (Art. 32 pseudonymised).
+              </p>
+            </div>
+          </div>
+        `,
+        notes: "Slide 6 (File Readiness Check): Show how a user or pilot customer can drop a PDF or DOCX into the UI and immediately see whether it is safe or blocked under GDPR Art. 44 / DORA."
+      },
+      {
+        badge: "07 · PRODUCT · FOUR-COLUMN WIRE PROOF",
+        timing: "Live Demo Feature 2",
+        title: "Why Column 03 Convinces Skeptical CISOs & Judges",
+        subtitle: "Visualizes GDPR Art. 32 pseudonymisation & Art. 44 transfer protection across the entire wire round-trip.",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-3.5 bg-[var(--background)]">
+              <div class="text-xs font-mono text-[var(--muted-foreground)]">01 · RAW PROMPT</div>
+              <div class="text-sm font-semibold mt-0.5 mb-2">What You Sent</div>
+              <p class="text-xs font-mono leading-relaxed text-[var(--muted-foreground)]">
+                SEPA Dispute #4920 — Customer: <span class="underline font-semibold text-[var(--foreground)]">Jörg Müller</span>, verify IBAN <span class="underline font-semibold text-[var(--foreground)]">DE89 3704 0044 0532 0130 00</span> and Tax ID <span class="underline font-semibold text-[var(--foreground)]">86095742719</span>.
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-3.5 bg-[var(--background)]">
+              <div class="text-xs font-mono text-[var(--muted-foreground)]">02 · ANONYMIZED</div>
+              <div class="text-sm font-semibold mt-0.5 mb-2">What Leaves Perimeter</div>
+              <p class="text-xs font-mono leading-relaxed text-[var(--muted-foreground)]">
+                SEPA Dispute #4920 — Customer: <span class="font-semibold text-[var(--foreground)]">[PERSON_…6951]</span>, verify IBAN <span class="font-semibold text-[var(--foreground)]">[IBAN_DE_…6951]</span> and Tax ID <span class="font-semibold text-[var(--foreground)]">[TAX_ID_DE_…6951]</span>.
+              </p>
+            </div>
+            <div class="border-2 border-[var(--primary)] rounded-xl p-3.5 bg-[var(--background)]">
+              <div class="text-xs font-mono font-semibold">03 · MODEL REPLY (RAW)</div>
+              <div class="text-sm font-semibold mt-0.5 mb-2">From Grok Before Restore</div>
+              <p class="text-xs font-mono leading-relaxed text-[var(--muted-foreground)]">
+                Dear <span class="font-semibold text-[var(--foreground)]">[PERSON_…6776]</span>, we verified IBAN <span class="font-semibold text-[var(--foreground)]">[IBAN_DE_…6776]</span> and Tax ID <span class="font-semibold text-[var(--foreground)]">[TAX_ID_DE_…6776]</span>…
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-3.5 bg-[var(--background)]">
+              <div class="text-xs font-mono text-[var(--muted-foreground)]">04 · RE-IDENTIFIED</div>
+              <div class="text-sm font-semibold mt-0.5 mb-2">Restored for User</div>
+              <p class="text-xs font-mono leading-relaxed text-[var(--muted-foreground)]">
+                Dear <span class="underline font-semibold text-[var(--foreground)]">Jörg Müller</span>, we verified IBAN <span class="underline font-semibold text-[var(--foreground)]">DE89 3704 0044 0532 0130 00</span> and Tax ID <span class="underline font-semibold text-[var(--foreground)]">86095742719</span>…
+              </p>
+            </div>
+          </div>
+          <p class="text-xs text-[var(--muted-foreground)] mt-4">
+            <strong>Technical proof (GDPR Art. 44):</strong> Column 03 renders <code class="font-mono">choices[0].message.anonreq_raw_content</code> captured directly from <code class="font-mono">proc_ctx.provider_response</code> before <code class="font-mono">RestorationStage</code> executes.
+          </p>
+        `,
+        notes: "Slide 7 (Four-Column Wire Proof): Walk across the 4 columns. Emphasize Column 03: Grok literally replied with '[PERSON_…]' and '[IBAN_DE_…]' tokens over the wire."
+      },
+      {
+        badge: "08 · FIVE EU BUYER USE CASES",
+        timing: "Buyer Relevance & Policy Frameworks",
+        title: "Five Regulated German Workflows & Their Policy Frameworks",
+        subtitle: "Each scenario in the live UI maps to specific German/EU regulatory obligations.",
+        body: `
+          <div class="overflow-x-auto mt-4">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-[var(--border)] text-[var(--muted-foreground)] uppercase">
+                  <th class="py-2 pr-3">Scenario</th>
+                  <th class="py-2 pr-3">Regulations Addressed</th>
+                  <th class="py-2 pr-3">Entities Detected</th>
+                  <th class="py-2">Key Governance Proof</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--border)]">
+                <tr>
+                  <td class="py-2.5 pr-3 font-semibold">1. Bank Support Ticket</td>
+                  <td class="py-2.5 pr-3">GDPR Art. 44 · DORA Art. 28 · BaFin VAIT</td>
+                  <td class="py-2.5 pr-3 font-mono">IBAN_DE, TAX_ID_DE, PERSON, STREET_ADDRESS_DE</td>
+                  <td class="py-2.5">Tuned MNPI exclusions (<code class="font-mono">SEPA</code>, <code class="font-mono">ID</code> clean)</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-3 font-semibold">2. Insurance Claim</td>
+                  <td class="py-2.5 pr-3">GDPR Art. 9 (Health) · Art. 32 · BDSG</td>
+                  <td class="py-2.5 pr-3 font-mono">KVNR, PERSONAL_AUSWEIS, AKTENZEICHEN, IBAN_DE</td>
+                  <td class="py-2.5">Protects Art. 9 health ID + German ID card number</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-3 font-semibold">3. HR / CV Screening</td>
+                  <td class="py-2.5 pr-3">BetrVG § 87 (Betriebsrat) · BDSG § 26 · AGG</td>
+                  <td class="py-2.5 pr-3 font-mono">PERSON, DATE_DE, STREET_ADDRESS_DE, TAX_ID_DE</td>
+                  <td class="py-2.5">Blind skill summary without demographic leakage</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-3 font-semibold">4. Energy Grid (KRITIS)</td>
+                  <td class="py-2.5 pr-3">NIS2 Art. 21/24 · BSIG KRITIS · GDPR</td>
+                  <td class="py-2.5 pr-3 font-mono">SITE_ID (UW-NORD-0417), ACCOUNT_NUMBER_DE</td>
+                  <td class="py-2.5">Masks substation asset IDs & technician phones</td>
+                </tr>
+                <tr>
+                  <td class="py-2.5 pr-3 font-semibold">5. Agent Tool + Secret</td>
+                  <td class="py-2.5 pr-3">EU AI Act Art. 12/14 · NIS2 Supply Chain</td>
+                  <td class="py-2.5 pr-3 font-mono">PERSON, IBAN_DE + API_KEY (non-reversible)</td>
+                  <td class="py-2.5"><strong>Differential policy:</strong> PII restores; <code class="font-mono">API_KEY</code> stays masked</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `,
+        notes: "Slide 8 (Five EU Use Cases): Connect each scenario to the German regulatory regime (BaFin VAIT/DORA for banks, GDPR Art. 9 for insurance KVNR, BetrVG § 87 for HR Works Councils, NIS2/KRITIS for energy, and EU AI Act for agent tool calls)."
+      },
+      {
+        badge: "09 · SPONSOR ARCHITECTURE",
+        timing: "Sponsor Signal · xAI + GlassFlow",
+        title: "xAI Grok Upstream + GlassFlow Rius & Tares",
+        subtitle: "Frontier reasoning through Grok paired with EU AI Act Art. 12 / GDPR Art. 5(2) zero-PII observability.",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Upstream LLM</div>
+              <div class="text-sm font-semibold mb-1.5">xAI Grok (<code class="font-mono">grok-4</code>)</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                Routed via OpenAI-compatible <code class="font-mono">https://api.x.ai/v1</code> in <code class="font-mono">model_aliases.demo.yaml</code>. Receives only tokenized prompts — satisfying GDPR Art. 44.
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Observability Layer</div>
+              <div class="text-sm font-semibold mb-1.5">GlassFlow Rius (OTEL)</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                Builds a 3-span OpenTelemetry trace (<code class="font-mono">gateway.chat</code> → <code class="font-mono">presidio.anonymize</code> → <code class="font-mono">xai.grok</code>) supporting EU AI Act Art. 12 logging with zero PII.
+              </p>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Context Timeline</div>
+              <div class="text-sm font-semibold mb-1.5">GlassFlow Tares (CloudEvents)</div>
+              <p class="text-xs text-[var(--muted-foreground)] leading-relaxed">
+                Emits <code class="font-mono">ai.anonreq.gateway.sanitized_interaction</code> CloudEvents so downstream agent triggers wake up with pre-tokenized context.
+              </p>
+            </div>
+          </div>
+        `,
+        notes: "Slide 9 (Sponsor Architecture): Show how xAI Grok and GlassFlow fit into the compliance story: Grok processes tokenized prompts (GDPR Art. 44), while GlassFlow Rius & Tares capture zero-PII traces and timelines (EU AI Act Art. 12)."
+      },
+      {
+        badge: "10 · CISO & DPO GUARANTEES",
+        timing: "Compliance Proof",
+        title: "Fail-Closed Kill Switch & Zero-PII DPO Audit CSV",
+        subtitle: "Direct evidence for GDPR Art. 5(2) / Art. 30, EU AI Act Art. 26(6), and DORA Art. 5 / Art. 9.",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">1-Click DPO Handshake (GDPR Art. 30 & AI Act Art. 12)</div>
+              <div class="text-sm font-semibold mb-2">Metadata-Only Audit Export (<code class="font-mono">text/csv</code>)</div>
+              <p class="text-xs text-[var(--muted-foreground)] mb-3">
+                Exported from <code class="font-mono">/v1/admin/anonymization-events/export</code>. Stores only request timestamps, tenant ID, entity types, counts, and sensitivity—never raw PII.
+              </p>
+              <div class="p-2.5 rounded-lg bg-[var(--secondary)] font-mono text-xs overflow-x-auto">
+                event_id,timestamp,entity_types,entity_count,action_taken,sensitivity<br/>
+                93bf...,2026-10-30T...,&quot;IBAN_DE,PERSON,TAX_ID_DE&quot;,8,ANONYMIZE,HIGH
+              </div>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Circuit Breaker Proof (GDPR Art. 25 & DORA Art. 9)</div>
+              <div class="text-sm font-semibold mb-2">Fail-Closed When Detection Is Down</div>
+              <p class="text-xs text-[var(--muted-foreground)] mb-3">
+                If Presidio or Valkey becomes unhealthy, AnonReq refuses to forward cleartext and immediately returns HTTP 503.
+              </p>
+              <div class="p-2.5 rounded-lg bg-[var(--secondary)] font-mono text-xs overflow-x-auto">
+                $ docker compose ... stop presidio-analyzer<br/>
+                → HTTP 503 Service Unavailable (0 bytes sent to xAI)
+              </div>
+            </div>
+          </div>
+        `,
+        notes: "Slide 10 (CISO & DPO Controls): Highlight the metadata-only CSV export (GDPR Art. 30 / EU AI Act Art. 12) and the fail-closed HTTP 503 circuit breaker (GDPR Art. 25 / DORA Art. 9)."
+      },
+      {
+        badge: "11 · PRODUCTION DEPTH",
+        timing: "Architecture Depth · 15s",
+        title: "Built as an Enterprise Gateway — Not Just a Hackathon Toy",
+        subtitle: "Mapped across 9 frameworks (GDPR, EU AI Act, DORA, NIS2, ISO 27001, ISO 42001, EBA, SEC, FINRA).",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Security & Governance</div>
+              <div class="text-sm font-semibold mb-1.5">AI Firewall, DLP & RBAC</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• RBAC & Policy Engine (PDP/PEP) with YAML-configurable tenant rules (ISO 27001 A.5.15).</li>
+                <li>• Prompt injection & jailbreak classification (<code class="font-mono">BLOCK / ROUTE_LOCAL / ANONYMIZE</code>).</li>
+                <li>• 8 locale bundles & 6 compliance presets (GDPR, LGPD, PDPA, POPIA, PIPEDA).</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">Streaming & Protocols</div>
+              <div class="text-sm font-semibold mb-1.5">SSE Tail Buffer & Multi-Provider</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• Real-time token restoration across Server-Sent Events (SSE) streams with a split-token Tail Buffer.</li>
+                <li>• OpenAI-compatible wire API translating to xAI Grok, OpenAI, Anthropic, Gemini & Ollama.</li>
+                <li>• MCP tool call payload inspection & voice transcript sanitization.</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-mono uppercase text-[var(--muted-foreground)] mb-1">SOC & Deployment</div>
+              <div class="text-sm font-semibold mb-1.5">Compose / Helm + SIEM Sinks</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>• Native SOC/SIEM sink adapters for Splunk HEC, Elastic, Microsoft Sentinel, QRadar & Datadog.</li>
+                <li>• DORA Art. 11/28 incident auto-escalation & provider concentration risk inventory.</li>
+                <li>• Deploys via Docker Compose or Helm inside your VPC in one day.</li>
+              </ul>
+            </div>
+          </div>
+        `,
+        notes: "Slide 11 (Production Depth): Briefly show judges and technical buyers that AnonReq is a complete production codebase with SSE stream restoration, RBAC policy engine, DORA provider inventory, SIEM sinks, and Helm/Compose deployment."
+      },
+      {
+        badge: "12 · 90-SECOND STAGE RUNBOOK",
+        timing: "Transition to Live Demo",
+        title: "Live Demo Choreography (http://localhost:3000/en)",
+        subtitle: "Switch to browser: Select Scenario 1 (Bank Support Ticket) with the sample Bank PDF ready.",
+        body: `
+          <div class="space-y-2.5 mt-4 text-xs">
+            <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+              <span class="font-mono font-bold px-2 py-0.5 rounded bg-[var(--secondary)]">0:00–0:15</span>
+              <div><strong>Drop Sample Bank PDF:</strong> &ldquo;This is a synthetic SEPA dispute ticket PDF. Support wants AI to draft an acknowledgement, but it contains a German IBAN and Steuer-ID (GDPR Art. 44 / BaFin VAIT blocker).&rdquo;</div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+              <span class="font-mono font-bold px-2 py-0.5 rounded bg-[var(--secondary)]">0:15–0:35</span>
+              <div><strong>Show AI Gate Verdict Card:</strong> &ldquo;Uploading extracts readable text locally and auto-runs Scan Only (EU AI Act Art. 14 oversight). Direct to cloud LLM is blocked; here are the 8 German identifiers detected.&rdquo;</div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+              <span class="font-mono font-bold px-2 py-0.5 rounded bg-[var(--secondary)]">0:35–0:60</span>
+              <div><strong>Click Draft Reply → Anonymize & Ask Grok:</strong> &ldquo;Column 02 is the tokenized prompt leaving our network (GDPR Art. 32). Column 03 is the actual raw reply from Grok over the wire—still using tokens.&rdquo;</div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+              <span class="font-mono font-bold px-2 py-0.5 rounded bg-[var(--secondary)]">0:60–0:75</span>
+              <div><strong>Point to Column 04:</strong> &ldquo;AnonReq restores the reversible tokens in milliseconds so the agent gets a complete draft reply.&rdquo;</div>
+            </div>
+            <div class="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--background)]">
+              <span class="font-mono font-bold px-2 py-0.5 rounded bg-[var(--secondary)]">0:75–0:90</span>
+              <div><strong>GlassFlow & DPO CSV:</strong> &ldquo;Zero-PII OTEL traces for GlassFlow Rius/Tares (EU AI Act Art. 12), and a 1-click metadata CSV for the DPO (GDPR Art. 30).&rdquo;</div>
+            </div>
+          </div>
+        `,
+        notes: "Slide 12 (Live Demo Runbook): Switch to http://localhost:3000/en and execute the 90-second live demo."
+      },
+      {
+        badge: "13 · PILOT CALL TO ACTION",
+        timing: "Closing & Q&A",
+        title: "Bring One Synthetic Workflow — 2-Week Germany PoC",
+        subtitle: "Honest engineering boundaries today, structured 2-week pilot roadmap inside your VPC.",
+        body: `
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-2">Verified in Today's Demo Stack</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>✓ Readable text extraction (<code class="font-mono">.pdf</code>, <code class="font-mono">.docx</code>, <code class="font-mono">.txt</code>, <code class="font-mono">.csv</code>, <code class="font-mono">.json</code>, <code class="font-mono">.eml</code> up to 5 MB / 7,200 chars)</li>
+                <li>✓ German spaCy NER + checksum recognizers (<code class="font-mono">IBAN_DE</code>, <code class="font-mono">TAX_ID_DE</code>, <code class="font-mono">KVNR</code>)</li>
+                <li>✓ 4-column wire verification with live <code class="font-mono">grok-4</code> upstream (GDPR Art. 32 / 44)</li>
+                <li>✓ Differential policy: reversible PII vs permanent <code class="font-mono">API_KEY</code> mask</li>
+              </ul>
+            </div>
+            <div class="border border-[var(--border)] rounded-xl p-4 bg-[var(--background)]">
+              <div class="text-xs font-semibold uppercase tracking-wider text-[var(--muted-foreground)] mb-2">What We Scope in a 2-Week Pilot</div>
+              <ul class="space-y-1.5 text-xs text-[var(--muted-foreground)]">
+                <li>→ Residual risk & recall benchmark on your synthetic domain tickets (GDPR Art. 35 DPIA input)</li>
+                <li>→ Sanitized RAG chunking pipeline for large 100+ page documents</li>
+                <li>→ OCR pre-processing for scanned image PDFs</li>
+                <li>→ VPC deployment (Docker Compose / Helm) + Germany Trust Pack & DPA Annex</li>
+              </ul>
+            </div>
+          </div>
+          <div class="mt-6 p-4 rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-center">
+            <div class="text-sm font-semibold">Closing Line: &ldquo;Bring one synthetic workflow. Together we inspect what is detected, what leaves, and whether the answer is useful.&rdquo; — Abdullah Al-Jauni (infratechton.com)</div>
+          </div>
+        `,
+        notes: "Slide 13 (Closing & CTA): 'Bring one synthetic workflow. Together we can inspect what is detected, what leaves, and whether the answer is useful.' Open the floor for judge & buyer questions."
+      }
+    ];
+
+    let currentSlide = 0;
+    let showNotes = true;
+
+    function renderSlide() {
+      const s = slides[currentSlide];
+      document.getElementById("slideCounter").textContent = `Slide ${currentSlide + 1} / ${slides.length}`;
+      document.getElementById("slideTiming").textContent = s.timing;
+      document.getElementById("notesText").textContent = s.notes;
+
+      const stage = document.getElementById("slideStage");
+      stage.innerHTML = `
+        <div>
+          <div class="inline-block px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-[var(--secondary)] text-[var(--secondary-foreground)] mb-3">
+            ${s.badge}
+          </div>
+          <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-[var(--foreground)]">
+            ${s.title}
+          </h1>
+          <p class="text-sm md:text-base text-[var(--muted-foreground)] mt-1.5">
+            ${s.subtitle}
+          </p>
+          ${s.body}
+        </div>
+        <div class="mt-6 pt-3 border-t border-[var(--border)] flex items-center justify-between text-xs text-[var(--muted-foreground)]">
+          <span>AnonReq · Privacy-First AI Gateway · Abdullah Al-Jauni (InfraTechton)</span>
+          <span>Use ← / → arrow keys to navigate</span>
+        </div>
+      `;
+
+      const dots = document.getElementById("dotsContainer");
+      dots.innerHTML = slides.map((_, idx) => `
+        <button onclick="goToSlide(${idx})" class="h-2 rounded-full transition-all ${idx === currentSlide ? 'w-6 bg-[var(--primary)]' : 'w-2 bg-[var(--border)]'}" aria-label="Go to slide ${idx + 1}"></button>
+      `).join("");
+    }
+
+    function nextSlide() {
+      currentSlide = (currentSlide + 1) % slides.length;
+      renderSlide();
+    }
+
+    function prevSlide() {
+      currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+      renderSlide();
+    }
+
+    function goToSlide(idx) {
+      currentSlide = idx;
+      renderSlide();
+    }
+
+    function toggleNotes() {
+      showNotes = !showNotes;
+      const box = document.getElementById("notesBox");
+      const btn = document.getElementById("toggleNotesBtn");
+      box.style.display = showNotes ? "block" : "none";
+      btn.textContent = showNotes ? "Hide Speaker Notes (N)" : "Show Speaker Notes (N)";
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight" || e.key === " ") {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key.toLowerCase() === "n") {
+        toggleNotes();
+      }
+    });
+
+    renderSlide();
+  </script>
+</body>
+</html>

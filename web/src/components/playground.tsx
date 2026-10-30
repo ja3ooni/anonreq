@@ -745,7 +745,12 @@ export function Playground() {
 
       {/* Four Columns: 01 Raw · 02 Anonymized · 03 Raw Model Reply · 04 Re-identified Answer */}
       <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-busy={phase === "running"}>
-        <Column step="01" title={t("rawTitle")} hint={t("rawHint")}>
+        <Column
+          step="01"
+          title={t("rawTitle")}
+          hint={t("rawHint")}
+          copyText={phase === "done" && submitted ? submitted : undefined}
+        >
           {phase === "idle" ? <p className="text-sm text-muted-foreground">{t("empty")}</p> : null}
           {phase === "running" ? <Skeleton /> : null}
           {phase === "done" ? (
@@ -764,7 +769,12 @@ export function Playground() {
           ) : null}
         </Column>
 
-        <Column step="02" title={t("anonTitle")} hint={t("anonHint")}>
+        <Column
+          step="02"
+          title={t("anonTitle")}
+          hint={t("anonHint")}
+          copyText={phase === "done" && previewData && anonymizedText ? anonymizedText : undefined}
+        >
           {phase === "idle" ? <p className="text-sm text-muted-foreground">{t("empty")}</p> : null}
           {phase === "running" ? <Skeleton /> : null}
           {phase === "done" && previewData ? (
@@ -797,7 +807,12 @@ export function Playground() {
           ) : null}
         </Column>
 
-        <Column step="03" title={t("modelRawTitle")} hint={t("modelRawHint")}>
+        <Column
+          step="03"
+          title={t("modelRawTitle")}
+          hint={t("modelRawHint")}
+          copyText={phase === "done" && answerPair?.rawModelText ? answerPair.rawModelText : undefined}
+        >
           {phase === "idle" ? <p className="text-sm text-muted-foreground">{t("empty")}</p> : null}
           {phase === "running" && runMode === "full_chat" ? <Skeleton /> : null}
           {phase === "done" && runMode === "scan_only" ? (
@@ -819,7 +834,12 @@ export function Playground() {
           ) : null}
         </Column>
 
-        <Column step="04" title={t("answerTitle")} hint={t("answerHint")}>
+        <Column
+          step="04"
+          title={t("answerTitle")}
+          hint={t("answerHint")}
+          copyText={phase === "done" && chat?.answer ? chat.answer : undefined}
+        >
           {phase === "idle" ? <p className="text-sm text-muted-foreground">{t("empty")}</p> : null}
           {phase === "running" && runMode === "full_chat" ? <Skeleton /> : null}
           {phase === "done" && runMode === "scan_only" ? (
@@ -906,21 +926,81 @@ function Column({
   step,
   title,
   hint,
+  copyText,
   children,
 }: {
   step: string;
   title: string;
   hint: string;
+  copyText?: string;
   children: ReactNode;
 }) {
   const headingId = `column-${step}`;
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    if (!copyText) return;
+    try {
+      await navigator.clipboard.writeText(copyText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // ignore clipboard errors
+    }
+  }
+
   return (
     <section
       aria-labelledby={headingId}
       className="flex min-h-80 min-w-0 flex-col overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm"
     >
       <div className="border-b border-border/60 pb-3 xl:min-h-[6.75rem]">
-        <p className="font-mono text-xs font-semibold text-[#9a3412]">{step}</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-mono text-xs font-semibold text-[#9a3412]">{step}</p>
+          <button
+            type="button"
+            disabled={!copyText}
+            onClick={() => void handleCopy()}
+            title={copied ? "Copied!" : `Copy ${title}`}
+            aria-label={copied ? "Copied" : `Copy ${title}`}
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2 font-mono text-[11px] text-muted-foreground transition hover:border-border hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-35"
+          >
+            {copied ? (
+              <>
+                <svg
+                  aria-hidden
+                  viewBox="0 0 16 16"
+                  className="h-3.5 w-3.5 text-[#166534]"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
+                </svg>
+                <span className="text-[#166534]">Copied</span>
+              </>
+            ) : (
+              <>
+                <svg
+                  aria-hidden
+                  viewBox="0 0 16 16"
+                  className="h-3.5 w-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+                  <path d="M10.5 5.5V3.75A1.25 1.25 0 0 0 9.25 2.5h-5.5A1.25 1.25 0 0 0 2.5 3.75v5.5a1.25 1.25 0 0 0 1.25 1.25H5.5" />
+                </svg>
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+        </div>
         <h2 id={headingId} className="mt-1 font-serif text-xl leading-snug">
           {title}
         </h2>

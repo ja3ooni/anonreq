@@ -17,9 +17,10 @@ services:
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?set ANONREQ_ADMIN_API_KEY (use --env-file ../.env)}
       ANONREQ_GATEWAY_URL: ${ANONREQ_GATEWAY_URL:-http://anonreq-gateway:8080}
       GLASSFLOW_RIUS_OTLP_ENDPOINT: ${GLASSFLOW_RIUS_OTLP_ENDPOINT:-}
-      GLASSFLOW_RIUS_API_KEY: ${GLASSFLOW_RIUS_API_KEY:-}
-      GLASSFLOW_TARES_WEBHOOK_URL: ${GLASSFLOW_TARES_WEBHOOK_URL:-}
-      GLASSFLOW_TARES_TOKEN: ${GLASSFLOW_TARES_TOKEN:-}
+      GLASSFLOW_RIUS_API_KEY: ${GLASSFLOW_RIUS_API_KEY:-${glassflow_API:-}}
+      GLASSFLOW_TARES_WEBHOOK_URL: ${GLASSFLOW_TARES_WEBHOOK_URL:-https://sunny-ridge-aj.tares-glassflow.com/ingest/webhook-7be6b6c7}
+      GLASSFLOW_TARES_TOKEN: ${GLASSFLOW_TARES_TOKEN:-${glassflow_API:-}}
+      glassflow_API: ${glassflow_API:-}
     networks:
       - anonreq-net
 

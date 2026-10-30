@@ -40,10 +40,16 @@ export interface GlassFlowTaresEvent {
   specversion: "1.0";
   id: string;
   source: "urn:anonreq:gateway:de-frankfurt";
+  service: "anonreq-gateway";
   type: "ai.anonreq.context.sanitized" | "ai.anonreq.gateway.fail_closed";
   time: string;
   subject: string;
   correlation_key: string;
+  tenant_id: string;
+  scenario: string;
+  decision: "ANONYMIZE" | "PASS" | "BLOCK" | "FAIL_CLOSED";
+  classification: string;
+  highest_entity: string;
   data: {
     request_id: string;
     tenant_id: string;
@@ -193,10 +199,16 @@ export function buildGlassFlowBundle(input: GlassFlowTelemetryInput): GlassFlowB
     specversion: "1.0",
     id: `evt_${requestId.replace(/^req_/, "")}`,
     source: "urn:anonreq:gateway:de-frankfurt",
+    service: "anonreq-gateway",
     type: failedClosed ? "ai.anonreq.gateway.fail_closed" : "ai.anonreq.context.sanitized",
     time: new Date(nowMs).toISOString(),
     subject: `tenant:${input.tenantId}:scenario:${input.scenarioId}`,
     correlation_key: `${input.tenantId}:${input.scenarioId}`,
+    tenant_id: input.tenantId,
+    scenario: input.scenarioId,
+    decision,
+    classification,
+    highest_entity: highestEntity || "NONE",
     data: {
       request_id: requestId,
       tenant_id: input.tenantId,

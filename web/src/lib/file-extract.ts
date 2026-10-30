@@ -300,7 +300,7 @@ function parsePdfTextBlocks(content: string): string {
     const block = blockMatch[1] ?? "";
     let currentLine = "";
     const tokenRegex =
-      /\[((?:[^[\]]|\((?:\\.|[^\\()])*\))*)\]\s*TJ|\((?:\\.|[^\\()])*\)\s*(?:Tj|'|")|<([0-9A-Fa-f\s]+)>\s*Tj|\b(T\*|TD|Td)\b/g;
+      /\[((?:[^[\]]|\((?:\\.|[^\\()])*\))*)\]\s*TJ|\((?:\\.|[^\\()])*\)\s*(?:Tj|'|")|<([0-9A-Fa-f\s]+)>\s*Tj|(T\*|\b(?:TD|Td|Tm)\b)/g;
     for (const token of block.matchAll(tokenRegex)) {
       const full = token[0];
       if (token[1] !== undefined) {
