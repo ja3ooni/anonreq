@@ -17,3 +17,4 @@ services:
       NODE_ENV: development
       ANONREQ_MOCK: "true"
       ANONREQ_GATEWAY_URL: ""
+      ANONREQ_UI_ADMIN: "true"

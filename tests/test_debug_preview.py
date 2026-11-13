@@ -12,7 +12,11 @@ from httpx import ASGITransport, AsyncClient
 from anonreq.config import settings
 from anonreq.debug.offsets import utf16_len
 from anonreq.debug.preview import router as preview_router
-from anonreq.exceptions import global_exception_handler, http_exception_handler
+from anonreq.exceptions import (
+    LocaleNerNotClearedError,
+    global_exception_handler,
+    http_exception_handler,
+)
 from anonreq.policy.models import PolicyAction, PolicyRule
 from anonreq.routing.chat import build_preview_pipeline
 
@@ -45,6 +49,8 @@ def preview_app(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "DEBUG_PREVIEW_ENABLED", True)
     app = FastAPI()
     app.add_exception_handler(HTTPException, http_exception_handler)
+    # As in create_app(): the bg-BG refusal is answered, not re-raised.
+    app.add_exception_handler(LocaleNerNotClearedError, global_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
     app.state.presidio_client = _EmptyPresidio()
     app.state.cache_manager = AsyncMock()
@@ -321,3 +327,27 @@ async def test_preview_errors_are_no_store(preview_app: FastAPI) -> None:
     assert missing.headers.get("cache-control") == "no-store"
     assert mismatch.status_code == 403
     assert mismatch.headers.get("cache-control") == "no-store"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("allowed", [True, False])
+async def test_preview_bg_carries_ner_coverage_header(
+    preview_app: FastAPI, monkeypatch: pytest.MonkeyPatch, allowed: bool
+) -> None:
+    monkeypatch.setattr(settings, "BG_STRUCTURED_ONLY", allowed)
+    transport = ASGITransport(app=preview_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v1/debug/anonymize-preview",
+            headers=_headers(**{"X-AnonReq-Locale": "bg"}),
+            json={"prompt": "Здравейте, тел. +359 88 123 4567", "tenant_id": "acme"},
+        )
+    assert response.headers["X-AnonReq-NER-Coverage"] == "structured_only"
+    assert response.headers["cache-control"] == "no-store"
+    if allowed:
+        assert response.status_code == 200, response.text
+        assert "+359 88 123 4567" not in response.json()["anonymized_text"]
+    else:
+        assert response.status_code == 422, response.text
+        assert response.json()["error"]["code"] == "bg_ner_not_cleared"
+        assert "+359" not in response.text

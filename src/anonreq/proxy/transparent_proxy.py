@@ -179,15 +179,17 @@ class TransparentProxy:
     ) -> ProxyResponse:
         headers = self._preserve_headers(request.headers)
         content_type = headers.get("content-type", "application/json")
+        dispatch_ctx: dict[str, Any] = {"host": request.host}
         if hasattr(self.content_dispatcher, "dispatch"):
-            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx={"host": request.host})  # noqa: E501
+            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx=dispatch_ctx)  # noqa: E501
         elif callable(self.content_dispatcher):
             result = await self.content_dispatcher(request)
         else:
             result = {"status": "routed"}
         body = result if isinstance(result, bytes) else str(result).encode("utf-8")
+        headers.update(dispatch_ctx.get("response_headers") or {})
         return ProxyResponse(
-            status_code=200,
+            status_code=int(dispatch_ctx.get("status_code", 200)),
             body=body,
             headers=headers,
             routed_to_dispatcher=True,

@@ -60,5 +60,21 @@ mnpi:
     - "EU"
     - "AI"
     - "IT"
+  # Extra exclusions applied only when the request negotiated that locale.
+  # BG (Bunge) and GSM (Ferroglobe) are real tickers, so they stay tickers
+  # for every other locale.
+  locale_excluded_words:
+    bg-BG:
+      # Bulgarian field labels and legal forms.
+      - "BG"
+      - "EGN"
+      - "LNCH"
+      - "LNC"
+      - "EIK"
+      - "UIC"
+      - "GSM"
+      - "OOD"
+      - "EOOD"
+      - "VAT"
   min_ticker_length: 2
   score: 0.85

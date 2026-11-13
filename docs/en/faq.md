@@ -24,6 +24,8 @@ Detected PII is replaced with `[TYPE_N]` placeholders, where `TYPE` is the entit
 
 Set the `X-AnonReq-Locale` header to activate locale-specific detection. Multiple locales can be combined (comma-separated). Unsupported locales return HTTP 400.
 
+A bare language code is mapped to that language's only regional bundle: `bg` → `bg-BG`, `de` → `de-DE`, `fr` → `fr-FR`, `pt` → `pt-BR`. The gateway logs `locale.bare_language_mapped` at INFO each time. The mapped bundle only adds its recognizers; it does not imply coverage of other regions. Austrian or Swiss callers sending `de` get the German (`de-DE`) identifiers, not Austrian or Swiss ones, and Portuguese callers sending `pt` get Brazilian CPF/CNPJ, not Portuguese NIF. Send the full code when you need a specific region; `de-AT`, `de-CH` and `pt-PT` currently return HTTP 400.
+
 ## Can I add custom detection patterns?
 
 Yes, custom regex recognizers can be added via a YAML configuration file and hot-reloaded without restart. See the configuration documentation for the rule format.

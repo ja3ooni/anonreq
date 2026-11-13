@@ -18,7 +18,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `bg-BG` locale bundle: EGN, LNCh, EIK/BULSTAT and BG IBAN with checksum validation, Bulgarian ID card numbers on context, and `+359` phone numbers. Checksum failures are masked as `*_UNVERIFIED` at 0.6 confidence. See `docs/operations/bulgaria-locale.md`.
+- `bg-BG` requests are marked structured-ID only: `ner_coverage: structured_only` on the anonymization audit event and an `X-AnonReq-NER-Coverage: structured_only` response header. There is no Bulgarian NER yet, so names and addresses are not masked.
+- The log scrubber fails closed for bg-BG: labelled EGN, LNCh and EIK/BULSTAT, BG-IBAN-shaped values (any case, loose shape) and labelled ID card numbers are redacted with no checksum gate; unlabelled EGN/LNCh/EIK are redacted when the checksum passes; `PHONE_BG` is redacted.
+- bg-BG fails closed by default: requests get HTTP 422 `bg_ner_not_cleared` unless `ANONREQ_BG_STRUCTURED_ONLY=true`. The audit event records `bg_structured_only`.
+- `X-AnonReq-NER-Coverage` is also set on error responses (including post-forward 503/504), on the reverse/transparent proxy paths and on `/v1/debug/anonymize-preview`.
+- `IBAN_BG_UNVERIFIED` matches the looser `BGkk` + 4 letters + 14 alphanumerics shape, so a mistyped IBAN is still masked; the verified `IBAN_BG` keeps the strict 6-digit shape.
+- `scripts/bg_locale/generate.py` regenerates `config/locales/bg-BG.yaml`; a test fails when the file is stale.
+- `X-AnonReq-Locale` accepts a bare language code when exactly one regional bundle exists for it (`bg` -> `bg-BG`, `de` -> `de-DE`, `fr` -> `fr-FR`). Before, `bg` and `de` returned HTTP 400.
 - Initial project scaffolding
+
+### Fixed
+
+- Streaming restore: the TailBuffer no longer cuts a `[TYPE_N]` token in half when it flushes, which left the placeholder unrestored in responses longer than 128 characters.
+- The 4-letter bank code in a space-grouped IBAN (`BG80 SYNT …`, `GB29 NWBK …`) is no longer flagged as an MNPI ticker, which made the whole IBAN irreversible.
+- `StreamingFirewallDetector` decodes UTF-8 incrementally, so a Cyrillic character split across network chunks is not turned into U+FFFD.
 
 ## [0.1.0] - 2026-06-19
 

@@ -192,3 +192,65 @@ async def test_unsupported_presidio_language_is_explicit_and_sanitized():
     assert "presidio_unsupported_language" in text
     assert "987-65-4320" not in text
     assert "bob@example.com" not in text
+
+
+@pytest.mark.asyncio
+async def test_bg_coverage_header_and_422_are_returned_through_ctx():
+    from anonreq.exceptions import LocaleNerNotClearedError
+
+    pipeline = AsyncMock()
+
+    async def refused(ctx: ProcessingContext) -> ProcessingContext:
+        ctx.audit_metadata["ner_coverage"] = "structured_only"
+        ctx.fail_secure(LocaleNerNotClearedError(request_id=ctx.request_id))
+        return ctx
+
+    pipeline.run = AsyncMock(side_effect=refused)
+    dispatch_ctx: dict = {"path": "/v1/chat/completions"}
+    result = await PipelineContentDispatcher(pipeline).dispatch(
+        "application/json", SAMPLE_CHAT_BODY, ctx=dispatch_ctx
+    )
+    assert json.loads(result)["error"]["code"] == "bg_ner_not_cleared"
+    assert dispatch_ctx["status_code"] == 422
+    assert dispatch_ctx["response_headers"] == {"x-anonreq-ner-coverage": "structured_only"}
+
+
+@pytest.mark.asyncio
+async def test_bg_coverage_header_on_success_and_proxies_apply_it():
+    from anonreq.proxy.reverse_proxy import ReverseProxy, ReverseProxyRequest
+    from anonreq.proxy.transparent_proxy import ProxyRequest, TransparentProxy
+
+    pipeline = AsyncMock()
+
+    async def served(ctx: ProcessingContext) -> ProcessingContext:
+        ctx.audit_metadata["ner_coverage"] = "structured_only"
+        ctx.restored_response = {"choices": []}
+        return ctx
+
+    pipeline.run = AsyncMock(side_effect=served)
+    dispatcher = PipelineContentDispatcher(pipeline)
+
+    reverse = await ReverseProxy(dispatcher).handle(
+        ReverseProxyRequest(
+            method="POST",
+            path="/v1/chat/completions",
+            headers={"Content-Type": "application/json"},
+            body=SAMPLE_CHAT_BODY,
+        )
+    )
+    assert reverse.status_code == 200
+    assert reverse.headers["x-anonreq-ner-coverage"] == "structured_only"
+
+    proxy = TransparentProxy.__new__(TransparentProxy)
+    proxy.content_dispatcher = dispatcher
+    routed = await proxy._route_to_dispatcher(
+        ProxyRequest(
+            method="POST",
+            host="api.openai.com",
+            path="/v1/chat/completions",
+            headers={"Content-Type": "application/json"},
+            body=SAMPLE_CHAT_BODY,
+        ),
+        MagicMock(classification="ai"),
+    )
+    assert routed.headers["x-anonreq-ner-coverage"] == "structured_only"

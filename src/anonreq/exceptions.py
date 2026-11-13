@@ -180,6 +180,28 @@ class PresidioLanguageUnsupportedError(PipelineAbortError):
         self.code = "presidio_unsupported_language"
 
 
+class LocaleNerNotClearedError(PipelineAbortError):
+    """Refuse a structured-ID-only locale (bg-BG) unless explicitly allowed.
+
+    bg-BG has no NER model, so names and addresses would reach the provider
+    in clear text. The gateway refuses such requests with HTTP 422 unless
+    the operator sets ``ANONREQ_BG_STRUCTURED_ONLY=true``.
+    """
+
+    def __init__(self, request_id: str | None = None) -> None:
+        super().__init__(
+            status_code=422,
+            message=(
+                "Bulgarian (bg-BG) is not cleared for personal data: names and "
+                "addresses are not detected. Set ANONREQ_BG_STRUCTURED_ONLY=true "
+                "to accept structured-ID-only masking."
+            ),
+            request_id=request_id,
+        )
+        self.error_type = "locale_not_cleared"
+        self.code = "bg_ner_not_cleared"
+
+
 class PipelineBlockedError(PipelineAbortError):
     """Raised when DLP or PDP #2 blocks a request (HTTP 451).
 
@@ -255,6 +277,17 @@ class AuthenticationError(AnonReqError):
         )
 
 
+NER_COVERAGE_HEADER = "X-AnonReq-NER-Coverage"
+
+
+def ner_coverage_headers(request: Request) -> dict[str, str]:
+    """``X-AnonReq-NER-Coverage`` for error responses of marked requests."""
+    ctx = getattr(getattr(request, "state", None), "ctx", None)
+    metadata = getattr(ctx, "audit_metadata", None)
+    coverage = metadata.get("ner_coverage") if isinstance(metadata, dict) else None
+    return {NER_COVERAGE_HEADER: str(coverage)} if coverage else {}
+
+
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Global exception handler that returns fail-secure error responses.
 
@@ -290,7 +323,12 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
             request_id=exc.request_id or request_id,
             block_detail=block_detail,
         )
-        return JSONResponse(status_code=exc.status_code, content=body)
+        headers = {**(getattr(exc, "headers", None) or {}), **ner_coverage_headers(request)}
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=body,
+            headers=headers or None,
+        )
 
     # HTTPException needs special handling (used by FastAPI auth, etc.)
     if isinstance(exc, HTTPException):
@@ -390,8 +428,9 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
             }
 
     # Keep headers the raiser set (for example Cache-Control: no-store).
+    headers = {**(getattr(exc, "headers", None) or {}), **ner_coverage_headers(request)}
     return JSONResponse(
         status_code=exc.status_code,
         content=body,
-        headers=getattr(exc, "headers", None),
+        headers=headers or None,
     )

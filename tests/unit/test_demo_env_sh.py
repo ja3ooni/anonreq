@@ -195,6 +195,7 @@ _SECRET_KEYS = (
     "POSTGRES_PASSWORD",
     "XAI_API_KEY",
     "PROVIDER_API_KEY",
+    "ANONREQ_UI_ADMIN_TOKEN",
 )
 _FAKE_XAI = "xai-FAKE-test-key-0123456789abcdef"
 
@@ -379,3 +380,28 @@ def test_printed_export_hint_handles_export_prefix_and_crlf(tmp_path):
         check=True,
     ).stdout
     assert out == "gw-val=x|adm+/val"
+
+
+@pytest.mark.skipif(shutil.which("python3") is None, reason="python3 required")
+def test_demo_sh_fills_ui_admin_gate_only_when_missing(tmp_path):
+    root = _demo_tree(tmp_path)
+    bindir = tmp_path / "bin"
+    _run_demo(root, bindir)
+    vals = _env_values(root)
+    assert vals["ANONREQ_UI_ADMIN"] == "true"
+    assert len(vals["ANONREQ_UI_ADMIN_TOKEN"]) >= 32
+
+    # An operator's explicit false and their own token survive re-runs.
+    env_file = root / ".env"
+    text = env_file.read_text()
+    text = text.replace("ANONREQ_UI_ADMIN=true", "ANONREQ_UI_ADMIN=false")
+    text = text.replace(
+        f"ANONREQ_UI_ADMIN_TOKEN={vals['ANONREQ_UI_ADMIN_TOKEN']}",
+        "ANONREQ_UI_ADMIN_TOKEN=operator-chosen-token-0123456789",
+    )
+    env_file.write_text(text)
+    out = _run_demo(root, bindir)
+    vals2 = _env_values(root)
+    assert vals2["ANONREQ_UI_ADMIN"] == "false"
+    assert vals2["ANONREQ_UI_ADMIN_TOKEN"] == "operator-chosen-token-0123456789"
+    assert "operator-chosen-token-0123456789" not in out

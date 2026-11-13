@@ -17,7 +17,11 @@ from uuid import uuid4
 
 import structlog
 
-from anonreq.exceptions import PresidioLanguageUnsupportedError
+from anonreq.exceptions import (
+    NER_COVERAGE_HEADER,
+    LocaleNerNotClearedError,
+    PresidioLanguageUnsupportedError,
+)
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.extraction import TextExtractor
 from anonreq.pipeline.manager import PipelineManager
@@ -97,9 +101,18 @@ class PipelineContentDispatcher:
 
         proc_ctx = await self._pipeline.run(proc_ctx)
 
+        # Bytes-only contract: response metadata goes back through ``ctx``
+        # (``response_headers``, ``status_code``) for the proxy to apply.
+        coverage = proc_ctx.audit_metadata.get("ner_coverage")
+        if coverage:
+            headers = ctx.setdefault("response_headers", {})
+            headers[NER_COVERAGE_HEADER.lower()] = str(coverage)
+
         if proc_ctx.has_errors():
             last_error = proc_ctx.errors[-1]
-            if isinstance(last_error, PresidioLanguageUnsupportedError):
+            if isinstance(last_error, LocaleNerNotClearedError):
+                ctx["status_code"] = last_error.status_code
+            if isinstance(last_error, (PresidioLanguageUnsupportedError, LocaleNerNotClearedError)):
                 return json.dumps(
                     {
                         "error": {

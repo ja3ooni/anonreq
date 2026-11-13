@@ -38,7 +38,28 @@ npm test
 npm run build
 ```
 
-CI runs the same four on Node 22 (`.github/workflows/web.yml`).
+`.github/workflows/web.yml` runs the same four on Node 22. It is committed in this branch but
+**not active on GitHub yet**: pushing workflow files needs a token with the `workflow` scope, which the
+current one lacks. Until someone with that scope pushes it, run the four steps locally.
+
+## Admin gate on `/api/audit/*`
+
+- Every `/api/audit/*` route (`events`, `export`, `config-history`, `verify`, and any added later) is
+  gated in `src/middleware.ts` (`src/lib/admin-gate.ts`):
+  - **403** while `ANONREQ_UI_ADMIN` is off.
+  - With `ANONREQ_UI_ADMIN_TOKEN` set, **HTTP Basic auth** is required (any user name, password =
+    the token); otherwise **401** with a `WWW-Authenticate: Basic` challenge. Both sides are hashed
+    with SHA-256 and the digests compared in constant time (Web Crypto, Edge-safe).
+  - **Production fails closed:** with `NODE_ENV=production` (the Docker runtime image) the token is
+    required; the flag alone gives 403.
+- Both variables are read from `process.env` inside the request path, so a built or standalone server
+  picks them up at start-up; they are never `NEXT_PUBLIC_` or build-time constants.
+- The `/audit` page and the playground's "Export DPO Audit CSV" use these routes. `make demo`
+  (`scripts/demo.sh`) fills in `ANONREQ_UI_ADMIN=true` and a generated token when missing (never
+  overwriting an explicit `false` or an existing token); `docker-compose.mock.yml` sets the flag for
+  the dev-stage mock. See `docs/DEMO_RUNBOOK.md` for the browser login.
+- This is a shared-secret gate for the demo, not user accounts. The gateway still enforces
+  `ANONREQ_ADMIN_API_KEY` upstream.
 
 ## Docker
 

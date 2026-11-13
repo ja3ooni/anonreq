@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from anonreq.locale.checksum import ChecksumValidatorRegistry
 from anonreq.locale.registry import LocaleRegistry
 
@@ -10,6 +12,7 @@ def test_registry_discovers_all_locale_bundles() -> None:
     registry = LocaleRegistry("config/locales")
     assert registry.list_locales() == [
         "ar",
+        "bg-BG",
         "de-DE",
         "en",
         "es",
@@ -48,3 +51,46 @@ def test_duplicate_code_is_skipped_not_registered_twice(tmp_path: Path) -> None:
     (tmp_path / "two.yaml").write_text("code: same\nentity_types: []\n")
     registry = LocaleRegistry(str(tmp_path))
     assert registry.list_locales() == []
+
+
+def test_bare_language_resolves_to_its_only_regional_bundle() -> None:
+    registry = LocaleRegistry("config/locales")
+    assert registry.get("bg").code == "bg-BG"
+    assert registry.get("BG").code == "bg-BG"
+    assert registry.get("bg_BG").code == "bg-BG"
+    assert registry.get("de").code == "de-DE"
+    # A bare bundle wins over any regional one.
+    assert registry.get("en").code == "en"
+    # Other regions are not guessed: de-AT may have different identifiers.
+    assert registry.get("de-AT") is None
+    assert registry.get("zz") is None
+
+
+def test_ambiguous_bare_language_is_not_mapped(tmp_path: Path) -> None:
+    for code in ("pt-BR", "pt-PT"):
+        (tmp_path / f"{code}.yaml").write_text(f"code: {code}\nentity_types: []\n")
+    registry = LocaleRegistry(str(tmp_path))
+    assert registry.get("pt") is None
+    assert registry.get("pt-PT").code == "pt-PT"
+
+
+def test_bare_language_mapping_is_logged_at_info(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Record calls on the module logger directly: structlog may have cached a
+    # bound logger earlier in the session, which capture_logs() cannot see.
+    from anonreq.locale import registry as registry_module
+
+    calls: list[tuple[str, str, dict[str, object]]] = []
+
+    class _Recorder:
+        def __getattr__(self, level: str):
+            return lambda event, **kw: calls.append((level, event, kw))
+
+    monkeypatch.setattr(registry_module, "logger", _Recorder())
+    registry = LocaleRegistry("config/locales")
+    calls.clear()
+    assert registry.get("pt").code == "pt-BR"
+    assert registry.get("pt-BR").code == "pt-BR"
+    mapped = [call for call in calls if call[1] == "locale.bare_language_mapped"]
+    assert mapped == [
+        ("info", "locale.bare_language_mapped", {"requested": "pt", "resolved": "pt-BR"})
+    ]

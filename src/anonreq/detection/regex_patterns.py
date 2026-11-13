@@ -77,6 +77,13 @@ ENTITY_SPECIFICITY: dict[str, int] = {
     "ENTERPRISE_AWS_KEY": 99,
     "ENTERPRISE_GITHUB_TOKEN": 99,
     "EMAIL_ADDRESS": 90,
+    # bg-BG. The ID card is context-anchored, so it beats a checksum match
+    # on the same digits. PHONE_BG ranks below EGN/LNCh: 2000s EGNs start
+    # with 0 and share the unseparated national phone shape.
+    "BG_ID_CARD": 87,
+    "EGN": 85,
+    "EIK": 85,
+    "LNCH": 84,
     "TAX_ID_DE": 89,
     "PERSONAL_AUSWEIS": 88,
     "KVNR": 87,
@@ -86,7 +93,13 @@ ENTITY_SPECIFICITY: dict[str, int] = {
     "DATE_OF_BIRTH": 82,
     "SITE_ID": 81,
     "PHONE_NUMBER": 80,
+    "PHONE_BG": 80,
     "ACCOUNT_NUMBER_DE": 79,
+    "EGN_UNVERIFIED": 81,
+    "LNCH_UNVERIFIED": 81,
+    "EIK_UNVERIFIED": 81,
+    "IBAN_BG": 74,
+    "IBAN_BG_UNVERIFIED": 72,
     "TAX_ID_DE_UNVERIFIED": 72,
     "IBAN_UNVERIFIED": 71,
     "CREDIT_CARD": 75,

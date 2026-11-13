@@ -47,7 +47,7 @@ cd <repo-dir> && git pull
 
 ## 2. `.env` setup
 
-`make demo` creates `.env` itself. It is gitignored and `chmod 600`. The script generates every missing secret (gateway key, admin key, KMS master key, signing key, DB and MinIO passwords) and sets `ANONREQ_ADMIN_TENANT_ID=default`. MinIO and Postgres get random credentials; `<...>` placeholders and `minioadmin` are replaced, never used and `ANONREQ_DEMO_MODEL=grok-4`. The only thing you supply is the xAI key:
+`make demo` creates `.env` itself. It is gitignored and `chmod 600`. The script generates every missing secret (gateway key, admin key, KMS master key, signing key, DB and MinIO passwords) and sets `ANONREQ_ADMIN_TENANT_ID=default`. For the demo UI it also sets `ANONREQ_UI_ADMIN=true` and generates `ANONREQ_UI_ADMIN_TOKEN` when they are missing (see "Demo UI admin login" below). MinIO and Postgres get random credentials; `<...>` placeholders and `minioadmin` are replaced, never used and `ANONREQ_DEMO_MODEL=grok-4`. The only thing you supply is the xAI key:
 
 ```bash
 export XAI_API_KEY='<your-xai-api-key>'     # or put XAI_API_KEY=<...> in .env
@@ -63,6 +63,12 @@ Later steps (curl examples below) need the keys in your shell. `make demo` print
 export ANONREQ_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
 export ANONREQ_ADMIN_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_ADMIN_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
 ```
+
+**Demo UI admin login.** Every UI audit route (`/api/audit/*`: the DPO audit CSV and the `/audit` page) is admin only. It returns 403 unless `ANONREQ_UI_ADMIN=true`, and because the UI container runs with `NODE_ENV=production` it also requires `ANONREQ_UI_ADMIN_TOKEN`; without a token the routes stay closed (403). `make demo` fills in `ANONREQ_UI_ADMIN=true` and a generated token **only when they are missing** (same rule as the other keys): an explicit `ANONREQ_UI_ADMIN=false` or an existing token is kept. Delete the token line to rotate it. The UI reads both values when the container starts, at runtime. The first time you open the audit page or click **Download DPO Audit CSV**, the browser asks for a login: user name **anything**, password **the token**. To copy it without echoing it in a shared terminal:
+```bash
+grep -E '^ANONREQ_UI_ADMIN_TOKEN=' .env | cut -d= -f2- | tr -d '\r\n' | pbcopy    # macOS; Linux: xclip -selection clipboard
+```
+From a shell (repo root): `curl -s -u "x:$(grep -E '^ANONREQ_UI_ADMIN_TOKEN=' .env | cut -d= -f2- | tr -d '\r')" localhost:3000/api/audit/export -o audit.csv` (200); without `-u` it is **401**.
 
 **Key rotation.** `make demo` only fills in *missing* values (empty, a `<...>` placeholder, or `minioadmin`); it never regenerates an existing `ANONREQ_API_KEY`, `ANONREQ_ADMIN_API_KEY`, KMS key or DB/MinIO password, so re-running it keeps your keys. To rotate the gateway or admin key, either delete its line from `.env`:
 ```bash
@@ -144,13 +150,13 @@ Demo URL: **<http://localhost:3000>** (started by `make demo` when `web/` is pre
    - **04 Re-identified answer**: The final reply after AnonReq restores reversible tokens back to their original values (while `API_KEY` stays masked).
 4. **GlassFlow (Rius & Tares) · Pilot PoC · 90s Demo Drawer (`POST /api/glassflow`)**:
    - **Tab 1 — GlassFlow Rius & Tares**: Generates a zero-PII 3-span OpenTelemetry trace payload for **GlassFlow Rius** and a sanitized CloudEvent 1.0 timeline payload for **GlassFlow Tares**. Set `GLASSFLOW_RIUS_OTLP_ENDPOINT` or `GLASSFLOW_TARES_WEBHOOK_URL` in `.env` for live forwarding. The UI only shows the target host and delivery status; the token and ingest key stay on the server. The server rebuilds the payload from an allowlist (body max 64 KB) and redacts a prompt preview without `[TYPE_N]` tokens or with PII patterns.
-   - **Tab 2 — Pilot & DPO Handshake**: 1-click **Download DPO Audit CSV** button (`GET /api/audit/export`) and VPC/Helm deployment summary.
+   - **Tab 2 — Pilot & DPO Handshake**: 1-click **Download DPO Audit CSV** button (`GET /api/audit/export`, admin login: see "Demo UI admin login" in section 2) and VPC/Helm deployment summary.
    - **Tab 3 — 90s Pitch & Fail-Closed**: Timestamped 90-second demo script plus copyable `docker compose ... stop/start presidio-analyzer` commands to trigger a live HTTP 503 fail-closed block.
 
 Fallback without Docker for the UI (from `web/`):
 ```bash
 npm ci && ANONREQ_GATEWAY_URL=http://127.0.0.1:8080 ANONREQ_API_KEY=$ANONREQ_API_KEY \
-ANONREQ_ADMIN_API_KEY=$ANONREQ_ADMIN_API_KEY ANONREQ_TENANT_ID=default npx next dev -H 127.0.0.1 --port 3100
+ANONREQ_ADMIN_API_KEY=$ANONREQ_ADMIN_API_KEY ANONREQ_TENANT_ID=default ANONREQ_UI_ADMIN=true npx next dev -H 127.0.0.1 --port 3100
 ```
 then use <http://127.0.0.1:3100/de> (or `ANONREQ_MOCK=true npm run dev` for offline fixture mode).
 
