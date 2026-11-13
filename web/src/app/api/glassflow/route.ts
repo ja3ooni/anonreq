@@ -1,4 +1,5 @@
 import { GatewayRequestError } from "@/lib/gateway-error";
+import { clientTargetFields, resolveGlassFlowConfig, taresBaseFrom } from "@/lib/glassflow-config";
 import { fromGatewayError, jsonOk } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -49,35 +50,16 @@ export async function POST(request: Request) {
       throw new GatewayRequestError("Telemetry payload must be JSON", 400);
     }
 
-    const overrideTaresUrl = typeof body.taresUrl === "string" ? body.taresUrl.trim() : "";
-    const overrideTaresToken = typeof body.taresToken === "string" ? body.taresToken.trim() : "";
-    const envWebhook = process.env.GLASSFLOW_TARES_WEBHOOK_URL?.trim() || "";
-
-    const taresWebhook =
-      overrideTaresUrl.includes("/ingest/")
-        ? overrideTaresUrl
-        : envWebhook.includes("/ingest/")
-          ? envWebhook
-          : overrideTaresUrl ||
-            envWebhook ||
-            "https://sunny-ridge-aj.tares-glassflow.com/ingest/webhook-7be6b6c7";
-    const taresToken =
-      overrideTaresToken ||
-      process.env.GLASSFLOW_TARES_TOKEN?.trim() ||
-      process.env.glassflow_API?.trim() ||
-      process.env.GLASSFLOW_API?.trim() ||
-      "";
-
-    // Extract clean Tares base URL (strip trailing /read, /remember, /health, or /ingest/...)
-    const taresBase = taresWebhook
-      .replace(/\/+$/, "")
-      .replace(/\/(read|remember|health|v1\/traces|v1\/logs)$/i, "")
-      .replace(/\/ingest\/[^/]+$/i, "");
-
-    const riusEndpoint =
-      process.env.GLASSFLOW_RIUS_OTLP_ENDPOINT?.trim() ||
-      (taresBase ? `${taresBase}/v1/traces` : "");
-    const riusApiKey = process.env.GLASSFLOW_RIUS_API_KEY?.trim() || taresToken;
+    // SSRF fix: targets and credentials come from server env only, never from the body.
+    const clientTargets = clientTargetFields(body);
+    if (clientTargets.length > 0) {
+      throw new GatewayRequestError(
+        `GlassFlow targets are server-configured (GLASSFLOW_TARES_WEBHOOK_URL, GLASSFLOW_TARES_TOKEN, GLASSFLOW_RIUS_OTLP_ENDPOINT). Remove: ${clientTargets.join(", ")}`,
+        400,
+      );
+    }
+    const { taresWebhook, taresToken, riusEndpoint, riusApiKey } = resolveGlassFlowConfig(process.env);
+    const taresBase = taresBaseFrom(taresWebhook);
 
     let riusDelivered = false;
     let taresDelivered = false;

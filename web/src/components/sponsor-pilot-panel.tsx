@@ -23,10 +23,8 @@ export function SponsorPilotPanel({
   const isDe = uiLocale === "de";
   const [tab, setTab] = useState<ActiveTab>("glassflow");
   const [gfView, setGfView] = useState<"rius" | "tares" | "read">("tares");
-  const [taresUrl, setTaresUrl] = useState<string>(
-    "https://sunny-ridge-aj.tares-glassflow.com/ingest/webhook-7be6b6c7",
-  );
-  const [taresToken, setTaresToken] = useState<string>("");
+  // Read-only: the server reports its env-configured Tares target; the browser cannot set it.
+  const [taresUrl, setTaresUrl] = useState<string>("");
   const [liveReadPayload, setLiveReadPayload] = useState<unknown>(null);
   const [pushState, setPushState] = useState<{
     status: "idle" | "sending" | "done" | "error";
@@ -40,11 +38,7 @@ export function SponsorPilotPanel({
       const res = await fetch("/api/glassflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...bundle,
-          ...(taresUrl.trim() ? { taresUrl: taresUrl.trim() } : {}),
-          ...(taresToken.trim() ? { taresToken: taresToken.trim() } : {}),
-        }),
+        body: JSON.stringify(bundle),
       });
       const data = (await res.json().catch(() => null)) as {
         mode?: string;
@@ -66,13 +60,15 @@ export function SponsorPilotPanel({
       }
       if (data?.healthResult || data?.readResult) {
         setLiveReadPayload({
-          tares_cell: data.taresBase ?? "https://sunny-ridge-aj.tares-glassflow.com",
+          tares_cell: data.taresBase ?? null,
           cell_health: data.healthResult ?? null,
           post_read_response: data.readResult ?? null,
         });
       }
-      if (data?.resolvedIngestUrl && data.resolvedIngestUrl !== taresUrl) {
+      if (data?.resolvedIngestUrl) {
         setTaresUrl(data.resolvedIngestUrl);
+      } else if (data?.taresBase) {
+        setTaresUrl(data.taresBase);
       }
       if (data?.mode === "live_webhook") {
         setPushState({
@@ -93,8 +89,8 @@ export function SponsorPilotPanel({
         setPushState({
           status: "done",
           detail: isDe
-            ? "Zelle sunny-ridge-aj erreichbar (v1.54.1 OK) — Tares API-Key oben eintragen für authentifizierten Push & /read"
-            : "Cell sunny-ridge-aj reachable (v1.54.1 OK) — Paste your Tares API Key above for authenticated push & /read",
+            ? "Zelle sunny-ridge-aj erreichbar (v1.54.1 OK) — für authentifizierten Push & /read GLASSFLOW_TARES_TOKEN auf dem Server setzen"
+            : "Cell sunny-ridge-aj reachable (v1.54.1 OK) — set GLASSFLOW_TARES_TOKEN on the server for authenticated push & /read",
         });
       }
     } catch {
@@ -190,30 +186,16 @@ export function SponsorPilotPanel({
                 </a>
               </div>
             </div>
-            <div className="mt-2 grid gap-2 md:grid-cols-2">
-              <input
-                type="url"
-                value={taresUrl}
-                onChange={(e) => setTaresUrl(e.target.value)}
-                placeholder="https://sunny-ridge-aj.tares-glassflow.com/read"
-                className="rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground"
-              />
-              <input
-                type="password"
-                value={taresToken}
-                onChange={(e) => setTaresToken(e.target.value)}
-                placeholder={
-                  isDe
-                    ? "Tares API-Key / Project Key hier einfügen"
-                    : "Paste your Tares API Key / Project Key here"
-                }
-                className="rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground"
-              />
+            <div className="mt-2 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground">
+              {taresUrl ||
+                (isDe
+                  ? "Ziel wird serverseitig gesetzt: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN"
+                  : "Target is set on the server: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN")}
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               {isDe
-                ? "Verbunden mit Zelle sunny-ridge-aj (taresd v1.54.1). Hinweis: /read erwartet POST (ein Browser-GET zeigt 405). Mit API-Key sendet AnonReq an /v1/traces, /remember + /ingest/<key> und fragt live POST /read ab."
-                : "Connected to cell sunny-ridge-aj (taresd v1.54.1). Note: /read is a POST endpoint (opening /read in a browser tab returns HTTP 405). Paste your API Key above to push to /v1/traces, /remember + /ingest/<key>, and query POST /read live."}
+                ? "Verbunden mit Zelle sunny-ridge-aj (taresd v1.54.1). Hinweis: /read erwartet POST (ein Browser-GET zeigt 405). Mit GLASSFLOW_TARES_TOKEN (serverseitig) sendet AnonReq an /v1/traces, /remember + /ingest/<key> und fragt live POST /read ab."
+                : "Connected to cell sunny-ridge-aj (taresd v1.54.1). Note: /read is a POST endpoint (opening /read in a browser tab returns HTTP 405). With GLASSFLOW_TARES_TOKEN set on the server, AnonReq pushes to /v1/traces, /remember + /ingest/<key>, and queries POST /read live."}
             </p>
           </div>
 
