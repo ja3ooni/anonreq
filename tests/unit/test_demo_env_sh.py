@@ -310,6 +310,7 @@ def test_deleting_key_line_rotates_only_that_key(tmp_path):
         "X='https://api.x.aiPROVIDER_API_KEY=quoted'",
         "XAI_BASE_URL=https://api.x.aiXAI_BASE_URL=unmanaged",
         "# XAI_BASE_URL=https://api.x.aiPROVIDER_API_KEY=x",
+        "ANONREQ_UI_ADMIN_TOKEN=abc-_XYZ",
     ],
 )
 def test_repair_does_not_split_valid_values(tmp_path, line):
@@ -332,6 +333,10 @@ def test_repair_does_not_split_valid_values(tmp_path, line):
         (
             "export XAI_BASE_URL=https://api.x.aiPROVIDER_API_KEY=xai-FAKE",
             ["export XAI_BASE_URL=https://api.x.ai", "PROVIDER_API_KEY=xai-FAKE"],
+        ),
+        (
+            "ANONREQ_UI_ADMIN=trueANONREQ_UI_ADMIN_TOKEN=xai-FAKE",
+            ["ANONREQ_UI_ADMIN=true", "ANONREQ_UI_ADMIN_TOKEN=xai-FAKE"],
         ),
     ],
 )
