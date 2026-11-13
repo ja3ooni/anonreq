@@ -228,18 +228,21 @@ class TestBulgarianLooseIbanAndEikInLogs:
         assert secret not in redacted, redacted
         assert "[REDACTED]" in redacted
 
-    def test_eik_forms_are_scrubbed(self) -> None:
+    def test_labelled_eik_is_scrubbed_even_when_checksum_fails(self) -> None:
         from anonreq.locale.checksums.bulgaria import eik_valid, generate_eik
         from anonreq.logging_config import _redact_text
 
         eik9 = generate_eik("20406080")
         eik13 = generate_eik("20406080", branch3="123")
         bad_eik = _bad_check_digit(eik9)
+        assert eik_valid(eik9)
+        assert eik_valid(eik13)
         assert not eik_valid(bad_eik)
         cases = [
-            (eik9, f"company {eik9} onboarded"),  # unlabelled, checksum-valid
-            (eik13, f"branch {eik13} onboarded"),
-            (f"BG{eik9}", f"VAT BG{eik9} onboarded"),
+            (eik9, f"ЕИК {eik9} onboarded"),
+            (eik13, f"EIK: {eik13} onboarded"),
+            (f"BG{eik9}", f"БУЛСТАТ BG{eik9} onboarded"),
+            (eik9, f"BULSTAT {eik9} onboarded"),
             (bad_eik, f"ЕИК {bad_eik} rejected"),  # labelled, bad checksum
             (bad_eik, f"БУЛСТАТ: {bad_eik} rejected"),
             (bad_eik, f"EIK {bad_eik} rejected"),
@@ -248,6 +251,54 @@ class TestBulgarianLooseIbanAndEikInLogs:
             redacted = _redact_text(text)
             assert secret not in redacted, (text, redacted)
             assert "[REDACTED]" in redacted
+
+    def test_unlabelled_checksum_valid_lnch_and_eik_survive(self) -> None:
+        """Unlabelled LNCh/EIK stay readable, even when their checksum passes."""
+        from anonreq.locale.checksums.bulgaria import (
+            egn_valid,
+            eik_valid,
+            generate_eik,
+            generate_lnch,
+            lnch_valid,
+        )
+        from anonreq.logging_config import _redact_text
+
+        lnch = generate_lnch("200300400")
+        eik9 = generate_eik("20406080")
+        eik13 = generate_eik("20406080", branch3="123")
+        vat = f"BG{eik9}"
+        assert lnch_valid(lnch)
+        assert not egn_valid(lnch)
+        assert eik_valid(eik9)
+        assert eik_valid(eik13)
+        # Epoch second that passes the LNCh checksum (1-in-10) but is not
+        # a valid EGN; previously this was over-redacted in logs.
+        epoch = "1700000004"
+        assert lnch_valid(epoch)
+        assert not egn_valid(epoch)
+        cases = [
+            (lnch, f"request {lnch} done"),
+            (eik9, f"company {eik9} onboarded"),
+            (eik13, f"branch {eik13} onboarded"),
+            (vat, f"VAT {vat} onboarded"),
+            (epoch, f"ts {epoch} elapsed"),
+        ]
+        for secret, text in cases:
+            redacted = _redact_text(text)
+            assert secret in redacted, (text, redacted)
+            assert "[REDACTED]" not in redacted
+
+    def test_unlabelled_valid_egn_is_scrubbed(self) -> None:
+        import datetime as dt
+
+        from anonreq.locale.checksums.bulgaria import egn_valid, generate_egn
+        from anonreq.logging_config import _redact_text
+
+        egn = generate_egn(dt.date(1985, 3, 15), serial=456)
+        assert egn_valid(egn)
+        redacted = _redact_text(f"request {egn} done")
+        assert egn not in redacted
+        assert "[REDACTED]" in redacted
 
     def test_unlabelled_invalid_nine_digits_survive(self) -> None:
         from anonreq.locale.checksums.bulgaria import eik_valid

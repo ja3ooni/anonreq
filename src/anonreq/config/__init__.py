@@ -72,7 +72,8 @@ class Settings(BaseSettings):
             "Accept bg-BG requests although only structured IDs (EGN, LNCh, "
             "EIK, IBAN, ID card, phone) are masked; names and addresses are "
             "not. Off by default: bg-BG requests get HTTP 422 "
-            "bg_ner_not_cleared."
+            "bg_ner_not_cleared. Changing this setting needs a process "
+            "restart; it is read when the pipeline is built and cached."
         ),
     )
     CACHE_TTL_SECONDS: int = 300

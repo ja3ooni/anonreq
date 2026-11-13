@@ -132,13 +132,13 @@ _GERMAN_ENTITY_TYPES = (
     "SVNR_DE",
     "IBAN_DE",
 )
-# bg-BG identifiers scrubbed from logs. Unlabelled EGN/LNCh/EIK/IBAN_BG are
-# checksum-gated (a random 10-digit request counter is not redacted unless it
-# validates); labelled and IBAN-shaped values are redacted ungated below.
+# bg-BG identifiers scrubbed from logs. Unlabelled numbers get only the EGN
+# check (checksum plus birth date), so ordinary 9- and 10-digit counters
+# stay readable even when they happen to pass the LNCh or EIK checksum.
+# Labelled EGN/LNCh/EIK and IBAN-shaped values are redacted ungated below,
+# including when their checksum fails.
 _BULGARIAN_ENTITY_TYPES = (
     "EGN",
-    "LNCH",
-    "EIK",
     "IBAN_BG",
     "PHONE_BG",
 )
@@ -158,8 +158,6 @@ _BULGARIAN_UNGATED_TYPES = (
 _LABEL_ANCHOR = "(?<=(?i:"
 _CHECKSUM_ENTITY_TYPES = {
     "EGN": "EGN",
-    "LNCH": "LNCH",
-    "EIK": "EIK",
     "IBAN_BG": "IBAN_BG",
     "IBAN_CODE": "IBAN_DE",
     "IBAN_DE": "IBAN_DE",
@@ -219,9 +217,7 @@ def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
     from anonreq.locale.checksum import ChecksumValidatorRegistry
     from anonreq.locale.checksums.bulgaria import (
         EGNValidator,
-        EIKValidator,
         IBANBGValidator,
-        LNChValidator,
     )
     from anonreq.locale.checksums.germany import (
         IBANMod97Validator,
@@ -232,8 +228,6 @@ def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
 
     registry = ChecksumValidatorRegistry()
     registry.register("EGN", EGNValidator())
-    registry.register("LNCH", LNChValidator())
-    registry.register("EIK", EIKValidator())
     registry.register("IBAN_BG", IBANBGValidator())
     registry.register("TAX_ID_DE", ISO7064Mod11_2Validator())
     registry.register("PERSONAL_AUSWEIS", PersonalausweisValidator())
