@@ -152,7 +152,6 @@ export function buildGlassFlowBundle(input: GlassFlowTelemetryInput): GlassFlowB
         "anonreq.highest_entity": highestEntity || "NONE",
         "anonreq.entity_total": entities.length,
         "anonreq.non_reversible_entities": nonReversible,
-        "anonreq.cleartext_pii_forwarded": false,
       },
     },
     {

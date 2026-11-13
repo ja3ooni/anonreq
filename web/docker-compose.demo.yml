@@ -20,10 +20,10 @@ services:
       ANONREQ_UI_ADMIN: ${ANONREQ_UI_ADMIN:-false}
       ANONREQ_UI_ADMIN_TOKEN: ${ANONREQ_UI_ADMIN_TOKEN:-}
       GLASSFLOW_RIUS_OTLP_ENDPOINT: ${GLASSFLOW_RIUS_OTLP_ENDPOINT:-}
-      GLASSFLOW_RIUS_API_KEY: ${GLASSFLOW_RIUS_API_KEY:-${glassflow_API:-}}
-      GLASSFLOW_TARES_WEBHOOK_URL: ${GLASSFLOW_TARES_WEBHOOK_URL:-https://sunny-ridge-aj.tares-glassflow.com/ingest/webhook-7be6b6c7}
-      GLASSFLOW_TARES_TOKEN: ${GLASSFLOW_TARES_TOKEN:-${glassflow_API:-}}
-      glassflow_API: ${glassflow_API:-}
+      GLASSFLOW_RIUS_API_KEY: ${GLASSFLOW_RIUS_API_KEY:-}
+      # No default: set it in ../.env (scripts/connect-tares.sh writes it). Unset = no forwarding.
+      GLASSFLOW_TARES_WEBHOOK_URL: ${GLASSFLOW_TARES_WEBHOOK_URL:-}
+      GLASSFLOW_TARES_TOKEN: ${GLASSFLOW_TARES_TOKEN:-}
     networks:
       - anonreq-net
 
