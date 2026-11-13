@@ -77,6 +77,23 @@ def _inside_site_id(text: str, start: int, end: int) -> bool:
     return "-" in token and _SITE_ID.fullmatch(token) is not None
 
 
+# A space-grouped IBAN (BG80 SYNT 1234 ..., GB29 NWBK 6016 ...) has a
+# 4-letter bank code that looks like a ticker. Masking it as MNPI makes the
+# merged IBAN span protected and therefore never restored.
+_GROUPED_IBAN = re.compile(
+    r"(?<![\w-])[A-Z]{2}\d{2}(?:\s[A-Z0-9]{4}){2,7}(?:\s[A-Z0-9]{1,4})?(?![\w-])"
+)
+
+
+def _inside_grouped_iban(text: str, start: int, end: int) -> bool:
+    """Return True when [start, end) is a group inside a space-grouped IBAN."""
+    window_start = max(0, start - 45)
+    for match in _GROUPED_IBAN.finditer(text, window_start, min(len(text), end + 45)):
+        if match.start() < start and end <= match.end():
+            return True
+    return False
+
+
 class MNPIRecognizer:
     """Recognizes Material Non-Public Information in text.
 
@@ -156,6 +173,8 @@ class MNPIRecognizer:
             # Skip fragments of site-ID-shaped tokens (UW-NORD-0417). German
             # compounds such as "SAP-Aktie" or "BASF-Kurs" stay tickers.
             if _inside_site_id(text, match.start(), match.end()):
+                continue
+            if _inside_grouped_iban(text, match.start(), match.end()):
                 continue
             # Skip if the core ticker part is too short
             core = raw.split(".")[0]

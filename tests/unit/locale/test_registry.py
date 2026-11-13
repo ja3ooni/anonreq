@@ -10,6 +10,7 @@ def test_registry_discovers_all_locale_bundles() -> None:
     registry = LocaleRegistry("config/locales")
     assert registry.list_locales() == [
         "ar",
+        "bg-BG",
         "de-DE",
         "en",
         "es",

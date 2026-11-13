@@ -60,5 +60,16 @@ mnpi:
     - "EU"
     - "AI"
     - "IT"
+    # Bulgarian field labels and legal forms (bg-BG locale).
+    - "BG"
+    - "EGN"
+    - "LNCH"
+    - "LNC"
+    - "EIK"
+    - "UIC"
+    - "GSM"
+    - "OOD"
+    - "EOOD"
+    - "VAT"
   min_ticker_length: 2
   score: 0.85

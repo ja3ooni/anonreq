@@ -16,8 +16,8 @@ from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiator
 from anonreq.locale.registry import LocaleRegistry
 
-# Sorted list of all 8 MVP locale codes — used as Hypothesis sampling domain
-LOCALE_CODES = ["ar", "de-DE", "en", "es", "fr-FR", "it-IT", "nl-NL", "pt-BR"]
+# Sorted list of all 9 locale codes — used as Hypothesis sampling domain
+LOCALE_CODES = ["ar", "bg-BG", "de-DE", "en", "es", "fr-FR", "it-IT", "nl-NL", "pt-BR"]
 
 
 # ---------------------------------------------------------------------------

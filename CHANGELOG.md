@@ -18,7 +18,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `bg-BG` locale bundle: EGN, LNCh, EIK/BULSTAT and BG IBAN with checksum validation, Bulgarian ID card numbers on context, and `+359` phone numbers. Checksum failures are masked as `*_UNVERIFIED` at 0.6 confidence. See `docs/operations/bulgaria-locale.md`.
 - Initial project scaffolding
+
+### Fixed
+
+- Streaming restore: the TailBuffer no longer cuts a `[TYPE_N]` token in half when it flushes, which left the placeholder unrestored in responses longer than 128 characters.
+- The 4-letter bank code in a space-grouped IBAN (`BG80 SYNT …`, `GB29 NWBK …`) is no longer flagged as an MNPI ticker, which made the whole IBAN irreversible.
+- `StreamingFirewallDetector` decodes UTF-8 incrementally, so a Cyrillic character split across network chunks is not turned into U+FFFD.
 
 ## [0.1.0] - 2026-06-19
 

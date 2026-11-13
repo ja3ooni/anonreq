@@ -10,6 +10,12 @@ import yaml
 
 from anonreq.locale.bundle import LocaleBundle
 from anonreq.locale.checksum import ChecksumValidator, ChecksumValidatorRegistry
+from anonreq.locale.checksums.bulgaria import (
+    EGNValidator,
+    EIKValidator,
+    IBANBGValidator,
+    LNChValidator,
+)
 from anonreq.locale.checksums.codice_fiscale import CodiceFiscaleValidator
 from anonreq.locale.checksums.germany import (
     IBANMod97Validator,
@@ -30,6 +36,10 @@ _VALIDATOR_FACTORIES: dict[str, type[ChecksumValidator]] = {
     "PERSONAL_AUSWEIS": PersonalausweisValidator,
     "KVNR": KVNRValidator,
     "IBAN_DE": IBANMod97Validator,
+    "EGN": EGNValidator,
+    "LNCH": LNChValidator,
+    "EIK": EIKValidator,
+    "IBAN_BG": IBANBGValidator,
 }
 
 logger = structlog.get_logger("anonreq.locale.registry")

@@ -14,7 +14,7 @@ Built by [Abdullah Al-Jauni](https://infratechton.com/) — AI consultant and in
 - **Token Restoration**: Restores tokens dynamically in LLM responses, supporting standard and Server-Sent Events (SSE) streaming with a robust Tail Buffer to handle tokens split across multiple chunks.
 - **Strict Logging Controls**: Implements structured JSON logging to `stdout`. All raw prompt and response values are completely redacted, keeping logs clean of PII.
 - **Provider Adapters**: Exposes an OpenAI-compatible wire protocol while providing translation layers/adapters to target other providers (Anthropic, Gemini, Ollama).
-- **Multi-Locale Support**: Leverages the `X-AnonReq-Locale` header to run locale-specific recognizer bundles (supporting 8 locales).
+- **Multi-Locale Support**: Leverages the `X-AnonReq-Locale` header to run locale-specific recognizer bundles (supporting 9 locales, including `bg-BG` for Bulgarian EGN, LNCh, EIK/BULSTAT, IBAN, ID card and +359 phone numbers).
 - **Observability**: Exposes `/health` and `/metrics` (Prometheus format) endpoints, SLO engine, and audit chain with export.
 
 ---

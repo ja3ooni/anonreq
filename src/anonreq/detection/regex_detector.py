@@ -9,13 +9,21 @@ Per D-38:
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any
 
 from anonreq.detection.regex_patterns import ENTITY_SPECIFICITY, PATTERNS, luhn_checksum
 from anonreq.locale.bundle import EntityTypeConfig, RecognizerTier
+from anonreq.locale.checksums.bulgaria import PREFILTER_VALIDATORS
 
 # Entity types that require Luhn checksum validation
 _LUHN_VALIDATED = {"CREDIT_CARD"}
+
+# Entity types whose checksum is checked before overlap resolution. These
+# share one digit shape (EGN and LNCh are both 10 digits), so a candidate
+# that fails its checksum must not win the span from a type that passes.
+# Format-only failures are covered by the matching *_UNVERIFIED patterns.
+_PREFILTERED: dict[str, Callable[[str], bool]] = dict(PREFILTER_VALIDATORS)
 
 
 _UNVERIFIED_SCORE = 0.6
@@ -100,6 +108,10 @@ class RegexDetector:
                     card_text = text[start:end]
                     if not luhn_checksum(card_text):
                         continue
+
+                validator = _PREFILTERED.get(entity_type)
+                if validator is not None and not validator(text[start:end]):
+                    continue
 
                 results.append({
                     "entity_type": entity_type,
