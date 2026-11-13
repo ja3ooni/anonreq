@@ -1,5 +1,6 @@
 import { assertPreviewInput, getPreviewClient } from "@/lib/preview-client";
 import { fromGatewayError, jsonOk } from "@/lib/http";
+import { refuseUnsupportedLocale } from "@/lib/locale-guard";
 import { GatewayRequestError } from "@/lib/gateway-error";
 import { MAX_PROMPT_CHARS, defaultTenant, requireLocale } from "@/lib/validate";
 import type { ChatMessage } from "@/lib/types";
@@ -8,7 +9,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /**
- * Proxies POST /v1/debug/anonymize-preview.
+ * Proxies POST /v1/debug/anonymize-preview (admin key). The gateway serves it only when
+ * ANONREQ_DEBUG_PREVIEW_ENABLED=true, which must stay off in production: the endpoint
+ * returns original spans next to their tokens. With the flag off this route reports
+ * `reason: "disabled"` and the UI shows a placeholder.
  * A gateway 404 (flag off) is returned as `{ ok: false, reason: "disabled" }`
  * so the middle column can show its placeholder without a failed request in the UI.
  */
@@ -33,6 +37,10 @@ export async function POST(request: Request) {
     assertPreviewInput(input);
     const tenantId = defaultTenant();
     const locale = requireLocale(body.locale, "en");
+    const refused = refuseUnsupportedLocale(locale);
+    if (refused) {
+      return refused;
+    }
     const result = await getPreviewClient().preview(input, { tenantId, locale });
     return jsonOk(result);
   } catch (error) {

@@ -45,23 +45,59 @@ CI runs the same four on Node 22 (`.github/workflows/web.yml`).
 - Locales: `bg`, `en`, `de` (`src/i18n/locales.ts`). The header switch reads BG / EN / DE, and each
   link carries `lang`/`hrefLang`. Fonts load the `cyrillic` subsets; PT Serif backs Newsreader for
   Cyrillic headings.
-- `/[locale]/staff` is a clean staff view: model picker (BgGPT first), synthetic Bulgarian examples,
-  and two columns, "what the model saw" (masked request + raw model reply) and "what you see"
-  (your request + restored reply). Highlighting uses the gateway's `*_utf16` offsets.
+- `/[locale]/staff` is a clean staff view: model picker, synthetic Bulgarian examples, and two
+  columns, "what the model saw" (masked request + raw model reply) and "what you see" (your request
+  + restored reply). Highlighting uses the gateway's `*_utf16` offsets.
 - Every page shows a sticky "assistive only — a human must review" notice in the active language.
-- `ANONREQ_UI_ADMIN=true` (server-side, read per request) shows the admin block with the audit CSV
-  export link (`/api/audit/export`, the existing gateway export). The gateway still enforces the
-  admin key; this flag only controls the link.
-- `ANONREQ_BGGPT_ALIAS` sets the BgGPT model alias. Default `bggpt` is a **placeholder** until DevOps
-  publishes the real alias in `config/model_aliases*.yaml`; the UI says so while it is unset.
-- The staff view sends `X-AnonReq-Locale: bg` for the Bulgarian UI. The gateway has no `bg`
-  recognizer config yet, so live detection of EGN depends on backend work.
-- Mock mode (`ANONREQ_MOCK=true`) recognises fake EGN (10 digits), BG IBANs, Cyrillic names and
-  Bulgarian cities, and answers in Bulgarian.
+
+### Locale negotiation (live mode)
+
+The gateway has no endpoint that lists its locale bundles, so the UI keeps a list:
+`ANONREQ_GATEWAY_LOCALES` (comma-separated), defaulting to the bundles in `config/locales/` on main
+(`ar, de-DE, en, es, fr-FR, it-IT, nl-NL, pt-BR`). A detection locale is accepted when it, or its
+primary language, is in that list. Otherwise the staff page shows a BG/EN/DE refusal and disables
+Send, and `/api/chat` and `/api/preview` return `422 {code: "unsupported_locale"}` without calling
+the gateway. **`bg` is refused in live mode** until the gateway ships `config/locales/bg.yaml`; then
+add `bg` to `ANONREQ_GATEWAY_LOCALES`. The locale is never rewritten (bg is never sent as en) and the
+`X-AnonReq-Locale` header is never dropped. Mock mode accepts every locale.
+
+### Admin context and the audit export
+
+- `ANONREQ_UI_ADMIN=true` (server-side, read per request) shows the staff view's admin block with the
+  audit CSV export link. When it is off the block is not rendered.
+- `/api/audit/export` is gated on the server: **403** while `ANONREQ_UI_ADMIN` is off. If
+  `ANONREQ_UI_ADMIN_TOKEN` is also set, the route requires HTTP Basic auth (any user name, password =
+  the token) and answers **401** with a Basic challenge otherwise. This is a shared-secret gate for the
+  pilot, not user accounts. The gateway still enforces `ANONREQ_ADMIN_API_KEY` on the upstream call.
+- The `/audit` page and the playground's "Export DPO Audit CSV" button use the same route, so they
+  also need `ANONREQ_UI_ADMIN=true`. `docker-compose.mock.yml` sets it; the live demo overlay defaults
+  it to `false`.
+
+### Preview endpoint (debug only)
+
+The "what the model saw" column calls `/api/preview`, which proxies
+`POST /v1/debug/anonymize-preview` with the admin key. The gateway serves it only with
+`ANONREQ_DEBUG_PREVIEW_ENABLED=true`. **Keep that flag off in production**: the endpoint returns
+original spans next to their tokens. With it off, the column shows a "preview disabled" placeholder
+and chat still works.
+
+### BgGPT alias
+
+`ANONREQ_BGGPT_ALIAS` names the BgGPT model alias. When it is unset or invalid the UI uses the
+placeholder `bggpt` and says the alias is not confirmed. The picker lists BgGPT (first) only when
+`/api/models` returns it: always in mock mode, and in live mode only if the gateway's `/v1/models`
+lists the alias. It is never injected client-side.
+
+### Mock recognizers and synthetic data
+
+- Mock mode (`ANONREQ_MOCK=true`) recognises BG IBANs, Cyrillic names and Bulgarian cities, and
+  answers in Bulgarian. EGN (`EGN_BG`) is detected **only for the `bg` locale** and only when the
+  birth date (month 01-12 / 21-32 / 41-52) and check digit are valid (`src/lib/egn.ts`).
+- Demo prompts (`src/lib/bg-demo-prompts.ts`) are synthetic: the EGNs pass validation but encode
+  birth dates in 2099 (`9952319991` = 31.12.2099, `9951019990` = 01.11.2099). IBANs use bank code
+  `TEST` with valid check digits, and e-mails use `example.org`.
 - **Bulgarian strings are machine-assisted and pending native review by Ibtisam.** Status per key is in
   `src/messages/REVIEW-bg.md`; `src/lib/i18n-bg.test.ts` fails if a key is missing there.
-- Demo prompts (`src/lib/bg-demo-prompts.ts`) are synthetic only: EGN with month 99, IBANs with bank
-  code `TEST`, `example.org` e-mails.
 
 ## Docker
 

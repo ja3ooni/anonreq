@@ -107,7 +107,7 @@ Synthetic demo prompts in `src/lib/bg-demo-prompts.ts` are also pending review (
 | `playground.tabGlassflow` | GlassFlow Rius и Tares | GlassFlow Rius & Tares | pending native review (Ibtisam) |
 | `playground.tabPilot` | Пилотен проект | Frankfurt Pilot PoC | pending native review (Ibtisam) |
 | `playground.tabScript` | Сценарий за 90 секунди | 90s Demo Script | pending native review (Ibtisam) |
-| `samples.pii` | [СИНТЕТИЧНИ ДАННИ] Подготви кратък отговор до Иван Тестов Примеров (ivan.testov@example.org, +359 88 000 0001), ЕГН 9999999999. Сметката е BG78 TEST 0000 1234 5678 90. Ще бъде в София на 14.03.2026. | Draft a short reply to Jörg Müller (joerg.mueller@nordbank.example, +49 170 1234567). The IBAN is DE89 3704 0044 0532 0130 00. He will be in München on 14.03.2026. | pending native review (Ibtisam) |
+| `samples.pii` | [СИНТЕТИЧНИ ДАННИ] Подготви кратък отговор до Иван Тестов Примеров (ivan.testov@example.org, +359 88 000 0001), ЕГН 9952319991. Сметката е BG78 TEST 0000 1234 5678 90. Ще бъде в София на 14.03.2026. | Draft a short reply to Jörg Müller (joerg.mueller@nordbank.example, +49 170 1234567). The IBAN is DE89 3704 0044 0532 0130 00. He will be in München on 14.03.2026. | pending native review (Ibtisam) |
 | `samples.clean` | Обясни с три изречения как шлюз, който блокира при грешка, се различава от прокси. | Explain in three sentences how a gateway that blocks on failure differs from a proxy. | pending native review (Ibtisam) |
 | `headers.requestId` | X-AnonReq-Request-ID | X-AnonReq-Request-ID | pending native review (Ibtisam) |
 | `headers.entityCount` | X-AnonReq-Entity-Count | X-AnonReq-Entity-Count | pending native review (Ibtisam) |
@@ -206,6 +206,9 @@ Synthetic demo prompts in `src/lib/bg-demo-prompts.ts` are also pending review (
 | `staff.exportHint` | Само метаданни: видове и брой елементи, никога реални стойности. | Metadata only: entity types and counts, never raw values. | pending native review (Ibtisam) |
 | `staff.openAudit` | Отвори одитния журнал | Open audit log | pending native review (Ibtisam) |
 | `staff.detectionLocale` | Език за разпознаване: {locale} | Detection locale: {locale} | pending native review (Ibtisam) |
+| `staff.bggptNotListed` | Шлюзът все още не предлага BgGPT (псевдоним {alias}). | The gateway does not offer BgGPT yet (alias {alias}). | pending native review (Ibtisam) |
+| `staff.localeRefusedTitle` | Езикът „{locale}“ все още не се поддържа от шлюза | Language “{locale}” is not supported by the gateway yet | pending native review (Ibtisam) |
+| `staff.localeRefusedBody` | Нищо не е изпратено. Заявките на този език се отказват, докато шлюзът не получи езиков пакет за „{locale}“ — те никога не се обработват като друг език. Поддържани: {supported}. | Nothing was sent. Requests in this language are refused until the gateway ships a locale bundle for “{locale}” — they are never processed as another language. Supported: {supported}. | pending native review (Ibtisam) |
 | `bg-demo-prompts:social-assistance` | see `src/lib/bg-demo-prompts.ts` | — | pending native review (Ibtisam) |
 | `bg-demo-prompts:address-registration` | see `src/lib/bg-demo-prompts.ts` | — | pending native review (Ibtisam) |
 | `bg-demo-prompts:no-personal-data` | see `src/lib/bg-demo-prompts.ts` | — | pending native review (Ibtisam) |

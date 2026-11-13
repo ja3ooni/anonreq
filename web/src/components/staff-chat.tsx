@@ -26,15 +26,21 @@ export interface StaffChatProps {
   bggptAlias: string;
   aliasConfirmed: boolean;
   detectionLocale: string;
+  /** Set when the gateway has no bundle for the detection locale (live mode). */
+  localeRefusal: { locale: string; supported: string[] } | null;
   isAdmin: boolean;
   exportHref: string;
 }
 
-export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin, exportHref }: StaffChatProps) {
+export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, localeRefusal, isAdmin, exportHref }: StaffChatProps) {
   const t = useTranslations("staff");
   const uiLocale = useLocale() as "bg" | "en" | "de";
-  const [models, setModels] = useState<string[]>(() => staffModelOptions(bggptAlias, []));
-  const [model, setModel] = useState(bggptAlias);
+  // No client-side injection: BgGPT appears only if /api/models lists it (mock mode does).
+  const [models, setModels] = useState<string[] | null>(null);
+  const [model, setModel] = useState("");
+  const [refusal, setRefusal] = useState(localeRefusal);
+  // Prompt language follows the detection locale (e.g. "bg" or "de-DE" → "de").
+  const promptLang = detectionLocale.split("-")[0] || "en";
   const [exampleId, setExampleId] = useState(STAFF_DEMO_PROMPTS[0]?.id ?? "");
   const [prompt, setPrompt] = useState(STAFF_DEMO_PROMPTS[0]?.prompt ?? "");
   const [submitted, setSubmitted] = useState("");
@@ -52,7 +58,9 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
           return;
         }
         const list = body.models.filter((item): item is string => typeof item === "string");
-        setModels(staffModelOptions(bggptAlias, list));
+        const options = staffModelOptions(bggptAlias, list);
+        setModels(options);
+        setModel((previous) => (previous && options.includes(previous) ? previous : (options[0] ?? "")));
       })
       .catch(() => undefined);
     return () => {
@@ -70,7 +78,7 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!prompt.trim() || phase === "running") {
+    if (!prompt.trim() || !model || phase === "running" || refusal) {
       return;
     }
     setPhase("running");
@@ -92,6 +100,11 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
       setPreview({ kind: "disabled" });
     } else {
       setPreview({ kind: "error", message: messageFrom(previewResult.body) ?? t("previewError") });
+    }
+
+    const unsupported = [previewResult.body, chatResult.body].find(isUnsupportedLocale);
+    if (unsupported) {
+      setRefusal({ locale: unsupported.locale, supported: unsupported.supported });
     }
 
     if (chatResult.network) {
@@ -140,7 +153,7 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
               data-testid="staff-model"
               className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm leading-normal"
             >
-              {models.map((item) => (
+              {(models ?? []).map((item) => (
                 <option key={item} value={item}>
                   {item === bggptAlias ? `BgGPT (${item})` : item}
                 </option>
@@ -149,6 +162,11 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
             <p id="staff-model-help" className="mt-1 text-xs leading-snug text-muted-foreground">
               {t("modelHelp")}
             </p>
+            {models && !models.includes(bggptAlias) ? (
+              <p className="mt-1 text-xs leading-snug text-[#9a3412]" data-testid="bggpt-not-listed">
+                {t("bggptNotListed", { alias: bggptAlias })}
+              </p>
+            ) : null}
             {!aliasConfirmed ? (
               <p className="mt-1 text-xs leading-snug text-[#9a3412]" data-testid="bggpt-pending">
                 {t("bggptPending", { alias: bggptAlias })}
@@ -185,7 +203,7 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
           <Textarea
             id="staff-prompt"
             name="prompt"
-            lang="bg"
+            lang={promptLang}
             value={prompt}
             onChange={(event) => {
               setPrompt(event.target.value);
@@ -197,7 +215,11 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
           />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={phase === "running" || !prompt.trim()} data-testid="staff-send">
+          <Button
+            type="submit"
+            disabled={phase === "running" || !prompt.trim() || !model || refusal !== null}
+            data-testid="staff-send"
+          >
             {phase === "running" ? t("sending") : t("send")}
           </Button>
           <span className="font-mono text-xs text-muted-foreground">
@@ -209,6 +231,12 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
             </Badge>
           ) : null}
         </div>
+        {refusal ? (
+          <div role="alert" data-testid="locale-refused" className="rounded-md border border-[#991b1b] bg-[#fdecec] px-3 py-2 text-sm leading-snug text-[#1a1814]">
+            <p className="font-semibold">{t("localeRefusedTitle", { locale: refusal.locale })}</p>
+            <p className="mt-1">{t("localeRefusedBody", { locale: refusal.locale, supported: refusal.supported.join(", ") })}</p>
+          </div>
+        ) : null}
       </form>
 
       <section aria-label={`${t("modelSawTitle")} / ${t("youSeeTitle")}`} className="grid gap-4 lg:grid-cols-2" data-testid="masking-view">
@@ -246,13 +274,13 @@ export function StaffChat({ bggptAlias, aliasConfirmed, detectionLocale, isAdmin
           ) : (
             <>
               <Part label={t("requestLabel")}>
-                <div lang="bg">
+                <div lang={promptLang}>
                   <EntityText text={submitted} spans={rawSpans} />
                 </div>
               </Part>
               <Part label={t("replyLabel")}>
                 {answer && chat ? (
-                  <div lang="bg">
+                  <div lang={promptLang}>
                     <EntityText text={chat.answer} spans={answer.restoredSpans} />
                   </div>
                 ) : chatError ? (
@@ -371,6 +399,14 @@ function isPreviewDisabled(body: unknown): boolean {
   return Boolean(
     body && typeof body === "object" && (body as { ok?: unknown }).ok === false && (body as { reason?: unknown }).reason === "disabled",
   );
+}
+
+function isUnsupportedLocale(body: unknown): body is { code: "unsupported_locale"; locale: string; supported: string[] } {
+  if (!body || typeof body !== "object") {
+    return false;
+  }
+  const record = body as { code?: unknown; locale?: unknown; supported?: unknown };
+  return record.code === "unsupported_locale" && typeof record.locale === "string" && Array.isArray(record.supported);
 }
 
 function isChatResult(body: unknown): body is ChatCompletionResult {

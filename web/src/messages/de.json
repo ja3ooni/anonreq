@@ -216,6 +216,9 @@
     "exportCsv": "Audit-CSV exportieren",
     "exportHint": "Nur Metadaten: Entitätstypen und Anzahl, nie Rohwerte.",
     "openAudit": "Audit-Log öffnen",
-    "detectionLocale": "Erkennungssprache: {locale}"
+    "detectionLocale": "Erkennungssprache: {locale}",
+    "bggptNotListed": "Das Gateway bietet BgGPT noch nicht an (Alias {alias}).",
+    "localeRefusedTitle": "Sprache „{locale}“ wird vom Gateway noch nicht unterstützt",
+    "localeRefusedBody": "Es wurde nichts gesendet. Anfragen in dieser Sprache werden abgelehnt, bis das Gateway ein Sprachpaket für „{locale}“ hat — sie werden nie als andere Sprache verarbeitet. Unterstützt: {supported}."
   }
 }

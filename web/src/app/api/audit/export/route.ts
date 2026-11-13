@@ -1,3 +1,4 @@
+import { checkExportAccess } from "@/lib/admin-gate";
 import { getEventsClient } from "@/lib/audit-client";
 import { inspectExportCsv } from "@/lib/csv-export";
 import { fromGatewayError, jsonError } from "@/lib/http";
@@ -7,6 +8,18 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
+  const access = checkExportAccess({
+    adminFlag: process.env.ANONREQ_UI_ADMIN,
+    adminToken: process.env.ANONREQ_UI_ADMIN_TOKEN,
+    authorization: request.headers.get("authorization"),
+  });
+  if (!access.ok) {
+    const response = jsonError(access.message, access.status);
+    if (access.status === 401) {
+      response.headers.set("www-authenticate", 'Basic realm="AnonReq admin", charset="UTF-8"');
+    }
+    return response;
+  }
   try {
     const url = new URL(request.url);
     const query = {

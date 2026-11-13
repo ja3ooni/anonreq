@@ -1,5 +1,6 @@
 import { getChatClient } from "@/lib/chat-client";
 import { fromGatewayError, jsonOk } from "@/lib/http";
+import { refuseUnsupportedLocale } from "@/lib/locale-guard";
 import { GatewayRequestError } from "@/lib/gateway-error";
 import { defaultTenant, requireLocale, requireModel, requirePrompt } from "@/lib/validate";
 
@@ -13,6 +14,10 @@ export async function POST(request: Request) {
     const model = requireModel(body.model);
     const tenantId = defaultTenant();
     const locale = requireLocale(body.locale, "en");
+    const refused = refuseUnsupportedLocale(locale);
+    if (refused) {
+      return refused;
+    }
     const result = await getChatClient().complete({ model, prompt, tenantId, locale });
     return jsonOk(result);
   } catch (error) {

@@ -1,6 +1,7 @@
 /**
  * SYNTHETIC DEMO DATA ONLY. Every name, EGN, IBAN, phone and e-mail below is invented.
- * - EGN values use month 99, which no real EGN (ЕГН) can have.
+ * - EGN values pass the mock recognizer's month and check-digit validation (src/lib/egn.ts)
+ *   but encode a birth date in 2099 (month + 40 = 20xx), so no living person can hold them.
  * - IBANs use the bank code "TEST", which no Bulgarian bank uses (the check digits are
  *   valid so the gateway's IBAN recognizer still fires in live mode).
  * - E-mails use the reserved example.org domain; phone numbers are 000-padded.
@@ -17,8 +18,10 @@ export interface StaffDemoPrompt {
   prompt: string;
 }
 
-export const FAKE_EGN_1 = "9999999999";
-export const FAKE_EGN_2 = "8899999990";
+/** 31.12.2099, valid check digit. */
+export const FAKE_EGN_1 = "9952319991";
+/** 01.11.2099, valid check digit. */
+export const FAKE_EGN_2 = "9951019990";
 export const FAKE_IBAN_1 = "BG78 TEST 0000 1234 5678 90";
 export const FAKE_IBAN_2 = "BG94TEST99990000000001";
 

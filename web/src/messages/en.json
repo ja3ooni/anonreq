@@ -216,6 +216,9 @@
     "exportCsv": "Export audit CSV",
     "exportHint": "Metadata only: entity types and counts, never raw values.",
     "openAudit": "Open audit log",
-    "detectionLocale": "Detection locale: {locale}"
+    "detectionLocale": "Detection locale: {locale}",
+    "bggptNotListed": "The gateway does not offer BgGPT yet (alias {alias}).",
+    "localeRefusedTitle": "Language “{locale}” is not supported by the gateway yet",
+    "localeRefusedBody": "Nothing was sent. Requests in this language are refused until the gateway ships a locale bundle for “{locale}” — they are never processed as another language. Supported: {supported}."
   }
 }

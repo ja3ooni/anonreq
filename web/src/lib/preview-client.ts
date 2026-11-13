@@ -48,7 +48,7 @@ export function buildMockPreview(
   requestId: string,
 ): AnonymizePreviewResponse {
   if (typeof input.prompt === "string" && input.prompt.trim()) {
-    const redacted = redactText(input.prompt, null);
+    const redacted = redactText(input.prompt, null, locale);
     return {
       request_id: requestId,
       locale,
@@ -63,7 +63,7 @@ export function buildMockPreview(
   let classification = "PUBLIC";
   let highest = "";
   const anonymizedMessages = (input.messages ?? []).map((message, index) => {
-    const redacted = redactText(message.content, index);
+    const redacted = redactText(message.content, index, locale);
     entities.push(...redacted.entities);
     if (rank(redacted.classification) > rank(classification)) {
       classification = redacted.classification;

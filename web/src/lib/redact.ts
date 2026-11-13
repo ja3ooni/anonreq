@@ -1,3 +1,4 @@
+import { isValidEgn } from "./egn.ts";
 import type { PreviewEntity } from "@/lib/types";
 
 interface FoundSpan {
@@ -141,14 +142,23 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function collect(text: string): FoundSpan[] {
+function collect(text: string, locale: string): FoundSpan[] {
   const found: FoundSpan[] = [];
-  const add = (entityType: string, expression: RegExp, priority: number, score: number) => {
+  const add = (
+    entityType: string,
+    expression: RegExp,
+    priority: number,
+    score: number,
+    accept?: (value: string) => boolean,
+  ) => {
     for (const match of text.matchAll(expression)) {
       if (match.index === undefined) {
         continue;
       }
       const value = match[0];
+      if (accept && !accept(value)) {
+        continue;
+      }
       if (entityType === "PERSON") {
         const words = value.split(/\s+/);
         if (words.some((word) => PERSON_STOP.has(word.toLowerCase()))) {
@@ -170,8 +180,10 @@ function collect(text: string): FoundSpan[] {
   add("IBAN_CODE", /\b[A-Z]{2}\d{2}(?: ?\d{4}){4} ?\d{2}\b/g, 2, 0.97);
   // Bulgarian IBAN: BG + 2 check digits + 4-letter bank code + 14 digits (22 chars).
   add("IBAN_CODE", /\bBG\d{2} ?[A-Z]{4}(?: ?\d{4}){3} ?\d{2}\b/g, 2, 0.97);
-  // Bulgarian EGN (ЕГН): exactly 10 digits. Demo heuristic only, no checksum.
-  add("EGN_BG", /(?<![\p{L}\p{N}])\d{10}(?![\p{L}\p{N}])/gu, 2, 0.93);
+  // Bulgarian EGN (ЕГН): bg locale only; 10 digits with a valid birth date and check digit.
+  if (locale.toLowerCase().split("-")[0] === "bg") {
+    add("EGN_BG", /(?<![\p{L}\p{N}])\d{10}(?![\p{L}\p{N}])/gu, 2, 0.93, isValidEgn);
+  }
   add("TAX_ID_DE", /\b[1-9]\d{10}\b/g, 2, 0.94);
   add("KVNR", /\b[A-Z]\d{9}\b/g, 2, 0.93);
   add("PERSONAL_AUSWEIS", /\b[A-Z](?!\d{9}\b)[A-Z0-9]{8}\d\b/g, 2, 0.92);
@@ -236,8 +248,8 @@ export interface Redaction {
  * Demo stand-in for the gateway recognizers. Same token contract: `[TYPE_N]`,
  * and the same value reuses the same token. Not a detector to ship in production.
  */
-export function redactText(text: string, messageIndex: number | null = null): Redaction {
-  const spans = collect(text);
+export function redactText(text: string, messageIndex: number | null = null, locale = "en"): Redaction {
+  const spans = collect(text, locale);
   const tokenByValue = new Map<string, string>();
   const counters = new Map<string, number>();
   let anonymized = "";
