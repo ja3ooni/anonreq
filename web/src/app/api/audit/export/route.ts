@@ -6,6 +6,7 @@ import { defaultTenant, optionalDate, optionalEntityType, querySort } from "@/li
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// Admin gate (ANONREQ_UI_ADMIN / ANONREQ_UI_ADMIN_TOKEN) runs in middleware for all /api/audit/*.
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);

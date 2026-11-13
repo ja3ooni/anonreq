@@ -5,7 +5,8 @@
 #
 # --env-file only feeds compose variable substitution. The container gets
 # just the values listed under environment: ANONREQ_API_KEY (gateway key,
-# chat) and ANONREQ_ADMIN_API_KEY (preview + audit), never the provider,
+# chat) and ANONREQ_ADMIN_API_KEY (preview + audit), plus the UI audit gate
+# (ANONREQ_UI_ADMIN, ANONREQ_UI_ADMIN_TOKEN); never the provider,
 # KMS or other secrets in the root .env. The gateway must run with
 # ANONREQ_DEBUG_PREVIEW_ENABLED=true, which #20 sets. The UI reaches the
 # gateway over the compose network by container name; it is still only
@@ -16,6 +17,8 @@ services:
       ANONREQ_API_KEY: ${ANONREQ_API_KEY:?set ANONREQ_API_KEY (use --env-file ../.env)}
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?set ANONREQ_ADMIN_API_KEY (use --env-file ../.env)}
       ANONREQ_GATEWAY_URL: ${ANONREQ_GATEWAY_URL:-http://anonreq-gateway:8080}
+      ANONREQ_UI_ADMIN: ${ANONREQ_UI_ADMIN:-false}
+      ANONREQ_UI_ADMIN_TOKEN: ${ANONREQ_UI_ADMIN_TOKEN:-}
       GLASSFLOW_RIUS_OTLP_ENDPOINT: ${GLASSFLOW_RIUS_OTLP_ENDPOINT:-}
       GLASSFLOW_RIUS_API_KEY: ${GLASSFLOW_RIUS_API_KEY:-${glassflow_API:-}}
       GLASSFLOW_TARES_WEBHOOK_URL: ${GLASSFLOW_TARES_WEBHOOK_URL:-https://sunny-ridge-aj.tares-glassflow.com/ingest/webhook-7be6b6c7}

@@ -30,6 +30,13 @@ ensure MINIO_ROOT_USER "anonreq-$(python3 -c "import secrets;print(secrets.token
 ensure MINIO_ROOT_PASSWORD "$(gen 24)"
 ensure POSTGRES_PASSWORD "$(gen 24)"
 ensure ANONREQ_DEMO_MODEL "grok-4"
+# Demo UI audit gate: /api/audit/* (DPO audit CSV, audit page) is 403 unless
+# ANONREQ_UI_ADMIN=true, and the UI image runs NODE_ENV=production, where the
+# gate also requires ANONREQ_UI_ADMIN_TOKEN (HTTP Basic password, any user name).
+# Only filled in when missing: an operator's explicit ANONREQ_UI_ADMIN=false or an
+# existing token is never overwritten.
+ensure ANONREQ_UI_ADMIN "true"
+ensure ANONREQ_UI_ADMIN_TOKEN "$(gen 32)"
 if [[ -n "${XAI_API_KEY:-}" ]]; then ensure XAI_API_KEY "$XAI_API_KEY"; fi
 XAI_VAL=$(get_env_var XAI_API_KEY)
 if [[ -z "$XAI_VAL" || "$XAI_VAL" == \<* ]]; then
@@ -82,6 +89,8 @@ if [[ -n "$UI_URL" ]]; then
   echo "Demo UI ready: $UI_URL/en (English) | $UI_URL/de (Deutsch)"
   echo "  -> 4-Column Wire Theater: 01 Raw | 02 Tokenized | 03 Model Reply (Before Restore) | 04 Re-identified"
   echo "  -> File Readiness Check (.pdf/.docx/.txt/.csv/.json/.eml), 5 EU Buyer Scenarios, GlassFlow & DPO CSV"
+  echo "  -> Audit page / DPO CSV: the browser asks for a login;"
+  echo "     user: anything, password: ANONREQ_UI_ADMIN_TOKEN from .env (not printed here)"
 fi
 echo "Gateway API: http://localhost:8080  (model: $ANONREQ_DEMO_MODEL)"
 # Keys are never printed. These lines (literal, single-quoted heredoc) load
