@@ -17,11 +17,10 @@ services:
       ANONREQ_ADMIN_API_KEY: ${ANONREQ_ADMIN_API_KEY:?set ANONREQ_ADMIN_API_KEY (use --env-file ../.env)}
       ANONREQ_GATEWAY_URL: ${ANONREQ_GATEWAY_URL:-http://anonreq-gateway:8080}
       GLASSFLOW_RIUS_OTLP_ENDPOINT: ${GLASSFLOW_RIUS_OTLP_ENDPOINT:-}
-      GLASSFLOW_RIUS_API_KEY: ${GLASSFLOW_RIUS_API_KEY:-${glassflow_API:-}}
+      GLASSFLOW_RIUS_API_KEY: ${GLASSFLOW_RIUS_API_KEY:-}
       # No default: set it in ../.env (scripts/connect-tares.sh writes it). Unset = no forwarding.
       GLASSFLOW_TARES_WEBHOOK_URL: ${GLASSFLOW_TARES_WEBHOOK_URL:-}
-      GLASSFLOW_TARES_TOKEN: ${GLASSFLOW_TARES_TOKEN:-${glassflow_API:-}}
-      glassflow_API: ${glassflow_API:-}
+      GLASSFLOW_TARES_TOKEN: ${GLASSFLOW_TARES_TOKEN:-}
     networks:
       - anonreq-net
 

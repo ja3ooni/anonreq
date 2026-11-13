@@ -2,6 +2,7 @@
  * GlassFlow forwarding (Rius OTLP + Tares), used by POST /api/glassflow.
  *
  * - Targets and credentials come from server env only (GlassFlowConfig); the body cannot pick them.
+ * - Only the allowlisted bundle from glassflow-payload.ts (parseGlassFlowBundle) is forwarded.
  * - Responses never contain a token, an ingest key or a URL path: only delivered flags, HTTP
  *   statuses and the target host.
  * - Upstream bodies are never passed back (no /read rows, no health JSON, no error detail).
@@ -10,6 +11,7 @@
  * Type-only imports and an injectable fetch, so tests run it under `node --experimental-strip-types`.
  */
 import type { GlassFlowConfig } from "./glassflow-config";
+import type { SanitizedBundle } from "./glassflow-payload";
 
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -32,9 +34,6 @@ export interface ForwardResult {
   status: number;
   body: GlassFlowSummary | { error: { message: string; status: number } };
 }
-
-/** Body fields older UIs sent to pick the target. Refused with 400. */
-const CLIENT_TARGET_FIELDS = ["taresUrl", "taresToken", "riusEndpoint", "riusApiKey", "url", "token"];
 
 const LOCAL = new Set(["localhost", "127.0.0.1"]);
 
@@ -62,30 +61,12 @@ function hostOf(url: string): string | null {
   }
 }
 
-function badRequest(message: string): ForwardResult {
-  return { status: 400, body: { error: { message, status: 400 } } };
-}
-
 export async function forwardToGlassFlow(
-  rawBody: unknown,
+  bundle: SanitizedBundle,
   config: GlassFlowConfig,
   fetchImpl: FetchLike = fetch,
   timeoutMs = 5_000,
 ): Promise<ForwardResult> {
-  if (!rawBody || typeof rawBody !== "object" || Array.isArray(rawBody)) {
-    return badRequest("Telemetry payload must be a JSON object");
-  }
-  const body = rawBody as Record<string, unknown>;
-  const clientTargets = CLIENT_TARGET_FIELDS.filter((field) => field in body);
-  if (clientTargets.length > 0) {
-    return badRequest(
-      `GlassFlow targets are server-configured (GLASSFLOW_TARES_WEBHOOK_URL, GLASSFLOW_TARES_TOKEN, GLASSFLOW_RIUS_OTLP_ENDPOINT). Remove: ${clientTargets.join(", ")}`,
-    );
-  }
-  if (body.tares != null && (typeof body.tares !== "object" || Array.isArray(body.tares))) {
-    return badRequest("tares must be a JSON object");
-  }
-
   const { taresWebhook, taresToken, riusEndpoint, riusApiKey } = config;
   const taresBase = taresWebhook
     .replace(/\/+$/, "")
@@ -129,25 +110,24 @@ export async function forwardToGlassFlow(
     await discard(health);
   }
 
-  if (riusEndpoint && body.rius && riusApiKey) {
+  if (riusEndpoint && bundle.rius && riusApiKey) {
     const res = await send(riusEndpoint, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${riusApiKey}`, "x-api-key": riusApiKey },
-      body: JSON.stringify(body.rius),
+      body: JSON.stringify(bundle.rius),
     });
     summary.riusStatus = res ? res.status : 0;
     summary.riusDelivered = delivered(res);
     await discard(res);
   }
 
-  if (taresWebhook && body.tares) {
+  if (taresWebhook && bundle.tares) {
     const headers: Record<string, string> = {
       "content-type": "application/json",
       ...(taresToken ? { authorization: `Bearer ${taresToken}`, "x-api-key": taresToken } : {}),
     };
-    const tares = body.tares as Record<string, unknown>;
-    const data = (tares.data ?? {}) as Record<string, unknown>;
-    const payload = JSON.stringify(body.tares);
+    const tares = bundle.tares;
+    const payload = JSON.stringify(tares);
 
     if (taresWebhook.includes("/ingest/")) {
       // 1. The configured URL is already an /ingest/<key> endpoint.
@@ -192,20 +172,19 @@ export async function forwardToGlassFlow(
         method: "POST",
         headers,
         body: JSON.stringify({
-          key: String(tares.correlation_key ?? "frankfurt-build-days-demo"),
-          content: `[AnonReq ${String(tares.decision ?? "ALLOW")}] scenario=${String(tares.scenario ?? "sepa-dispute")} classification=${String(
-            tares.classification ?? "CONFIDENTIAL",
-          )} highest_entity=${String(tares.highest_entity ?? "NONE")} prompt="${String(data.sanitized_prompt_preview ?? "")}"`,
+          key: tares.correlation_key,
+          content: `[AnonReq ${tares.decision}] scenario=${tares.scenario} classification=${tares.classification} highest_entity=${tares.highest_entity} prompt="${tares.data.sanitized_prompt_preview}"`,
           memory_type: "observation",
           source: "anonreq_gateway",
           fields: {
-            correlation_key: tares.correlation_key ?? "frankfurt-build-days-demo",
-            tenant_id: tares.tenant_id ?? "frankfurt-demo-eu",
-            scenario: tares.scenario ?? "sepa-dispute",
-            decision: tares.decision ?? "ALLOW",
-            classification: tares.classification ?? "CONFIDENTIAL",
-            highest_entity: tares.highest_entity ?? "NONE",
-            raw_pii_leaked: false,
+            correlation_key: tares.correlation_key,
+            tenant_id: tares.tenant_id,
+            scenario: tares.scenario,
+            decision: tares.decision,
+            classification: tares.classification,
+            highest_entity: tares.highest_entity,
+            preview_redacted: tares.data.preview_redacted,
+            raw_pii_leaked: tares.data.raw_pii_leaked,
           },
         }),
       });
@@ -214,16 +193,6 @@ export async function forwardToGlassFlow(
         if (delivered(rem)) summary.taresDelivered = true;
       }
       await discard(rem);
-
-      // 4. The token itself may be an /ingest/<token> credential.
-      if (!summary.taresDelivered && taresToken) {
-        const res = await send(`${taresBase}/ingest/${encodeURIComponent(taresToken)}`, { method: "POST", headers, body: payload });
-        if (delivered(res)) {
-          summary.taresStatus = res!.status;
-          summary.taresDelivered = true;
-        }
-        await discard(res);
-      }
     }
   }
 

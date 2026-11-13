@@ -1,22 +1,26 @@
 import { resolveGlassFlowConfig } from "@/lib/glassflow-config";
 import { forwardToGlassFlow } from "@/lib/glassflow-forward";
+import { parseGlassFlowBundle, readCappedBody } from "@/lib/glassflow-payload";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/**
- * Forwards the sanitized GlassFlow bundle to the env-configured Rius/Tares targets.
- * Returns delivered flags, statuses and the target host only (see glassflow-forward.ts).
- */
+const NO_STORE = { "cache-control": "no-store" };
+
+function error(message: string, status: number) {
+  return Response.json({ error: { message, status } }, { status, headers: NO_STORE });
+}
+
 export async function POST(request: Request) {
-  const body = (await request.json().catch(() => null)) as unknown;
   try {
-    const result = await forwardToGlassFlow(body, resolveGlassFlowConfig(process.env));
-    return Response.json(result.body, { status: result.status, headers: { "cache-control": "no-store" } });
+    // Body capped at 64 KB (413), then rebuilt from an allowlist (400 on any invalid field).
+    const read = await readCappedBody(request);
+    if (!read.ok) return error(read.message, read.status);
+    const parsed = parseGlassFlowBundle(read.text);
+    if (!parsed.ok) return error(parsed.message, parsed.status);
+    const result = await forwardToGlassFlow(parsed.bundle, resolveGlassFlowConfig(process.env));
+    return Response.json(result.body, { status: result.status, headers: NO_STORE });
   } catch {
-    return Response.json(
-      { error: { message: "GlassFlow forwarding failed", status: 500 } },
-      { status: 500, headers: { "cache-control": "no-store" } },
-    );
+    return error("GlassFlow forwarding failed", 500);
   }
 }

@@ -11,12 +11,7 @@ export interface GlassFlowConfig {
   riusApiKey: string;
 }
 
-/** Body fields older UIs sent to pick the target. Now refused. */
-export const CLIENT_TARGET_FIELDS = ["taresUrl", "taresToken", "riusEndpoint", "riusApiKey", "url", "token"] as const;
-
-export function clientTargetFields(body: Record<string, unknown>): string[] {
-  return CLIENT_TARGET_FIELDS.filter((field) => field in body);
-}
+// The refused body fields (taresUrl, taresToken, …) live in glassflow-forward.ts (single source).
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1", "host.docker.internal"]);
 
@@ -59,7 +54,8 @@ export function targetHost(url: string): string | null {
 
 export function resolveGlassFlowConfig(env: Record<string, string | undefined>): GlassFlowConfig {
   const taresWebhook = safeEnvUrl(env.GLASSFLOW_TARES_WEBHOOK_URL);
-  const taresToken = env.GLASSFLOW_TARES_TOKEN?.trim() || env.GLASSFLOW_API?.trim() || env.glassflow_API?.trim() || "";
+  // Canonical names only. The legacy aliases GLASSFLOW_API / glassflow_API are no longer read.
+  const taresToken = env.GLASSFLOW_TARES_TOKEN?.trim() || "";
   const taresBase = taresBaseFrom(taresWebhook);
   const riusEndpoint = safeEnvUrl(env.GLASSFLOW_RIUS_OTLP_ENDPOINT) || (taresBase ? `${taresBase}/v1/traces` : "");
   const riusApiKey = env.GLASSFLOW_RIUS_API_KEY?.trim() || taresToken;

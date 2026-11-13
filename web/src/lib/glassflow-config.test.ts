@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { clientTargetFields, resolveGlassFlowConfig, safeEnvUrl, taresBaseFrom } from "./glassflow-config.ts";
-
-test("body fields that would pick a target or credential are detected", () => {
-  assert.deepEqual(clientTargetFields({ rius: {}, tares: {} }), []);
-  assert.deepEqual(clientTargetFields({ taresUrl: "http://169.254.169.254/", taresToken: "x", tares: {} }), ["taresUrl", "taresToken"]);
-});
+import { resolveGlassFlowConfig, safeEnvUrl, taresBaseFrom } from "./glassflow-config.ts";
 
 test("no env means no forwarding target (no hard-coded external default)", () => {
   const config = resolveGlassFlowConfig({});
@@ -32,4 +27,10 @@ test("targets come from env only and must be plain http(s) URLs", () => {
 test("tares base strips known suffixes", () => {
   assert.equal(taresBaseFrom("https://c.example.com/read"), "https://c.example.com");
   assert.equal(taresBaseFrom("https://c.example.com/ingest/key-1"), "https://c.example.com");
+});
+
+test("legacy token aliases (GLASSFLOW_API, glassflow_API) are not read", () => {
+  const config = resolveGlassFlowConfig({ GLASSFLOW_TARES_WEBHOOK_URL: "https://cell.example.com", GLASSFLOW_API: "a", glassflow_API: "b" });
+  assert.equal(config.taresToken, "");
+  assert.equal(config.riusApiKey, "");
 });

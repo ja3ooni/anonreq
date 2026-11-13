@@ -54,7 +54,14 @@ export function SponsorPilotPanel({
       if (!res.ok) {
         setPushState({
           status: "error",
-          detail: isDe ? "Senden fehlgeschlagen" : "Telemetry emit failed",
+          detail:
+            res.status === 413
+              ? isDe
+                ? "Payload zu groß (max. 64 KB)"
+                : "Payload too large (max 64 KB)"
+              : isDe
+                ? `Senden fehlgeschlagen (HTTP ${res.status})`
+                : `Telemetry emit failed (HTTP ${res.status})`,
         });
         return;
       }
@@ -78,20 +85,20 @@ export function SponsorPilotPanel({
             ? `Tares (${data.taresHost ?? "?"}): ${
                 data.taresDelivered
                   ? `LIVE GESENDET (HTTP ${data.taresStatus})`
-                  : `HTTP ${data.taresStatus ?? 401} — Bitte Tares API-Key rechts eintragen`
+                  : `HTTP ${data.taresStatus ?? 401} — GLASSFLOW_TARES_TOKEN in .env prüfen (scripts/connect-tares.sh schreibt es), dann UI neu starten`
               }`
             : `Tares (${data.taresHost ?? "?"}): ${
                 data.taresDelivered
                   ? `DELIVERED LIVE (HTTP ${data.taresStatus})`
-                  : `HTTP ${data.taresStatus ?? 401} — Paste your Tares API Key on the right to authenticate`
+                  : `HTTP ${data.taresStatus ?? 401} — check GLASSFLOW_TARES_TOKEN in .env (scripts/connect-tares.sh writes it), then restart the UI`
               }`,
         });
       } else {
         setPushState({
-          status: "done",
+          status: data?.taresHealthy ? "done" : "error",
           detail: isDe
-            ? "Zelle sunny-ridge-aj erreichbar (v1.54.1 OK) — für authentifizierten Push GLASSFLOW_TARES_TOKEN auf dem Server setzen"
-            : "Cell sunny-ridge-aj reachable (v1.54.1 OK) — set GLASSFLOW_TARES_TOKEN on the server for authenticated push",
+            ? `Tares-Zelle ${data?.taresHealthy ? "erreichbar" : "nicht erreichbar"} — für authentifizierten Push GLASSFLOW_TARES_TOKEN in .env setzen (scripts/connect-tares.sh) und UI neu starten`
+            : `Tares cell ${data?.taresHealthy ? "reachable" : "not reachable"} — for authenticated push set GLASSFLOW_TARES_TOKEN in .env (scripts/connect-tares.sh) and restart the UI`,
         });
       }
     } catch {
@@ -183,20 +190,20 @@ export function SponsorPilotPanel({
                   rel="noreferrer"
                   className="underline text-[#9a3412] hover:opacity-80"
                 >
-                  Workspace API Keys ↗
+                  {isDe ? "Workspace-API-Keys (für .env) ↗" : "Workspace API keys (for .env) ↗"}
                 </a>
               </div>
             </div>
             <div className="mt-2 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground">
               {taresHost ||
                 (isDe
-                  ? "Ziel wird serverseitig gesetzt: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN"
-                  : "Target is set on the server: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN")}
+                  ? "Ziel kommt aus .env: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN (scripts/connect-tares.sh)"
+                  : "Target comes from .env: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN (scripts/connect-tares.sh)")}
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               {isDe
-                ? "Mit GLASSFLOW_TARES_TOKEN (serverseitig) sendet AnonReq an /v1/traces, /remember + /ingest/<key>. Die Antwort enthält nur Host, Zustellstatus und HTTP-Codes — nie Token, Ingest-Key oder Tares-Daten. Korrelierte Zeilen in der Tares-Konsole ansehen."
-                : "With GLASSFLOW_TARES_TOKEN set on the server, AnonReq pushes to /v1/traces, /remember + /ingest/<key>. The response carries only the host, delivery flags and HTTP statuses — never the token, the ingest key or Tares data. See correlated rows in the Tares console."}
+                ? "Mit GLASSFLOW_TARES_TOKEN (serverseitig) sendet AnonReq an /v1/traces, /remember + /ingest/<key> — nur eine serverseitig geprüfte Allowlist (Prompt-Vorschau nur mit [TYP_N]-Tokens, sonst geschwärzt). Die Antwort enthält nur Host, Zustellstatus und HTTP-Codes — nie Token, Ingest-Key oder Tares-Daten. Korrelierte Zeilen in der Tares-Konsole ansehen."
+                : "With GLASSFLOW_TARES_TOKEN set on the server, AnonReq pushes to /v1/traces, /remember + /ingest/<key> — only a server-checked allowlist (the prompt preview only with [TYPE_N] tokens, otherwise redacted). The response carries only the host, delivery flags and HTTP statuses — never the token, the ingest key or Tares data. See correlated rows in the Tares console."}
             </p>
           </div>
 

@@ -3,8 +3,10 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, beforeEach, test } from "node:test";
 
-import { CLIENT_TARGET_FIELDS, resolveGlassFlowConfig, safeEnvUrl, targetHost } from "./glassflow-config.ts";
+import { buildGlassFlowBundle } from "./glassflow.ts";
+import { resolveGlassFlowConfig, safeEnvUrl, targetHost } from "./glassflow-config.ts";
 import { forwardToGlassFlow } from "./glassflow-forward.ts";
+import { CLIENT_TARGET_FIELDS, parseGlassFlowBundle, type SanitizedBundle } from "./glassflow-payload.ts";
 
 const TOKEN = "SECRET-TOK-123";
 const INGEST_KEY = "ingest/key?with=chars&x";
@@ -16,6 +18,7 @@ interface Hit {
 }
 
 let hits: Hit[] = [];
+const bodies: Record<string, string> = {};
 let otherHits: Hit[] = [];
 let mode: "ok" | "redirect" | "error-body" = "ok";
 let cell: Server;
@@ -37,8 +40,10 @@ before(async () => {
   otherUrl = await listen(other);
   cell = createServer((req, res) => {
     hits.push({ method: req.method ?? "", url: req.url ?? "", headers: req.headers });
-    req.resume();
+    let received = "";
+    req.on("data", (chunk) => (received += chunk));
     req.on("end", () => {
+      bodies[req.url ?? ""] = received;
       if (mode === "redirect") {
         res.writeHead(307, { location: `${otherUrl}/stolen` });
         return res.end();
@@ -68,7 +73,34 @@ beforeEach(() => {
   mode = "ok";
 });
 
-const bundle = { rius: { resourceSpans: [] }, tares: { correlation_key: "k1", decision: "ALLOW", data: {} } };
+const clientBundle = buildGlassFlowBundle({
+  mode: "full_chat",
+  scenarioId: "bank",
+  filename: null,
+  tenantId: "default",
+  locale: "de-DE",
+  model: "grok-4",
+  latencyMs: 80,
+  preview: {
+    request_id: "req_fw_01",
+    locale: "de-DE",
+    classification: "RESTRICTED",
+    highest_entity: "IBAN_CODE",
+    anonymized_text: "Kunde [PERSON_1] meldet SEPA-Problem mit [IBAN_CODE_1].",
+    anonymized_messages: null,
+    entities: [
+      { entity_type: "PERSON", start: 6, end: 10, score: 0.9, token: "[PERSON_1]" },
+      { entity_type: "IBAN_CODE", start: 30, end: 40, score: 1, token: "[IBAN_CODE_1]" },
+    ],
+  } as never,
+  chat: null,
+});
+function sanitized(raw: unknown = clientBundle): SanitizedBundle {
+  const parsed = parseGlassFlowBundle(JSON.stringify(raw));
+  if (!parsed.ok) throw new Error(parsed.message);
+  return parsed.bundle;
+}
+const bundle = sanitized();
 const base = () => resolveGlassFlowConfig({ GLASSFLOW_TARES_WEBHOOK_URL: cellUrl, GLASSFLOW_TARES_TOKEN: TOKEN });
 const ingestCfg = () => resolveGlassFlowConfig({ GLASSFLOW_TARES_WEBHOOK_URL: `${cellUrl}/ingest/${encodeURIComponent("webhook-abc")}`, GLASSFLOW_TARES_TOKEN: TOKEN });
 
@@ -79,17 +111,40 @@ function assertNoSecrets(value: unknown, ...secrets: string[]) {
   }
 }
 
-test("400: non-object body, array body, and every client target field; nothing is fetched", async () => {
-  for (const body of [null, "x", 42, [], { tares: "nope" }]) {
-    const result = await forwardToGlassFlow(body, base());
-    assert.equal(result.status, 400, JSON.stringify(body));
+test("400: non-object body, array body, and every client target field (single list)", () => {
+  for (const text of ["null", '"x"', "42", "[]", "{not json", JSON.stringify({ tares: "nope" })]) {
+    const parsed = parseGlassFlowBundle(text);
+    assert.equal(parsed.ok, false, text);
+    assert.equal(!parsed.ok && parsed.status, 400, text);
   }
   for (const field of CLIENT_TARGET_FIELDS) {
-    const result = await forwardToGlassFlow({ ...bundle, [field]: "http://169.254.169.254/" }, base());
-    assert.equal(result.status, 400, field);
-    assertNoSecrets(result.body);
+    const parsed = parseGlassFlowBundle(JSON.stringify({ ...clientBundle, [field]: "http://169.254.169.254/" }));
+    assert.equal(!parsed.ok && parsed.status, 400, field);
+    assertNoSecrets(parsed);
   }
-  assert.equal(hits.length, 0, "no upstream call for a refused body");
+});
+
+test("only the allowlisted payload reaches the cell: full context and extra fields are dropped", async () => {
+  const raw = structuredClone(clientBundle) as unknown as { tares: Record<string, unknown> & { data: Record<string, unknown> } };
+  raw.tares.extra = "Jörg Müller";
+  raw.tares.data.raw_email = "joerg@example.com";
+  await forwardToGlassFlow(sanitized(raw), base());
+  const ingestBody = Object.entries(bodies).find(([url]) => url.startsWith("/ingest/"))?.[1] ?? "";
+  const event = JSON.parse(ingestBody);
+  assert.equal(event.extra, undefined);
+  assert.equal(event.data.raw_email, undefined);
+  assert.equal(event.data.sanitized_context, undefined);
+  assert.equal(event.data.sanitized_prompt_preview, "Kunde [PERSON_1] meldet SEPA-Problem mit [IBAN_CODE_1].");
+  assert.equal(event.data.raw_pii_leaked, false);
+  const remember = JSON.parse(bodies["/remember"]);
+  assert.equal(remember.fields.raw_pii_leaked, false);
+  assert.equal(remember.fields.preview_redacted, false);
+});
+
+test("token in the path is never tried (no /ingest/<token> fallback)", async () => {
+  mode = "error-body";
+  await forwardToGlassFlow(bundle, base());
+  assert.equal(hits.some((hit) => hit.url.includes(encodeURIComponent(TOKEN)) || hit.url.includes(TOKEN)), false);
 });
 
 test("base URL path: delivers via /api/sources + URL-encoded ingest key; response has no token, key or URL path", async () => {
