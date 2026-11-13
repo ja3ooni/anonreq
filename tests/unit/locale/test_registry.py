@@ -49,3 +49,24 @@ def test_duplicate_code_is_skipped_not_registered_twice(tmp_path: Path) -> None:
     (tmp_path / "two.yaml").write_text("code: same\nentity_types: []\n")
     registry = LocaleRegistry(str(tmp_path))
     assert registry.list_locales() == []
+
+
+def test_bare_language_resolves_to_its_only_regional_bundle() -> None:
+    registry = LocaleRegistry("config/locales")
+    assert registry.get("bg").code == "bg-BG"
+    assert registry.get("BG").code == "bg-BG"
+    assert registry.get("bg_BG").code == "bg-BG"
+    assert registry.get("de").code == "de-DE"
+    # A bare bundle wins over any regional one.
+    assert registry.get("en").code == "en"
+    # Other regions are not guessed: de-AT may have different identifiers.
+    assert registry.get("de-AT") is None
+    assert registry.get("zz") is None
+
+
+def test_ambiguous_bare_language_is_not_mapped(tmp_path: Path) -> None:
+    for code in ("pt-BR", "pt-PT"):
+        (tmp_path / f"{code}.yaml").write_text(f"code: {code}\nentity_types: []\n")
+    registry = LocaleRegistry(str(tmp_path))
+    assert registry.get("pt") is None
+    assert registry.get("pt-PT").code == "pt-PT"

@@ -56,7 +56,9 @@ class LocaleRegistry:
         self._locales_dir = Path(locales_dir)
         self._bundles: dict[str, LocaleBundle] = {}
         self._canonical_codes: dict[str, str] = {}
+        self._language_codes: dict[str, str] = {}
         self._load_bundles()
+        self._index_languages()
         if checksum_registry is not None:
             self.register_checksum_validators(checksum_registry)
 
@@ -84,8 +86,27 @@ class LocaleRegistry:
                     error=type(exc).__name__,
                 )
 
+    def _index_languages(self) -> None:
+        """Map a bare language (``bg``) to its only regional bundle (``bg-BG``).
+
+        Clients such as the web playground send ``X-AnonReq-Locale: bg``.
+        A language with its own bare bundle (``en``, ``es``, ``ar``) keeps
+        it. A language with two regional bundles is ambiguous and is not
+        mapped, so the request is rejected rather than guessed.
+        """
+        regional: dict[str, list[str]] = {}
+        for code in self._bundles:
+            language, sep, _region = code.partition("-")
+            if sep:
+                regional.setdefault(language.casefold(), []).append(code)
+        for language, codes in regional.items():
+            if language in self._canonical_codes or len(codes) != 1:
+                continue
+            self._language_codes[language] = codes[0]
+
     def get(self, locale_code: str) -> LocaleBundle | None:
-        canonical = self._canonical_codes.get(locale_code.casefold())
+        folded = locale_code.strip().replace("_", "-").casefold()
+        canonical = self._canonical_codes.get(folded) or self._language_codes.get(folded)
         if canonical is None:
             return None
         return self._bundles[canonical]

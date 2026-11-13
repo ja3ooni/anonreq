@@ -1,8 +1,10 @@
 # Bulgarian locale (`bg-BG`)
 
-Send `X-AnonReq-Locale: bg-BG` (or `bg-BG,en`) to add the Bulgarian
+Send `X-AnonReq-Locale: bg` or `bg-BG` (or `bg,en`) to add the Bulgarian
 recognizer bundle (`config/locales/bg-BG.yaml`) to the universal `en` bundle.
-Checksums live in `src/anonreq/locale/checksums/bulgaria.py`.
+Checksums live in `src/anonreq/locale/checksums/bulgaria.py`. A bare
+language code resolves to that language's only regional bundle (`bg` ->
+`bg-BG`, `de` -> `de-DE`); other regions such as `de-AT` are still rejected.
 
 | Entity | Shape | Validation | Masked as |
 | --- | --- | --- | --- |
