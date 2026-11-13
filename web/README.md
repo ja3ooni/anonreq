@@ -82,6 +82,32 @@ curl -I http://127.0.0.1:3000
 
 Both publish `127.0.0.1:3000:3000` with the container listening on `0.0.0.0`.
 
+## GlassFlow forwarding (`POST /api/glassflow`)
+
+- Targets and credentials come from server env only (`GLASSFLOW_TARES_WEBHOOK_URL`, `GLASSFLOW_TARES_TOKEN`,
+  `GLASSFLOW_RIUS_OTLP_ENDPOINT`, `GLASSFLOW_RIUS_API_KEY`). A body that names a target or credential
+  (`taresUrl`, `taresToken`, `riusEndpoint`, `riusApiKey`, `url`, `token`) gets 400 and nothing is fetched.
+  There are no defaults in code or compose; set them in `.env` (`scripts/connect-tares.sh` writes them).
+- Targets must be `https`, except loopback / `host.docker.internal`. URLs with embedded credentials are ignored.
+- Upstream fetches use `redirect: "manual"`: a 3xx counts as not delivered, and credentials never go to another origin.
+- The response holds only delivered flags, HTTP statuses and the target **host**. It never contains the
+  token, an ingest key, a URL path or any upstream body (no `/read` rows, health JSON or error detail).
+  The ingest key from `/api/sources` is URL-encoded.
+- The body is capped at 64 KB (413). It is then rebuilt server-side from an allowlist
+  (`src/lib/glassflow-payload.ts`): fixed fields only, enums for decision / classification / event type /
+  span name, patterns and a max length per field; unknown fields are dropped and an invalid value is a 400.
+  The full sanitized context is not forwarded, only `sanitized_prompt_preview` (max 280 chars). That
+  preview must contain a `[TYPE_N]` token and match no PII pattern (email, IBAN, phone, EGN / tax ID / card
+  or other long digit runs, API keys); otherwise it is replaced by `[redacted: …]`. File names that look
+  personal are redacted the same way. `raw_pii_leaked` is computed from that check (true = the "sanitized"
+  text still matched a PII pattern and was redacted before sending); it is never hard-coded.
+- Delivery: an explicit `/ingest/<key>` URL, or `/api/sources` → `/ingest/<key>` plus `/remember`. The token
+  is only sent as a header; it is never put into a URL path.
+- Env names: only the four `GLASSFLOW_*` names above are read. The legacy aliases `GLASSFLOW_API` and
+  `glassflow_API` were removed; rename them to `GLASSFLOW_TARES_TOKEN`. `GLASSFLOW_RIUS_API_KEY` falls back to
+  `GLASSFLOW_TARES_TOKEN` when unset.
+- The route has no auth beyond the loopback Host/Origin guard below, so keep the UI on 127.0.0.1.
+
 ## Request guard on /api/*
 
 The middleware rejects with 403 and a JSON `error`:
