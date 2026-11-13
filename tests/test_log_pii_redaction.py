@@ -243,6 +243,8 @@ class TestBulgarianLooseIbanAndEikInLogs:
             (eik13, f"EIK: {eik13} onboarded"),
             (f"BG{eik9}", f"БУЛСТАТ BG{eik9} onboarded"),
             (eik9, f"BULSTAT {eik9} onboarded"),
+            (f"BG{eik9}", f"VAT BG{eik9} onboarded"),
+            (eik9, f"VAT {eik9} onboarded"),
             (bad_eik, f"ЕИК {bad_eik} rejected"),  # labelled, bad checksum
             (bad_eik, f"БУЛСТАТ: {bad_eik} rejected"),
             (bad_eik, f"EIK {bad_eik} rejected"),
@@ -266,7 +268,6 @@ class TestBulgarianLooseIbanAndEikInLogs:
         lnch = generate_lnch("200300400")
         eik9 = generate_eik("20406080")
         eik13 = generate_eik("20406080", branch3="123")
-        vat = f"BG{eik9}"
         assert lnch_valid(lnch)
         assert not egn_valid(lnch)
         assert eik_valid(eik9)
@@ -280,7 +281,7 @@ class TestBulgarianLooseIbanAndEikInLogs:
             (lnch, f"request {lnch} done"),
             (eik9, f"company {eik9} onboarded"),
             (eik13, f"branch {eik13} onboarded"),
-            (vat, f"VAT {vat} onboarded"),
+            (f"BG{eik9}", f"prefix BG{eik9} onboarded"),
             (epoch, f"ts {epoch} elapsed"),
         ]
         for secret, text in cases:
@@ -307,6 +308,148 @@ class TestBulgarianLooseIbanAndEikInLogs:
         value = "123456780"
         assert not eik_valid(value)
         assert value in _redact_text(f"batch {value} done")
+
+
+
+# Reviewer's 24 labels x 9 separators matrix from the #27 notes at f02134d.
+_REVIEWER_MATRIX_LABELS: dict[str, tuple[str, ...]] = {
+    "EGN": ("ЕГН", "ЕГН:", "EGN", "egn", "ЕГН №", "ЕГН-"),
+    "LNCh": ("ЛНЧ", "ЛНЧ:", "LNCh", "LNC", "lnch", "ЛНЧ №", "ЛНЧ-", "Личен номер на чужденец"),
+    "EIK": (
+        "ЕИК",
+        "ЕИК:",
+        "ЕИК/БУЛСТАТ",
+        "БУЛСТАТ",
+        "BULSTAT",
+        "UIC",
+        "EIK",
+        "ДДС",
+        "ИН по ДДС",
+        "eik",
+    ),
+}
+_REVIEWER_MATRIX_SEPARATORS: tuple[str, ...] = (
+    " ",
+    "\n",
+    ": ",
+    " = ",
+    "\t",
+    " (",
+    ", ",
+    " — ",
+    ":\n",
+)
+
+
+def _reviewer_matrix_values() -> dict[str, str]:
+    import datetime as dt
+
+    from anonreq.locale.checksums.bulgaria import generate_egn, generate_eik, generate_lnch
+
+    return {
+        "EGN": generate_egn(dt.date(1985, 3, 15), serial=456),
+        "LNCh": generate_lnch("200300400"),
+        "EIK": generate_eik("20406080"),
+    }
+
+
+def _reviewer_matrix_cases() -> list[tuple[str, str, str, str]]:
+    values = _reviewer_matrix_values()
+    cases: list[tuple[str, str, str, str]] = []
+    for kind, labels in _REVIEWER_MATRIX_LABELS.items():
+        secret = values[kind]
+        for label in labels:
+            for sep in _REVIEWER_MATRIX_SEPARATORS:
+                cases.append((kind, label, sep, secret))
+    return cases
+
+
+def _matrix_case_id(kind: str, label: str, sep: str) -> str:
+    return f"{kind}:{label}:{'/'.join(repr(ch) for ch in sep)}"
+
+
+_REVIEWER_MATRIX_CASES = _reviewer_matrix_cases()
+assert len(_REVIEWER_MATRIX_CASES) == 216
+
+
+class TestBulgarianLabelProximity:
+    """Label proximity in the log scrubber: odd separators, JSON, suffix form."""
+
+    @pytest.mark.parametrize(
+        ("kind", "label", "sep", "secret"),
+        _REVIEWER_MATRIX_CASES,
+        ids=[
+            _matrix_case_id(kind, label, sep)
+            for kind, label, sep, _secret in _REVIEWER_MATRIX_CASES
+        ],
+    )
+    def test_reviewer_label_separator_matrix(
+        self, kind: str, label: str, sep: str, secret: str
+    ) -> None:
+        from anonreq.logging_config import _redact_text
+
+        text = f"msg {label}{sep}{secret} end"
+        redacted = _redact_text(text)
+        assert secret not in redacted, (kind, repr(text), repr(redacted))
+        assert "[REDACTED]" in redacted
+
+    def test_newlines_tabs_commas_and_json_are_scrubbed(self) -> None:
+        from anonreq.logging_config import _redact_text
+
+        values = _reviewer_matrix_values()
+        lnch, eik, egn = values["LNCh"], values["EIK"], values["EGN"]
+        cases = [
+            (lnch, f"ЛНЧ\n{lnch}"),
+            (lnch, f"LNCh\t{lnch}"),
+            (eik, f"ЕИК:\n{eik}"),
+            (eik, f"BULSTAT, {eik}"),
+            (eik, f"UIC, {eik}"),
+            (lnch, f'{{"ЛНЧ": "{lnch}"}}'),
+            (eik, f'{{"ЕИК": "{eik}"}}'),
+            (egn, f'{{"ЕГН": "{egn}"}}'),
+            (egn, f"ЕГН, {egn}"),
+            (egn, f"ЕГН\n{egn}"),
+        ]
+        for secret, text in cases:
+            redacted = _redact_text(text)
+            assert secret not in redacted, (repr(text), repr(redacted))
+            assert "[REDACTED]" in redacted
+
+    def test_number_then_label_form_is_scrubbed(self) -> None:
+        from anonreq.logging_config import _redact_text
+
+        values = _reviewer_matrix_values()
+        lnch, eik, egn = values["LNCh"], values["EIK"], values["EGN"]
+        cases = [
+            (lnch, f"{lnch} (ЛНЧ)"),
+            (eik, f"{eik} (ЕИК)"),
+            (egn, f"{egn} (ЕГН)"),
+            (eik, f"{eik} е ЕИК"),  # noqa: RUF001
+        ]
+        for secret, text in cases:
+            redacted = _redact_text(text)
+            assert secret not in redacted, (repr(text), repr(redacted))
+            assert "[REDACTED]" in redacted
+
+    def test_labelled_bad_checksum_with_odd_separators_is_scrubbed(self) -> None:
+        from anonreq.logging_config import _redact_text
+
+        values = _reviewer_matrix_values()
+        bad_egn = _bad_check_digit(values["EGN"])
+        bad_lnch = _bad_check_digit(values["LNCh"])
+        bad_eik = _bad_check_digit(values["EIK"])
+        cases = [
+            (bad_egn, f"ЕГН, {bad_egn}"),
+            (bad_egn, f"ЕГН\n{bad_egn}"),
+            (bad_egn, f'{{"ЕГН": "{bad_egn}"}}'),
+            (bad_egn, f"{bad_egn} (ЕГН)"),
+            (bad_lnch, f"ЛНЧ\n{bad_lnch}"),
+            (bad_eik, f"ЕИК:\n{bad_eik}"),
+        ]
+        for secret, text in cases:
+            redacted = _redact_text(text)
+            assert secret not in redacted, (repr(text), repr(redacted))
+            assert "[REDACTED]" in redacted
 
 
 class TestFormattedLogRedaction:

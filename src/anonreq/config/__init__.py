@@ -73,7 +73,7 @@ class Settings(BaseSettings):
             "EIK, IBAN, ID card, phone) are masked; names and addresses are "
             "not. Off by default: bg-BG requests get HTTP 422 "
             "bg_ner_not_cleared. Changing this setting needs a process "
-            "restart; it is read when the pipeline is built and cached."
+            "restart; it is read once at startup."
         ),
     )
     CACHE_TTL_SECONDS: int = 300

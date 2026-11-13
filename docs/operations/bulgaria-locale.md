@@ -31,9 +31,9 @@ X-AnonReq-NER-Coverage: structured_only
 
 Set `ANONREQ_BG_STRUCTURED_ONLY=true` only when the operator has accepted
 structured-ID-only masking (names and addresses reach the provider). The
-flag is read when the pipeline is built and cached in `app.state`, so a
-change needs a process restart; editing `.env` or the environment is not
-enough on its own. The audit event records the decision as
+flag is read once at startup, so a change needs a process restart;
+editing `.env` or the environment is not enough on its own. The audit
+event records the decision as
 `bg_structured_only: true|false` next to `ner_coverage`, for served and
 refused requests. The admin preview applies the same gate, so it shows
 what live traffic would get. Other locales are not affected.

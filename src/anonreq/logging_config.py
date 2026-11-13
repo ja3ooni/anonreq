@@ -135,8 +135,9 @@ _GERMAN_ENTITY_TYPES = (
 # bg-BG identifiers scrubbed from logs. Unlabelled numbers get only the EGN
 # check (checksum plus birth date), so ordinary 9- and 10-digit counters
 # stay readable even when they happen to pass the LNCh or EIK checksum.
-# Labelled EGN/LNCh/EIK and IBAN-shaped values are redacted ungated below,
-# including when their checksum fails.
+# Labelled EGN/LNCh/EIK are also caught by a proximity rule (a label, then
+# up to six whitespace or punctuation characters, then the number; or the
+# number (label) form), including when their checksum fails.
 _BULGARIAN_ENTITY_TYPES = (
     "EGN",
     "IBAN_BG",
@@ -156,6 +157,37 @@ _BULGARIAN_UNGATED_TYPES = (
     "BG_ID_CARD",
 )
 _LABEL_ANCHOR = "(?<=(?i:"
+# Log-scrubber only: a label may be followed by up to six characters of
+# whitespace or punctuation before the number. Lookbehinds in the bundle
+# miss newlines, tabs, commas, JSON and "number (label)" forms.
+_BG_LABEL_SEP = r"[\s:=,;" + '"' + r"'(№\-—]"
+_BG_PROXIMITY_GROUPS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (
+        (
+            "личен номер на чужденец",
+            "ЕГН",
+            "EGN",
+            "ЛНЧ",
+            "LNCh",
+            "LNC",
+        ),
+        r"(?:BG)?\d{10}",
+    ),
+    (
+        (
+            "ИН по ДДС",
+            "ЕИК/БУЛСТАТ",
+            "БУЛСТАТ",
+            "BULSTAT",
+            "ЕИК",
+            "EIK",
+            "UIC",
+            "VAT",
+            "ДДС",
+        ),
+        r"(?:BG)?\d{9}(?:\d{4})?",
+    ),
+)
 _CHECKSUM_ENTITY_TYPES = {
     "EGN": "EGN",
     "IBAN_BG": "IBAN_BG",
@@ -167,6 +199,7 @@ _CHECKSUM_ENTITY_TYPES = {
 }
 _german_patterns: dict[str, re.Pattern[str]] | None = None
 _bulgarian_ungated: list[re.Pattern[str]] | None = None
+_bulgarian_proximity: list[re.Pattern[str]] | None = None
 _checksums: Any = None
 
 # The stock PHONE_NUMBER pattern also matches timestamp fractions and UUID
@@ -287,6 +320,32 @@ def _bulgarian_ungated_patterns() -> list[re.Pattern[str]]:
     return _bulgarian_ungated
 
 
+def _compile_bulgarian_proximity() -> list[re.Pattern[str]]:
+    """Label-proximity matchers for the log scrubber (not the request path)."""
+    sep = _BG_LABEL_SEP + r"{0,6}"
+    compiled: list[re.Pattern[str]] = []
+    for labels, number in _BG_PROXIMITY_GROUPS:
+        alt = "|".join(re.escape(label) for label in sorted(labels, key=len, reverse=True))
+        compiled.append(
+            re.compile(
+                rf"(?i)(?<![\w])(?:{alt}){sep}(?P<num>{number})(?![\w])"
+            )
+        )
+        compiled.append(
+            re.compile(
+                rf"(?i)(?<![\w])(?P<num>{number})(?![\w])(?:\s*\(\s*|\s+е\s+)(?:{alt})\s*\)?"  # noqa: RUF001
+            )
+        )
+    return compiled
+
+
+def _bulgarian_proximity_patterns() -> list[re.Pattern[str]]:
+    global _bulgarian_proximity
+    if _bulgarian_proximity is None:
+        _bulgarian_proximity = _compile_bulgarian_proximity()
+    return _bulgarian_proximity
+
+
 def _german_pattern_map() -> dict[str, re.Pattern[str]]:
     global _german_patterns, _checksums
     if _german_patterns is None or _checksums is None:
@@ -333,6 +392,8 @@ def _redact_text(value: str) -> str:
         spans.append((start, end))
     for pattern in _bulgarian_ungated_patterns():
         spans.extend(match.span() for match in pattern.finditer(redacted))
+    for pattern in _bulgarian_proximity_patterns():
+        spans.extend(match.span("num") for match in pattern.finditer(redacted))
     if not spans:
         if truncated:
             return f"{redacted}{_TRUNCATED}"
