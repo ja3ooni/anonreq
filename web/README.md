@@ -65,13 +65,14 @@ add `bg` to `ANONREQ_GATEWAY_LOCALES`. The locale is never rewritten (bg is neve
 
 - `ANONREQ_UI_ADMIN=true` (server-side, read per request) shows the staff view's admin block with the
   audit CSV export link. When it is off the block is not rendered.
-- `/api/audit/export` is gated on the server: **403** while `ANONREQ_UI_ADMIN` is off. If
-  `ANONREQ_UI_ADMIN_TOKEN` is also set, the route requires HTTP Basic auth (any user name, password =
-  the token) and answers **401** with a Basic challenge otherwise. This is a shared-secret gate for the
+- Every `/api/audit/*` route (`events`, `export`, `config-history`, `verify`, and any added later) is
+  gated on the server in `src/middleware.ts`: **403** while `ANONREQ_UI_ADMIN` is off. If
+  `ANONREQ_UI_ADMIN_TOKEN` is also set, the routes require HTTP Basic auth (any user name, password =
+  the token) and answer **401** with a Basic challenge otherwise. This is a shared-secret gate for the
   pilot, not user accounts. The gateway still enforces `ANONREQ_ADMIN_API_KEY` on the upstream call.
-- The `/audit` page and the playground's "Export DPO Audit CSV" button use the same route, so they
-  also need `ANONREQ_UI_ADMIN=true`. `docker-compose.mock.yml` sets it; the live demo overlay defaults
-  it to `false`.
+- The `/audit` page and the playground's "Export DPO Audit CSV" button use these routes, so they need
+  `ANONREQ_UI_ADMIN=true`. `docker-compose.mock.yml` sets it; the live demo overlay defaults it to
+  `false`.
 
 ### Preview endpoint (debug only)
 
