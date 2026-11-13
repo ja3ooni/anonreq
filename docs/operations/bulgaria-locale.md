@@ -31,10 +31,12 @@ X-AnonReq-NER-Coverage: structured_only
 
 Set `ANONREQ_BG_STRUCTURED_ONLY=true` only when the operator has accepted
 structured-ID-only masking (names and addresses reach the provider). The
-audit event records the decision as `bg_structured_only: true|false` next to
-`ner_coverage`, for served and refused requests. The admin preview applies
-the same gate, so it shows what live traffic would get. Other locales are
-not affected.
+flag is read once at startup, so a change needs a process restart;
+editing `.env` or the environment is not enough on its own. The audit
+event records the decision as
+`bg_structured_only: true|false` next to `ner_coverage`, for served and
+refused requests. The admin preview applies the same gate, so it shows
+what live traffic would get. Other locales are not affected.
 
 The bundle's regexes are generated: edit `scripts/bg_locale/bg-BG.yaml.tpl`
 or the label lists in `scripts/bg_locale/generate.py`, then run
@@ -45,11 +47,15 @@ stale). Synthetic test values come from the `generate_*` helpers in
 Application logs are scrubbed fail-closed, alongside the de-DE identifiers:
 
 - with no checksum gate: labelled EGN, LNCh and EIK/BULSTAT (ЕГН/EGN,
-  ЛНЧ/LNCh, ЕИК/БУЛСТАТ/EIK/ДДС/UIC ...), any BG-IBAN-shaped value in any
-  case and either shape below, `BG_ID_CARD` after its context word
-  (`лична карта № AB1234567`), and `PHONE_BG`;
-- checksum-gated: unlabelled 10-digit EGN/LNCh and 9/13-digit EIK, so request
-  counters, Unix timestamps and batch numbers stay readable.
+  ЛНЧ/LNCh, ЕИК/БУЛСТАТ/EIK/BULSTAT/ДДС/UIC ...), even when the checksum
+  fails; any BG-IBAN-shaped value in any case and either shape below;
+  `BG_ID_CARD` after its context word (`лична карта № AB1234567`); and
+  `PHONE_BG`;
+- checksum-gated, unlabelled numbers only: a 10-digit value is redacted
+  only when it passes the EGN check (checksum plus birth date). Unlabelled
+  LNCh and EIK/BULSTAT stay readable even when they happen to pass those
+  checksums, so ordinary 9- and 10-digit counters, Unix timestamps and
+  batch numbers are not over-redacted.
 
 | Entity | Shape | Validation | Masked as |
 | --- | --- | --- | --- |
