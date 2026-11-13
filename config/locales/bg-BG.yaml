@@ -99,9 +99,11 @@ entity_types:
     confidence_threshold: 0.6
     reversible: true
     patterns:
-      # Any case, any checksum. Order codes without the BGkk + bank-code
-      # shape do not match.
-      - '(?i:(?<![\w-])BG\d{2}(?:\s?[A-Z]){4}(?:\s?\d){6}(?:\s?[A-Z0-9]){8}(?![\w-]))'
+      # Any case, any checksum, and the looser BGkk + 4 letters + 14
+      # alphanumerics shape (a mistyped branch/account-type digit still
+      # fails closed). The verified IBAN_BG keeps the strict 6-digit shape.
+      # Order codes without the BGkk + bank-code shape do not match.
+      - '(?i:(?<![\w-])BG\d{2}(?:\s?[A-Z]){4}(?:\s?[A-Z0-9]){14}(?![\w-]))'
   - name: API_KEY
     tier: REGEX
     confidence_threshold: 0.95

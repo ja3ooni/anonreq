@@ -148,6 +148,116 @@ class TestBulgarianIdentifierRedaction:
         assert "[REDACTED]" in rendered
 
 
+def _bad_check_digit(value: str) -> str:
+    return value[:-1] + str((int(value[-1]) + 1) % 10)
+
+
+def _bg_leak_cases() -> list[tuple[str, str]]:
+    import datetime as dt
+
+    from anonreq.locale.checksums.bulgaria import (
+        egn_valid,
+        generate_egn,
+        generate_iban_bg,
+        generate_lnch,
+        iban_bg_valid,
+        lnch_valid,
+    )
+
+    bad_egn = _bad_check_digit(generate_egn(dt.date(1985, 3, 15), serial=456))
+    bad_lnch = _bad_check_digit(generate_lnch("200300400"))
+    iban = generate_iban_bg("SYNT", "12345678901234")
+    bad_iban = iban[:2] + f"{(int(iban[2:4]) + 1) % 100:02d}" + iban[4:]
+    assert not egn_valid(bad_egn)
+    assert not lnch_valid(bad_lnch)
+    assert not iban_bg_valid(bad_iban)
+    return [
+        # (secret, log text) — the Reviewer's leak cases at 56c7f43.
+        (bad_egn, f"ЕГН {bad_egn}"),
+        (bad_egn, f"EGN: {bad_egn}"),
+        (bad_lnch, f"ЛНЧ {bad_lnch}"),
+        (bad_iban, f"IBAN {bad_iban}"),
+        (iban.lower(), f"iban {iban.lower()}"),
+        ("AB1234567", "лична карта № AB1234567"),
+        ("645123456", "лична карта № 645123456"),
+        ("645123456", "ЛК: 645123456"),
+    ]
+
+
+class TestBulgarianLogScrubberFailsClosed:
+    """Labelled or format-valid bg IDs are scrubbed even when unverified."""
+
+    @pytest.mark.parametrize("case", range(8))
+    def test_unverified_and_unchecked_bg_ids_are_scrubbed(self, case: int) -> None:
+        from anonreq.logging_config import _redact_text
+
+        secret, text = _bg_leak_cases()[case]
+        redacted = _redact_text(f"lookup failed: {text}; retry later")
+        assert secret not in redacted, redacted
+        assert secret.upper() not in redacted.upper(), redacted
+        assert "[REDACTED]" in redacted
+
+    @pytest.mark.parametrize(
+        "value",
+        ["1234567890", "1712345678", "1763035200", "8503154561"],
+    )
+    def test_unlabelled_counters_survive(self, value: str) -> None:
+        from anonreq.locale.checksums.bulgaria import egn_valid, lnch_valid
+        from anonreq.logging_config import _redact_text
+
+        assert not egn_valid(value)
+        assert not lnch_valid(value)
+        assert value in _redact_text(f"request {value} done")
+
+
+class TestBulgarianLooseIbanAndEikInLogs:
+    """Loose-shape IBANs and EIK/BULSTAT numbers are scrubbed from logs."""
+
+    @pytest.mark.parametrize(
+        "text_and_secret",
+        [
+            ("IBAN BG80SYNT1A3456789012AB", "BG80SYNT1A3456789012AB"),
+            ("iban bg80 synt 1a34 5678 9012 ab", "bg80 synt 1a34 5678 9012 ab"),
+        ],
+    )
+    def test_loose_shape_iban_is_scrubbed(self, text_and_secret: tuple[str, str]) -> None:
+        from anonreq.logging_config import _redact_text
+
+        text, secret = text_and_secret
+        redacted = _redact_text(f"payment failed: {text}")
+        assert secret not in redacted, redacted
+        assert "[REDACTED]" in redacted
+
+    def test_eik_forms_are_scrubbed(self) -> None:
+        from anonreq.locale.checksums.bulgaria import eik_valid, generate_eik
+        from anonreq.logging_config import _redact_text
+
+        eik9 = generate_eik("20406080")
+        eik13 = generate_eik("20406080", branch3="123")
+        bad_eik = _bad_check_digit(eik9)
+        assert not eik_valid(bad_eik)
+        cases = [
+            (eik9, f"company {eik9} onboarded"),  # unlabelled, checksum-valid
+            (eik13, f"branch {eik13} onboarded"),
+            (f"BG{eik9}", f"VAT BG{eik9} onboarded"),
+            (bad_eik, f"ЕИК {bad_eik} rejected"),  # labelled, bad checksum
+            (bad_eik, f"БУЛСТАТ: {bad_eik} rejected"),
+            (bad_eik, f"EIK {bad_eik} rejected"),
+        ]
+        for secret, text in cases:
+            redacted = _redact_text(text)
+            assert secret not in redacted, (text, redacted)
+            assert "[REDACTED]" in redacted
+
+    def test_unlabelled_invalid_nine_digits_survive(self) -> None:
+        from anonreq.locale.checksums.bulgaria import eik_valid
+        from anonreq.logging_config import _redact_text
+
+        value = "123456780"
+        assert not eik_valid(value)
+        assert value in _redact_text(f"batch {value} done")
+
+
 class TestFormattedLogRedaction:
     """Formatted JSON from structlog and stdlib must not contain PII."""
 

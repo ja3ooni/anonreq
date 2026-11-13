@@ -132,17 +132,34 @@ _GERMAN_ENTITY_TYPES = (
     "SVNR_DE",
     "IBAN_DE",
 )
-# bg-BG identifiers scrubbed from logs. EGN/LNCh/IBAN_BG are checksum-gated
-# (a random 10-digit request counter is not redacted unless it validates).
+# bg-BG identifiers scrubbed from logs. Unlabelled EGN/LNCh/EIK/IBAN_BG are
+# checksum-gated (a random 10-digit request counter is not redacted unless it
+# validates); labelled and IBAN-shaped values are redacted ungated below.
 _BULGARIAN_ENTITY_TYPES = (
     "EGN",
     "LNCH",
+    "EIK",
     "IBAN_BG",
     "PHONE_BG",
 )
+# Fail closed: these bg-BG patterns are redacted with no checksum gate and
+# outside RegexDetector's overlap resolution, so a gated span (IBAN_CODE,
+# EGN) cannot win the overlap and then be dropped by its checksum. Only
+# label-anchored EGN patterns (ЕГН/EGN ...) are taken from EGN_UNVERIFIED;
+# its unlabelled birth-date pattern stays out, so counters and Unix
+# timestamps are kept unless they are checksum-valid EGNs.
+_BULGARIAN_UNGATED_TYPES = (
+    "EGN_UNVERIFIED",
+    "LNCH_UNVERIFIED",
+    "EIK_UNVERIFIED",
+    "IBAN_BG_UNVERIFIED",
+    "BG_ID_CARD",
+)
+_LABEL_ANCHOR = "(?<=(?i:"
 _CHECKSUM_ENTITY_TYPES = {
     "EGN": "EGN",
     "LNCH": "LNCH",
+    "EIK": "EIK",
     "IBAN_BG": "IBAN_BG",
     "IBAN_CODE": "IBAN_DE",
     "IBAN_DE": "IBAN_DE",
@@ -151,6 +168,7 @@ _CHECKSUM_ENTITY_TYPES = {
     "KVNR": "KVNR",
 }
 _german_patterns: dict[str, re.Pattern[str]] | None = None
+_bulgarian_ungated: list[re.Pattern[str]] | None = None
 _checksums: Any = None
 
 # The stock PHONE_NUMBER pattern also matches timestamp fractions and UUID
@@ -201,6 +219,7 @@ def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
     from anonreq.locale.checksum import ChecksumValidatorRegistry
     from anonreq.locale.checksums.bulgaria import (
         EGNValidator,
+        EIKValidator,
         IBANBGValidator,
         LNChValidator,
     )
@@ -214,6 +233,7 @@ def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
     registry = ChecksumValidatorRegistry()
     registry.register("EGN", EGNValidator())
     registry.register("LNCH", LNChValidator())
+    registry.register("EIK", EIKValidator())
     registry.register("IBAN_BG", IBANBGValidator())
     registry.register("TAX_ID_DE", ISO7064Mod11_2Validator())
     registry.register("PERSONAL_AUSWEIS", PersonalausweisValidator())
@@ -237,6 +257,40 @@ def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
                 type(exc).__name__,
             )
     return patterns, registry
+
+
+def _load_bulgarian_ungated() -> list[re.Pattern[str]]:
+    import yaml
+
+    from anonreq.locale.bundle import LocaleBundle
+
+    try:
+        path = _german_locale_file("bg-BG")
+        if not path.is_file():
+            return []
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        bundle = LocaleBundle.from_dict(raw)
+    except Exception as exc:
+        logging.getLogger("anonreq.logging_config").warning(
+            "bulgarian log patterns unavailable type=%s", type(exc).__name__
+        )
+        return []
+    compiled: list[re.Pattern[str]] = []
+    for config in bundle.entity_types:
+        if config.name not in _BULGARIAN_UNGATED_TYPES:
+            continue
+        for pattern in config.patterns or []:
+            if config.name == "EGN_UNVERIFIED" and _LABEL_ANCHOR not in pattern:
+                continue  # the unlabelled birth-date pattern
+            compiled.append(re.compile(pattern))
+    return compiled
+
+
+def _bulgarian_ungated_patterns() -> list[re.Pattern[str]]:
+    global _bulgarian_ungated
+    if _bulgarian_ungated is None:
+        _bulgarian_ungated = _load_bulgarian_ungated()
+    return _bulgarian_ungated
 
 
 def _german_pattern_map() -> dict[str, re.Pattern[str]]:
@@ -283,6 +337,8 @@ def _redact_text(value: str) -> str:
         if not _checksum_accepts(entity_type, redacted[start:end]):
             continue
         spans.append((start, end))
+    for pattern in _bulgarian_ungated_patterns():
+        spans.extend(match.span() for match in pattern.finditer(redacted))
     if not spans:
         if truncated:
             return f"{redacted}{_TRUNCATED}"

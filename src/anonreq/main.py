@@ -378,6 +378,10 @@ def create_app() -> FastAPI:
     from anonreq.admin.auth import InvalidTenantHeaderError, invalid_tenant_header_handler
 
     app.add_exception_handler(InvalidTenantHeaderError, invalid_tenant_header_handler)
+    # A deliberate refusal, not a crash: answer it in ExceptionMiddleware.
+    from anonreq.exceptions import LocaleNerNotClearedError
+
+    app.add_exception_handler(LocaleNerNotClearedError, global_exception_handler)
     app.add_exception_handler(Exception, global_exception_handler)
 
     # Add MetricsMiddleware for Prometheus request counting and latency

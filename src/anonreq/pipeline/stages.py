@@ -6,7 +6,7 @@ from typing import Any
 
 from structlog import get_logger
 
-from anonreq.exceptions import PipelineAbortError
+from anonreq.exceptions import LocaleNerNotClearedError, PipelineAbortError
 from anonreq.locale.merger import RecognizerMerger
 from anonreq.locale.negotiator import LocaleNegotiationError, LocaleNegotiator
 from anonreq.models.processing_context import ProcessingContext
@@ -15,7 +15,6 @@ from anonreq.pipeline.base import PipelineStage
 logger = get_logger("anonreq.pipeline.locale")
 
 STRUCTURED_ONLY = "structured_only"
-NER_COVERAGE_HEADER = "X-AnonReq-NER-Coverage"
 
 
 class LocaleNegotiationStage(PipelineStage):
@@ -25,10 +24,14 @@ class LocaleNegotiationStage(PipelineStage):
         self,
         negotiator: LocaleNegotiator,
         merger: RecognizerMerger,
+        allow_structured_only: bool = False,
     ) -> None:
         super().__init__("LocaleNegotiationStage")
         self._negotiator = negotiator
         self._merger = merger
+        # ANONREQ_BG_STRUCTURED_ONLY. Off: structured-only locales (bg-BG)
+        # are refused with 422, because names and addresses would pass.
+        self._allow_structured_only = allow_structured_only
 
     async def execute(self, ctx: ProcessingContext) -> ProcessingContext:
         try:
@@ -48,6 +51,15 @@ class LocaleNegotiationStage(PipelineStage):
                 getattr(bundle, "ner_coverage", None) == STRUCTURED_ONLY for bundle in bundles
             ):
                 ctx.audit_metadata["ner_coverage"] = STRUCTURED_ONLY
+                ctx.audit_metadata["bg_structured_only"] = self._allow_structured_only
+                if not self._allow_structured_only:
+                    logger.warning(
+                        "locale.ner_not_cleared",
+                        stage=self.name,
+                        request_id=ctx.request_id,
+                        locale=ctx.audit_metadata["locale"],
+                    )
+                    ctx.fail_secure(LocaleNerNotClearedError(request_id=ctx.request_id))
         except LocaleNegotiationError as exc:
             logger.warning(
                 "locale.negotiation_failed",

@@ -32,7 +32,9 @@ from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
 from anonreq.exceptions import (
+    NER_COVERAGE_HEADER,
     DependencyUnavailableError,
+    LocaleNerNotClearedError,
     PipelineAbortError,
     PresidioLanguageUnsupportedError,
 )
@@ -53,7 +55,6 @@ from anonreq.pipeline.manager import PipelineManager
 from anonreq.pipeline.provider import ProviderStage
 from anonreq.pipeline.restoration import RestorationStage
 from anonreq.pipeline.stages import (
-    NER_COVERAGE_HEADER,
     LocaleNegotiationStage,
     PolicyEnforcementStage,
     SensitivityClassificationStage,
@@ -126,6 +127,7 @@ def build_pre_provider_pipeline(
         LocaleNegotiationStage(
             negotiator=locale_negotiator,
             merger=recognizer_merger,
+            allow_structured_only=settings.BG_STRUCTURED_ONLY,
         ),
         DetectionStage(
             regex_detector=RegexDetector(),
@@ -256,7 +258,7 @@ def _raise_for_pipeline_errors(proc_ctx: ProcessingContext) -> None:
         return
 
     last_error = proc_ctx.errors[-1]
-    if isinstance(last_error, PresidioLanguageUnsupportedError):
+    if isinstance(last_error, (PresidioLanguageUnsupportedError, LocaleNerNotClearedError)):
         raise last_error
     if isinstance(last_error, DependencyUnavailableError):
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")

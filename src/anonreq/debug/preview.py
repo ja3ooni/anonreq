@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, model_validator
 from anonreq.admin.auth import require_administrator
 from anonreq.config import settings
 from anonreq.debug.offsets import entities_from_context
+from anonreq.exceptions import NER_COVERAGE_HEADER, LocaleNerNotClearedError
 from anonreq.models.classification import ClassificationLevel
 from anonreq.models.processing_context import ProcessingContext
 from anonreq.pipeline.extraction import TextExtractor
@@ -245,9 +246,15 @@ async def _run_preview(
     ctx.client_classification = getattr(request.state, "client_classification", None)
     ctx.model = chat_body.get("model") if isinstance(chat_body.get("model"), str) else None
     # Do not attach audit_chain. Cleanup is not in this pipeline.
+    # Error handlers read request.state.ctx (X-AnonReq-NER-Coverage on 422).
+    request.state.ctx = ctx
 
     ctx = await pipeline.run(ctx)
-    _raise_for_pipeline_errors(ctx)
+    try:
+        _raise_for_pipeline_errors(ctx)
+    except LocaleNerNotClearedError as exc:
+        exc.headers = dict(_NO_STORE_HEADERS)  # type: ignore[attr-defined]
+        raise
 
     token_stage = next(
         (stage for stage in pipeline.stages if isinstance(stage, TokenizationStage)),
@@ -369,6 +376,12 @@ async def anonymize_preview(
     response.headers["X-AnonReq-Request-ID"] = request_id
     response.headers["X-AnonReq-Classification"] = classification
     response.headers["X-AnonReq-Highest-Entity"] = highest_entity
+    coverage = next(
+        (c.audit_metadata["ner_coverage"] for c in contexts if c.audit_metadata.get("ner_coverage")),  # noqa: E501
+        None,
+    )
+    if coverage:
+        response.headers[NER_COVERAGE_HEADER] = str(coverage)
 
     return AnonymizePreviewResponse(
         request_id=request_id,

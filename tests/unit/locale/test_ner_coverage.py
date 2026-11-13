@@ -15,9 +15,11 @@ from anonreq.pipeline.audit_emit import emit_anonymization_audit
 from anonreq.pipeline.stages import STRUCTURED_ONLY, LocaleNegotiationStage
 
 
-def _stage() -> LocaleNegotiationStage:
+def _stage(allow_structured_only: bool = True) -> LocaleNegotiationStage:
     return LocaleNegotiationStage(
-        LocaleNegotiator(LocaleRegistry("config/locales")), MagicMock(spec=RecognizerMerger)
+        LocaleNegotiator(LocaleRegistry("config/locales")),
+        MagicMock(spec=RecognizerMerger),
+        allow_structured_only=allow_structured_only,
     )
 
 
@@ -68,5 +70,56 @@ async def test_audit_event_carries_ner_coverage(header: str) -> None:
     if header == "bg":
         assert fields["ner_coverage"] == STRUCTURED_ONLY
         assert fields["locale"] == "bg-BG"
+        assert fields["bg_structured_only"] is True
     else:
         assert "ner_coverage" not in fields
+        assert "bg_structured_only" not in fields
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("header", ["bg", "bg-BG", "en, bg-BG", "de-DE, bg"])
+async def test_bg_is_refused_unless_explicitly_allowed(header: str) -> None:
+    from anonreq.exceptions import LocaleNerNotClearedError
+
+    ctx = ProcessingContext(request_id="r", tenant_id="t")
+    ctx.locale_header = header
+    ctx = await _stage(allow_structured_only=False).execute(ctx)
+    assert ctx.has_errors()
+    error = ctx.errors[-1]
+    assert isinstance(error, LocaleNerNotClearedError)
+    assert error.status_code == 422
+    assert error.code == "bg_ner_not_cleared"
+    assert ctx.audit_metadata["ner_coverage"] == STRUCTURED_ONLY
+    assert ctx.audit_metadata["bg_structured_only"] is False
+
+    chain = _Chain()
+    ctx.audit_chain = chain  # type: ignore[assignment]
+    await emit_anonymization_audit(ctx, attempts=1)
+    [(_event_type, fields)] = chain.calls
+    assert fields["bg_structured_only"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("header", ["de-DE", "en", None])
+async def test_gate_does_not_touch_other_locales(header: str | None) -> None:
+    ctx = ProcessingContext(request_id="r", tenant_id="t")
+    ctx.locale_header = header
+    ctx = await _stage(allow_structured_only=False).execute(ctx)
+    assert not ctx.has_errors()
+    assert "bg_structured_only" not in ctx.audit_metadata
+
+
+def test_bg_structured_only_setting_defaults_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    from anonreq.config import Settings
+
+    monkeypatch.delenv("ANONREQ_BG_STRUCTURED_ONLY", raising=False)
+    base = {
+        "ANONREQ_API_KEY": "k" * 32,
+        "ANONREQ_VALKEY_URL": "redis://x",
+        "ANONREQ_PRESIDIO_URL": "http://x",
+    }
+    for key, value in base.items():
+        monkeypatch.setenv(key, value)
+    assert Settings().BG_STRUCTURED_ONLY is False  # type: ignore[call-arg]
+    monkeypatch.setenv("ANONREQ_BG_STRUCTURED_ONLY", "true")
+    assert Settings().BG_STRUCTURED_ONLY is True  # type: ignore[call-arg]

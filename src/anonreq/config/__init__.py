@@ -66,6 +66,15 @@ class Settings(BaseSettings):
             "A listed language the analyzer rejects fails closed."
         ),
     )
+    BG_STRUCTURED_ONLY: bool = Field(
+        default=False,
+        description=(
+            "Accept bg-BG requests although only structured IDs (EGN, LNCh, "
+            "EIK, IBAN, ID card, phone) are masked; names and addresses are "
+            "not. Off by default: bg-BG requests get HTTP 422 "
+            "bg_ner_not_cleared."
+        ),
+    )
     CACHE_TTL_SECONDS: int = 300
     PROVIDER_BASE_URL: str = Field(
         default="https://api.openai.com",
