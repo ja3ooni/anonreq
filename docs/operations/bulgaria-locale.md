@@ -32,7 +32,7 @@ scrubbed from application logs, alongside the de-DE identifiers.
 | ID card (лична карта) | 9 digits (cards before 17 June 2024) or 2 letters + 7 digits (current card) | No public checksum | `BG_ID_CARD`, only after a context word (лична карта, л.к., ЛК, ID card, документ за самоличност) |
 | Phone | `+359`/`00359`, mobile 87/88/89/98/99, Sofia 2, other area codes; national `0…` | Format | `PHONE_BG`; without the trunk 0 only after тел./GSM/мобилен |
 
-### EGN over-masking (accepted, fail closed)
+## EGN over-masking (accepted, fail closed)
 
 Under `bg-BG`, any unseparated 10-digit number whose digits read as a
 plausible birth date (`YY` + month 01-12 or 41-52 + day 01-31) is masked
