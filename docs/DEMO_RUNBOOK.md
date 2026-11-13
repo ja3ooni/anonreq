@@ -62,14 +62,13 @@ Later steps (curl examples below) need the keys in your shell. `make demo` print
 # from the repo root; loads the keys without printing them (CRLF-safe)
 export ANONREQ_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
 export ANONREQ_ADMIN_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_ADMIN_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
-export ANONREQ_UI_ADMIN_TOKEN="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_UI_ADMIN_TOKEN=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
 ```
 
 **Demo UI admin login.** Every UI audit route (`/api/audit/*`: the DPO audit CSV, the `/audit` page, the staff view's export link) is admin only. It returns 403 unless `ANONREQ_UI_ADMIN=true`, and because the UI container runs with `NODE_ENV=production` it also requires `ANONREQ_UI_ADMIN_TOKEN`; without a token the routes stay closed (403). `make demo` writes `ANONREQ_UI_ADMIN=true` on every run and generates the token only when it is missing (same rule as the other keys; delete the line to rotate it). The first time you open the audit page or click **Download DPO Audit CSV**, the browser asks for a login: user name **anything**, password **the token**. To copy it without echoing it in a shared terminal:
 ```bash
 grep -E '^ANONREQ_UI_ADMIN_TOKEN=' .env | cut -d= -f2- | tr -d '\r\n' | pbcopy    # macOS; Linux: xclip -selection clipboard
 ```
-From a shell: `curl -s -u "x:$ANONREQ_UI_ADMIN_TOKEN" localhost:3000/api/audit/export -o audit.csv` (200); without `-u` it is **401**.
+From a shell (repo root): `curl -s -u "x:$(grep -E '^ANONREQ_UI_ADMIN_TOKEN=' .env | cut -d= -f2- | tr -d '\r')" localhost:3000/api/audit/export -o audit.csv` (200); without `-u` it is **401**.
 
 **Key rotation.** `make demo` only fills in *missing* values (empty, a `<...>` placeholder, or `minioadmin`); it never regenerates an existing `ANONREQ_API_KEY`, `ANONREQ_ADMIN_API_KEY`, KMS key or DB/MinIO password, so re-running it keeps your keys. To rotate the gateway or admin key, either delete its line from `.env`:
 ```bash

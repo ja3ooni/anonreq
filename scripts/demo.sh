@@ -97,6 +97,5 @@ echo "Load the keys into your shell (run from the repo root; values are not show
 cat <<'EOS'
   export ANONREQ_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
   export ANONREQ_ADMIN_API_KEY="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_ADMIN_API_KEY=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
-  export ANONREQ_UI_ADMIN_TOKEN="$(grep -E '^[[:space:]]*(export[[:space:]]+)?ANONREQ_UI_ADMIN_TOKEN=' .env | tail -n1 | cut -d= -f2- | tr -d '\r')"
 EOS
 echo "Try: curl -s localhost:8080/v1/chat/completions -H \"Authorization: Bearer \$ANONREQ_API_KEY\" -H 'X-AnonReq-Tenant-ID: default' -H 'X-AnonReq-Locale: de-DE' -H 'Content-Type: application/json' -d '{\"model\":\"$ANONREQ_DEMO_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"Hallo, ich bin Max Mustermann\"}]}'"
