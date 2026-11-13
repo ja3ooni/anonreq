@@ -38,7 +38,9 @@ npm test
 npm run build
 ```
 
-CI runs the same four on Node 22 (`.github/workflows/web.yml`).
+There is no web CI job yet: the repo's only GitHub check is the Python workflow, so run these four
+locally before pushing. A ready `web.yml` (Node 22, the same four steps) is waiting for someone
+with the `workflow` token scope to add it.
 
 ## Bulgarian staff-chat pilot (`/bg/staff`)
 
