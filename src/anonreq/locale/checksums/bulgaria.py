@@ -70,9 +70,19 @@ def egn_birth_date(egn: str) -> _dt.date | None:
         return None
 
 
-def egn_valid(value: str) -> bool:
+def _egn_digits(value: str) -> str | None:
+    """Return the 10 EGN digits, stripping an optional personal-VAT ``BG`` prefix."""
     compact = _compact(value)
+    if compact.startswith("BG") and len(compact) == 12:
+        compact = compact[2:]
     if len(compact) != 10 or not compact.isdigit():
+        return None
+    return compact
+
+
+def egn_valid(value: str) -> bool:
+    compact = _egn_digits(value)
+    if compact is None:
         return False
     if egn_birth_date(compact) is None:
         return False

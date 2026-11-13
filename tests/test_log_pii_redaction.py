@@ -310,7 +310,6 @@ class TestBulgarianLooseIbanAndEikInLogs:
         assert value in _redact_text(f"batch {value} done")
 
 
-
 # Reviewer's 24 labels x 9 separators matrix from the #27 notes at f02134d.
 _REVIEWER_MATRIX_LABELS: dict[str, tuple[str, ...]] = {
     "EGN": ("ЕГН", "ЕГН:", "EGN", "egn", "ЕГН №", "ЕГН-"),
@@ -450,6 +449,60 @@ class TestBulgarianLabelProximity:
             redacted = _redact_text(text)
             assert secret not in redacted, (repr(text), repr(redacted))
             assert "[REDACTED]" in redacted
+
+
+class TestPersonalVatBgEgnInLogs:
+    """BG + EGN personal VAT numbers are scrubbed from logs, EIK VAT is unchanged."""
+
+    def test_bg_plus_valid_egn_is_scrubbed(self) -> None:
+        import datetime as dt
+
+        from anonreq.locale.checksums.bulgaria import egn_valid, generate_egn
+        from anonreq.logging_config import _redact_text
+
+        egn = generate_egn(dt.date(1985, 3, 15), serial=456)
+        vat = f"BG{egn}"
+        assert egn_valid(vat)
+        for text in (
+            f"ДДС № {vat} на ЕТ Иванов",  # noqa: RUF001
+            f"VAT {vat}",
+            f"VAT bg{egn}",
+            vat,
+        ):
+            redacted = _redact_text(text)
+            assert vat not in redacted, (text, redacted)
+            assert egn not in redacted, (text, redacted)
+            assert "[REDACTED]" in redacted
+
+    def test_bg_plus_eik_vat_still_scrubbed_and_not_as_egn_collision(self) -> None:
+        from anonreq.locale.checksums.bulgaria import (
+            egn_valid,
+            eik_valid,
+            generate_eik,
+        )
+        from anonreq.logging_config import _redact_text
+
+        eik9 = generate_eik("20406080")
+        eik13 = generate_eik("20406080", branch3="123")
+        assert eik_valid(f"BG{eik9}")
+        assert eik_valid(f"BG{eik13}")
+        assert not egn_valid(f"BG{eik9}")
+        assert not egn_valid(f"BG{eik13}")
+        for secret in (f"BG{eik9}", f"BG{eik13}"):
+            redacted = _redact_text(f"VAT {secret} onboarded")
+            assert secret not in redacted, (secret, redacted)
+            assert "[REDACTED]" in redacted
+
+    def test_bg_plus_invalid_egn_without_label_survives(self) -> None:
+        import datetime as dt
+
+        from anonreq.locale.checksums.bulgaria import egn_valid, generate_egn
+        from anonreq.logging_config import _redact_text
+
+        egn = generate_egn(dt.date(1985, 3, 15), serial=456)
+        bad = "BG" + egn[:-1] + str((int(egn[-1]) + 1) % 10)
+        assert not egn_valid(bad)
+        assert bad in _redact_text(f"ref {bad} done")
 
 
 class TestFormattedLogRedaction:

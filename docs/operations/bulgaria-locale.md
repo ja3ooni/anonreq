@@ -59,9 +59,9 @@ Application logs are scrubbed fail-closed, alongside the de-DE identifiers:
 
 | Entity | Shape | Validation | Masked as |
 | --- | --- | --- | --- |
-| EGN (ЕГН) | 10 digits, `YYMMDD` + serial + check | Real birth date (month +20 for 1800s, +40 for 2000s) and weights 2,4,8,5,10,9,7,3,6 mod 11 (10 → 0) | `EGN`; failures `EGN_UNVERIFIED` (0.6) when labelled (ЕГН/EGN) or when the digits hold a plausible 1900s/2000s birth date |
+| EGN (ЕГН) | 10 digits, `YYMMDD` + serial + check, or `BG` + those 10 digits (personal / sole-trader VAT) | Real birth date (month +20 for 1800s, +40 for 2000s) and weights 2,4,8,5,10,9,7,3,6 mod 11 (10 → 0) | `EGN`; failures `EGN_UNVERIFIED` (0.6) when labelled (ЕГН/EGN) or when the digits hold a plausible 1900s/2000s birth date |
 | LNCh (ЛНЧ) | 10 digits | Weights 21,19,17,13,11,9,7,3,1 mod 10 | `LNCH`; failures `LNCH_UNVERIFIED` when labelled (ЛНЧ/LNCh) |
-| EIK / BULSTAT (ЕИК / БУЛСТАТ) | 9 digits, 13 for a branch, optional `BG` VAT prefix | 9: weights 1..8, fallback 3..10, mod 11. 13: plus digits 9-12 with 2,7,3,5, fallback 4,9,5,7 | `EIK`; failures `EIK_UNVERIFIED` when labelled (ЕИК/БУЛСТАТ/EIK/BULSTAT/ДДС/UIC) |
+| EIK / BULSTAT (ЕИК / БУЛСТАТ) | 9 digits, 13 for a branch, optional `BG` VAT prefix (BG + 9 or 13; BG + 10 is EGN) | 9: weights 1..8, fallback 3..10, mod 11. 13: plus digits 9-12 with 2,7,3,5, fallback 4,9,5,7 | `EIK`; failures `EIK_UNVERIFIED` when labelled (ЕИК/БУЛСТАТ/EIK/BULSTAT/ДДС/UIC) |
 | IBAN | `BGkk` + 4-letter bank code + 6 digits (branch, account type) + 8 alphanumerics (22) | ISO 13616 MOD-97 | `IBAN_BG` (strict shape and MOD-97); anything else of the looser shape `BGkk` + 4 letters + 14 alphanumerics, any case (a mistyped branch digit, a bad checksum, lower case) is `IBAN_BG_UNVERIFIED` |
 | ID card (лична карта) | 9 digits (cards before 17 June 2024) or 2 letters + 7 digits (current card) | No public checksum | `BG_ID_CARD`, only after a context word (лична карта, л.к., ЛК, ID card, документ за самоличност) |
 | Phone | `+359`/`00359`, mobile 87/88/89/98/99, Sofia 2, other area codes; national `0…` | Format | `PHONE_BG`; without the trunk 0 only after тел./GSM/мобилен |

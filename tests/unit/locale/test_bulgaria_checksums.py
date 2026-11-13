@@ -93,6 +93,18 @@ def test_eik_nine_and_thirteen_digits() -> None:
     assert not eik_valid(_flip_last(eik9) + eik13[9:])  # bad 9-digit stage
     assert not eik_valid("000000000")
     assert not eik_valid("1234567890")  # 10 digits is not an EIK length
+    egn = generate_egn(dt.date(1985, 3, 15), serial=456)
+    assert not eik_valid("BG" + egn)  # personal VAT is BG + EGN, not EIK
+
+
+def test_egn_accepts_personal_vat_prefix() -> None:
+    egn = generate_egn(dt.date(1985, 3, 15), serial=456)
+    assert egn_valid("BG" + egn)
+    assert egn_valid("bg" + egn)
+    assert not egn_valid("BG" + _flip_last(egn))
+    eik9 = generate_eik("20406080")
+    assert not egn_valid("BG" + eik9)  # BG + 9-digit EIK is not an EGN
+    assert eik_valid("BG" + eik9)
 
 
 def test_eik_fallback_weights() -> None:
