@@ -13,13 +13,19 @@ const MODEL = /^[\w.:-]{1,128}$/;
 
 export interface BgGptAlias {
   alias: string;
-  /** True only when ANONREQ_BGGPT_ALIAS was set and passed validation. */
+  /**
+   * True only when ANONREQ_BGGPT_ALIAS was set, passed validation, and differs from the
+   * placeholder. Setting it to "bggpt" explicitly does not confirm anything.
+   */
   accepted: boolean;
 }
 
 export function resolveBgGptAlias(envValue: string | undefined): BgGptAlias {
   const value = envValue?.trim() ?? "";
-  return MODEL.test(value) ? { alias: value, accepted: true } : { alias: BGGPT_ALIAS_PLACEHOLDER, accepted: false };
+  if (!MODEL.test(value)) {
+    return { alias: BGGPT_ALIAS_PLACEHOLDER, accepted: false };
+  }
+  return { alias: value, accepted: value !== BGGPT_ALIAS_PLACEHOLDER };
 }
 
 /**

@@ -127,6 +127,8 @@ test("staff config: alias acceptance and no BgGPT injection outside mock", () =>
   assert.deepEqual(resolveBgGptAlias(undefined), { alias: BGGPT_ALIAS_PLACEHOLDER, accepted: false });
   assert.deepEqual(resolveBgGptAlias("  "), { alias: "bggpt", accepted: false });
   assert.deepEqual(resolveBgGptAlias("bggpt-9b"), { alias: "bggpt-9b", accepted: true });
+  // Setting the placeholder explicitly does not confirm the alias.
+  assert.deepEqual(resolveBgGptAlias("bggpt"), { alias: "bggpt", accepted: false });
   assert.deepEqual(resolveBgGptAlias("bad alias!"), { alias: "bggpt", accepted: false });
   assert.deepEqual(staffModelOptions("bggpt", ["grok-4", "bggpt", "grok"]), ["bggpt", "grok-4", "grok"]);
   assert.deepEqual(staffModelOptions("bggpt", ["grok-4", "grok"]), ["grok-4", "grok"]);

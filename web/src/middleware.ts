@@ -7,7 +7,7 @@ import { checkApiRequest, resolveAllowedHosts } from "./lib/request-guard";
 
 const intl = createMiddleware(routing);
 
-export default function middleware(request: NextRequest) {
+export default async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.startsWith("/api/") || request.nextUrl.pathname === "/api") {
     const result = checkApiRequest({
       method: request.method,
@@ -20,10 +20,11 @@ export default function middleware(request: NextRequest) {
       return NextResponse.json({ error: result.message }, { status: result.status });
     }
     if (isAuditApiPath(request.nextUrl.pathname)) {
-      const access = checkAdminAccess({
+      const access = await checkAdminAccess({
         adminFlag: process.env.ANONREQ_UI_ADMIN,
         adminToken: process.env.ANONREQ_UI_ADMIN_TOKEN,
         authorization: request.headers.get("authorization"),
+        nodeEnv: process.env.NODE_ENV,
       });
       if (!access.ok) {
         return NextResponse.json(

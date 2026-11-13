@@ -69,7 +69,11 @@ add `bg` to `ANONREQ_GATEWAY_LOCALES`. The locale is never rewritten (bg is neve
   gated on the server in `src/middleware.ts`: **403** while `ANONREQ_UI_ADMIN` is off. If
   `ANONREQ_UI_ADMIN_TOKEN` is also set, the routes require HTTP Basic auth (any user name, password =
   the token) and answer **401** with a Basic challenge otherwise. This is a shared-secret gate for the
-  pilot, not user accounts. The gateway still enforces `ANONREQ_ADMIN_API_KEY` on the upstream call.
+  pilot, not user accounts. The token is compared as SHA-256 digests in constant time. The gateway
+  still enforces `ANONREQ_ADMIN_API_KEY` on the upstream call.
+- **Production fails closed:** with `NODE_ENV=production` (the Docker runtime image) the audit routes
+  require `ANONREQ_UI_ADMIN_TOKEN`; the flag alone gives 403. `make demo` (`scripts/demo.sh`) writes
+  `ANONREQ_UI_ADMIN=true` and generates the token into `.env`; see `docs/DEMO_RUNBOOK.md`.
 - The `/audit` page and the playground's "Export DPO Audit CSV" button use these routes, so they need
   `ANONREQ_UI_ADMIN=true`. `docker-compose.mock.yml` sets it; the live demo overlay defaults it to
   `false`.
@@ -85,7 +89,8 @@ and chat still works.
 ### BgGPT alias
 
 `ANONREQ_BGGPT_ALIAS` names the BgGPT model alias. When it is unset or invalid the UI uses the
-placeholder `bggpt` and says the alias is not confirmed. The picker lists BgGPT (first) only when
+placeholder `bggpt` and says the alias is not confirmed. Setting `ANONREQ_BGGPT_ALIAS=bggpt`
+explicitly does not count as confirmed either. The picker lists BgGPT (first) only when
 `/api/models` returns it: always in mock mode, and in live mode only if the gateway's `/v1/models`
 lists the alias. It is never injected client-side.
 

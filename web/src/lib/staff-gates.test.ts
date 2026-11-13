@@ -23,29 +23,38 @@ test("staff admin section is hidden unless ANONREQ_UI_ADMIN is on", () => {
   }
 });
 
-test("audit export returns 403 while ANONREQ_UI_ADMIN is off, even with credentials", () => {
+test("audit export returns 403 while ANONREQ_UI_ADMIN is off, even with credentials", async () => {
   for (const flag of [undefined, "false"]) {
-    const result = checkExportAccess({ adminFlag: flag, adminToken: "s3cret", authorization: basic("admin", "s3cret") });
+    const result = await checkExportAccess({ adminFlag: flag, adminToken: "s3cret", authorization: basic("admin", "s3cret"), nodeEnv: "test" });
     assert.deepEqual(result.ok ? 200 : result.status, 403);
   }
 });
 
-test("audit export is open in admin context without a token", () => {
-  assert.equal(checkExportAccess({ adminFlag: "true", adminToken: undefined, authorization: null }).ok, true);
-  assert.equal(checkExportAccess({ adminFlag: "true", adminToken: "  ", authorization: null }).ok, true);
+test("audit export is open in admin context without a token outside production", async () => {
+  assert.equal((await checkExportAccess({ adminFlag: "true", adminToken: undefined, authorization: null, nodeEnv: "development" })).ok, true);
+  assert.equal((await checkExportAccess({ adminFlag: "true", adminToken: "  ", authorization: null, nodeEnv: "test" })).ok, true);
 });
 
-test("audit export requires Basic auth matching ANONREQ_UI_ADMIN_TOKEN when set", () => {
-  const gate = (authorization: string | null) =>
-    checkExportAccess({ adminFlag: "true", adminToken: "s3cret", authorization });
-  const status = (result: ReturnType<typeof gate>) => (result.ok ? 200 : result.status);
-  assert.equal(status(gate(null)), 401);
-  assert.equal(status(gate("Bearer s3cret")), 401);
-  assert.equal(status(gate(basic("admin", "wrong"))), 401);
-  assert.equal(status(gate(basic("admin", "s3cret-longer"))), 401);
-  assert.equal(status(gate("Basic !!!")), 401);
-  assert.equal(status(gate(basic("admin", "s3cret"))), 200);
-  assert.equal(status(gate(basic("anyone", "s3cret"))), 200);
+test("production without ANONREQ_UI_ADMIN_TOKEN fails closed with 403", async () => {
+  const result = await checkAdminAccess({ adminFlag: "true", adminToken: undefined, authorization: null, nodeEnv: "production" });
+  assert.equal(result.ok ? 200 : result.status, 403);
+  const withToken = await checkAdminAccess({ adminFlag: "true", adminToken: "t", authorization: basic("u", "t"), nodeEnv: "production" });
+  assert.equal(withToken.ok, true);
+});
+
+test("audit export requires Basic auth matching ANONREQ_UI_ADMIN_TOKEN when set", async () => {
+  const status = async (authorization: string | null) => {
+    const result = await checkExportAccess({ adminFlag: "true", adminToken: "s3cret", authorization, nodeEnv: "production" });
+    return result.ok ? 200 : result.status;
+  };
+  assert.equal(await status(null), 401);
+  assert.equal(await status("Bearer s3cret"), 401);
+  assert.equal(await status(basic("admin", "wrong")), 401);
+  assert.equal(await status(basic("admin", "s3cret-longer")), 401);
+  assert.equal(await status(basic("admin", "s3cre")), 401);
+  assert.equal(await status("Basic !!!"), 401);
+  assert.equal(await status(basic("admin", "s3cret")), 200);
+  assert.equal(await status(basic("anyone", "s3cret")), 200);
 });
 
 test("live mode refuses bg by default and never rewrites the locale", () => {
@@ -101,25 +110,26 @@ test("every /api/audit/* route is covered by the middleware admin gate", () => {
   }
 });
 
-test("all audit routes: 403 when admin is off, 401 without Basic auth when a token is set", () => {
+test("all audit routes: 403 when admin is off, 401 without Basic auth when a token is set", async () => {
   for (const dir of AUDIT_ROUTE_DIRS) {
     const path = `/api/audit/${dir}`;
     assert.equal(isAuditApiPath(path), true);
-    const off = checkAdminAccess({ adminFlag: undefined, adminToken: undefined, authorization: null });
+    const off = await checkAdminAccess({ adminFlag: undefined, adminToken: undefined, authorization: null, nodeEnv: "test" });
     assert.equal(off.ok ? 200 : off.status, 403, path);
-    const noCreds = checkAdminAccess({ adminFlag: "true", adminToken: "t0ken", authorization: null });
+    const noCreds = await checkAdminAccess({ adminFlag: "true", adminToken: "t0ken", authorization: null, nodeEnv: "test" });
     assert.equal(noCreds.ok ? 200 : noCreds.status, 401, path);
-    const good = checkAdminAccess({ adminFlag: "true", adminToken: "t0ken", authorization: basic("ops", "t0ken") });
+    const good = await checkAdminAccess({ adminFlag: "true", adminToken: "t0ken", authorization: basic("ops", "t0ken"), nodeEnv: "test" });
     assert.equal(good.ok, true, path);
-    const open = checkAdminAccess({ adminFlag: "true", adminToken: undefined, authorization: null });
+    const open = await checkAdminAccess({ adminFlag: "true", adminToken: undefined, authorization: null, nodeEnv: "test" });
     assert.equal(open.ok, true, path);
   }
 });
 
-test("Basic auth decodes UTF-8 passwords and rejects malformed headers", () => {
-  const gate = (authorization: string | null) => checkAdminAccess({ adminFlag: "yes", adminToken: "пароль-ä", authorization });
-  assert.equal(gate(basic("u", "пароль-ä")).ok, true);
-  assert.equal(gate(basic("u", "пароль-a")).ok, false);
-  assert.equal(gate(`Basic ${Buffer.from("no-colon").toString("base64")}`).ok, false);
-  assert.equal(gate("Basic ====").ok, false);
+test("Basic auth decodes UTF-8 passwords and rejects malformed headers", async () => {
+  const gate = async (authorization: string | null) =>
+    (await checkAdminAccess({ adminFlag: "yes", adminToken: "пароль-ä", authorization, nodeEnv: "test" })).ok;
+  assert.equal(await gate(basic("u", "пароль-ä")), true);
+  assert.equal(await gate(basic("u", "пароль-a")), false);
+  assert.equal(await gate(`Basic ${Buffer.from("no-colon").toString("base64")}`), false);
+  assert.equal(await gate("Basic ===="), false);
 });

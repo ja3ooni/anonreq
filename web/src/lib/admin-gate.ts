@@ -1,6 +1,6 @@
 /**
  * Admin gate for every /api/audit/* route, enforced in middleware.
- * Runtime-agnostic (Edge middleware and Node): no node:crypto or Buffer. No Next.js or
+ * Runtime-agnostic (Edge middleware and Node): Web Crypto only, no node:crypto or Buffer. No Next.js or
  * path-alias imports, so tests can load it.
  */
 
@@ -15,23 +15,33 @@ export function isAuditApiPath(pathname: string): boolean {
 
 /**
  * - ANONREQ_UI_ADMIN off → 403.
+ * - NODE_ENV=production without ANONREQ_UI_ADMIN_TOKEN → 403 (fail closed: production never
+ *   serves audit data on the flag alone).
  * - ANONREQ_UI_ADMIN_TOKEN set → HTTP Basic auth is required; the password must equal the
  *   token (any user name). Missing or wrong credentials → 401 (caller adds the challenge).
  */
-export function checkAdminAccess(input: {
+export async function checkAdminAccess(input: {
   adminFlag: string | undefined;
   adminToken: string | undefined;
   authorization: string | null;
-}): AdminAccess {
+  nodeEnv: string | undefined;
+}): Promise<AdminAccess> {
   if (!resolveAdminContext(input.adminFlag)) {
     return { ok: false, status: 403, message: "Audit routes are admin only. ANONREQ_UI_ADMIN is off." };
   }
   const token = input.adminToken?.trim() ?? "";
   if (!token) {
+    if (input.nodeEnv === "production") {
+      return {
+        ok: false,
+        status: 403,
+        message: "ANONREQ_UI_ADMIN_TOKEN is required when NODE_ENV=production. Audit routes are closed.",
+      };
+    }
     return { ok: true };
   }
   const password = basicPassword(input.authorization);
-  if (password === null || !constantTimeEqual(password, token)) {
+  if (password === null || !(await digestEqual(password, token))) {
     return { ok: false, status: 401, message: "Admin credentials required" };
   }
   return { ok: true };
@@ -58,13 +68,19 @@ function basicPassword(header: string | null): string | null {
   return colon === -1 ? null : decoded.slice(colon + 1);
 }
 
-function constantTimeEqual(a: string, b: string): boolean {
-  const left = new TextEncoder().encode(a);
-  const right = new TextEncoder().encode(b);
-  let diff = left.length ^ right.length;
-  const length = Math.max(left.length, right.length);
-  for (let index = 0; index < length; index += 1) {
+async function sha256(value: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+}
+
+/**
+ * Hash both sides with SHA-256 (Web Crypto, works in Edge and Node), then compare the
+ * fixed-length digests in constant time, so neither the content nor the length leaks.
+ */
+async function digestEqual(a: string, b: string): Promise<boolean> {
+  const [left, right] = await Promise.all([sha256(a), sha256(b)]);
+  let diff = 0;
+  for (let index = 0; index < left.length; index += 1) {
     diff |= (left[index] ?? 0) ^ (right[index] ?? 0);
   }
-  return diff === 0;
+  return diff === 0 && left.length === right.length;
 }
