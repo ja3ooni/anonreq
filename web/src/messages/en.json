@@ -8,7 +8,8 @@
     "playground": "Playground",
     "audit": "Audit",
     "skip": "Skip to content",
-    "language": "Language"
+    "language": "Language",
+    "staff": "Staff chat"
   },
   "status": {
     "mock": "Mock",
@@ -179,5 +180,42 @@
     "exportLoaded": "Export loaded rows",
     "configLoading": "Loading config history",
     "exportError": "CSV export failed"
+  },
+  "notice": {
+    "assistive": "Assistive only — a human must review",
+    "detail": "AI replies can be wrong. Check every reply before it reaches a citizen or informs a decision.",
+    "label": "Notice"
+  },
+  "staff": {
+    "eyebrow": "Municipal staff assistant · pilot",
+    "title": "Ask the assistant, keep personal data local",
+    "lede": "Personal data is replaced with tokens before the request leaves the network. Compare what the model saw with what you see.",
+    "model": "Model",
+    "modelHelp": "BgGPT is listed first. The gateway resolves the alias.",
+    "bggptPending": "BgGPT alias not confirmed yet (placeholder: {alias})",
+    "examples": "Example requests",
+    "examplesHint": "Synthetic data only. No real person, EGN or IBAN.",
+    "syntheticBadge": "Synthetic",
+    "prompt": "Your request",
+    "send": "Send",
+    "sending": "Sending…",
+    "done": "Reply is ready",
+    "modelSawTitle": "What the model saw",
+    "modelSawHint": "Tokens instead of personal data. This is all that left the network.",
+    "youSeeTitle": "What you see",
+    "youSeeHint": "Your request and the reply with the real values restored.",
+    "requestLabel": "Request",
+    "replyLabel": "Reply",
+    "empty": "Send a request to fill both views.",
+    "maskedCount": "{count} items masked",
+    "previewDisabled": "The masked request is not available. The preview endpoint is off (ANONREQ_DEBUG_PREVIEW_ENABLED).",
+    "previewError": "Masking preview failed",
+    "chatError": "The assistant did not reply",
+    "network": "This page could not reach its server.",
+    "adminTitle": "Administration",
+    "exportCsv": "Export audit CSV",
+    "exportHint": "Metadata only: entity types and counts, never raw values.",
+    "openAudit": "Open audit log",
+    "detectionLocale": "Detection locale: {locale}"
   }
 }

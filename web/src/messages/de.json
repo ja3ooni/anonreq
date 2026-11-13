@@ -8,7 +8,8 @@
     "playground": "Prüfstand",
     "audit": "Audit",
     "skip": "Zum Inhalt springen",
-    "language": "Sprache"
+    "language": "Sprache",
+    "staff": "Mitarbeiter-Chat"
   },
   "status": {
     "mock": "Mock",
@@ -179,5 +180,42 @@
     "exportLoaded": "Geladene Zeilen exportieren",
     "configLoading": "Konfigurationshistorie wird geladen",
     "exportError": "CSV-Export fehlgeschlagen"
+  },
+  "notice": {
+    "assistive": "Nur zur Unterstützung — ein Mensch muss die Antwort prüfen",
+    "detail": "KI-Antworten können falsch sein. Prüfen Sie jede Antwort, bevor sie Bürgerinnen und Bürger erreicht oder in eine Entscheidung einfließt.",
+    "label": "Hinweis"
+  },
+  "staff": {
+    "eyebrow": "Assistenz für Verwaltungspersonal · Pilot",
+    "title": "Assistent fragen, personenbezogene Daten bleiben lokal",
+    "lede": "Personenbezogene Daten werden durch Token ersetzt, bevor die Anfrage das Netz verlässt. Vergleichen Sie, was das Modell sah, mit dem, was Sie sehen.",
+    "model": "Modell",
+    "modelHelp": "BgGPT steht an erster Stelle. Das Gateway löst den Alias auf.",
+    "bggptPending": "BgGPT-Alias noch nicht bestätigt (Platzhalter: {alias})",
+    "examples": "Beispielanfragen",
+    "examplesHint": "Nur synthetische Daten. Keine echte Person, EGN oder IBAN.",
+    "syntheticBadge": "Synthetisch",
+    "prompt": "Ihre Anfrage",
+    "send": "Senden",
+    "sending": "Wird gesendet…",
+    "done": "Antwort ist da",
+    "modelSawTitle": "Was das Modell sah",
+    "modelSawHint": "Token statt personenbezogener Daten. Nur das hat das Netz verlassen.",
+    "youSeeTitle": "Was Sie sehen",
+    "youSeeHint": "Ihre Anfrage und die Antwort mit wiederhergestellten Werten.",
+    "requestLabel": "Anfrage",
+    "replyLabel": "Antwort",
+    "empty": "Senden Sie eine Anfrage, um beide Ansichten zu füllen.",
+    "maskedCount": "{count} Angaben maskiert",
+    "previewDisabled": "Die maskierte Anfrage ist nicht verfügbar. Der Vorschau-Endpunkt ist aus (ANONREQ_DEBUG_PREVIEW_ENABLED).",
+    "previewError": "Maskierungsvorschau fehlgeschlagen",
+    "chatError": "Der Assistent hat nicht geantwortet",
+    "network": "Diese Seite konnte ihren Server nicht erreichen.",
+    "adminTitle": "Administration",
+    "exportCsv": "Audit-CSV exportieren",
+    "exportHint": "Nur Metadaten: Entitätstypen und Anzahl, nie Rohwerte.",
+    "openAudit": "Audit-Log öffnen",
+    "detectionLocale": "Erkennungssprache: {locale}"
   }
 }

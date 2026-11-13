@@ -30,6 +30,7 @@ const LEVEL: Record<string, number> = {
   PERSONAL_AUSWEIS: 3,
   KVNR: 3,
   SVNR_DE: 3,
+  EGN_BG: 3,
   API_KEY: 4,
 };
 
@@ -51,6 +52,12 @@ const CITIES = [
   "Zurich",
   "London",
   "Paris",
+  "София",
+  "Пловдив",
+  "Варна",
+  "Бургас",
+  "Русе",
+  "Стара Загора",
 ];
 
 const PERSON_STOP = new Set(
@@ -118,6 +125,15 @@ const PERSON_STOP = new Set(
     "lebenslauf",
     "störmeldung",
     "umspannwerk",
+    "синтетични",
+    "данни",
+    "молба",
+    "моля",
+    "гражданин",
+    "гражданинът",
+    "гражданката",
+    "общината",
+    "община",
   ].map((word) => word.toLowerCase()),
 );
 
@@ -152,6 +168,10 @@ function collect(text: string): FoundSpan[] {
   add("API_KEY", /\b(?:sk-(?:proj-)?[a-zA-Z0-9_-]{20,}|AKIA[0-9A-Z]{16}|ghp_[a-zA-Z0-9]{36})\b/g, 0, 0.99);
   add("EMAIL_ADDRESS", /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, 1, 0.99);
   add("IBAN_CODE", /\b[A-Z]{2}\d{2}(?: ?\d{4}){4} ?\d{2}\b/g, 2, 0.97);
+  // Bulgarian IBAN: BG + 2 check digits + 4-letter bank code + 14 digits (22 chars).
+  add("IBAN_CODE", /\bBG\d{2} ?[A-Z]{4}(?: ?\d{4}){3} ?\d{2}\b/g, 2, 0.97);
+  // Bulgarian EGN (ЕГН): exactly 10 digits. Demo heuristic only, no checksum.
+  add("EGN_BG", /(?<![\p{L}\p{N}])\d{10}(?![\p{L}\p{N}])/gu, 2, 0.93);
   add("TAX_ID_DE", /\b[1-9]\d{10}\b/g, 2, 0.94);
   add("KVNR", /\b[A-Z]\d{9}\b/g, 2, 0.93);
   add("PERSONAL_AUSWEIS", /\b[A-Z](?!\d{9}\b)[A-Z0-9]{8}\d\b/g, 2, 0.92);
@@ -275,7 +295,42 @@ export function redactText(text: string, messageIndex: number | null = null): Re
   };
 }
 
+/**
+ * Bulgarian mock reply (pending native review, Ibtisam). `pick` returns either the
+ * original span (restored answer) or the token (raw model answer).
+ */
+function bulgarianMockAnswer(entities: PreviewEntity[], pick: (entity: PreviewEntity) => string, restored: boolean): string {
+  if (entities.length === 0) {
+    return "В тази заявка не бяха открити данни, които трябва да се маскират.";
+  }
+  const find = (...types: string[]) => {
+    const entity = entities.find((item) => types.includes(item.entity_type));
+    return entity ? pick(entity) : undefined;
+  };
+  const person = find("PERSON", "PERSON_NAME_DE");
+  const egn = find("EGN_BG");
+  const iban = find("IBAN_CODE", "IBAN_DE");
+  const email = find("EMAIL_ADDRESS");
+  const phone = find("PHONE_NUMBER");
+  const place = find("LOCATION", "STREET_ADDRESS_DE");
+  const date = find("DATE_TIME", "DATE_DE");
+  const parts = [
+    person ? `Чернова на отговор до ${person}` : "Чернова на отговор до гражданина",
+    egn ? `ЕГН ${egn}` : "",
+    iban ? `сметка ${iban}` : "",
+    email ? `имейл ${email}` : "",
+    phone ? `телефон ${phone}` : "",
+    place ? `населено място ${place}` : "",
+    date ? `дата ${date}` : "",
+  ].filter(Boolean);
+  const prefix = restored ? "Възстановен отговор" : "Отговор на модела";
+  return `${prefix}: ${parts.join(", ")}. Служител трябва да провери отговора преди изпращане.`;
+}
+
 export function mockRestoredAnswer(entities: PreviewEntity[], locale: string): string {
+  if (locale.toLowerCase().startsWith("bg")) {
+    return bulgarianMockAnswer(entities, (entity) => entity.span, true);
+  }
   const german = locale.toLowerCase().startsWith("de");
   if (entities.length === 0) {
     return german
@@ -336,6 +391,9 @@ export function mockRestoredAnswer(entities: PreviewEntity[], locale: string): s
 }
 
 export function mockRawModelAnswer(entities: PreviewEntity[], locale: string): string {
+  if (locale.toLowerCase().startsWith("bg")) {
+    return bulgarianMockAnswer(entities, (entity) => entity.token, false);
+  }
   const german = locale.toLowerCase().startsWith("de");
   if (entities.length === 0) {
     return german

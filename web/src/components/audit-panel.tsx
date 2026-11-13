@@ -1,5 +1,6 @@
 "use client";
 
+import { intlLocaleFor } from "@/i18n/locales";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { configHistoryCsv } from "@/lib/csv-export";
@@ -91,7 +92,7 @@ export function AuditPanel() {
 
   const formatter = useMemo(
     () =>
-      new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-GB", {
+      new Intl.DateTimeFormat(intlLocaleFor(locale), {
         dateStyle: "medium",
         timeStyle: "short",
         timeZone: "Europe/Berlin",
@@ -467,7 +468,7 @@ function ConfigHistory({ dateFrom, dateTo }: { dateFrom: string; dateTo: string 
 
   const formatter = useMemo(
     () =>
-      new Intl.DateTimeFormat(locale === "de" ? "de-DE" : "en-GB", {
+      new Intl.DateTimeFormat(intlLocaleFor(locale), {
         dateStyle: "medium",
         timeStyle: "short",
         timeZone: "Europe/Berlin",

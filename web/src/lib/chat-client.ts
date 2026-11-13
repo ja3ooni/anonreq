@@ -2,6 +2,7 @@ import { gatewayErrorMessage, gatewayRequest, isMockMode, readGatewayJson } from
 import { GatewayRequestError } from "@/lib/gateway-error";
 import { parseChatCompletion } from "@/lib/parse";
 import { mockRawModelAnswer, mockRestoredAnswer, redactText } from "@/lib/redact";
+import { resolveBgGptAlias, staffModelOptions } from "@/lib/staff-config";
 import type { AnonReqHeaders, ChatCompletionResult } from "@/lib/types";
 
 export interface ChatRequestInput {
@@ -86,7 +87,8 @@ export function getChatClient(): ChatClient {
 function mockModels(): ModelListClient {
   return {
     async list() {
-      return { models: FALLBACK_MODELS, source: "mock" };
+      // Mock lists the BgGPT alias so the staff view can be demoed before DevOps ships it.
+      return { models: staffModelOptions(resolveBgGptAlias(process.env.ANONREQ_BGGPT_ALIAS), FALLBACK_MODELS), source: "mock" };
     },
   };
 }

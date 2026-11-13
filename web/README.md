@@ -40,6 +40,29 @@ npm run build
 
 CI runs the same four on Node 22 (`.github/workflows/web.yml`).
 
+## Bulgarian staff-chat pilot (`/bg/staff`)
+
+- Locales: `bg`, `en`, `de` (`src/i18n/locales.ts`). The header switch reads BG / EN / DE, and each
+  link carries `lang`/`hrefLang`. Fonts load the `cyrillic` subsets; PT Serif backs Newsreader for
+  Cyrillic headings.
+- `/[locale]/staff` is a clean staff view: model picker (BgGPT first), synthetic Bulgarian examples,
+  and two columns, "what the model saw" (masked request + raw model reply) and "what you see"
+  (your request + restored reply). Highlighting uses the gateway's `*_utf16` offsets.
+- Every page shows a sticky "assistive only — a human must review" notice in the active language.
+- `ANONREQ_UI_ADMIN=true` (server-side, read per request) shows the admin block with the audit CSV
+  export link (`/api/audit/export`, the existing gateway export). The gateway still enforces the
+  admin key; this flag only controls the link.
+- `ANONREQ_BGGPT_ALIAS` sets the BgGPT model alias. Default `bggpt` is a **placeholder** until DevOps
+  publishes the real alias in `config/model_aliases*.yaml`; the UI says so while it is unset.
+- The staff view sends `X-AnonReq-Locale: bg` for the Bulgarian UI. The gateway has no `bg`
+  recognizer config yet, so live detection of EGN depends on backend work.
+- Mock mode (`ANONREQ_MOCK=true`) recognises fake EGN (10 digits), BG IBANs, Cyrillic names and
+  Bulgarian cities, and answers in Bulgarian.
+- **Bulgarian strings are machine-assisted and pending native review by Ibtisam.** Status per key is in
+  `src/messages/REVIEW-bg.md`; `src/lib/i18n-bg.test.ts` fails if a key is missing there.
+- Demo prompts (`src/lib/bg-demo-prompts.ts`) are synthetic only: EGN with month 99, IBANs with bank
+  code `TEST`, `example.org` e-mails.
+
 ## Docker
 
 Real gateway, production image (Next standalone output, no devDependencies):

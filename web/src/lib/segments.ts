@@ -10,7 +10,10 @@ export interface TextSegment {
   span?: HighlightSpan;
 }
 
-/** Slice by UTF-16 indexes, which match Python indexes for BMP text (German). */
+/**
+ * Slice by UTF-16 indexes (`*_utf16` from the gateway). Cyrillic and German are BMP, so
+ * these equal code points there; supplementary characters (emoji) make them diverge.
+ */
 export function segmentText(text: string, spans: HighlightSpan[]): TextSegment[] {
   const sorted = [...spans]
     .filter((span) => span.start >= 0 && span.end > span.start && span.start < text.length)
@@ -54,6 +57,7 @@ const ENTITY_CLASS: Record<string, string> = {
   PERSONAL_AUSWEIS: "bg-[#f5c2e7]",
   KVNR: "bg-[#fbcfe8]",
   SVNR_DE: "bg-[#fbcfe8]",
+  EGN_BG: "bg-[#f8b4b4]",
   HR_NUMBER: "bg-[#d8e2dc]",
   AKTENZEICHEN: "bg-[#fde68a]",
   SITE_ID: "bg-[#bae6fd]",

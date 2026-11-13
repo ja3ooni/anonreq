@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
+import { languageSwitchOptions } from "@/i18n/locales";
 import { Link, usePathname } from "@/i18n/navigation";
 
 type GatewayState = "loading" | "mock" | "up" | "down" | "unconfigured";
@@ -83,9 +84,12 @@ export function SiteHeader() {
           </span>
           <span className="font-serif text-xl tracking-tight">AnonReq</span>
         </Link>
-        <nav aria-label={t("primary")} className="flex items-center gap-1">
+        <nav aria-label={t("primary")} className="flex flex-wrap items-center gap-1">
           <NavLink href="/" current={pathname === "/"}>
             {t("playground")}
+          </NavLink>
+          <NavLink href="/staff" current={pathname.startsWith("/staff")}>
+            {t("staff")}
           </NavLink>
           <NavLink href="/audit" current={pathname.startsWith("/audit")}>
             {t("audit")}
@@ -99,19 +103,22 @@ export function SiteHeader() {
             {statusLabel}
           </p>
           <div role="group" aria-label={t("language")} className="flex rounded-md bg-[#2a2622] p-0.5">
-            {(["en", "de"] as const).map((code) => (
+            {languageSwitchOptions(locale).map((option) => (
               <Link
-                key={code}
+                key={option.code}
                 href={pathname}
-                locale={code}
-                hrefLang={code}
-                lang={code}
-                aria-current={locale === code ? "true" : undefined}
-                className={`rounded px-2 py-1 text-xs font-medium uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e7a07a] ${
-                  locale === code ? "bg-[#f6f1e8] text-[#1a1814]" : "text-[#f6f1e8]"
+                locale={option.code}
+                hrefLang={option.hrefLang}
+                lang={option.lang}
+                title={option.endonym}
+                aria-label={option.endonym}
+                aria-current={option.current ? "true" : undefined}
+                data-testid={`lang-${option.code}`}
+                className={`rounded px-2 py-1 text-xs font-medium leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e7a07a] ${
+                  option.current ? "bg-[#f6f1e8] text-[#1a1814]" : "text-[#f6f1e8]"
                 }`}
               >
-                {code}
+                {option.label}
               </Link>
             ))}
           </div>
@@ -126,7 +133,7 @@ function NavLink({
   current,
   children,
 }: {
-  href: "/" | "/audit";
+  href: "/" | "/audit" | "/staff";
   current: boolean;
   children: ReactNode;
 }) {

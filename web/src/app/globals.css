@@ -2,7 +2,7 @@
 
 @theme inline {
   --font-sans: var(--font-source), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-serif: var(--font-newsreader), var(--font-pt-serif), ui-serif, Georgia, serif;
   --font-mono: var(--font-plex), ui-monospace, SFMono-Regular, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
