@@ -38,9 +38,10 @@ npm test
 npm run build
 ```
 
-`.github/workflows/web.yml` runs the same four on Node 22. It is committed in this branch but
-**not active on GitHub yet**: pushing workflow files needs a token with the `workflow` scope, which the
-current one lacks. Until someone with that scope pushes it, run the four steps locally.
+There is no web CI on GitHub yet. A ready workflow (`.github/workflows/web.yml`: the same four
+steps on Node 22) is prepared but **not included in this branch**: pushing workflow files needs a
+token with the `workflow` scope, which the current one lacks. Until someone with that scope adds it,
+run the four steps locally.
 
 ## Admin gate on `/api/audit/*`
 
