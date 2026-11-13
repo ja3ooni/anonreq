@@ -14,6 +14,9 @@ from anonreq.pipeline.base import PipelineStage
 
 logger = get_logger("anonreq.pipeline.locale")
 
+STRUCTURED_ONLY = "structured_only"
+NER_COVERAGE_HEADER = "X-AnonReq-NER-Coverage"
+
 
 class LocaleNegotiationStage(PipelineStage):
     """Resolve locale header and prepare merged recognizer configuration."""
@@ -39,6 +42,12 @@ class LocaleNegotiationStage(PipelineStage):
                 ctx.audit_metadata["locale"] = ",".join(bundle.code for bundle in bundles)
             if parse_result.was_fallback or parse_result.dropped_codes:
                 ctx.audit_metadata["negotiation_fallback"] = True
+            # A bundle without NER (bg-BG) masks structured IDs only; names
+            # and addresses pass. Make that visible in audit and headers.
+            if any(
+                getattr(bundle, "ner_coverage", None) == STRUCTURED_ONLY for bundle in bundles
+            ):
+                ctx.audit_metadata["ner_coverage"] = STRUCTURED_ONLY
         except LocaleNegotiationError as exc:
             logger.warning(
                 "locale.negotiation_failed",

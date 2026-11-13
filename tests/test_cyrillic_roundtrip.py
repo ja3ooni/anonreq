@@ -193,3 +193,64 @@ async def test_tail_buffer_flush_never_cuts_a_token(offset: int) -> None:
     text = "ж" * start + token + "я" * (total - start - len(token))
     restored = await _stream_restore([text], mapping)
     assert restored == text.replace(token, EGN)
+
+
+@pytest.mark.asyncio
+async def test_streaming_firewall_flush_decodes_held_back_bytes() -> None:
+    engine = _RecordingEngine()
+    detector = StreamingFirewallDetector(engine)  # type: ignore[arg-type]
+    data = "край".encode()
+    await detector.process_chunk(data[:-1], None)  # type: ignore[arg-type]
+    assert engine.seen[-1] == "кра"  # last letter's first byte is held back
+    await detector.flush()
+    assert engine.seen[-1] == "кра\ufffd"  # stream ended mid-character
+    # The decoder is reset, so the next stream starts clean.
+    await detector.process_chunk("ок".encode(), None)  # type: ignore[arg-type]
+    assert engine.seen[-1] == "ок"
+
+
+async def _emitted_before_end(pieces: list[str]) -> tuple[str, int]:
+    """Stream ``pieces`` through a TailBuffer; return (live output, max buffer)."""
+    buffer = TailBuffer()
+    out: list[str] = []
+    high_water = 0
+    for piece in pieces:
+        event = StreamEvent(event_type=EventType.TEXT_DELTA, provider="mock", delta_text=piece)
+        async for chunk in buffer.ingest(event):
+            out.append(chunk)
+        high_water = max(high_water, len(buffer.active_buffer))
+    live = "".join(out)
+    assert live + buffer.flush_remaining() == "".join(pieces)
+    return live, high_water
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "opening",
+    [
+        "Вижте [",  # bare bracket followed by prose
+        "Вижте [бележка ",  # Cyrillic after the bracket
+        "Вижте [PERSON_",  # looks like the start of a token, never closes
+        "Вижте [EGN_123",
+    ],
+)
+async def test_long_unclosed_bracket_does_not_stall_stream(opening: str) -> None:
+    filler = "дълъг отговор без затваряща скоба " * 120  # about 4,000 chars
+    text = opening + filler + "край."
+    pieces = [text[i:i + 7] for i in range(0, len(text), 7)]
+    live, high_water = await _emitted_before_end(pieces)
+    # Everything but the retained tail window reaches the client live, and
+    # the buffer never grows past the size trigger plus one chunk.
+    assert len(live) >= len(text) - TailBuffer.TAIL_WINDOW_CHARS - 80
+    assert high_water <= TailBuffer.MAX_BUFFER_CHARS + 7
+
+
+@pytest.mark.asyncio
+async def test_unclosed_partial_token_digits_do_not_stall_stream() -> None:
+    # "[PERSON_" then an endless digit run keeps PARTIAL_PATTERN matching at
+    # the tail; the size trigger must still flush.
+    text = "Отговор [PERSON_" + "1" * 5000
+    pieces = [text[i:i + 5] for i in range(0, len(text), 5)]
+    live, high_water = await _emitted_before_end(pieces)
+    assert len(live) >= len(text) - TailBuffer.MAX_BUFFER_CHARS
+    assert high_water <= TailBuffer.MAX_BUFFER_CHARS + 5

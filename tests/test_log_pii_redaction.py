@@ -101,6 +101,53 @@ class TestGermanIdentifierRedaction:
         assert "[REDACTED]" in rendered
 
 
+class TestBulgarianIdentifierRedaction:
+    """bg-BG EGN, LNCh, IBAN and phone numbers are scrubbed from log text."""
+
+    def test_bulgarian_ids_are_scrubbed_and_counters_kept(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import datetime as dt
+
+        import structlog
+
+        from anonreq.locale.checksums.bulgaria import (
+            egn_valid,
+            generate_egn,
+            generate_iban_bg,
+            generate_lnch,
+            lnch_valid,
+        )
+
+        egn = generate_egn(dt.date(1985, 3, 15), serial=456)
+        lnch = generate_lnch("200300400")
+        iban = generate_iban_bg()
+        spaced_iban = " ".join(iban[i:i + 4] for i in range(0, len(iban), 4))
+        phones = ("+359 88 123 4567", "+359 2 987 6543", "0888 123 456", "02 987 6543")
+        # Unvalidated 10-digit values (counters, epoch seconds) stay readable.
+        counter, epoch = "1234567890", "1763035200"
+        for value in (counter, epoch):
+            assert not egn_valid(value)
+            assert not lnch_valid(value)
+
+        setup_logging(level="INFO")
+        log = structlog.get_logger()
+        log.info(
+            "bulgarian-ids",
+            error=(
+                f"ЕГН {egn} ЛНЧ {lnch} IBAN {iban} / {spaced_iban} "
+                f"тел. {', '.join(phones)} request {counter} at {epoch}"
+            ),
+        )
+
+        rendered = _stderr_text(capsys)
+        for secret in (egn, lnch, iban, spaced_iban, *phones):
+            assert secret not in rendered, secret
+        assert counter in rendered
+        assert epoch in rendered
+        assert "[REDACTED]" in rendered
+
+
 class TestFormattedLogRedaction:
     """Formatted JSON from structlog and stdlib must not contain PII."""
 

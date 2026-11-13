@@ -119,6 +119,13 @@ def test_iban_bg_layout_and_mod97() -> None:
     assert not iban_bg_valid(broken)
     assert not iban_bg_valid(iban[:-1])  # 21 characters
     assert not iban_bg_valid("BG" + iban[2:4] + "12" + iban[6:])  # bank code must be letters
+    # BBAN layout: 4 letters, 6 digits (branch + account type), 8 alphanumerics.
+    lettered = generate_iban_bg("SYNT", "12345678AB90CD")
+    assert iban_bg_valid(lettered)
+    with pytest.raises(ValueError, match="6 digits"):
+        generate_iban_bg("SYNT", "1234X678901234")
+    swapped = iban[:8] + "1234A6" + iban[14:]  # letter inside the 6-digit part
+    assert not iban_bg_valid(swapped)
 
 
 def test_registry_registers_bulgarian_validators() -> None:

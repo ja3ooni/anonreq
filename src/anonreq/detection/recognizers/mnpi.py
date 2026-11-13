@@ -15,10 +15,13 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
 import yaml
+
+from anonreq.locale.checksums.germany import iban_mod97_valid
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,8 @@ class MNPIConfig:
         ticker_pattern: Regex pattern for ticker symbol matching.
         deal_codename_patterns: List of regex patterns for deal codename matching.
         excluded_words: Set of words to exclude from ticker detection.
+        locale_excluded_words: Extra exclusions per locale code, applied
+            only when the request negotiated that locale.
         min_ticker_length: Minimum character length for ticker detection.
         score: Confidence score for MNPI detections (0.0-1.0).
     """
@@ -38,6 +43,7 @@ class MNPIConfig:
     ticker_pattern: str
     deal_codename_patterns: list[str]
     excluded_words: set[str] = field(default_factory=set)
+    locale_excluded_words: dict[str, set[str]] = field(default_factory=dict)
     min_ticker_length: int = 2
     score: float = 0.85
 
@@ -55,6 +61,10 @@ class MNPIConfig:
             ticker_pattern=str(data["ticker_pattern"]),
             deal_codename_patterns=list(data.get("deal_codename_patterns", [])),
             excluded_words=set(data.get("excluded_words", [])),
+            locale_excluded_words={
+                str(code): set(words or [])
+                for code, words in (data.get("locale_excluded_words") or {}).items()
+            },
             min_ticker_length=int(data.get("min_ticker_length", 2)),
             score=float(data.get("score", 0.85)),
         )
@@ -79,17 +89,24 @@ def _inside_site_id(text: str, start: int, end: int) -> bool:
 
 # A space-grouped IBAN (BG80 SYNT 1234 ..., GB29 NWBK 6016 ...) has a
 # 4-letter bank code that looks like a ticker. Masking it as MNPI makes the
-# merged IBAN span protected and therefore never restored.
+# merged IBAN span protected and therefore never restored. The shape alone
+# also matches ticker lists ("FY24 AAPL MSFT TSLA"), so a group is only
+# skipped when the whole candidate passes the ISO 13616 MOD-97 check.
 _GROUPED_IBAN = re.compile(
     r"(?<![\w-])[A-Z]{2}\d{2}(?:\s[A-Z0-9]{4}){2,7}(?:\s[A-Z0-9]{1,4})?(?![\w-])"
 )
+_IBAN_MIN_LEN = 15
+_IBAN_MAX_LEN = 34
 
 
 def _inside_grouped_iban(text: str, start: int, end: int) -> bool:
-    """Return True when [start, end) is a group inside a space-grouped IBAN."""
+    """Return True when [start, end) is a group inside a valid spaced IBAN."""
     window_start = max(0, start - 45)
     for match in _GROUPED_IBAN.finditer(text, window_start, min(len(text), end + 45)):
-        if match.start() < start and end <= match.end():
+        if not (match.start() < start and end <= match.end()):
+            continue
+        compact = re.sub(r"\s", "", match.group())
+        if _IBAN_MIN_LEN <= len(compact) <= _IBAN_MAX_LEN and iban_mod97_valid(compact):
             return True
     return False
 
@@ -125,6 +142,10 @@ class MNPIRecognizer:
             re.compile(p) for p in config.deal_codename_patterns
         ]
         self._excluded = {w.upper() for w in config.excluded_words}
+        self._locale_excluded = {
+            code.casefold(): {w.upper() for w in words}
+            for code, words in config.locale_excluded_words.items()
+        }
 
     @property
     def config(self) -> MNPIConfig:
@@ -135,19 +156,25 @@ class MNPIRecognizer:
         self,
         text: str,
         tenant_id: str | None = None,
+        locales: Iterable[str] | None = None,
     ) -> list[dict[str, Any]]:
         """Analyze text for MNPI content.
 
         Args:
             text: The text to analyze.
             tenant_id: Optional tenant ID for restricted-name lookup.
+            locales: Negotiated locale codes. Adds that locale's
+                ``locale_excluded_words``; other locales are unaffected.
 
         Returns:
             List of detection dicts with keys: ``entity_type``, ``start``,
             ``end``, ``score``, ``source``.
         """
         results: list[dict[str, Any]] = []
-        results.extend(self._detect_tickers(text))
+        excluded = set(self._excluded)
+        for code in locales or ():
+            excluded |= self._locale_excluded.get(str(code).casefold(), set())
+        results.extend(self._detect_tickers(text, excluded))
         results.extend(self._detect_deal_codenames(text))
 
         if tenant_id is not None and self._restricted_names is not None:
@@ -158,17 +185,22 @@ class MNPIRecognizer:
 
         return results
 
-    def _detect_tickers(self, text: str) -> list[dict[str, Any]]:
+    def _detect_tickers(
+        self,
+        text: str,
+        excluded: set[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """Detect ticker symbols in text.
 
         Returns detection dicts for ticker matches that pass length and
         exclusion checks.
         """
         results: list[dict[str, Any]] = []
+        excluded = self._excluded if excluded is None else excluded
         for match in self._ticker_re.finditer(text):
             raw = match.group()
             # Skip if word is in excluded list
-            if raw.upper() in self._excluded:
+            if raw.upper() in excluded:
                 continue
             # Skip fragments of site-ID-shaped tokens (UW-NORD-0417). German
             # compounds such as "SAP-Aktie" or "BASF-Kurs" stay tickers.

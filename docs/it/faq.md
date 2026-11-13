@@ -26,6 +26,8 @@ Il PII rilevato viene sostituito con segnaposto `[TYPE_N]`, dove `TYPE` è il ti
 
 Impostare l'intestazione `X-AnonReq-Locale` per attivare il rilevamento specifico del locale. Più locali possono essere combinati (separati da virgole). I locali non supportati restituiscono HTTP 400.
 
+Un codice di lingua senza regione viene associato all'unico bundle regionale di quella lingua: `bg` → `bg-BG`, `de` → `de-DE`, `fr` → `fr-FR`, `pt` → `pt-BR`. Il gateway registra `locale.bare_language_mapped` a livello INFO. Chi invia `de` dall'Austria o dalla Svizzera riceve gli identificativi tedeschi (`de-DE`); `de-AT` e `de-CH` restituiscono attualmente HTTP 400.
+
 ## Posso aggiungere modelli di rilevamento personalizzati?
 
 Sì, è possibile aggiungere rilevatori regex personalizzati tramite un file di configurazione YAML e ricaricarli a caldo senza riavviare. Vedere la documentazione di configurazione per il formato della regola.

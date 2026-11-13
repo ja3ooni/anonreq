@@ -127,6 +127,8 @@ async def test_bg_header_masks_egn_before_provider(bg_app, header: str) -> None:
     content = response.json()["choices"][0]["message"]["content"]
     assert content == "Получих: " + PROMPT
     assert response.headers["X-AnonReq-Processed"] == "true"
+    # No Bulgarian NER: names and addresses are not covered, and we say so.
+    assert response.headers["X-AnonReq-NER-Coverage"] == "structured_only"
     assert cache.mappings == {}  # cleanup deleted the session mapping
 
 

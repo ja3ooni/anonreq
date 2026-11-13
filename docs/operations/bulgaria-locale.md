@@ -6,14 +6,46 @@ Checksums live in `src/anonreq/locale/checksums/bulgaria.py`. A bare
 language code resolves to that language's only regional bundle (`bg` ->
 `bg-BG`, `de` -> `de-DE`); other regions such as `de-AT` are still rejected.
 
+> **Live `bg` traffic is NOT cleared for personal data such as names and
+> addresses until Bulgarian NER lands.** `bg-BG` masks the structured
+> identifiers below only. Bulgarian text is analysed with the English NER
+> model, which misses most Cyrillic names and addresses, so they reach the
+> provider. Every `bg-BG` request is marked: the anonymization audit event
+> carries `ner_coverage: structured_only` and the response (streaming and
+> non-streaming) carries `X-AnonReq-NER-Coverage: structured_only`.
+
+The bundle's regexes are generated: edit `scripts/bg_locale/bg-BG.yaml.tpl`
+or the label lists in `scripts/bg_locale/generate.py`, then run
+`python scripts/bg_locale/generate.py` (a unit test fails if the YAML is
+stale). Synthetic test values come from the `generate_*` helpers in
+`bulgaria.py`.
+
+EGN, LNCh, BG IBAN (checksum-gated) and `PHONE_BG` values are also
+scrubbed from application logs, alongside the de-DE identifiers.
+
 | Entity | Shape | Validation | Masked as |
 | --- | --- | --- | --- |
 | EGN (ЕГН) | 10 digits, `YYMMDD` + serial + check | Real birth date (month +20 for 1800s, +40 for 2000s) and weights 2,4,8,5,10,9,7,3,6 mod 11 (10 → 0) | `EGN`; failures `EGN_UNVERIFIED` (0.6) when labelled (ЕГН/EGN) or when the digits hold a plausible 1900s/2000s birth date |
 | LNCh (ЛНЧ) | 10 digits | Weights 21,19,17,13,11,9,7,3,1 mod 10 | `LNCH`; failures `LNCH_UNVERIFIED` when labelled (ЛНЧ/LNCh) |
 | EIK / BULSTAT (ЕИК / БУЛСТАТ) | 9 digits, 13 for a branch, optional `BG` VAT prefix | 9: weights 1..8, fallback 3..10, mod 11. 13: plus digits 9-12 with 2,7,3,5, fallback 4,9,5,7 | `EIK`; failures `EIK_UNVERIFIED` when labelled (ЕИК/БУЛСТАТ/EIK/BULSTAT/ДДС/UIC) |
-| IBAN | `BGkk` + 4-letter bank code + 14 alphanumerics (22) | ISO 13616 MOD-97 | `IBAN_BG`; lowercase or failing `IBAN_BG_UNVERIFIED` |
+| IBAN | `BGkk` + 4-letter bank code + 6 digits (branch, account type) + 8 alphanumerics (22) | ISO 13616 MOD-97 | `IBAN_BG`; lowercase or failing `IBAN_BG_UNVERIFIED` |
 | ID card (лична карта) | 9 digits (cards before 17 June 2024) or 2 letters + 7 digits (current card) | No public checksum | `BG_ID_CARD`, only after a context word (лична карта, л.к., ЛК, ID card, документ за самоличност) |
 | Phone | `+359`/`00359`, mobile 87/88/89/98/99, Sofia 2, other area codes; national `0…` | Format | `PHONE_BG`; without the trunk 0 only after тел./GSM/мобилен |
+
+### EGN over-masking (accepted, fail closed)
+
+Under `bg-BG`, any unseparated 10-digit number whose digits read as a
+plausible birth date (`YY` + month 01-12 or 41-52 + day 01-31) is masked
+as `EGN_UNVERIFIED` even without a label. Known casualties:
+
+- unspaced phone numbers such as `0301234567` (spaced forms like
+  `030 12345678` or `+49 30 1234567` stay `PHONE_NUMBER`);
+- Unix timestamps such as `1701151234`;
+- order or reference numbers such as `Bestellnummer 8503154561`.
+
+The value is restored in the response, so the cost is that the model
+sees a placeholder instead of the number. Dates written as `15.03.2024`
+(`DATE_DE`) or `2024-03-15` are not affected.
 
 Checksum-typed candidates are validated in `RegexDetector` before overlap
 resolution, so an invalid EGN cannot take the span from a valid LNCh or

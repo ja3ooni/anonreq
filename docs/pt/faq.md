@@ -26,6 +26,8 @@ As PII detectadas são substituídas por marcadores `[TYPE_N]`, onde `TYPE` é o
 
 Defina o cabeçalho `X-AnonReq-Locale` para ativar a detecção específica do idioma. Vários idiomas podem ser combinados (separados por vírgula). Idiomas não suportados retornam HTTP 400.
 
+Um código de idioma sem região é mapeado para o único pacote regional desse idioma: `bg` → `bg-BG`, `de` → `de-DE`, `fr` → `fr-FR`, `pt` → `pt-BR`. O gateway registra `locale.bare_language_mapped` no nível INFO. Quem envia `pt` a partir de Portugal recebe CPF/CNPJ brasileiros, não o NIF português; `pt-PT`, `de-AT` e `de-CH` retornam atualmente HTTP 400.
+
 ## Posso adicionar padrões de detecção personalizados?
 
 Sim, reconhecedores regex personalizados podem ser adicionados por meio de um arquivo de configuração YAML e recarregados dinamicamente sem reinicialização. Consulte a documentação de configuração para ver o formato da regra.

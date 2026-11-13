@@ -19,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - `bg-BG` locale bundle: EGN, LNCh, EIK/BULSTAT and BG IBAN with checksum validation, Bulgarian ID card numbers on context, and `+359` phone numbers. Checksum failures are masked as `*_UNVERIFIED` at 0.6 confidence. See `docs/operations/bulgaria-locale.md`.
+- `bg-BG` requests are marked structured-ID only: `ner_coverage: structured_only` on the anonymization audit event and an `X-AnonReq-NER-Coverage: structured_only` response header. There is no Bulgarian NER yet, so names and addresses are not masked.
+- The log scrubber redacts EGN, LNCh and BG IBAN (checksum-gated) and `PHONE_BG` numbers.
+- `scripts/bg_locale/generate.py` regenerates `config/locales/bg-BG.yaml`; a test fails when the file is stale.
 - `X-AnonReq-Locale` accepts a bare language code when exactly one regional bundle exists for it (`bg` -> `bg-BG`, `de` -> `de-DE`, `fr` -> `fr-FR`). Before, `bg` and `de` returned HTTP 400.
 - Initial project scaffolding
 

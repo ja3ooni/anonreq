@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 from structlog import get_logger
 
 from anonreq.detection.presidio_client import PresidioUnsupportedLanguageError
+from anonreq.detection.recognizers.mnpi import MNPIRecognizer as _MNPIRecognizer
 from anonreq.detection.regex_patterns import IRREVERSIBLE_ENTITY_TYPES
 from anonreq.exceptions import PipelineAbortError, PresidioLanguageUnsupportedError
 from anonreq.locale.bundle import RecognizerTier
@@ -295,6 +296,12 @@ class DetectionStage(PipelineStage):
                     if index < len(ner_results_list):
                         ner_results_list[index].extend(hits or [])
 
+            negotiated_locales = [
+                str(code)
+                for bundle in (getattr(ctx, "locale_bundles", None) or [])
+                if isinstance(code := getattr(bundle, "code", None), str)
+            ]
+
             all_detections: list[dict[str, Any]] = []
             irreversible_names = {
                 config.name for config in entity_configs if not config.reversible
@@ -319,7 +326,13 @@ class DetectionStage(PipelineStage):
                 # the same characters twice.
                 mnpi_results: list[dict[str, Any]] = []
                 for recognizer in self._mnpi_recognizers:
-                    mnpi_results.extend(recognizer.analyze(node_value))
+                    # Locale-scoped ticker exclusions (bg-BG labels such as
+                    # EGN or EIK). Other recognizers keep the plain call.
+                    if negotiated_locales and isinstance(recognizer, _MNPIRecognizer):
+                        hits = recognizer.analyze(node_value, locales=negotiated_locales)
+                    else:
+                        hits = recognizer.analyze(node_value)
+                    mnpi_results.extend(hits)
 
                 enterprise_results: list[dict[str, Any]] = []
                 for name, recognizer in self._enterprise_recognizers.items():

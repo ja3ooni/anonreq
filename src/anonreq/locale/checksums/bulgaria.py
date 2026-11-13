@@ -9,7 +9,8 @@ Covers the identifiers a Bulgarian DPO expects the gateway to mask:
 * EIK / BULSTAT (ЕИК / БУЛСТАТ): 9 digits (weights 1..8, falling back to
   3..10, mod 11) or 13 digits (the 9-digit check plus a second stage over
   digits 9-12 with weights 2,7,3,5, falling back to 4,9,5,7).
-* BG IBAN: ``BGkk`` + 4-letter bank code + 14 alphanumerics, ISO 13616
+* BG IBAN: ``BGkk`` + 4-letter bank code + 6 digits (branch and account
+  type) + 8 alphanumerics, ISO 13616
   MOD-97.
 
 The Bulgarian ID card number (лична карта) has no public checksum, so it
@@ -33,7 +34,7 @@ _EIK9_FALLBACK = (3, 4, 5, 6, 7, 8, 9, 10)
 _EIK13_WEIGHTS = (2, 7, 3, 5)
 _EIK13_FALLBACK = (4, 9, 5, 7)
 
-_IBAN_BG_RE = re.compile(r"^BG\d{2}[A-Z]{4}[A-Z0-9]{14}$")
+_IBAN_BG_RE = re.compile(r"^BG\d{2}[A-Z]{4}\d{6}[A-Z0-9]{8}$")
 _SEPARATORS = re.compile(r"[\s./-]")
 
 
@@ -180,8 +181,14 @@ def generate_iban_bg(bank: str = "SYNT", bban14: str = "12345678901234") -> str:
     """Build a MOD-97-valid Bulgarian IBAN (22 characters)."""
     bank = bank.upper()
     bban14 = bban14.upper()
-    if len(bank) != 4 or not bank.isalpha() or len(bban14) != 14 or not bban14.isalnum():
-        raise ValueError("BG IBAN needs a 4-letter bank code and 14 alphanumerics")
+    if (
+        len(bank) != 4
+        or not bank.isalpha()
+        or len(bban14) != 14
+        or not bban14[:6].isdigit()
+        or not bban14[6:].isalnum()
+    ):
+        raise ValueError("BG IBAN needs a 4-letter bank code, 6 digits and 8 alphanumerics")
     bban = bank + bban14
     numeric = "".join(str(ord(c) - 55) if c.isalpha() else c for c in bban + "BG00")
     check = 98 - (int(numeric) % 97)

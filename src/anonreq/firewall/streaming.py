@@ -45,3 +45,15 @@ class StreamingFirewallDetector:
         text = self._decoder.decode(chunk)
         results = await self._detector.ingest(text)
         return chunk, results
+
+    async def flush(self) -> list[DetectionResult]:
+        """End of stream: decode any held-back bytes, then scan the window.
+
+        A stream that ends inside a multi-byte character yields U+FFFD for
+        the dangling bytes rather than dropping them silently.
+        """
+        tail = self._decoder.decode(b"", final=True)
+        if tail:
+            await self._detector.ingest(tail)
+        self._decoder.reset()
+        return await self._detector.flush()

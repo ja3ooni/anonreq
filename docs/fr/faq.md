@@ -26,6 +26,8 @@ Les PII détectées sont remplacées par des espaces réservés de type `[TYPE_N
 
 Définissez l'en-tête `X-AnonReq-Locale` pour activer la détection spécifique à une langue. Plusieurs langues peuvent être combinées (séparées par des virgules). Les langues non prises en charge renvoient HTTP 400.
 
+Un code de langue seul est associé à l'unique bundle régional de cette langue : `bg` → `bg-BG`, `de` → `de-DE`, `fr` → `fr-FR`, `pt` → `pt-BR`. La passerelle journalise `locale.bare_language_mapped` au niveau INFO. Un appelant autrichien ou suisse qui envoie `de` reçoit les identifiants allemands (`de-DE`) ; `de-AT` et `de-CH` renvoient actuellement HTTP 400.
+
 ## Puis-je ajouter des modèles de détection personnalisés ?
 
 Oui, des analyseurs regex personnalisés peuvent être ajoutés via un fichier de configuration YAML et rechargés à chaud sans redémarrage. Consultez la documentation de configuration pour connaître le format des règles.

@@ -106,9 +106,17 @@ class LocaleRegistry:
 
     def get(self, locale_code: str) -> LocaleBundle | None:
         folded = locale_code.strip().replace("_", "-").casefold()
-        canonical = self._canonical_codes.get(folded) or self._language_codes.get(folded)
+        canonical = self._canonical_codes.get(folded)
         if canonical is None:
-            return None
+            canonical = self._language_codes.get(folded)
+            if canonical is None:
+                return None
+            # Visible in ops logs: "de" gives de-DE identifiers, not de-AT/de-CH.
+            logger.info(
+                "locale.bare_language_mapped",
+                requested=folded,
+                resolved=canonical,
+            )
         return self._bundles[canonical]
 
     def list_locales(self) -> list[str]:

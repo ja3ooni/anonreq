@@ -53,6 +53,7 @@ from anonreq.pipeline.manager import PipelineManager
 from anonreq.pipeline.provider import ProviderStage
 from anonreq.pipeline.restoration import RestorationStage
 from anonreq.pipeline.stages import (
+    NER_COVERAGE_HEADER,
     LocaleNegotiationStage,
     PolicyEnforcementStage,
     SensitivityClassificationStage,
@@ -534,6 +535,8 @@ async def _stream_chat_completions(
         "X-AnonReq-Processed": "true" if action == "ANONYMIZE" else "false",
         "X-AnonReq-Entity-Count": str(len(proc_ctx.detections or [])),
     }
+    if proc_ctx.audit_metadata.get("ner_coverage"):
+        headers[NER_COVERAGE_HEADER] = str(proc_ctx.audit_metadata["ner_coverage"])
     if proc_ctx.classification_result_v2:
         headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name
         headers["X-AnonReq-Highest-Entity"] = proc_ctx.classification_result_v2.highest_entity or ""
@@ -621,6 +624,8 @@ async def chat_completions(
     response.headers["X-AnonReq-Request-ID"] = proc_ctx.request_id
     response.headers["X-AnonReq-Processed"] = "true" if was_anonymized else "false"
     response.headers["X-AnonReq-Entity-Count"] = str(entity_count)
+    if proc_ctx.audit_metadata.get("ner_coverage"):
+        response.headers[NER_COVERAGE_HEADER] = str(proc_ctx.audit_metadata["ner_coverage"])
     if proc_ctx.classification_result_v2:
         response.headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name  # noqa: E501
         response.headers["X-AnonReq-Highest-Entity"] = (

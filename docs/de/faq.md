@@ -26,6 +26,8 @@ Erkannte PII wird durch Platzhalter im Format `[TYPE_N]` ersetzt, wobei `TYPE` d
 
 Setzen Sie den Header `X-AnonReq-Locale`, um die regionsspezifische Erkennung zu aktivieren. Mehrere Locales können kombiniert werden (durch Kommas getrennt). Nicht unterstützte Locales geben HTTP 400 zurück.
 
+Ein reiner Sprachcode wird dem einzigen regionalen Bundle dieser Sprache zugeordnet: `bg` → `bg-BG`, `de` → `de-DE`, `fr` → `fr-FR`, `pt` → `pt-BR`. Das Gateway protokolliert dabei jedes Mal `locale.bare_language_mapped` auf INFO-Ebene. Aufrufer aus Österreich oder der Schweiz, die `de` senden, erhalten die deutschen (`de-DE`) Kennungen, keine österreichischen oder schweizerischen. `de-AT` und `de-CH` geben derzeit HTTP 400 zurück.
+
 ## Kann ich benutzerdefinierte Erkennungsmuster hinzufügen?
 
 Ja, benutzerdefinierte Regex-Erkenner können über eine YAML-Konfigurationsdatei hinzugefügt und im laufenden Betrieb ohne Neustart neu geladen werden. Das Regelformat finden Sie in der Konfigurationsdokumentation.

@@ -132,7 +132,18 @@ _GERMAN_ENTITY_TYPES = (
     "SVNR_DE",
     "IBAN_DE",
 )
+# bg-BG identifiers scrubbed from logs. EGN/LNCh/IBAN_BG are checksum-gated
+# (a random 10-digit request counter is not redacted unless it validates).
+_BULGARIAN_ENTITY_TYPES = (
+    "EGN",
+    "LNCH",
+    "IBAN_BG",
+    "PHONE_BG",
+)
 _CHECKSUM_ENTITY_TYPES = {
+    "EGN": "EGN",
+    "LNCH": "LNCH",
+    "IBAN_BG": "IBAN_BG",
     "IBAN_CODE": "IBAN_DE",
     "IBAN_DE": "IBAN_DE",
     "TAX_ID_DE": "TAX_ID_DE",
@@ -157,10 +168,10 @@ def _normalize_key(key: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", key.lower()).strip("_")
 
 
-def _plausible_phone(text: str, start: int, end: int) -> bool:
+def _plausible_phone(text: str, start: int, end: int, min_digits: int = 10) -> bool:
     """Reject phone hits that are slices of timestamps, UUIDs, or digit runs."""
     span = text[start:end]
-    if sum(character.isdigit() for character in span) < 10:
+    if sum(character.isdigit() for character in span) < min_digits:
         return False
     if _PHONE_SEPARATOR.search(span) is None:
         return False
@@ -169,17 +180,18 @@ def _plausible_phone(text: str, start: int, end: int) -> bool:
     return not (end < len(text) and text[end] in "-_")
 
 
-def _german_locale_file() -> Path:
-    bundled = Path(__file__).resolve().parents[2] / "config" / "locales" / "de-DE.yaml"
+def _german_locale_file(code: str = "de-DE") -> Path:
+    bundled = Path(__file__).resolve().parents[2] / "config" / "locales" / f"{code}.yaml"
     if bundled.is_file():
         return bundled
-    return Path("config/locales/de-DE.yaml")
+    return Path(f"config/locales/{code}.yaml")
 
 
 def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
-    """Load de-DE regexes and the gateway's checksum validators.
+    """Load de-DE and bg-BG regexes and the gateway's checksum validators.
 
-    Patterns come from ``config/locales/de-DE.yaml`` via ``LocaleBundle``.
+    Patterns come from ``config/locales/de-DE.yaml`` and ``bg-BG.yaml`` via
+    ``LocaleBundle``.
     Validators are the same classes the locale registry registers. SVNR has
     no checksum in that bundle, so its regex match is kept as-is.
     """
@@ -187,6 +199,11 @@ def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
 
     from anonreq.locale.bundle import LocaleBundle
     from anonreq.locale.checksum import ChecksumValidatorRegistry
+    from anonreq.locale.checksums.bulgaria import (
+        EGNValidator,
+        IBANBGValidator,
+        LNChValidator,
+    )
     from anonreq.locale.checksums.germany import (
         IBANMod97Validator,
         KVNRValidator,
@@ -195,25 +212,31 @@ def _load_german_recognizers() -> tuple[dict[str, re.Pattern[str]], Any]:
     from anonreq.locale.checksums.iso7064 import ISO7064Mod11_2Validator
 
     registry = ChecksumValidatorRegistry()
+    registry.register("EGN", EGNValidator())
+    registry.register("LNCH", LNChValidator())
+    registry.register("IBAN_BG", IBANBGValidator())
     registry.register("TAX_ID_DE", ISO7064Mod11_2Validator())
     registry.register("PERSONAL_AUSWEIS", PersonalausweisValidator())
     registry.register("KVNR", KVNRValidator())
     registry.register("IBAN_DE", IBANMod97Validator())
 
-    try:
-        path = _german_locale_file()
-        if not path.is_file():
-            return {}, registry
-        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        bundle = LocaleBundle.from_dict(raw)
-        configs = [item for item in bundle.entity_types if item.name in _GERMAN_ENTITY_TYPES]
-        return RegexDetector.patterns_from_entity_configs(configs), registry
-    except Exception as exc:
-        logging.getLogger("anonreq.logging_config").warning(
-            "german recognizers unavailable type=%s",
-            type(exc).__name__,
-        )
-        return {}, registry
+    patterns: dict[str, re.Pattern[str]] = {}
+    for code, wanted in (("de-DE", _GERMAN_ENTITY_TYPES), ("bg-BG", _BULGARIAN_ENTITY_TYPES)):
+        try:
+            path = _german_locale_file(code)
+            if not path.is_file():
+                continue
+            raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+            bundle = LocaleBundle.from_dict(raw)
+            configs = [item for item in bundle.entity_types if item.name in wanted]
+            patterns.update(RegexDetector.patterns_from_entity_configs(configs))
+        except Exception as exc:
+            logging.getLogger("anonreq.logging_config").warning(
+                "locale recognizers unavailable locale=%s type=%s",
+                code,
+                type(exc).__name__,
+            )
+    return patterns, registry
 
 
 def _german_pattern_map() -> dict[str, re.Pattern[str]]:
@@ -254,6 +277,8 @@ def _redact_text(value: str) -> str:
         end = int(detection["end"])
         entity_type = str(detection["entity_type"])
         if entity_type == "PHONE_NUMBER" and not _plausible_phone(redacted, start, end):
+            continue
+        if entity_type == "PHONE_BG" and not _plausible_phone(redacted, start, end, min_digits=8):
             continue
         if not _checksum_accepts(entity_type, redacted[start:end]):
             continue
