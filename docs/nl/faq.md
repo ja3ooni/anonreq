@@ -26,6 +26,8 @@ Gedetecteerde PII wordt vervangen door `[TYPE_N]` tijdelijke aanduidingen, waarb
 
 Stel de `X-AnonReq-Locale`-header in om taalspecifieke detectie te activeren. Meerdere locales kunnen worden gecombineerd (door komma's gescheiden). Niet-ondersteunde locales retourneren HTTP 400.
 
+Een taalcode zonder regio wordt gekoppeld aan de enige regionale bundel van die taal: `bg` → `bg-BG`, `de` → `de-DE`, `fr` → `fr-FR`, `pt` → `pt-BR`. De gateway logt daarbij `locale.bare_language_mapped` op INFO-niveau. Wie `de` stuurt vanuit Oostenrijk of Zwitserland krijgt de Duitse (`de-DE`) identificatoren; `de-AT` en `de-CH` retourneren momenteel HTTP 400.
+
 ## Kan ik aangepaste detectiepatronen toevoegen?
 
 Ja, aangepaste regex-recognizers kunnen worden toegevoegd via een YAML-configuratiebestand en warm worden herladen zonder opnieuw op te starten. Zie de configuratiedocumentatie voor de regelindeling.

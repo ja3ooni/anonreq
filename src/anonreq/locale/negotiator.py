@@ -93,7 +93,8 @@ class LocaleNegotiator:
                 parse_result.dropped_codes.append(code)
                 logger.warning("locale.unknown_dropped", locale=code)
                 continue
-            resolved.append(bundle)
+            if all(item is not bundle for item in resolved):  # "bg, bg-BG": one bundle
+                resolved.append(bundle)
 
         if resolved:
             return resolved

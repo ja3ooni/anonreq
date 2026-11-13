@@ -19,6 +19,7 @@ _LANGUAGE_CODE = re.compile(r"^[a-z]{2,3}$")
 # it can appear on anonreq_presidio_unsupported_locales_total.
 PRESIDIO_LOCALE_METRIC_LABELS = frozenset({
     "ar",
+    "bg-BG",
     "de-DE",
     "en",
     "es",

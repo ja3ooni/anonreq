@@ -89,6 +89,9 @@ class LocaleBundle:
     checksum: ChecksumConfig | None = None
     checksums: list[ChecksumConfig] = field(default_factory=list)
     metadata: LocaleMetadata | None = None
+    # "structured_only": the bundle masks structured identifiers but there is
+    # no NER model for the language, so names and addresses are not covered.
+    ner_coverage: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> LocaleBundle:
@@ -110,6 +113,7 @@ class LocaleBundle:
             checksum=checksum,
             checksums=checksums,
             metadata=LocaleMetadata.from_dict(metadata) if metadata else None,
+            ner_coverage=str(data["ner_coverage"]) if data.get("ner_coverage") else None,
         )
 
     @property
@@ -135,6 +139,8 @@ class LocaleBundle:
                 {"algorithm": item.algorithm, "validator_id": item.validator_id}
                 for item in self.checksums
             ]
+        if self.ner_coverage is not None:
+            data["ner_coverage"] = self.ner_coverage
         if self.metadata is not None:
             data["metadata"] = {
                 "name": self.metadata.name,

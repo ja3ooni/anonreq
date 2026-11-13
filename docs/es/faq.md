@@ -26,6 +26,8 @@ La PII detectada se reemplaza con marcadores de posición `[TYPE_N]`, donde `TYP
 
 Establezca la cabecera `X-AnonReq-Locale` para activar la detección específica de una configuración regional. Se pueden combinar múltiples configuraciones regionales (separadas por comas). Las configuraciones regionales no compatibles devuelven HTTP 400.
 
+Un código de idioma sin región se asigna al único paquete regional de ese idioma: `bg` → `bg-BG`, `de` → `de-DE`, `fr` → `fr-FR`, `pt` → `pt-BR`. La pasarela registra `locale.bare_language_mapped` en nivel INFO. Quien envíe `de` desde Austria o Suiza recibe los identificadores alemanes (`de-DE`); `de-AT` y `de-CH` devuelven actualmente HTTP 400.
+
 ## ¿Puedo añadir patrones de detección personalizados?
 
 Sí, se pueden añadir reconocedores regex personalizados a través de un archivo de configuración YAML y recargarse en caliente sin reiniciar. Consulte la documentación de configuración para conocer el formato de la regla.

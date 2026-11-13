@@ -180,6 +180,10 @@ async def emit_anonymization_audit(
         "model": ctx.model,
         "compliance_preset": ctx.audit_metadata.get("compliance_preset"),
     }
+    if ctx.audit_metadata.get("ner_coverage"):
+        event_fields["ner_coverage"] = ctx.audit_metadata["ner_coverage"]
+    if "bg_structured_only" in ctx.audit_metadata:
+        event_fields["bg_structured_only"] = bool(ctx.audit_metadata["bg_structured_only"])
     if ctx.terminal_state:
         event_fields["terminal_state"] = ctx.terminal_state
     last_error: Exception | None = None

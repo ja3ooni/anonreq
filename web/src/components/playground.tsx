@@ -31,6 +31,7 @@ const DETECTION_LOCALES = [
   ["it-IT", "Italiano"],
   ["nl-NL", "Nederlands"],
   ["pt-BR", "Português"],
+  ["bg-BG", "Български"],
   ["ar", "العربية"],
 ] as const;
 

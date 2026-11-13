@@ -40,15 +40,17 @@ class ReverseProxy:
 
         headers = self._preserve_metadata(request.headers)
         content_type = headers.get("content-type", "application/json")
+        dispatch_ctx: dict[str, Any] = {"path": request.path}
         if hasattr(self.content_dispatcher, "dispatch"):
-            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx={"path": request.path})  # noqa: E501
+            result = await self.content_dispatcher.dispatch(content_type, request.body, ctx=dispatch_ctx)  # noqa: E501
         elif callable(self.content_dispatcher):
             result = await self.content_dispatcher(request)
         else:
             result = request.body
         body = result if isinstance(result, bytes) else str(result).encode("utf-8")
+        headers.update(dispatch_ctx.get("response_headers") or {})
         return ReverseProxyResponse(
-            status_code=200,
+            status_code=int(dispatch_ctx.get("status_code", 200)),
             body=body,
             headers=headers,
             upstream_url=self.rewrite_url(request.path),

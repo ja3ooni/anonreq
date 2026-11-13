@@ -32,7 +32,9 @@ from anonreq.detection.presidio_client import PresidioClient
 from anonreq.detection.regex_detector import RegexDetector
 from anonreq.detection.span_arbiter import SpanArbiter
 from anonreq.exceptions import (
+    NER_COVERAGE_HEADER,
     DependencyUnavailableError,
+    LocaleNerNotClearedError,
     PipelineAbortError,
     PresidioLanguageUnsupportedError,
 )
@@ -125,6 +127,7 @@ def build_pre_provider_pipeline(
         LocaleNegotiationStage(
             negotiator=locale_negotiator,
             merger=recognizer_merger,
+            allow_structured_only=settings.BG_STRUCTURED_ONLY,
         ),
         DetectionStage(
             regex_detector=RegexDetector(),
@@ -255,7 +258,7 @@ def _raise_for_pipeline_errors(proc_ctx: ProcessingContext) -> None:
         return
 
     last_error = proc_ctx.errors[-1]
-    if isinstance(last_error, PresidioLanguageUnsupportedError):
+    if isinstance(last_error, (PresidioLanguageUnsupportedError, LocaleNerNotClearedError)):
         raise last_error
     if isinstance(last_error, DependencyUnavailableError):
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
@@ -534,6 +537,8 @@ async def _stream_chat_completions(
         "X-AnonReq-Processed": "true" if action == "ANONYMIZE" else "false",
         "X-AnonReq-Entity-Count": str(len(proc_ctx.detections or [])),
     }
+    if proc_ctx.audit_metadata.get("ner_coverage"):
+        headers[NER_COVERAGE_HEADER] = str(proc_ctx.audit_metadata["ner_coverage"])
     if proc_ctx.classification_result_v2:
         headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name
         headers["X-AnonReq-Highest-Entity"] = proc_ctx.classification_result_v2.highest_entity or ""
@@ -621,6 +626,8 @@ async def chat_completions(
     response.headers["X-AnonReq-Request-ID"] = proc_ctx.request_id
     response.headers["X-AnonReq-Processed"] = "true" if was_anonymized else "false"
     response.headers["X-AnonReq-Entity-Count"] = str(entity_count)
+    if proc_ctx.audit_metadata.get("ner_coverage"):
+        response.headers[NER_COVERAGE_HEADER] = str(proc_ctx.audit_metadata["ner_coverage"])
     if proc_ctx.classification_result_v2:
         response.headers["X-AnonReq-Classification"] = proc_ctx.classification_result_v2.highest.name  # noqa: E501
         response.headers["X-AnonReq-Highest-Entity"] = (

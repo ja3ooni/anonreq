@@ -33,6 +33,35 @@ TOKEN_PATTERN = re.compile(r"\[[A-Z][A-Z_]{0,49}_\d+\]")
 PARTIAL_PATTERN = re.compile(r"\[[A-Za-z][A-Za-z_]{0,19}_?\d*$")
 """Regex matching a partial ``[TYPE_N`` at the end of the buffer (no closing bracket)."""
 
+_TOKEN_CHAR = re.compile(r"[A-Za-z0-9_]")
+_MAX_TOKEN_CHARS = 80
+"""Upper bound on a ``[TYPE_N]`` token: 50-char type, 20-digit index, brackets."""
+
+
+def _safe_cut(buffer: str, cut: int) -> int:
+    """Move ``cut`` back so it does not fall inside a token.
+
+    A fixed-offset cut can land inside ``[PERSON_1234]``; each half then
+    fails to restore and the client sees the placeholder. Back up to an
+    unclosed ``[`` or to the start of an ASCII word run (bare ``PERSON_12``
+    tokens are restored too), but never more than one token length.
+    """
+    floor = max(0, cut - _MAX_TOKEN_CHARS)
+    bracket = buffer.rfind("[", floor, cut)
+    if bracket != -1 and "]" not in buffer[bracket:cut]:
+        return bracket
+    moved = cut
+    while (
+        moved > floor
+        and moved < len(buffer)
+        and _TOKEN_CHAR.match(buffer[moved - 1])
+        and _TOKEN_CHAR.match(buffer[moved])
+    ):
+        moved -= 1
+    if moved == floor and floor > 0:
+        return cut  # a long ASCII run with no token boundary; cut as before
+    return moved
+
 
 class BufferState(StrEnum):
     """TailBuffer FSM states per D-59."""
@@ -202,7 +231,7 @@ class TailBuffer:
             self.tail_window = self.active_buffer
         else:
             # Emit safe prefix, retain tail window
-            safe_end = buffer_len - self.TAIL_WINDOW_CHARS
+            safe_end = _safe_cut(self.active_buffer, buffer_len - self.TAIL_WINDOW_CHARS)
             safe_prefix = self.active_buffer[:safe_end]
             self.tail_window = self.active_buffer[safe_end:]
             self.active_buffer = self.tail_window
