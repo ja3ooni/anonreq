@@ -20,12 +20,15 @@ entity_types:
   # EGN (ЕГН): YYMMDD (+20 months for 1800s, +40 for 2000s), 3-digit
   # serial, weighted mod-11 check digit. Validated before overlap
   # resolution, so only checksum- and date-valid numbers are EGN.
+  # A natural-person / sole-trader VAT number is BG + EGN (10 digits).
+  # That shape is distinct from EIK VAT (BG + 9 or 13 digits).
   - name: EGN
     tier: REGEX
     confidence_threshold: 0.9
     reversible: true
     patterns:
       - '(?<![\w/+-])(?<!\d[.,])\d{10}(?![\w/-]|[.,]\d)'
+      - '(?<![\w/+-])(?<!\d[.,])(?i:BG)\d{10}(?![\w/-]|[.,]\d)'
   # LNCh (ЛНЧ): 10 digits, weights 21,19,17,13,11,9,7,3,1 mod 10.
   - name: LNCH
     tier: REGEX
@@ -34,7 +37,8 @@ entity_types:
     patterns:
       - '(?<![\w/+-])(?<!\d[.,])\d{10}(?![\w/-]|[.,]\d)'
   # EIK / BULSTAT (ЕИК / БУЛСТАТ): 9 digits, or 13 for a branch, with an
-  # optional BG VAT prefix (BG175074752).
+  # optional BG VAT prefix (BG175074752). BG + 10 digits is a personal
+  # VAT number (BG + EGN) and is matched as EGN, not EIK.
   - name: EIK
     tier: REGEX
     confidence_threshold: 0.9

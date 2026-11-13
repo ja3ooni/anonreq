@@ -138,6 +138,11 @@ SCENARIOS: dict[str, tuple[str, dict[str, str], list[str]]] = {
         ["Please draft a reply", "account", "EGN", "IBAN", "VAT", "phone",
          "Благодаря, екипът."],
     ),
+    "personal_vat_bg_egn": (
+        f"ДДС № BG{EGN} на ЕТ Иванов, VAT BG{EGN}, company VAT BG{EIK}.",
+        {f"BG{EGN}": "EGN", f"BG{EIK}": "EIK"},
+        ["ДДС", "ЕТ Иванов", "VAT", "company"],
+    ),
 }
 
 
@@ -196,6 +201,32 @@ async def test_checksum_failures_are_masked_unverified(
         assert detection["entity_type"] in {"IBAN_BG_UNVERIFIED", "IBAN_UNVERIFIED"}
     assert float(detection["score"]) <= 0.6
     assert Restorer.restore_text(masked, ctx.token_mappings or {}) == text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "value", "entity_type"),
+    [
+        (f"ДДС № BG{EGN} на ЕТ Иванов", f"BG{EGN}", "EGN"),
+        (f"VAT BG{EGN}", f"BG{EGN}", "EGN"),
+        (f"VAT bg{EGN}", f"bg{EGN}", "EGN"),
+        (f"VAT BG{EIK}", f"BG{EIK}", "EIK"),
+        (f"VAT BG{EIK_BRANCH}", f"BG{EIK_BRANCH}", "EIK"),
+    ],
+)
+async def test_personal_vat_bg_egn_and_eik_vat_overlap(
+    text: str, value: str, entity_type: str
+) -> None:
+    ctx = await _run(text)
+    masked = _masked(ctx)
+    assert value not in masked, masked
+    types = _types_by_value(ctx, text)
+    assert types.get(value) == entity_type, (text, types)
+    assert Restorer.restore_text(masked, ctx.token_mappings or {}) == text
+    # The 10-digit EGN inside a personal VAT must not also be typed as EIK.
+    if entity_type == "EGN":
+        assert EGN not in types or types[EGN] == "EGN"
+        assert all(t != "EIK" for span, t in types.items() if EGN in span or value.endswith(EGN))
 
 
 @pytest.mark.parametrize("value", ["1234567890", "1000012345", "123456789", "1234567890123"])
