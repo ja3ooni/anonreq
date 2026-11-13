@@ -61,6 +61,19 @@ curl -I http://127.0.0.1:3000
 
 Both publish `127.0.0.1:3000:3000` with the container listening on `0.0.0.0`.
 
+## GlassFlow forwarding (`POST /api/glassflow`)
+
+- Targets and credentials come from server env only (`GLASSFLOW_TARES_WEBHOOK_URL`, `GLASSFLOW_TARES_TOKEN`,
+  `GLASSFLOW_RIUS_OTLP_ENDPOINT`, `GLASSFLOW_RIUS_API_KEY`). A body that names a target or credential
+  (`taresUrl`, `taresToken`, `riusEndpoint`, `riusApiKey`, `url`, `token`) gets 400 and nothing is fetched.
+  There are no defaults in code or compose; set them in `.env` (`scripts/connect-tares.sh` writes them).
+- Targets must be `https`, except loopback / `host.docker.internal`. URLs with embedded credentials are ignored.
+- Upstream fetches use `redirect: "manual"`: a 3xx counts as not delivered, and credentials never go to another origin.
+- The response holds only delivered flags, HTTP statuses and the target **host**. It never contains the
+  token, an ingest key, a URL path or any upstream body (no `/read` rows, health JSON or error detail).
+  The ingest key from `/api/sources` is URL-encoded.
+- The route has no auth beyond the loopback Host/Origin guard below, so keep the UI on 127.0.0.1.
+
 ## Request guard on /api/*
 
 The middleware rejects with 403 and a JSON `error`:

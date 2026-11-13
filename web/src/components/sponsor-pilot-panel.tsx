@@ -23,8 +23,9 @@ export function SponsorPilotPanel({
   const isDe = uiLocale === "de";
   const [tab, setTab] = useState<ActiveTab>("glassflow");
   const [gfView, setGfView] = useState<"rius" | "tares" | "read">("tares");
-  // Read-only: the server reports its env-configured Tares target; the browser cannot set it.
-  const [taresUrl, setTaresUrl] = useState<string>("");
+  // Read-only: the server reports only the host of its env-configured Tares target (never the
+  // URL path, which can carry an ingest key); the browser cannot set it.
+  const [taresHost, setTaresHost] = useState<string>("");
   const [liveReadPayload, setLiveReadPayload] = useState<unknown>(null);
   const [pushState, setPushState] = useState<{
     status: "idle" | "sending" | "done" | "error";
@@ -42,14 +43,13 @@ export function SponsorPilotPanel({
       });
       const data = (await res.json().catch(() => null)) as {
         mode?: string;
-        taresBase?: string;
+        taresHost?: string | null;
         riusDelivered?: boolean;
         taresDelivered?: boolean;
         riusStatus?: number | null;
         taresStatus?: number | null;
-        resolvedIngestUrl?: string | null;
-        healthResult?: unknown;
-        readResult?: unknown;
+        taresHealthy?: boolean;
+        taresHealthStatus?: number | null;
       } | null;
       if (!res.ok) {
         setPushState({
@@ -58,28 +58,29 @@ export function SponsorPilotPanel({
         });
         return;
       }
-      if (data?.healthResult || data?.readResult) {
-        setLiveReadPayload({
-          tares_cell: data.taresBase ?? null,
-          cell_health: data.healthResult ?? null,
-          post_read_response: data.readResult ?? null,
-        });
-      }
-      if (data?.resolvedIngestUrl) {
-        setTaresUrl(data.resolvedIngestUrl);
-      } else if (data?.taresBase) {
-        setTaresUrl(data.taresBase);
+      // Status summary only: the UI server does not pass Tares /read rows or health bodies through.
+      setLiveReadPayload({
+        tares_host: data?.taresHost ?? null,
+        cell_health_http: data?.taresHealthStatus ?? null,
+        cell_healthy: Boolean(data?.taresHealthy),
+        tares_delivered: Boolean(data?.taresDelivered),
+        tares_http: data?.taresStatus ?? null,
+        rius_delivered: Boolean(data?.riusDelivered),
+        rius_http: data?.riusStatus ?? null,
+      });
+      if (data?.taresHost) {
+        setTaresHost(data.taresHost);
       }
       if (data?.mode === "live_webhook") {
         setPushState({
           status: data.taresDelivered || data.riusDelivered ? "done" : "error",
           detail: isDe
-            ? `Tares (${data.taresBase}): ${
+            ? `Tares (${data.taresHost ?? "?"}): ${
                 data.taresDelivered
                   ? `LIVE GESENDET (HTTP ${data.taresStatus})`
                   : `HTTP ${data.taresStatus ?? 401} — Bitte Tares API-Key rechts eintragen`
               }`
-            : `Tares (${data.taresBase}): ${
+            : `Tares (${data.taresHost ?? "?"}): ${
                 data.taresDelivered
                   ? `DELIVERED LIVE (HTTP ${data.taresStatus})`
                   : `HTTP ${data.taresStatus ?? 401} — Paste your Tares API Key on the right to authenticate`
@@ -89,8 +90,8 @@ export function SponsorPilotPanel({
         setPushState({
           status: "done",
           detail: isDe
-            ? "Zelle sunny-ridge-aj erreichbar (v1.54.1 OK) — für authentifizierten Push & /read GLASSFLOW_TARES_TOKEN auf dem Server setzen"
-            : "Cell sunny-ridge-aj reachable (v1.54.1 OK) — set GLASSFLOW_TARES_TOKEN on the server for authenticated push & /read",
+            ? "Zelle sunny-ridge-aj erreichbar (v1.54.1 OK) — für authentifizierten Push GLASSFLOW_TARES_TOKEN auf dem Server setzen"
+            : "Cell sunny-ridge-aj reachable (v1.54.1 OK) — set GLASSFLOW_TARES_TOKEN on the server for authenticated push",
         });
       }
     } catch {
@@ -187,15 +188,15 @@ export function SponsorPilotPanel({
               </div>
             </div>
             <div className="mt-2 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-foreground">
-              {taresUrl ||
+              {taresHost ||
                 (isDe
                   ? "Ziel wird serverseitig gesetzt: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN"
                   : "Target is set on the server: GLASSFLOW_TARES_WEBHOOK_URL / GLASSFLOW_TARES_TOKEN")}
             </div>
             <p className="mt-1.5 text-[11px] text-muted-foreground">
               {isDe
-                ? "Verbunden mit Zelle sunny-ridge-aj (taresd v1.54.1). Hinweis: /read erwartet POST (ein Browser-GET zeigt 405). Mit GLASSFLOW_TARES_TOKEN (serverseitig) sendet AnonReq an /v1/traces, /remember + /ingest/<key> und fragt live POST /read ab."
-                : "Connected to cell sunny-ridge-aj (taresd v1.54.1). Note: /read is a POST endpoint (opening /read in a browser tab returns HTTP 405). With GLASSFLOW_TARES_TOKEN set on the server, AnonReq pushes to /v1/traces, /remember + /ingest/<key>, and queries POST /read live."}
+                ? "Mit GLASSFLOW_TARES_TOKEN (serverseitig) sendet AnonReq an /v1/traces, /remember + /ingest/<key>. Die Antwort enthält nur Host, Zustellstatus und HTTP-Codes — nie Token, Ingest-Key oder Tares-Daten. Korrelierte Zeilen in der Tares-Konsole ansehen."
+                : "With GLASSFLOW_TARES_TOKEN set on the server, AnonReq pushes to /v1/traces, /remember + /ingest/<key>. The response carries only the host, delivery flags and HTTP statuses — never the token, the ingest key or Tares data. See correlated rows in the Tares console."}
             </p>
           </div>
 
@@ -227,7 +228,7 @@ export function SponsorPilotPanel({
                     gfView === "read" ? "bg-[#e7a07a] text-[#1a1814] font-semibold" : "bg-[#2a2622] text-[#d9d0c3]"
                   }`}
                 >
-                  Live POST /read (sunny-ridge-aj)
+                  Delivery summary
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -243,8 +244,8 @@ export function SponsorPilotPanel({
                       ? "Sende…"
                       : "Emitting…"
                     : isDe
-                      ? "An GlassFlow senden & /read"
-                      : "Emit to GlassFlow & /read"}
+                      ? "An GlassFlow senden"
+                      : "Emit to GlassFlow"}
                 </Button>
               </div>
             </div>
@@ -260,8 +261,7 @@ export function SponsorPilotPanel({
                       ? bundle.tares
                       : (liveReadPayload ?? {
                           tares_cell: "https://sunny-ridge-aj.tares-glassflow.com",
-                          endpoint: "POST /read",
-                          hint: "Click 'Emit to GlassFlow & /read' to query live cell health and POST /read response.",
+                          hint: "Click 'Emit to GlassFlow' for the delivery summary (host, HTTP statuses). Open the Tares console to see the correlated rows.",
                         }),
                   null,
                   2,

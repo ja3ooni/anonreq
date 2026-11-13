@@ -18,7 +18,17 @@ export function clientTargetFields(body: Record<string, unknown>): string[] {
   return CLIENT_TARGET_FIELDS.filter((field) => field in body);
 }
 
-/** Only absolute http(s) URLs without embedded credentials are usable targets. */
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1", "host.docker.internal"]);
+
+/** True for loopback / Docker-host targets, the only ones allowed over plain http. */
+export function isLocalHost(hostname: string): boolean {
+  return LOCAL_HOSTS.has(hostname.toLowerCase());
+}
+
+/**
+ * Usable targets: absolute https URLs without embedded credentials. Plain http only for a local
+ * target (loopback, host.docker.internal), so the token never crosses a network in cleartext.
+ */
 export function safeEnvUrl(value: string | undefined): string {
   const raw = value?.trim() ?? "";
   if (!raw) {
@@ -26,12 +36,24 @@ export function safeEnvUrl(value: string | undefined): string {
   }
   try {
     const url = new URL(raw);
-    if ((url.protocol !== "https:" && url.protocol !== "http:") || url.username || url.password) {
+    if (url.username || url.password) {
       return "";
     }
-    return raw.replace(/\/+$/, "");
+    if (url.protocol === "https:" || (url.protocol === "http:" && isLocalHost(url.hostname))) {
+      return raw.replace(/\/+$/, "");
+    }
+    return "";
   } catch {
     return "";
+  }
+}
+
+/** Host only (e.g. "cell.example.com:8443") for display. Never the path, which can hold an ingest key. */
+export function targetHost(url: string): string | null {
+  try {
+    return url ? new URL(url).host : null;
+  } catch {
+    return null;
   }
 }
 
