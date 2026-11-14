@@ -8,7 +8,8 @@
 # chat) and ANONREQ_ADMIN_API_KEY (preview + audit), plus the UI audit gate
 # (ANONREQ_UI_ADMIN, ANONREQ_UI_ADMIN_TOKEN); never the provider,
 # KMS or other secrets in the root .env. The gateway must run with
-# ANONREQ_DEBUG_PREVIEW_ENABLED=true, which #20 sets. The UI reaches the
+# ANONREQ_DEBUG_PREVIEW_ENABLED=true, which #20 sets (demo only; keep it
+# off in production). The UI reaches the
 # gateway over the compose network by container name; it is still only
 # published on 127.0.0.1:3000.
 services:
